@@ -8,7 +8,8 @@ class User(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     email = Column(String(128), unique=True, index=True, nullable=True)
     phone = Column(String(20), unique=True, index=True, nullable=True)
-    password = Column(String(128), nullable=False)
+    # MODIFICATION ICI : nullable=True pour autoriser l'inscription via Google
+    password = Column(String(128), nullable=True) 
     role = Column(String(20), default="CLIENT") # CLIENT, PARENT, LIVREUR, ADMIN
     is_verified = Column(Boolean, default=False)
     

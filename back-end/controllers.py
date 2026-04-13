@@ -21,7 +21,6 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 def register(data: UserRegister):
     user = AuthService().register(data)
     if not user:
-        # Si user est None, l'email ou le téléphone existe déjà en base
         raise HTTPException(status_code=400, detail="Ce compte (email ou téléphone) existe déjà.")
     return user
 
@@ -30,6 +29,14 @@ def login(data: LoginRequest):
     token = AuthService().login(data)
     if not token: 
         raise HTTPException(status_code=401, detail="Identifiants incorrects.")
+    return {"access_token": token, "token_type": "bearer"}
+
+# --- NOUVELLE ROUTE GOOGLE ---
+@auth_router.post("/google-login")
+def google_login(data: GoogleLoginRequest):
+    token = AuthService().google_login(data.token)
+    if not token:
+        raise HTTPException(status_code=401, detail="Token Google invalide ou expiré.")
     return {"access_token": token, "token_type": "bearer"}
 
 @profile_router.post("/address")
