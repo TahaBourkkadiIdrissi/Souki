@@ -28,3 +28,6 @@ class UserResponse(BaseModel):
     phone: Optional[str]
     role: str
     class Config: from_attributes = True
+
+class GoogleLoginRequest(BaseModel):
+    token: str
