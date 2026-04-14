@@ -98,6 +98,9 @@ dist
 # Sveltekit cache directory
 .svelte-kit/
 
+# Python virtual environment
+back-end/.venv/
+
 # vitepress build output
 **/.vitepress/dist
 
@@ -137,3 +140,5 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+

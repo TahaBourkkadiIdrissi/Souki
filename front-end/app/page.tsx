@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
-import Link from "next/link"
-import Image from "next/image"
+import { useState } from "react"    /*userState permet de memoriser des donnees qui changent (panier, menu ouvert/ferme)*/
+import Link from "next/link"        /*comme une balise <a> mais optimisée pour Next.js*/
+import Image from "next/image"      /*comme <img> mais optimisée (chargement, performance)*/
 import { 
   ShoppingCart, 
   Leaf, 
@@ -21,10 +21,11 @@ import {
   CheckCircle,
   Shield,
   Zap
-} from "lucide-react"
+} from "lucide-react"     /*lucid-react est une bibliotheque d'icones*/
 import { ProductCard } from "@/components/souki/product-card"
 import { AIModals } from "@/components/souki/ai-modals"
 
+/*liste d'objets products*/
 const products = [
   { id: "1", name: "Tomates Marocaines", price: 7, unit: "kg", image: "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&h=300&fit=crop", badge: "fresh" as const },
   { id: "2", name: "Pommes de Terre", price: 6, unit: "kg", image: "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400&h=300&fit=crop" },
