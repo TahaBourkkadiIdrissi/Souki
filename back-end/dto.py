@@ -28,3 +28,34 @@ class UserResponse(BaseModel):
     phone: Optional[str]
     role: str
     class Config: from_attributes = True
+
+
+class ProductResponseDTO(BaseModel):
+    id: int
+    nom_fr: str
+    nom_darija: str
+    prix_kg: float
+    unite: str
+    stock: float
+
+class TextBasketRequest(BaseModel):
+    texte: str
+
+class LigneCommandeDTO(BaseModel):
+    product_id: int
+    nom_produit: str
+    quantite_demandee: float
+    quantite_effective: float
+    prix_unitaire: float
+    sous_total: float
+    message_ajustement: Optional[str] = None
+
+class VoiceBasketResponseDTO(BaseModel):
+    status: str
+    transcription: Optional[str] = None
+    langue_detectee: Optional[str] = None
+    produits_non_disponibles: list[str] = []
+    lignes_panier: list[LigneCommandeDTO] = []
+    total_dh: float = 0.0
+    nombre_articles: int = 0
+    commande_id: Optional[int] = None

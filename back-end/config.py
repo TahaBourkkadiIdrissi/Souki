@@ -4,15 +4,15 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 # Database Config
 DB_USER = os.getenv("DB_USER", "postgres")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "hamza")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "00+9ALAS")
 DB_NAME = os.getenv("DB_NAME", "db_souki")
 DB_PORT = os.getenv("DB_PORT", "5432")
 
 
 URL:str = 'postgresql+psycopg2://' + DB_USER + ':' + DB_PASSWORD + '@localhost:' + DB_PORT + '/' + DB_NAME
 
-engine = create_engine(URL, pool_size=10)
-LocalSession = sessionmaker(bind=engine)
+engine = create_engine(URL, pool_size=10, pool_pre_ping=True) 
+LocalSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 # Security Config
