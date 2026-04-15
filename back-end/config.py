@@ -1,10 +1,12 @@
 import os
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
+load_dotenv()
 # Database Config
 DB_USER = os.getenv("DB_USER", "postgres")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "00+9ALAS")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "00%2B9ALAS")
 DB_NAME = os.getenv("DB_NAME", "db_souki")
 DB_PORT = os.getenv("DB_PORT", "5432")
 

@@ -42,9 +42,8 @@ class AddressDao:
 
 
 
-
 # ==========================================
-# INTERFACES
+# INTERFACES DAO
 # ==========================================
 class IProductDao(ABC):
     @abstractmethod
@@ -64,7 +63,7 @@ class ICommandeVocaleDao(ABC):
     def create_ligne(self, session: Session, commande_id: int, product_id: int, qte_demandee: float, qte_effective: float, prix: float, sous_total: float, message: Optional[str]) -> bool: pass
 
 # ==========================================
-# IMPLEMENTATIONS
+# IMPLEMENTATIONS DAO
 # ==========================================
 class ProductDaoBD(IProductDao):
     def get_by_alias(self, session: Session, alias: str) -> Optional[Product]:

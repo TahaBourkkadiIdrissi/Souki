@@ -90,3 +90,20 @@ Content-Type: application/json
     "street": "Bab Boujloud",
     "details": "Maison d'hôtes"
 }
+
+### Récupérer tous les produits (Doit afficher btata, tomate, bsla)
+GET {{BASE_URL}}/api/catalogue
+Content-Type: application/json
+
+### ==========================================
+### 2. TEST COMMANDE VOCALE PAR TEXTE
+### ==========================================
+
+### Test A : Commande simple avec produits connus (btata et tomate)
+### Résultat attendu : total_dh = (2 * 6.50) + (1 * 4.00) = 17.0
+POST {{{{BASE_URL}}}}/api/text-basket
+Content-Type: application/json
+
+{
+  "texte": "Je veux 2 kilos de btata et une tomate s'il vous plaît"
+}
