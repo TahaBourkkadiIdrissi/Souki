@@ -48,6 +48,9 @@ web_modules/
 *.tsbuildinfo
 
 # Optional npm cache directory
+
+# Python virtual environment
+.venv/
 .npm
 
 # Optional eslint cache

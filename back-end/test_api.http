@@ -1,0 +1,136 @@
+@BASE_URL = http://localhost:8000
+
+# --- AUTHENTIFICATION ---
+
+### 1. Inscription d'un Client (via Email)
+POST {{BASE_URL}}/auth/register
+Content-Type: application/json
+
+{
+    "email": "tahabourzbabi.fes@app.com",
+    "password": "password123",
+    "role": "CLIENT"
+}
+
+### 2. Inscription d'un Livreur (via Téléphone Marocain)
+POST {{BASE_URL}}/auth/register
+Content-Type: application/json
+
+{
+    "phone": "+212613345678",
+    "password": "livreur_secure_pass",
+    "role": "LIVREUR"
+}
+
+### 3. Tentative d'inscription d'un Admin (Sera forcé en CLIENT par notre Service)
+POST {{BASE_URL}}/auth/register
+Content-Type: application/json
+
+{
+    "email": "hacker@app.com",
+    "password": "admin_pass",
+    "role": "ADMIN"
+}
+
+### 4. Connexion (Login) avec Email pour récupérer le JWT
+# @name login
+POST {{BASE_URL}}/auth/login
+Content-Type: application/json
+
+{
+    "login_id": "etudiant.fes@app.com",
+    "password": "password123"
+}
+
+
+### Séparateur obligatoire avant les variables globales
+
+# --- PROFIL & ADRESSES (Routes protégées) ---
+
+# On stocke le token généré par la requête précédente "login"
+@token = {{login.response.body.access_token}}
+
+
+### 5. Ajouter la 1ère adresse de livraison (ex: Domicile à Narjiss)
+POST {{BASE_URL}}/profile/address
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "neighborhood": "Narjiss",
+    "street": "Rue 15, Secteur A",
+    "details": "Appartement 12, 3ème étage"
+}
+
+### 6. Ajouter la 2ème adresse (ex: Université / Ecole)
+POST {{BASE_URL}}/profile/address
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "neighborhood": "Route d'Imouzzer",
+    "street": "Campus Universitaire",
+    "details": "Faculté des Sciences, Entrée Principale"
+}
+
+### 7. Ajouter la 3ème adresse (ex: Café préféré en Ville Nouvelle)
+POST {{BASE_URL}}/profile/address
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "neighborhood": "Ville Nouvelle",
+    "street": "Avenue Hassan II",
+    "details": "Café Blanc, Table 4"
+}
+
+# --- AUTHENTIFICATION GOOGLE ---
+
+### 8. Connexion / Inscription via Google (Cas de succès)
+# ⚠️ ATTENTION : Tu dois remplacer la valeur de "token" par un vrai jeton d'identification 
+# généré par Google côté client (ton frontend Next.js) pour que ce test passe.
+# Si l'email n'existe pas, le backend va créer le compte. S'il existe, il va juste le connecter.
+# @name google_login
+POST {{BASE_URL}}/auth/google-login
+Content-Type: application/json
+
+{
+    "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImIzZDk1Yjk1ZmE0OGQxODBiODVmZmU4MDgyZmNmYTIxNzRiMDQ2NjciLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJhenAiOiI0MDc0MDg3MTgxOTIuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJhdWQiOiI0MDc0MDg3MTgxOTIuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJzdWIiOiIxMTU5NDA0NDI1MzQ4MDQxOTUzMDEiLCJoZCI6ImVzaXNhLmFjLm1hIiwiZW1haWwiOiJoLnptYXJvdUBlc2lzYS5hYy5tYSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJhdF9oYXNoIjoiOHcwVUw2QkxRaXdYb2NwbGZtRFJyZyIsImlhdCI6MTc3NjExNTExNiwiZXhwIjoxNzc2MTE4NzE2fQ.h3Yi5cSvE21lvgDEMMPqji5S13d0RDWqLA8wlp1o_DlgdRzL0C2hxcHvfkCT_P34IXt2q6_fqRUq4gmqdCk6JRD8lDjwp-X70kBLapZvnFihyH_cvl2KC3vctcYSHJMjhNl_UEWefbSCh8H7lk4GLoWMCsHmvKzIJnByIeHkX0mbgQMeBgWxl4dbnv1xXvpyM9rk4PbVMJCAFKfjRjafluOL8mStCNebFEAMGAIm_edfiYCGmgscBnncLx7Yjcl4-z39y2IRmeNAd5oYydACuX_inHMNk6DhygrUSe9SL_pKg4VfWXTu9K_Jard9TuelObyDUZfkFEkl53aIxzGcUg"
+}
+
+### 9. Connexion via Google (Cas d'échec : Token invalide ou falsifié)
+# Résultat attendu : Erreur 401 (Unauthorized) car la signature ne correspond pas à celle de Google.
+POST {{BASE_URL}}/auth/google-login
+Content-Type: application/json
+
+{
+    "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjNh.UnFauxTokenOuUnTokenExpire.123456789"
+}
+
+### 10. Connexion via Google (Cas d'échec : Champ manquant)
+# Résultat attendu : Erreur 422 (Unprocessable Entity) renvoyée automatiquement par Pydantic 
+# car notre DTO exige que la clé s'appelle "token".
+POST {{BASE_URL}}/auth/google-login
+Content-Type: application/json
+
+{
+    "google_id": "mauvaise_cle_au_lieu_de_token"
+}
+
+
+# --- TEST D'ACCÈS AVEC LE TOKEN GOOGLE ---
+
+# Si le test 8 fonctionne et que tu as récupéré un jeton JWT Souki, 
+# tu peux tester de l'utiliser ici !
+@google_token = {{google_login.response.body.access_token}}
+
+### 11. Ajouter une adresse avec le compte Google
+POST {{BASE_URL}}/profile/address
+Authorization: Bearer {{google_token}}
+Content-Type: application/json
+
+{
+    "neighborhood": "Zohour",
+    "street": "Rue des lilas",
+    "details": "Maison avec le portail bleu"
+}
