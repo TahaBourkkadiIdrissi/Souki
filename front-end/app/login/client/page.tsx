@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/hooks/useAuth"
 import { 
   Leaf, 
   Eye, 
@@ -25,6 +26,7 @@ const cities = ["Fès", "Meknès", "Casablanca", "Rabat"]
 
 export default function LoginPage() {
   const router = useRouter()
+  const { login: contextLogin } = useAuth()
   const [mode, setMode] = useState<AuthMode>("login")
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -91,27 +93,12 @@ export default function LoginPage() {
 
       } else {
         // --- LOGIQUE DE CONNEXION ---
-        const response = await fetch("http://localhost:8000/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            login_id: email, // Ton backend gère l'email ou le téléphone ici !
-            password: password,
-          }),
-        });
-
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.detail || "Email ou mot de passe incorrect.");
-        }
-
-        const data = await response.json();
+        await contextLogin(email, password);
         
-        // On sauvegarde le token JWT
-        localStorage.setItem("token", data.access_token);
-        
-        // Redirection vers le tableau de bord
-        router.push("/dashboard"); 
+        // Attendre un peu pour que le contexte se mette à jour
+        setTimeout(() => {
+          router.push("/");
+        }, 300);
       }
     } catch (err: any) {
       setError(err.message);
