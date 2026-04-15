@@ -12,6 +12,10 @@ class UserDao:
         return db.query(User).filter(User.email == email).first()
 
     @staticmethod
+    def read(db: Session, user_id: int):
+        return db.query(User).filter(User.id == user_id).first()
+
+    @staticmethod
     def create(db: Session, user: User):
         try:
             db.add(user)

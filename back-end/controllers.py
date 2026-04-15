@@ -39,6 +39,29 @@ def google_login(data: GoogleLoginRequest):
         raise HTTPException(status_code=401, detail="Token Google invalide ou expiré.")
     return {"access_token": token, "token_type": "bearer"}
 
+@auth_router.get("/me")
+def get_current_user_profile(user=Depends(get_current_user)):
+    """Retourne les informations complètes de l'utilisateur connecté"""
+    from config import LocalSession
+    from dal import UserDao
+    db = LocalSession()
+    try:
+        user_id = int(user['sub'])
+        user_data = UserDao.read(db, user_id)
+        if not user_data:
+            raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+        return {
+            "id": user_data.id,
+            "email": user_data.email,
+            "phone": user_data.phone,
+            "role": user_data.role,
+            "is_verified": user_data.is_verified
+        }
+    except ValueError:
+        raise HTTPException(status_code=400, detail="ID utilisateur invalide")
+    finally:
+        db.close()
+
 @profile_router.post("/address")
 def add_address(data: AddressDTO, user=Depends(get_current_user)):
     # user['sub'] contient l'ID de l'utilisateur stocké dans le token JWT

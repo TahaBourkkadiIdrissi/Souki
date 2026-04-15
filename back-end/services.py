@@ -32,7 +32,7 @@ class AuthService:
         try:
             user = UserDao.find_by_identifier(db, data.login_id)
             # Sécurité ajoutée: on vérifie que user.password n'est pas nul (cas des comptes Google)
-            if user and user.password and verify_password(data.password, user.password):
+            if user and user.password and verify_password(data.password, user.password): # type: ignore
                 return create_access_token({"sub": str(user.id), "role": user.role})
             return None
         finally:
@@ -67,7 +67,7 @@ class AuthService:
                     user = UserDao.create(db, new_user)
 
                 # 4. Générer le token JWT SOUKI
-                access_token = create_access_token({"sub": str(user.id), "role": user.role})
+                access_token = create_access_token({"sub": str(user.id), "role": user.role}) # type: ignore
                 return access_token
                 
             finally:
