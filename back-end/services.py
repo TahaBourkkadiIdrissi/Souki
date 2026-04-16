@@ -10,6 +10,7 @@ from typing import Optional,List
 from dto import VoiceBasketResponseDTO, LigneCommandeDTO, ProductResponseDTO
 from dao import IProductDao, ICommandeVocaleDao, ProductDaoBD, CommandeVocaleDaoBD
 from settings import settings
+import base64 
 
 
 class AuthService:
@@ -188,7 +189,19 @@ class CommandeVocaleService(ICommandeVocaleService):
         return VoiceBasketResponseDTO(status="success", transcription=texte_transcrit, langue_detectee=langue, produits_non_disponibles=produits_non_disponibles, lignes_panier=lignes_panier_dto, total_dh=round(total, 2), nombre_articles=len(lignes_panier_dto), commande_id=commande_entity.id if commande_entity else None)
 
     def traiter_audio(self, audio_b64: str, mime_type: str) -> VoiceBasketResponseDTO:
-        prompt_parts = [SYSTEM_PROMPT, {"mime_type": mime_type, "data": audio_b64}, "Analyse cette commande vocale et retourne le JSON structuré."]
+        from google.genai import types 
+        
+        audio_part = types.Part.from_bytes(
+            data=base64.b64decode(audio_b64), 
+            mime_type=mime_type
+        )
+        
+        prompt_parts = [
+            SYSTEM_PROMPT, 
+            audio_part, 
+            "Analyse cette commande vocale et retourne le JSON structuré."
+        ]
+        
         gemini_result = self._call_gemini(prompt_parts)
         return self.traiter_commande(gemini_result.get("transcription", ""), json.dumps(gemini_result), gemini_result.get("langue_detectee", "inconnu"))
 
