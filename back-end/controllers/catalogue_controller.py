@@ -1,0 +1,13 @@
+from fastapi import APIRouter, Depends
+from dto import ProductResponseDTO
+from services import ICatalogueService
+from dependencies import get_catalogue_service
+
+router_catalogue = APIRouter(prefix="/api", tags=["Catalogue"])
+
+
+@router_catalogue.get("/catalogue", response_model=list[ProductResponseDTO])
+def get_catalogue(service: ICatalogueService = Depends(get_catalogue_service)):
+    """Récupère le catalogue complet des produits"""
+    with service:
+        return service.get_catalogue_complet()

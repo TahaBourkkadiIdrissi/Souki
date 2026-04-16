@@ -59,5 +59,8 @@ class VoiceBasketResponseDTO(BaseModel):
     total_dh: float = 0.0
     nombre_articles: int = 0
     commande_id: Optional[int] = None
+<<<<<<< HEAD
 class GoogleLoginRequest(BaseModel):
     token: str
+=======
+>>>>>>> main
