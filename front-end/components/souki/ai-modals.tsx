@@ -1,9 +1,33 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Mic, X, Trash2, Zap, ArrowRight, Sparkles, Check, ChevronDown } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { Mic, X, Trash2, Zap, ArrowRight, Sparkles, Check, ChevronDown, ShoppingCart, AlertTriangle, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
+
+// --- TYPES RÉPONSE BACKEND ---
+interface LigneCommandeDTO {
+  product_id: number;
+  nom_produit: string;
+  quantite_demandee: number;
+  quantite_effective: number;
+  prix_unitaire: number;
+  sous_total: number;
+  message_ajustement?: string | null;
+}
+
+interface VoiceBasketResponseDTO {
+  status: string;
+  transcription?: string;
+  langue_detectee?: string;
+  produits_non_disponibles: string[];
+  lignes_panier: LigneCommandeDTO[];
+  total_dh: number;
+  nombre_articles: number;
+}
+// -----------------------------
+
+const API_URL = "http://localhost:8000/api"
 
 interface AIModalsProps {
   isOpen: boolean
@@ -14,28 +38,92 @@ interface AIModalsProps {
 export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
   const router = useRouter()
   const [isListening, setIsListening] = useState(false)
+  const [isSending, setIsSending] = useState(false) // Pendant l'envoi à l'IA
+  const [result, setResult] = useState<VoiceBasketResponseDTO | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  
   const [budget, setBudget] = useState("150")
   const [duration, setDuration] = useState("1 semaine")
+
+  // Refs pour l'enregistrement audio
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
 
   // Cleanup on close
   useEffect(() => {
     if (!isOpen) {
       setIsListening(false)
+      setResult(null)
+      setError(null)
+      stopListening()
     }
   }, [isOpen])
 
-  if (!isOpen || !mode) return null
-
-  const handleVoiceInteraction = () => {
-    setIsListening(true)
-    // Simulate generation after 3 seconds
-    setTimeout(() => {
+  const stopListening = () => {
+    if (mediaRecorderRef.current && isListening) {
+      mediaRecorderRef.current.stop()
       setIsListening(false)
-      onClose()
-      router.push("/checkout?mode=voice")
-    }, 3000)
+    }
   }
 
+  // --- LOGIQUE RÉELLE DU MICRO (LIAISON BACKEND) ---
+  const handleVoiceInteraction = async () => {
+    setError(null)
+    setResult(null)
+
+    // Si on est déjà en train d'écouter, on arrête
+    if (isListening) {
+      stopListening()
+      return
+    }
+
+    try {
+      // 1. Demander l'autorisation du micro et lancer l'enregistrement
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" })
+      
+      audioChunksRef.current = []
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data)
+      }
+
+      // 2. Quand on clique sur "Arrêter", on envoie au backend
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(track => track.stop()) // Coupe le micro physiquement
+        setIsSending(true) // Affiche le loader "Analyse en cours..."
+
+        try {
+          const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" })
+          const formData = new FormData()
+          formData.append("audio", audioBlob, "enregistrement.webm")
+
+          // 3. Appel vers ton backend FastAPI
+          const response = await fetch(`${API_URL}/voice-basket`, {
+            method: "POST",
+            body: formData
+          })
+
+          if (!response.ok) throw new Error("Erreur serveur")
+          
+          const data: VoiceBasketResponseDTO = await response.json()
+          setResult(data) // Affiche le panier dans la modal
+        } catch (err) {
+          setError("Impossible de contacter l'IA. Vérifiez que le backend est lancé.")
+        } finally {
+          setIsSending(false)
+        }
+      }
+
+      mediaRecorderRef.current = mediaRecorder
+      mediaRecorder.start()
+      setIsListening(true)
+
+    } catch (err) {
+      setError("Microphone non autorisé. Veuillez autoriser l'accès dans votre navigateur.")
+    }
+  }
+
+  // (Le smart generation reste un mock comme tu l'avais fait)
   const handleSmartGeneration = () => {
     setIsListening(true)
     setTimeout(() => {
@@ -44,6 +132,8 @@ export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
       router.push("/checkout?mode=smart")
     }, 2000)
   }
+
+  if (!isOpen || !mode) return null
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -55,15 +145,15 @@ export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
 
       {/* Modal Container */}
       <div className={cn(
-        "relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-200",
+        "relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col",
         mode === "voice" ? "bg-[#111116]" : "bg-white"
       )}>
         
         {/* === VOICE MODAL === */}
         {mode === "voice" && (
-          <div className="flex flex-col h-full text-white">
+          <div className="flex flex-col h-full text-white overflow-y-auto">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-white/5">
+            <div className="flex items-center justify-between p-4 border-b border-white/5 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full border border-[#1E8A3C]/30 flex items-center justify-center bg-gradient-to-br from-[#1E8A3C]/10 to-transparent">
                   <div className="w-8 h-8 rounded-full border border-[#1E8A3C]/20" />
@@ -72,7 +162,9 @@ export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
                   <span className="font-bold text-lg leading-none tracking-tight">IA-SOUKI</span>
                   <div className="flex items-center gap-1 mt-1">
                     <Sparkles className="w-3 h-3 text-[#f5c400]" />
-                    <span className="text-xs text-white/60">Prêt</span>
+                    <span className="text-xs text-white/60">
+                      {isSending ? "Analyse..." : isListening ? "Écoute..." : "Prêt"}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -91,13 +183,14 @@ export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
             </div>
 
             {/* Visualizer Area */}
-            <div className="py-12 border-b border-white/5 relative flex flex-col items-center justify-center">
+            <div className="py-12 border-b border-white/5 relative flex flex-col items-center justify-center shrink-0">
               {/* Glow center */}
               <div className={cn(
                 "relative w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-6 transition-all duration-700",
+                isSending ? "bg-gradient-to-tr from-[#F07C00] to-[#FF9421] shadow-[0_0_30px_#F07C00]" :
                 isListening ? "bg-gradient-to-tr from-[#1E8A3C] to-[#4CB84A] shadow-[0_0_30px_#1E8A3C]" : "bg-white/10"
               )}>
-                <div className="w-4 h-4 rounded-full bg-white opacity-80" />
+                {isSending ? <Loader2 className="w-6 h-6 text-white animate-spin" /> : <div className="w-4 h-4 rounded-full bg-white opacity-80" />}
               </div>
               
               {/* Bars placeholder */}
@@ -125,35 +218,87 @@ export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
                   <Mic className="w-5 h-5 text-white/60" />
                 </div>
                 <p className="text-sm font-medium text-white/80 mb-2">
-                  {isListening ? "Je vous écoute..." : "Appuyez sur le micro et parlez à IA-SOUKI"}
+                  {isSending ? "IA-SOUKI analyse votre voix..." : isListening ? "Je vous écoute..." : "Appuyez sur le micro et parlez à IA-SOUKI"}
                 </p>
                 <p className="text-[10px] text-white/40">
-                  Détection automatique du silence • Réponse vocale directe
+                  Détection automatique du silence • Darija & Français
                 </p>
               </div>
               
               <button 
                 onClick={handleVoiceInteraction}
+                disabled={isSending}
                 className={cn(
                   "flex flex-col items-center justify-center w-full max-w-[200px] h-32 rounded-3xl transition-all duration-300 group",
-                  isListening ? "bg-white/5" : "bg-white/5 hover:bg-white/10"
+                  isListening ? "bg-white/5" : "bg-white/5 hover:bg-white/10",
+                  isSending && "opacity-50 cursor-not-allowed"
                 )}
               >
                 <div className={cn(
                   "w-16 h-16 rounded-full flex items-center justify-center mb-3 transition-colors duration-300",
+                  isSending ? "bg-gradient-to-tr from-[#F07C00]/50 to-[#FF9421]/50" :
                   isListening ? "bg-gradient-to-tr from-[#1E8A3C] to-[#4CB84A] shadow-[0_0_40px_rgba(30,138,60,0.5)]" : "bg-gradient-to-tr from-[#1E8A3C]/50 to-[#4CB84A]/50"
                 )}>
                   <Mic className="w-6 h-6 text-white" />
                 </div>
                 <span className="text-xs font-medium text-white/60 group-hover:text-white/90">
-                  {isListening ? "Écoute en cours..." : "Appuyez pour parler"}
+                  {isSending ? "Traitement en cours..." : isListening ? "Appuyez pour arrêter" : "Appuyez pour parler"}
                 </span>
               </button>
             </div>
+
+            {/* --- AFFICHAGE DU RÉSULTAT BACKEND --- */}
+            {error && (
+              <div className="mx-6 mb-6 bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl flex items-center gap-2 text-sm">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <p>{error}</p>
+              </div>
+            )}
+
+            {result && (
+              <div className="mx-6 mb-6 bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3 text-left animate-in fade-in slide-in-from-bottom-4 duration-300">
+                <div className="flex items-center gap-2 text-[#4CB84A]">
+                  <ShoppingCart className="w-4 h-4" />
+                  <h4 className="font-bold text-sm">Panier Extrait ({result.nombre_articles} articles)</h4>
+                </div>
+                
+                {result.transcription && (
+                  <p className="text-xs text-white/50 italic bg-white/5 p-2 rounded-lg">“{result.transcription}”</p>
+                )}
+
+                {result.produits_non_disponibles.length > 0 && (
+                  <p className="text-xs text-orange-400">Non trouvé(s) : {result.produits_non_disponibles.join(", ")}</p>
+                )}
+
+                <ul className="space-y-2">
+                  {result.lignes_panier.map((ligne, index) => (
+                    <li key={index} className="flex justify-between items-center bg-white/5 p-2 rounded-lg">
+                      <div>
+                        <p className="text-sm font-semibold text-white">{ligne.nom_produit}</p>
+                        <p className="text-[10px] text-white/40">{ligne.quantite_effective} x {ligne.prix_unitaire} DH</p>
+                      </div>
+                      <p className="font-bold text-sm text-[#4CB84A]">{ligne.sous_total} DH</p>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="border-t border-white/10 pt-3 flex justify-between items-center">
+                  <span className="text-sm font-bold text-white/80">Total</span>
+                  <span className="text-xl font-black text-[#4CB84A]">{result.total_dh} DH</span>
+                </div>
+
+                <button 
+                  onClick={() => { onClose(); router.push("/checkout?mode=voice") }}
+                  className="w-full mt-2 flex items-center justify-center gap-2 py-2.5 bg-[#1E8A3C] text-white rounded-xl font-bold text-sm hover:bg-[#176B2E] transition-colors"
+                >
+                  Valider et Commander <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         )}
 
-        {/* === SMART CART MODAL === */}
+        {/* === SMART CART MODAL (Inchangé) === */}
         {mode === "smart" && (
           <div className="flex flex-col h-full bg-white">
             <div className="p-6 border-b border-gray-100 flex items-center justify-between">
