@@ -1,8 +1,10 @@
 "use client"
 
-import { useState } from "react"
-import Link from "next/link"
-import Image from "next/image"
+import { useState, useEffect } from "react"    
+import Link from "next/link"        
+import Image from "next/image"      
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/hooks/useAuth"
 import { 
   ShoppingCart, 
   Leaf, 
@@ -21,10 +23,12 @@ import {
   CheckCircle,
   Shield,
   Zap
-} from "lucide-react"
+} from "lucide-react"     
 import { ProductCard } from "@/components/souki/product-card"
 import { AIModals } from "@/components/souki/ai-modals"
+import { Navbar } from "@/components/souki/navbar"
 
+/*liste d'objets products*/
 const products = [
   { id: "1", name: "Tomates Marocaines", price: 7, unit: "kg", image: "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&h=300&fit=crop", badge: "fresh" as const },
   { id: "2", name: "Pommes de Terre", price: 6, unit: "kg", image: "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400&h=300&fit=crop" },
@@ -47,6 +51,31 @@ export default function HomePage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [cart, setCart] = useState<{id: string, quantity: number}[]>([])
   const [activeModal, setActiveModal] = useState<"voice" | "smart" | null>(null)
+  const { isAuthenticated, validateToken } = useAuth()
+  const router = useRouter()
+
+  // Revalider l'authentification quand la page se monte
+  useEffect(() => {
+    const revalidateAuth = async () => {
+      try {
+        await validateToken()
+      } catch (error) {
+        console.error("Auth revalidation failed:", error)
+      }
+    }
+    revalidateAuth()
+  }, [])
+
+  // Fonction helper pour protéger les actions
+  const protectAction = (callback: () => void) => {
+    return () => {
+      if (!isAuthenticated) {
+        router.push("/login")
+        return
+      }
+      callback()
+    }
+  }
 
   const handleAddToCart = (id: string, quantity: number) => {
     setCart(prev => {
@@ -58,80 +87,24 @@ export default function HomePage() {
     })
   }
 
+  const handleNavigateToCheckout = () => {
+    // Aller à la page checkout
+    router.push("/checkout")
+  }
+
+  const handleOpenVoiceModal = () => {
+    setActiveModal("voice")
+  }
+
+  const handleOpenSmartModal = () => {
+    setActiveModal("smart")
+  }
+
   const cartItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0)
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Navbar Premium */}
-      <nav className="sticky top-0 z-50 bg-white/50 backdrop-blur-lg border-b border-gray-100/30 shadow-[0_4px_30px_rgba(0,0,0,0.02)] transition-all">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
-            {/* Logo */}
-            <Link href="/" className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl shadow-sm overflow-hidden flex items-center justify-center bg-white p-0.5 pointer-events-none">
-                <img src="/logo3.png" alt="SOUKI" className="w-[175%] h-full max-w-none object-cover" style={{ objectPosition: "left center" }} />
-              </div>
-              <div className="flex flex-col justify-center">
-                <span className="text-xl font-bold text-[#1E8A3C] leading-none tracking-tight">SOUKI</span>
-                <span className="text-[11px] font-medium text-[#8A8A8A] mt-0.5 uppercase tracking-wider">Fresh Market</span>
-              </div>
-            </Link>
-
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-8">
-              <Link href="/" className="text-[#1E8A3C] font-semibold text-sm tracking-wide">Accueil</Link>
-              <Link href="/catalogue" className="text-[#3D3D3D] hover:text-[#1E8A3C] font-medium text-sm tracking-wide transition-colors">Nos Légumes</Link>
-              <Link href="/abonnements" className="text-[#3D3D3D] hover:text-[#1E8A3C] font-medium text-sm tracking-wide transition-colors">Abonnements</Link>
-              <Link href="#comment-ca-marche" className="text-[#3D3D3D] hover:text-[#1E8A3C] font-medium text-sm tracking-wide transition-colors">Comment ça marche</Link>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-3">
-              <Link 
-                href="/login" 
-                className="hidden sm:flex items-center px-4 py-2 border-2 border-[#1E8A3C] text-[#1E8A3C] rounded-xl font-semibold hover:bg-[#1E8A3C] hover:text-white transition-colors"
-              >
-                Connexion
-              </Link>
-              <Link 
-                href="/catalogue" 
-                className="flex items-center gap-2 px-4 py-2 bg-[#F07C00] text-white rounded-xl font-semibold hover:bg-[#D66B00] transition-colors"
-              >
-                <ShoppingCart className="w-5 h-5" />
-                <span className="hidden sm:inline">Panier</span>
-                {cartItemsCount > 0 && (
-                  <span className="bg-white text-[#F07C00] text-xs font-bold px-2 py-0.5 rounded-full">
-                    {cartItemsCount}
-                  </span>
-                )}
-              </Link>
-              
-              {/* Mobile menu button */}
-              <button 
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 text-[#3D3D3D]"
-              >
-                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-gray-100 py-4">
-            <div className="flex flex-col gap-2 px-4">
-              <Link href="/" className="px-4 py-2 text-[#1E8A3C] font-medium rounded-lg bg-[#F0FAF1]">Accueil</Link>
-              <Link href="/catalogue" className="px-4 py-2 text-[#3D3D3D] hover:bg-[#F0FAF1] rounded-lg">Nos Légumes</Link>
-              <Link href="/abonnements" className="px-4 py-2 text-[#3D3D3D] hover:bg-[#F0FAF1] rounded-lg">Abonnements</Link>
-              <Link href="#comment-ca-marche" className="px-4 py-2 text-[#3D3D3D] hover:bg-[#F0FAF1] rounded-lg">Comment ça marche</Link>
-              <Link href="/login" className="px-4 py-2 text-[#1E8A3C] border-2 border-[#1E8A3C] rounded-lg text-center font-semibold mt-2">Connexion</Link>
-            </div>
-          </div>
-        )}
-      </nav>
-
-      {/* Hero Section Redesign */}
+      <Navbar />
       <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
         {/* Background Image with Zoom Animation */}
         <div className="absolute inset-0 z-0">
@@ -162,18 +135,18 @@ export default function HomePage() {
             </p>
 
             <div className="flex flex-col items-center gap-8 pt-4">
-              <Link 
-                href="/catalogue"
+              <button
+                onClick={protectAction(() => router.push("/catalogue"))}
                 className="group relative inline-flex items-center justify-center gap-3 px-10 py-5 bg-[#1E8A3C] text-white rounded-2xl font-bold text-2xl hover:bg-[#176B2E] transition-all hover:scale-105 shadow-[0_20px_50px_-10px_rgba(30,138,60,0.5)] overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
                 Commander maintenant
                 <ArrowRight className="w-7 h-7 group-hover:translate-x-1 transition-transform" />
-              </Link>
+              </button>
 
               <div className="grid sm:grid-cols-2 gap-4 w-full max-w-2xl px-4">
                 <button 
-                  onClick={() => setActiveModal("voice")}
+                  onClick={protectAction(handleOpenVoiceModal)}
                   className="glass-morphism group flex items-center justify-center gap-3 px-6 py-4 text-white rounded-2xl font-bold text-lg hover:bg-white/40 border-2 border-white/50 transition-all active:scale-95 transition-all"
                 >
                   <div className="w-10 h-10 rounded-full bg-white/30 flex items-center justify-center group-hover:bg-[#4CB84A]/30 transition-colors">
@@ -182,7 +155,7 @@ export default function HomePage() {
                   Assistant Vocal
                 </button>
                 <button 
-                  onClick={() => setActiveModal("smart")}
+                  onClick={protectAction(handleOpenSmartModal)}
                   className="bg-white/20 backdrop-blur-xl border-2 border-white/50 group flex items-center justify-center gap-3 px-6 py-4 text-white rounded-2xl font-bold text-lg hover:bg-white/40 transition-all active:scale-95 shadow-xl transition-all"
                 >
                   <div className="w-10 h-10 rounded-full bg-white/30 flex items-center justify-center group-hover:bg-[#F07C00]/30 transition-colors">
@@ -300,7 +273,7 @@ export default function HomePage() {
               <ProductCard
                 key={product.id}
                 {...product}
-                onAddToCart={handleAddToCart}
+                onAddToCart={!isAuthenticated ? () => router.push("/login") : handleAddToCart}
               />
             ))}
           </div>

@@ -26,7 +26,6 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 def register(data: UserRegister):
     user = AuthService().register(data)
     if not user:
-        # Si user est None, l'email ou le téléphone existe déjà en base
         raise HTTPException(status_code=400, detail="Ce compte (email ou téléphone) existe déjà.")
     return user
 
@@ -36,6 +35,37 @@ def login(data: LoginRequest):
     if not token: 
         raise HTTPException(status_code=401, detail="Identifiants incorrects.")
     return {"access_token": token, "token_type": "bearer"}
+
+# --- NOUVELLE ROUTE GOOGLE ---
+@auth_router.post("/google-login")
+def google_login(data: GoogleLoginRequest):
+    token = AuthService().google_login(data.token)
+    if not token:
+        raise HTTPException(status_code=401, detail="Token Google invalide ou expiré.")
+    return {"access_token": token, "token_type": "bearer"}
+
+@auth_router.get("/me")
+def get_current_user_profile(user=Depends(get_current_user)):
+    """Retourne les informations complètes de l'utilisateur connecté"""
+    from config import LocalSession
+    from dal import UserDao
+    db = LocalSession()
+    try:
+        user_id = int(user['sub'])
+        user_data = UserDao.read(db, user_id)
+        if not user_data:
+            raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+        return {
+            "id": user_data.id,
+            "email": user_data.email,
+            "phone": user_data.phone,
+            "role": user_data.role,
+            "is_verified": user_data.is_verified
+        }
+    except ValueError:
+        raise HTTPException(status_code=400, detail="ID utilisateur invalide")
+    finally:
+        db.close()
 
 @profile_router.post("/address")
 def add_address(data: AddressDTO, user=Depends(get_current_user)):

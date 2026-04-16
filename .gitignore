@@ -48,6 +48,9 @@ web_modules/
 *.tsbuildinfo
 
 # Optional npm cache directory
+
+# Python virtual environment
+.venv/
 .npm
 
 # Optional eslint cache
@@ -98,6 +101,9 @@ dist
 # Sveltekit cache directory
 .svelte-kit/
 
+# Python virtual environment
+back-end/.venv/
+
 # vitepress build output
 **/.vitepress/dist
 
@@ -138,4 +144,8 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
+<<<<<<< HEAD
 .venv
+=======
+
+>>>>>>> main
