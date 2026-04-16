@@ -144,4 +144,4 @@ back-end/.venv/
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-
+.venv

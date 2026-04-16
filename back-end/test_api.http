@@ -95,6 +95,29 @@ POST {{BASE_URL}}/auth/google-login
 Content-Type: application/json
 
 {
+<<<<<<< HEAD
+    "neighborhood": "Médina",
+    "street": "Bab Boujloud",
+    "details": "Maison d'hôtes"
+}
+
+### Récupérer tous les produits (Doit afficher btata, tomate, bsla)
+GET {{BASE_URL}}/api/catalogue
+Content-Type: application/json
+
+### ==========================================
+### 2. TEST COMMANDE VOCALE PAR TEXTE
+### ==========================================
+
+### Test A : Commande simple avec produits connus (btata et tomate)
+### Résultat attendu : total_dh = (2 * 6.50) + (1 * 4.00) = 17.0
+POST {{{{BASE_URL}}}}/api/text-basket
+Content-Type: application/json
+
+{
+  "texte": "Je veux 2 kilos de btata et une tomate s'il vous plaît"
+}
+=======
     "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImIzZDk1Yjk1ZmE0OGQxODBiODVmZmU4MDgyZmNmYTIxNzRiMDQ2NjciLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJhenAiOiI0MDc0MDg3MTgxOTIuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJhdWQiOiI0MDc0MDg3MTgxOTIuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJzdWIiOiIxMTU5NDA0NDI1MzQ4MDQxOTUzMDEiLCJoZCI6ImVzaXNhLmFjLm1hIiwiZW1haWwiOiJoLnptYXJvdUBlc2lzYS5hYy5tYSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJhdF9oYXNoIjoiOHcwVUw2QkxRaXdYb2NwbGZtRFJyZyIsImlhdCI6MTc3NjExNTExNiwiZXhwIjoxNzc2MTE4NzE2fQ.h3Yi5cSvE21lvgDEMMPqji5S13d0RDWqLA8wlp1o_DlgdRzL0C2hxcHvfkCT_P34IXt2q6_fqRUq4gmqdCk6JRD8lDjwp-X70kBLapZvnFihyH_cvl2KC3vctcYSHJMjhNl_UEWefbSCh8H7lk4GLoWMCsHmvKzIJnByIeHkX0mbgQMeBgWxl4dbnv1xXvpyM9rk4PbVMJCAFKfjRjafluOL8mStCNebFEAMGAIm_edfiYCGmgscBnncLx7Yjcl4-z39y2IRmeNAd5oYydACuX_inHMNk6DhygrUSe9SL_pKg4VfWXTu9K_Jard9TuelObyDUZfkFEkl53aIxzGcUg"
 }
 
@@ -134,3 +157,4 @@ Content-Type: application/json
     "street": "Rue des lilas",
     "details": "Maison avec le portail bleu"
 }
+>>>>>>> main
