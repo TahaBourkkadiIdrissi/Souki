@@ -209,3 +209,4 @@ class CommandeVocaleService(ICommandeVocaleService):
         prompt_parts = [SYSTEM_PROMPT, f"Commande client : \"{texte}\"\n\nRetourne le JSON structuré."]
         gemini_result = self._call_gemini(prompt_parts)
         return self.traiter_commande(gemini_result.get("transcription", texte), json.dumps(gemini_result), gemini_result.get("langue_detectee", "inconnu"))
+        #git add . 
