@@ -28,4 +28,4 @@ class LigneCommandeVocale(Base):
     message_ajustement  = Column(String(255), nullable=True)
 
     commande = relationship("CommandeVocale", back_populates="lignes")
-    produit  = relationship("Product")
+    produit  = relationship("Product", back_populates="lignes_commande_vocale")
