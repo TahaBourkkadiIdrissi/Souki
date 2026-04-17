@@ -15,4 +15,9 @@ class User(Base):
     parent_id  = Column(Integer, ForeignKey('t_users.id'), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
-    addresses  = relationship("Address", back_populates="owner")
+    addresses       = relationship("Address", back_populates="owner")
+    client_profile  = relationship("Client", back_populates="user", uselist=False)
+    parent_profile  = relationship("Parent", back_populates="user", uselist=False)
+    livreur_profile = relationship("Livreur", back_populates="user", uselist=False)
+    wallet          = relationship("Wallet", back_populates="user", uselist=False)
+    paniers         = relationship("Panier", back_populates="user")
