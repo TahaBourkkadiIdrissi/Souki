@@ -1,20 +1,17 @@
 from abc import ABC, abstractmethod
 from sqlalchemy.orm import Session
-from entities import Address
+from typing import Optional
+from entities.address_entity import Address
 
 
 class IAddressDao(ABC):
-    @staticmethod
-    def get_count(db: Session, user_id: int):
-        return db.query(Address).filter(Address.user_id == user_id).count()
 
-    @staticmethod
-    def create(db: Session, addr: Address):
-        try:
-            db.add(addr)
-            db.commit()
-            db.refresh(addr)
-            return addr
-        except Exception:
-            db.rollback()
-            return None
+    @abstractmethod
+    def get_count(self, db: Session, user_id: int) -> int:
+        """Retourne le nombre d'adresses d'un utilisateur."""
+        pass
+
+    @abstractmethod
+    def create(self, db: Session, addr: Address) -> Optional[Address]:
+        """Persiste une nouvelle adresse. Retourne None en cas d'erreur."""
+        pass

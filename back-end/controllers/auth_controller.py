@@ -1,21 +1,20 @@
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
-from config import SECRET_KEY, ALGORITHM, LocalSession
-from dto import UserRegister, LoginRequest, UserResponse, GoogleLoginRequest
-from services import AuthService
-from dao import UserDao
+from config import SECRET_KEY, ALGORITHM
+from dto.user_dto import UserRegister, LoginRequest, UserResponse, GoogleLoginRequest
+from services.auth_service import AuthService
 
 auth_router = APIRouter(prefix="/auth", tags=["Auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
-    """Middleware de vérification de session"""
+    """Middleware JWT — vérifie le token et retourne le payload."""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
-    except:
+    except Exception:
         raise HTTPException(status_code=401, detail="Session expirée ou token invalide")
 
 
@@ -44,12 +43,10 @@ def google_login(data: GoogleLoginRequest):
 
 
 @auth_router.get("/me")
-def get_current_user_profile(user=Depends(get_current_user)):
-    """Retourne les informations complètes de l'utilisateur connecté"""
-    db = LocalSession()
+def get_me(user=Depends(get_current_user)):
+    """Retourne le profil complet de l'utilisateur connecté."""
     try:
-        user_id = int(user['sub'])
-        user_data = UserDao.read(db, user_id)
+        user_data = AuthService().get_by_id(int(user['sub']))
         if not user_data:
             raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
         return {
@@ -61,5 +58,3 @@ def get_current_user_profile(user=Depends(get_current_user)):
         }
     except ValueError:
         raise HTTPException(status_code=400, detail="ID utilisateur invalide")
-    finally:
-        db.close()

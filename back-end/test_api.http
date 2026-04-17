@@ -1,160 +1,98 @@
-@BASE_URL = http://localhost:8000
+### Variables
+@base = http://localhost:8000
+@token = VOTRE_TOKEN_JWT_ICI
 
-# --- AUTHENTIFICATION ---
+### ─────────────────────────────────────────────
+### AUTH
+### ─────────────────────────────────────────────
 
-### 1. Inscription d'un Client (via Email)
-POST {{BASE_URL}}/auth/register
+### Register
+POST {{base}}/auth/register
 Content-Type: application/json
 
 {
-    "email": "tihi@app.com",
-    "password": "tihitihi",
-    "role": "CLIENT"
+  "email": "test@example.com",
+  "phone": "+212612345678",
+  "password": "testpassword123",
+  "role": "CLIENT"
 }
 
-### 2. Inscription d'un Livreur (via Téléphone Marocain)
-POST {{BASE_URL}}/auth/register
+###
+
+### Login
+POST {{base}}/auth/login
 Content-Type: application/json
 
 {
-    "phone": "+212613345678",
-    "password": "livreur_secure_pass",
-    "role": "LIVREUR"
+  "login_id": "test@example.com",
+  "password": "testpassword123"
 }
 
-### 3. Tentative d'inscription d'un Admin (Sera forcé en CLIENT par notre Service)
-POST {{BASE_URL}}/auth/register
+###
+
+### Google Login
+POST {{base}}/auth/google-login
 Content-Type: application/json
 
 {
-    "email": "hacker@app.com",
-    "password": "admin_pass",
-    "role": "ADMIN"
+  "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImIzZDk1Yjk1ZmE0OGQxODBiODVmZmU4MDgyZmNmYTIxNzRiMDQ2NjciLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJhenAiOiI0MDc0MDg3MTgxOTIuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJhdWQiOiI0MDc0MDg3MTgxOTIuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJzdWIiOiIxMTgyNjEyNTQ2MDE2NjU1MzkyNjEiLCJoZCI6ImVzaXNhLmFjLm1hIiwiZW1haWwiOiJ0LmJvdXJra2FkaWlkcmlzc2lAZXNpc2EuYWMubWEiLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiYXRfaGFzaCI6ImVhaVFIc09Sb2E5c0l4QVRZRnFuVUEiLCJpYXQiOjE3NzY0MjMzMjMsImV4cCI6MTc3NjQyNjkyM30.uMayjhOHbITTMHhQEyMWLoD81fuVn_nGHVB44OIl6KWEofmZEwa4pMt0BFtqaP3yk9dX7e821a0RYo-GqDvge2YZWY_DkWimbYkYhOq2i-U2JchFPjA1_1-Ij_3at9GZU92JUVMW3zM7RNTDCefgI94pqMALACWEU2WbheKoA1cT1r1ltSnKS-uarP6dArAuzQd25wFMw2sZGkRpfajfVsEgI3keHDrJk2LBrXxsHfZk5cEhuuE1QUhHNCpxf8SGJrRsWVyEhWL79Y3KQ4QYPHBKYeFdYEkYMcVKTBvvlCqH0DJm9DGeoDTkcOAFpeRgtR9qZIp5TDyeco-4TD7m2w"
 }
 
-### 4. Connexion (Login) avec Email pour récupérer le JWT
-# @name login
-POST {{BASE_URL}}/auth/login
-Content-Type: application/json
+###
 
-{
-    "login_id": "etudiant.fes@app.com",
-    "password": "password123"
-}
+### Get Me
+GET {{base}}/auth/me
+Authorization: Bearer {{token}}
 
+###
 
-### Séparateur obligatoire avant les variables globales
+### ─────────────────────────────────────────────
+### PROFILE
+### ─────────────────────────────────────────────
 
-# --- PROFIL & ADRESSES (Routes protégées) ---
-
-# On stocke le token généré par la requête précédente "login"
-@token = {{login.response.body.access_token}}
-
-
-### 5. Ajouter la 1ère adresse de livraison (ex: Domicile à Narjiss)
-POST {{BASE_URL}}/profile/address
+### Add Address
+POST {{base}}/profile/address
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-    "neighborhood": "Narjiss",
-    "street": "Rue 15, Secteur A",
-    "details": "Appartement 12, 3ème étage"
+  "neighborhood": "Narjiss",
+  "street": "Rue Ibn Khaldoun",
+  "details": "Appart 3, 2ème étage"
 }
 
-### 6. Ajouter la 2ème adresse (ex: Université / Ecole)
-POST {{BASE_URL}}/profile/address
-Authorization: Bearer {{token}}
+###
+
+### ─────────────────────────────────────────────
+### CATALOGUE
+### ─────────────────────────────────────────────
+
+### Get Catalogue
+GET {{base}}/api/catalogue
+
+###
+
+### ─────────────────────────────────────────────
+### COMMANDE VOCALE
+### ─────────────────────────────────────────────
+
+### Text Basket
+POST {{base}}/api/text-basket
 Content-Type: application/json
 
 {
-    "neighborhood": "Route d'Imouzzer",
-    "street": "Campus Universitaire",
-    "details": "Faculté des Sciences, Entrée Principale"
+  "texte": "3 kg de btata w kilo d tomates"
 }
 
-### 7. Ajouter la 3ème adresse (ex: Café préféré en Ville Nouvelle)
-POST {{BASE_URL}}/profile/address
-Authorization: Bearer {{token}}
-Content-Type: application/json
+###
 
-{
-    "neighborhood": "Ville Nouvelle",
-    "street": "Avenue Hassan II",
-    "details": "Café Blanc, Table 4"
-}
+### Voice Basket (multipart)
+POST {{base}}/api/voice-basket
+Content-Type: multipart/form-data; boundary=----Boundary
 
-# --- AUTHENTIFICATION GOOGLE ---
+------Boundary
+Content-Disposition: form-data; name="audio"; filename="commande.wav"
+Content-Type: audio/wav
 
-### 8. Connexion / Inscription via Google (Cas de succès)
-# ⚠️ ATTENTION : Tu dois remplacer la valeur de "token" par un vrai jeton d'identification 
-# généré par Google côté client (ton frontend Next.js) pour que ce test passe.
-# Si l'email n'existe pas, le backend va créer le compte. S'il existe, il va juste le connecter.
-# @name google_login
-POST {{BASE_URL}}/auth/google-login
-Content-Type: application/json
-
-{
-<<<<<<< HEAD
-    "neighborhood": "Médina",
-    "street": "Bab Boujloud",
-    "details": "Maison d'hôtes"
-}
-
-### Récupérer tous les produits (Doit afficher btata, tomate, bsla)
-GET {{BASE_URL}}/api/catalogue
-Content-Type: application/json
-
-### ==========================================
-### 2. TEST COMMANDE VOCALE PAR TEXTE
-### ==========================================
-
-### Test A : Commande simple avec produits connus (btata et tomate)
-### Résultat attendu : total_dh = (2 * 6.50) + (1 * 4.00) = 17.0
-POST {{{{BASE_URL}}}}/api/text-basket
-Content-Type: application/json
-
-{
-  "texte": "Je veux 2 kilos de btata et une tomate s'il vous plaît"
-}
-=======
-    "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImIzZDk1Yjk1ZmE0OGQxODBiODVmZmU4MDgyZmNmYTIxNzRiMDQ2NjciLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJhenAiOiI0MDc0MDg3MTgxOTIuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJhdWQiOiI0MDc0MDg3MTgxOTIuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJzdWIiOiIxMTU5NDA0NDI1MzQ4MDQxOTUzMDEiLCJoZCI6ImVzaXNhLmFjLm1hIiwiZW1haWwiOiJoLnptYXJvdUBlc2lzYS5hYy5tYSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJhdF9oYXNoIjoiOHcwVUw2QkxRaXdYb2NwbGZtRFJyZyIsImlhdCI6MTc3NjExNTExNiwiZXhwIjoxNzc2MTE4NzE2fQ.h3Yi5cSvE21lvgDEMMPqji5S13d0RDWqLA8wlp1o_DlgdRzL0C2hxcHvfkCT_P34IXt2q6_fqRUq4gmqdCk6JRD8lDjwp-X70kBLapZvnFihyH_cvl2KC3vctcYSHJMjhNl_UEWefbSCh8H7lk4GLoWMCsHmvKzIJnByIeHkX0mbgQMeBgWxl4dbnv1xXvpyM9rk4PbVMJCAFKfjRjafluOL8mStCNebFEAMGAIm_edfiYCGmgscBnncLx7Yjcl4-z39y2IRmeNAd5oYydACuX_inHMNk6DhygrUSe9SL_pKg4VfWXTu9K_Jard9TuelObyDUZfkFEkl53aIxzGcUg"
-}
-
-### 9. Connexion via Google (Cas d'échec : Token invalide ou falsifié)
-# Résultat attendu : Erreur 401 (Unauthorized) car la signature ne correspond pas à celle de Google.
-POST {{BASE_URL}}/auth/google-login
-Content-Type: application/json
-
-{
-    "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjNh.UnFauxTokenOuUnTokenExpire.123456789"
-}
-
-### 10. Connexion via Google (Cas d'échec : Champ manquant)
-# Résultat attendu : Erreur 422 (Unprocessable Entity) renvoyée automatiquement par Pydantic 
-# car notre DTO exige que la clé s'appelle "token".
-POST {{BASE_URL}}/auth/google-login
-Content-Type: application/json
-
-{
-    "google_id": "mauvaise_cle_au_lieu_de_token"
-}
-
-
-# --- TEST D'ACCÈS AVEC LE TOKEN GOOGLE ---
-
-# Si le test 8 fonctionne et que tu as récupéré un jeton JWT Souki, 
-# tu peux tester de l'utiliser ici !
-@google_token = {{google_login.response.body.access_token}}
-
-### 11. Ajouter une adresse avec le compte Google
-POST {{BASE_URL}}/profile/address
-Authorization: Bearer {{google_token}}
-Content-Type: application/json
-
-{
-    "neighborhood": "Zohour",
-    "street": "Rue des lilas",
-    "details": "Maison avec le portail bleu"
-}
->>>>>>> main
+< ./commande.wav
+------Boundary--

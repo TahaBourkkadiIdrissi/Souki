@@ -1,14 +1,15 @@
 from sqlalchemy.orm import Session
-from entities import Address
+from typing import Optional
+from interfaces.address_dao_interface import IAddressDao
+from entities.address_entity import Address
 
 
-class AddressDao:
-    @staticmethod
-    def get_count(db: Session, user_id: int):
+class AddressDao(IAddressDao):
+
+    def get_count(self, db: Session, user_id: int) -> int:
         return db.query(Address).filter(Address.user_id == user_id).count()
 
-    @staticmethod
-    def create(db: Session, addr: Address):
+    def create(self, db: Session, addr: Address) -> Optional[Address]:
         try:
             db.add(addr)
             db.commit()

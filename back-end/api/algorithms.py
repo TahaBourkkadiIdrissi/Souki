@@ -1,68 +1,65 @@
+import re
+import json
+import base64
 import google.genai as genai
-from typing import Optional
 from api.keys import GEMINI_API_KEY
 
-# Prompt système
+# ── Modèles Gemini (ordre de priorité) ────────────────────────────────────────
+MODELS = [
+    "models/gemini-2.5-flash",
+    "models/gemini-2.0-flash",
+    "models/gemini-2.0-flash-lite",
+]
+
+# ── Prompt système SOUKI ──────────────────────────────────────────────────────
 SYSTEM_PROMPT = """Tu es l'assistant vocal SOUKI. Extrais les produits. Réponds UNIQUEMENT avec un JSON valide, sans markdown.
 Format exact : {"transcription": "texte", "langue_detectee": "darija|français|mixte", "items": [{"produit_darija": "btata", "produit_fr": "Pommes de terre", "quantite": 2.0, "unite": "kg"}], "produits_non_disponibles": []}
 Règles: "nos" ou "noss" = 0.5. Si pas de quantité = 1."""
 
-MODELS = [
-    "models/gemini-2.5-flash",
-    "models/gemini-2.0-flash",
-    "models/gemini-2.0-flash-lite"
-]
 
-
-def _call_gemini(input_data: str, mime_type: Optional[str] = None, is_text: bool = False) -> Optional[str]:
+def call_gemini(prompt_parts: list) -> dict:
     """
-    Appelle l'API Gemini pour traiter du texte ou de l'audio
-    
-    Args:
-        input_data: Le texte ou l'audio en base64
-        mime_type: Type MIME de l'audio (ex: "audio/webm", "audio/mp3")
-        is_text: Si True, input_data est du texte; sinon c'est de l'audio
-    
-    Returns:
-        La réponse de Gemini en JSON string
+    Appelle l'API Gemini avec fallback sur plusieurs modèles.
+    Retourne un dict JSON parsé.
     """
-    try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
-        model = MODELS[0]  # models/gemini-2.5-flash
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    last_error = None
 
-        if is_text:
-            # Traiter du texte
+    for model_name in MODELS:
+        try:
             response = client.models.generate_content(
-                model=model,
-                contents=[
-                    {"role": "user", "parts": [
-                        {"text": SYSTEM_PROMPT},
-                        {"text": f"Transcription: {input_data}"}
-                    ]}
-                ]
+                model=model_name, contents=prompt_parts
             )
-        else:
-            # Traiter de l'audio en base64
-            response = client.models.generate_content(
-                model=model,
-                contents=[
-                    {"role": "user", "parts": [
-                        {"text": SYSTEM_PROMPT},
-                        {
-                            "inline_data": {
-                                "mime_type": mime_type or "audio/webm",
-                                "data": input_data
-                            }
-                        }
-                    ]}
-                ]
-            )
+            raw = response.text.strip()
+            raw = re.sub(r'^```json\s*', '', raw)
+            raw = re.sub(r'^```\s*', '', raw)
+            raw = re.sub(r'\s*```$', '', raw)
+            return json.loads(raw)
+        except Exception as e:
+            last_error = e
+            if "429" not in str(e) and "quota" not in str(e).lower():
+                raise e
 
-        if response and response.text:
-            return response.text
+    raise last_error
 
-        return None
 
-    except Exception as e:
-        print(f"Erreur Gemini API: {e}")
-        return None
+def build_audio_parts(audio_b64: str, mime_type: str) -> list:
+    """Construit les parts Gemini pour un audio base64."""
+    from google.genai import types
+    audio_part = types.Part.from_bytes(
+        data=base64.b64decode(audio_b64),
+        mime_type=mime_type
+    )
+    return [
+        SYSTEM_PROMPT,
+        audio_part,
+        "Analyse cette commande vocale et retourne le JSON structuré."
+    ]
+
+
+def build_text_parts(texte: str) -> list:
+    """Construit les parts Gemini pour un texte."""
+    return [
+        SYSTEM_PROMPT,
+        f"Commande client : \"{texte}\"\n\nRetourne le JSON structuré."
+    ]
