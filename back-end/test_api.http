@@ -1,136 +1,143 @@
+### Variables
 @BASE_URL = http://localhost:8000
+@token = VOTRE_TOKEN_JWT_ICI
 
-# --- AUTHENTIFICATION ---
+### ─────────────────────────────────────────────
+### 🔐 AUTHENTIFICATION & SÉCURITÉ DES RÔLES
+### ─────────────────────────────────────────────
 
-### 1. Inscription d'un Client (via Email)
+### 1. Inscription d'un compte CLIENT
 POST {{BASE_URL}}/auth/register
 Content-Type: application/json
 
 {
-    "email": "tahabourzbabi.fes@app.com",
-    "password": "password123",
-    "role": "CLIENT"
+  "email": "client_test@example.ma",
+  "phone": "+212611111111",
+  "password": "Testpassword123",
+  "role": "CLIENT"
 }
 
-### 2. Inscription d'un Livreur (via Téléphone Marocain)
-POST {{BASE_URL}}/auth/register
-Content-Type: application/json
-
-{
-    "phone": "+212613345678",
-    "password": "livreur_secure_pass",
-    "role": "LIVREUR"
-}
-
-### 3. Tentative d'inscription d'un Admin (Sera forcé en CLIENT par notre Service)
-POST {{BASE_URL}}/auth/register
-Content-Type: application/json
-
-{
-    "email": "hacker@app.com",
-    "password": "admin_pass",
-    "role": "ADMIN"
-}
-
-### 4. Connexion (Login) avec Email pour récupérer le JWT
-# @name login
+### 2. Connexion CLIENT (Cas de Succès - 200 OK)
+# Le rôle correspond bien à celui en base de données.
+# @name client_login
 POST {{BASE_URL}}/auth/login
 Content-Type: application/json
 
 {
-    "login_id": "etudiant.fes@app.com",
-    "password": "password123"
+  "login_id": "client_test@example.ma",
+  "password": "Testpassword123",
+  "role": "CLIENT"
 }
 
-
-### Séparateur obligatoire avant les variables globales
-
-# --- PROFIL & ADRESSES (Routes protégées) ---
-
-# On stocke le token généré par la requête précédente "login"
-@token = {{login.response.body.access_token}}
-
-
-### 5. Ajouter la 1ère adresse de livraison (ex: Domicile à Narjiss)
-POST {{BASE_URL}}/profile/address
-Authorization: Bearer {{token}}
+### 3. Connexion CLIENT sur l'espace LIVREUR (Cas d'Échec - 403 Forbidden)
+# Résultat attendu : Accès refusé car ce compte est un CLIENT, pas un LIVREUR.
+POST {{BASE_URL}}/auth/login
 Content-Type: application/json
 
 {
-    "neighborhood": "Narjiss",
-    "street": "Rue 15, Secteur A",
-    "details": "Appartement 12, 3ème étage"
+  "login_id": "client_test@example.ma",
+  "password": "Testpassword123",
+  "role": "LIVREUR"
 }
 
-### 6. Ajouter la 2ème adresse (ex: Université / Ecole)
-POST {{BASE_URL}}/profile/address
-Authorization: Bearer {{token}}
+
+### 4. Inscription d'un compte LIVREUR
+POST {{BASE_URL}}/auth/register
 Content-Type: application/json
 
 {
-    "neighborhood": "Route d'Imouzzer",
-    "street": "Campus Universitaire",
-    "details": "Faculté des Sciences, Entrée Principale"
+  "email": "livreur_test@example.ma",
+  "phone": "+212622222222",
+  "password": "Testpassword123",
+  "role": "LIVREUR"
 }
 
-### 7. Ajouter la 3ème adresse (ex: Café préféré en Ville Nouvelle)
-POST {{BASE_URL}}/profile/address
-Authorization: Bearer {{token}}
+### 5. Connexion LIVREUR (Cas de Succès - 200 OK)
+POST {{BASE_URL}}/auth/login
 Content-Type: application/json
 
 {
-    "neighborhood": "Ville Nouvelle",
-    "street": "Avenue Hassan II",
-    "details": "Café Blanc, Table 4"
+  "login_id": "livreur_test@example.ma",
+  "password": "Testpassword123",
+  "role": "LIVREUR"
 }
 
-# --- AUTHENTIFICATION GOOGLE ---
+### 6. Connexion avec rôle manquant (Cas d'Échec - 422 Validation Error)
+# Résultat attendu : Pydantic bloque la requête car il manque "role".
+POST {{BASE_URL}}/auth/login
+Content-Type: application/json
+
+{
+  "login_id": "client_test@example.ma",
+  "password": "Testpassword123"
+}
+
+### 7. Récupérer le profil de l'utilisateur connecté
+# Utilise le token généré par la requête #2
+@client_token = {{client_login.response.body.access_token}}
+
+GET {{BASE_URL}}/auth/me
+Authorization: Bearer {{client_token}}
+
+
+### ─────────────────────────────────────────────
+### 🌐 CONNEXION GOOGLE
+### ─────────────────────────────────────────────
 
 ### 8. Connexion / Inscription via Google (Cas de succès)
-# ⚠️ ATTENTION : Tu dois remplacer la valeur de "token" par un vrai jeton d'identification 
-# généré par Google côté client (ton frontend Next.js) pour que ce test passe.
-# Si l'email n'existe pas, le backend va créer le compte. S'il existe, il va juste le connecter.
+# ⚠️ Remplace la valeur de "token" par un vrai jeton généré par Google côté client
 # @name google_login
 POST {{BASE_URL}}/auth/google-login
 Content-Type: application/json
 
 {
-    "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImIzZDk1Yjk1ZmE0OGQxODBiODVmZmU4MDgyZmNmYTIxNzRiMDQ2NjciLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJhenAiOiI0MDc0MDg3MTgxOTIuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJhdWQiOiI0MDc0MDg3MTgxOTIuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJzdWIiOiIxMTU5NDA0NDI1MzQ4MDQxOTUzMDEiLCJoZCI6ImVzaXNhLmFjLm1hIiwiZW1haWwiOiJoLnptYXJvdUBlc2lzYS5hYy5tYSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJhdF9oYXNoIjoiOHcwVUw2QkxRaXdYb2NwbGZtRFJyZyIsImlhdCI6MTc3NjExNTExNiwiZXhwIjoxNzc2MTE4NzE2fQ.h3Yi5cSvE21lvgDEMMPqji5S13d0RDWqLA8wlp1o_DlgdRzL0C2hxcHvfkCT_P34IXt2q6_fqRUq4gmqdCk6JRD8lDjwp-X70kBLapZvnFihyH_cvl2KC3vctcYSHJMjhNl_UEWefbSCh8H7lk4GLoWMCsHmvKzIJnByIeHkX0mbgQMeBgWxl4dbnv1xXvpyM9rk4PbVMJCAFKfjRjafluOL8mStCNebFEAMGAIm_edfiYCGmgscBnncLx7Yjcl4-z39y2IRmeNAd5oYydACuX_inHMNk6DhygrUSe9SL_pKg4VfWXTu9K_Jard9TuelObyDUZfkFEkl53aIxzGcUg"
+    "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImIzZDk1Yjk1ZmE0OGQxODBiODVmZmU4MDgyZmNmYTIxNzRiMDQ2NjciLCJ0eXAiOiJKV1QifQ..."
 }
 
 ### 9. Connexion via Google (Cas d'échec : Token invalide ou falsifié)
-# Résultat attendu : Erreur 401 (Unauthorized) car la signature ne correspond pas à celle de Google.
 POST {{BASE_URL}}/auth/google-login
 Content-Type: application/json
 
 {
-    "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImIzZDk1Yjk1ZmE0OGQxODBiODVmZmU4MDgyZmNmYTIxNzRiMDQ2NjciLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJhenAiOiI0MDc0MDg3MTgxOTIuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJhdWQiOiI0MDc0MDg3MTgxOTIuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJzdWIiOiIxMTU5NDA0NDI1MzQ4MDQxOTUzMDEiLCJoZCI6ImVzaXNhLmFjLm1hIiwiZW1haWwiOiJoLnptYXJvdUBlc2lzYS5hYy5tYSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJhdF9oYXNoIjoibnNBODZqQnZaa25LZHBwVkQtTnBaZyIsImlhdCI6MTc3NjM4MDI2MywiZXhwIjoxNzc2MzgzODYzfQ.2GghGkiXqQ3Nual2lRfOZuynC-0eKfZe4ruXlmZLKsv1wdzkHuf4GoIknzMiS0nPpMc_IVJre083aPexTkU_oBrixl5X1eoLlh89LHTbMubcEM0StQcmQjyIHuI3JjITNP3aX6Oa7UpJSLs07qvHjAAACJVQuSjPhOsSAH6_KMeQAAPMOYG8JUpCQgzB7OL6m1AgKQF3k7hcnN2fB0Xo0aFk2NEgoP_hf8UvmauHi_CzUQ_d90Ez1UDHD7ibFhscIJkj8v7GVX3tHhKe1k_1Kjb3Xvt80VvK1AO6OVT4BHlE2M5X-imOXh4bUcjknOdAULr9qoADs-nDHsViLXU6-w"
-}
-
-### 10. Connexion via Google (Cas d'échec : Champ manquant)
-# Résultat attendu : Erreur 422 (Unprocessable Entity) renvoyée automatiquement par Pydantic 
-# car notre DTO exige que la clé s'appelle "token".
-POST {{BASE_URL}}/auth/google-login
-Content-Type: application/json
-
-{
-    "google_id": "mauvaise_cle_au_lieu_de_token"
+    "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImZhbHNpZmll..."
 }
 
 
-# --- TEST D'ACCÈS AVEC LE TOKEN GOOGLE ---
+### ─────────────────────────────────────────────
+### 📍 PROFIL ET ADRESSES
+### ─────────────────────────────────────────────
 
-# Si le test 8 fonctionne et que tu as récupéré un jeton JWT Souki, 
-# tu peux tester de l'utiliser ici !
-@google_token = {{google_login.response.body.access_token}}
-
-### 11. Ajouter une adresse avec le compte Google
+### 10. Ajouter une adresse
 POST {{BASE_URL}}/profile/address
-Authorization: Bearer {{google_token}}
+Authorization: Bearer {{client_token}}
 Content-Type: application/json
 
 {
-    "neighborhood": "Zohour",
-    "street": "Rue des lilas",
-    "details": "Maison avec le portail bleu"
+  "neighborhood": "Narjiss",
+  "street": "Rue Ibn Khaldoun",
+  "details": "Appart 3, 2ème étage"
 }
+
+
+### ─────────────────────────────────────────────
+### 📦 CATALOGUE & COMMANDES VOCALES
+### ─────────────────────────────────────────────
+
+### 11. Get Catalogue
+GET {{BASE_URL}}/api/catalogue
+
+### 12. Text Basket
+POST {{BASE_URL}}/api/text-basket
+Content-Type: application/json
+
+{
+  "texte": "3 kg de btata w kilo d tomates"
+}
+
+### 13. Voice Basket (multipart)
+POST {{BASE_URL}}/api/voice-basket
+Content-Type: multipart/form-data; boundary=----Boundary
+
+------Boundary
+Content-Disposition: form-data; name="audio"; filename="commande.wav"
+Content-Type: audio/wav
