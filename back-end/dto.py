@@ -29,7 +29,6 @@ class UserResponse(BaseModel):
     role: str
     class Config: from_attributes = True
 
-<<<<<<< HEAD
 
 class ProductResponseDTO(BaseModel):
     id: int
@@ -60,7 +59,3 @@ class VoiceBasketResponseDTO(BaseModel):
     total_dh: float = 0.0
     nombre_articles: int = 0
     commande_id: Optional[int] = None
-=======
-class GoogleLoginRequest(BaseModel):
-    token: str
->>>>>>> main

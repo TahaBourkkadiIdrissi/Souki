@@ -1,22 +1,42 @@
 import os
 from dotenv import load_dotenv
 
-# 1. On trouve le chemin absolu du dossier où se trouve ce fichier
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ENV_PATH = os.path.join(BASE_DIR, ".env")
+# Load environment variables from .env
+load_dotenv()
 
-# 2. On force le chargement du fichier .env exact
-load_dotenv(ENV_PATH)
 
 class Settings:
-    # 3. On lit la clé. 
-    # ASTUCE : Si le .env ne marche toujours pas, remplacez le "None" par votre vraie clé entre guillemets pour tester !
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "METTEZ_VOTRE_VRAIE_CLE_ICI_POUR_VOUS_DEBLOQUER")
+    """Paramètres de l'application"""
+    
+    # Database
+    DATABASE_URL: str = os.getenv(
+        "DATABASE_URL",
+        "postgresql+psycopg2://user:password@host:port/dbname"
+    )
+    
+    # Security
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "VOTRE_CLE_REELLEMENT_SECRETE_POUR_FES")
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 jours
+    
+    # APIs
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
+    
+    # Server
+    HOST: str = os.getenv("HOST", "0.0.0.0")
+    PORT: int = int(os.getenv("PORT", "8000"))
+    RELOAD: bool = os.getenv("RELOAD", "True").lower() == "true"
+    
+    # Frontend
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
 
 settings = Settings()
 
-# Petite vérification dans le terminal pour vous aider à débugger
-if settings.GEMINI_API_KEY == "METTEZ_VOTRE_VRAIE_CLE_ICI_POUR_VOUS_DEBLOQUER" or not settings.GEMINI_API_KEY:
-    print("⚠️ ATTENTION : La clé Gemini n'a pas été trouvée dans le fichier .env !")
-else:
-    print("✅ Clé Gemini chargée avec succès !")
+# Validation des clés requises
+if not settings.GEMINI_API_KEY:
+    print("⚠️ ATTENTION : GEMINI_API_KEY non trouvée dans .env")
+
+if not settings.GOOGLE_CLIENT_ID:
+    print("⚠️ ATTENTION : GOOGLE_CLIENT_ID non trouvée dans .env")
