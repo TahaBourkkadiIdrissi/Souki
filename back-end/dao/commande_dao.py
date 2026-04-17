@@ -1,16 +1,13 @@
 from sqlalchemy.orm import Session
 from typing import Optional
-from entities import CommandeVocale, LigneCommandeVocale
-from interfaces import ICommandeVocaleDao
+from interfaces.commande_dao_interface import ICommandeVocaleDao
+from entities.commande_vocale_entity import CommandeVocale, LigneCommandeVocale
 
 
 class CommandeVocaleDaoBD(ICommandeVocaleDao):
+
     def create_commande(
-        self,
-        session: Session,
-        transcription: str,
-        json_brut: str,
-        langue: str
+        self, session: Session, transcription: str, json_brut: str, langue: str
     ) -> Optional[CommandeVocale]:
         cmd = CommandeVocale(
             transcription_brute=transcription,
@@ -28,15 +25,9 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
             return None
 
     def create_ligne(
-        self,
-        session: Session,
-        commande_id: int,
-        product_id: int,
-        qte_demandee: float,
-        qte_effective: float,
-        prix: float,
-        sous_total: float,
-        message: Optional[str]
+        self, session: Session, commande_id: int, product_id: int,
+        qte_demandee: float, qte_effective: float, prix: float,
+        sous_total: float, message: Optional[str]
     ) -> bool:
         ligne = LigneCommandeVocale(
             commande_id=commande_id,

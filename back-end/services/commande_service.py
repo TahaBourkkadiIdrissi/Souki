@@ -1,33 +1,25 @@
-from abc import ABC, abstractmethod
 import json
-from typing import List, Optional
 from config import LocalSession
-from dto import VoiceBasketResponseDTO, LigneCommandeDTO
-from interfaces import IProductDao, ICommandeVocaleDao
-from api.algorithms import _call_gemini, SYSTEM_PROMPT
-
-
-class ICommandeVocaleService(ABC):
-    @abstractmethod
-    def traiter_texte(self, texte: str) -> VoiceBasketResponseDTO:
-        """Traite une commande en texte"""
-        pass
-
-    @abstractmethod
-    def traiter_audio(self, audio_b64: str, mime_type: str) -> VoiceBasketResponseDTO:
-        """Traite une commande audio"""
-        pass
+from interfaces.commande_service_interface import ICommandeVocaleService
+from interfaces.product_dao_interface import IProductDao
+from interfaces.commande_dao_interface import ICommandeVocaleDao
+from services.catalogue_service import CatalogueService
+from dto.commande_dto import VoiceBasketResponseDTO
+from api.algorithms import call_gemini, build_audio_parts, build_text_parts
 
 
 class CommandeVocaleService(ICommandeVocaleService):
-    def __init__(self, product_dao: IProductDao, commande_dao: ICommandeVocaleDao, session=None):
+
+    def __init__(self, product_dao: IProductDao, commande_dao: ICommandeVocaleDao) -> None:
         self.product_dao = product_dao
         self.commande_dao = commande_dao
-        self.session = session
+        self.session = None
+        self.catalogue_service = None
 
+    # ── Context manager ───────────────────────────────────────────────────────
     def __enter__(self):
-        if self.session is None:
-            self.session = LocalSession()
+        self.session = LocalSession()
+        self.catalogue_service = CatalogueService(self.product_dao, self.session)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -36,132 +28,59 @@ class CommandeVocaleService(ICommandeVocaleService):
                 self.session.rollback()
             self.session.close()
 
+    # ── Méthodes publiques ────────────────────────────────────────────────────
     def traiter_texte(self, texte: str) -> VoiceBasketResponseDTO:
-        if not self.session:
-            self.session = LocalSession()
-
-        try:
-            # Appeler Gemini avec le texte
-            gemini_response = _call_gemini(texte, mime_type=None, is_text=True)
-
-            if not gemini_response:
-                return VoiceBasketResponseDTO(status="error", transcription=texte)
-
-            return self._traiter_reponse_gemini(gemini_response, texte)
-        finally:
-            if not hasattr(self, '_in_context'):
-                self.session.close()
+        parts = build_text_parts(texte)
+        gemini_result = call_gemini(parts)
+        return self._traiter_commande(
+            texte_transcrit=gemini_result.get("transcription", texte),
+            json_brut_gemini=json.dumps(gemini_result),
+            langue=gemini_result.get("langue_detectee", "inconnu")
+        )
 
     def traiter_audio(self, audio_b64: str, mime_type: str) -> VoiceBasketResponseDTO:
-        if not self.session:
-            self.session = LocalSession()
+        parts = build_audio_parts(audio_b64, mime_type)
+        gemini_result = call_gemini(parts)
+        return self._traiter_commande(
+            texte_transcrit=gemini_result.get("transcription", ""),
+            json_brut_gemini=json.dumps(gemini_result),
+            langue=gemini_result.get("langue_detectee", "inconnu")
+        )
 
-        try:
-            # Appeler Gemini avec l'audio
-            gemini_response = _call_gemini(audio_b64, mime_type=mime_type, is_text=False)
+    # ── Méthode privée ────────────────────────────────────────────────────────
+    def _traiter_commande(
+        self, texte_transcrit: str, json_brut_gemini: str, langue: str
+    ) -> VoiceBasketResponseDTO:
+        commande_entity = self.commande_dao.create_commande(
+            self.session, texte_transcrit, json_brut_gemini, langue
+        )
+        items_gemini = json.loads(json_brut_gemini).get("items", [])
+        produits_non_disponibles, lignes_panier_dto, total = [], [], 0.0
 
-            if not gemini_response:
-                return VoiceBasketResponseDTO(status="error")
+        for item in items_gemini:
+            ligne_dto, nom_manquant = self.catalogue_service.valider_et_ajuster_item(item)
+            if ligne_dto:
+                self.product_dao.decrement_stock(
+                    self.session, ligne_dto.product_id, ligne_dto.quantite_effective
+                )
+                self.commande_dao.create_ligne(
+                    self.session, commande_entity.id, ligne_dto.product_id,
+                    ligne_dto.quantite_demandee, ligne_dto.quantite_effective,
+                    ligne_dto.prix_unitaire, ligne_dto.sous_total,
+                    ligne_dto.message_ajustement
+                )
+                lignes_panier_dto.append(ligne_dto)
+                total += ligne_dto.sous_total
+            else:
+                produits_non_disponibles.append(nom_manquant)
 
-            return self._traiter_reponse_gemini(gemini_response)
-        finally:
-            if not hasattr(self, '_in_context'):
-                self.session.close()
-
-    def _traiter_reponse_gemini(self, gemini_response: str, transcription: Optional[str] = None) -> VoiceBasketResponseDTO:
-        """Parse la réponse Gemini et construit le panier"""
-        try:
-            # Extraire le JSON de la réponse
-            json_str = self._extract_json(gemini_response)
-            data = json.loads(json_str)
-
-            transcription_detectee = data.get("transcription", transcription or "")
-            langue = data.get("langue_detectee", "")
-            items = data.get("items", [])
-            produits_non_dispo = data.get("produits_non_disponibles", [])
-
-            # Créer la commande
-            commande = self.commande_dao.create_commande(
-                self.session, # type: ignore
-                transcription_detectee,
-                gemini_response,
-                langue
-            )
-
-            if not commande:
-                return VoiceBasketResponseDTO(status="error")
-
-            # Traiter les lignes de commande
-            lignes: List[LigneCommandeDTO] = []
-            total_dh = 0.0
-
-            for item in items:
-                produit_darija = item.get("produit_darija", "")
-                quantite = item.get("quantite", 1.0)
-
-                # Chercher le produit
-                product = self.product_dao.get_by_alias(self.session, produit_darija) # type: ignore
-
-                if not product:
-                    produits_non_dispo.append(produit_darija)
-                    continue
-
-                # Vérifier le stock
-                quantite_effective = min(quantite, product.stock)
-
-                if quantite_effective > 0:
-                    sous_total = quantite_effective * product.prix_kg
-                    total_dh += sous_total
-
-                    # Créer la ligne
-                    message = None
-                    if quantite_effective < quantite:
-                        message = f"Stock limité: {quantite_effective}/{quantite} demandé(e)"
-
-                    self.commande_dao.create_ligne(
-                        self.session, # type: ignore
-                        commande.id, # type: ignore
-                        product.id, # type: ignore
-                        quantite,
-                        quantite_effective,
-                        product.prix_kg, # type: ignore
-                        sous_total,
-                        message
-                    )
-
-                    # Décrémenter le stock
-                    self.product_dao.decrement_stock(self.session, product.id, quantite_effective) # type: ignore
-
-                    lignes.append(LigneCommandeDTO(
-                        product_id=product.id, # type: ignore
-                        nom_produit=product.nom_fr, # type: ignore
-                        quantite_demandee=quantite,
-                        quantite_effective=quantite_effective,
-                        prix_unitaire=product.prix_kg, # type: ignore
-                        sous_total=sous_total,
-                        message_ajustement=message
-                    ))
-
-            return VoiceBasketResponseDTO(
-                status="success",
-                transcription=transcription_detectee,
-                langue_detectee=langue,
-                produits_non_disponibles=produits_non_dispo,
-                lignes_panier=lignes,
-                total_dh=total_dh,
-                nombre_articles=len(lignes),
-                commande_id=commande.id # type: ignore
-            )
-
-        except Exception as e:
-            print(f"Erreur traitement Gemini: {e}")
-            return VoiceBasketResponseDTO(status="error")
-
-    @staticmethod
-    def _extract_json(text: str) -> str:
-        """Extrait un JSON valide d'un texte"""
-        start = text.find('{')
-        end = text.rfind('}') + 1
-        if start != -1 and end > start:
-            return text[start:end]
-        return "{}"
+        return VoiceBasketResponseDTO(
+            status="success",
+            transcription=texte_transcrit,
+            langue_detectee=langue,
+            produits_non_disponibles=produits_non_disponibles,
+            lignes_panier=lignes_panier_dto,
+            total_dh=round(total, 2),
+            nombre_articles=len(lignes_panier_dto),
+            commande_id=commande_entity.id if commande_entity else None
+        )

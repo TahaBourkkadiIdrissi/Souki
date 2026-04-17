@@ -1,14 +1,6 @@
-from .user_dao import UserDao
-from .address_dao import AddressDao
-from .product_dao import ProductDaoBD
-from .commande_dao import CommandeVocaleDaoBD
-from interfaces import IProductDao, ICommandeVocaleDao
+from dao.user_dao import UserDao
+from dao.address_dao import AddressDao
+from dao.product_dao import ProductDaoBD
+from dao.commande_dao import CommandeVocaleDaoBD
 
-__all__ = [
-    "UserDao",
-    "AddressDao",
-    "ProductDaoBD",
-    "CommandeVocaleDaoBD",
-    "IProductDao",
-    "ICommandeVocaleDao",
-]
+__all__ = ["UserDao", "AddressDao", "ProductDaoBD", "CommandeVocaleDaoBD"]
