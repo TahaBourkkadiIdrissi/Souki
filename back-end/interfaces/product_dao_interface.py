@@ -1,21 +1,22 @@
 from abc import ABC, abstractmethod
-from typing import Optional, List
 from sqlalchemy.orm import Session
-from entities import Product
+from typing import Optional, List
+from entities.product_entity import Product
 
 
 class IProductDao(ABC):
+
     @abstractmethod
     def get_by_alias(self, session: Session, alias: str) -> Optional[Product]:
-        """Récupère un produit par son alias (nom_fr ou nom_darija)"""
+        """Cherche un produit par nom_fr ou nom_darija (insensible à la casse)."""
         pass
 
     @abstractmethod
     def get_all(self, session: Session) -> List[Product]:
-        """Récupère tous les produits"""
+        """Retourne tous les produits du catalogue."""
         pass
 
     @abstractmethod
     def decrement_stock(self, session: Session, product_id: int, quantity: float) -> bool:
-        """Décrémente le stock d'un produit"""
+        """Décrémente le stock d'un produit. Retourne False si stock insuffisant."""
         pass

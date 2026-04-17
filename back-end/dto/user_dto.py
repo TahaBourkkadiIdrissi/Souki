@@ -16,8 +16,12 @@ class UserRegister(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    login_id: str  # Email ou Phone
+    login_id: str   # Email ou Phone
     password: str
+
+
+class GoogleLoginRequest(BaseModel):
+    token: str
 
 
 class UserResponse(BaseModel):
@@ -28,7 +32,3 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-class GoogleLoginRequest(BaseModel):
-    token: str

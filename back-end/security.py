@@ -3,20 +3,19 @@ from jose import jwt
 from datetime import datetime, timedelta
 from config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 
+
 def hash_password(password: str) -> str:
-    # bcrypt a besoin de bytes, on encode donc la chaîne de caractères
     pwd_bytes = password.encode('utf-8')
     salt = bcrypt.gensalt()
-    # On hache le mot de passe
     hashed_password = bcrypt.hashpw(pwd_bytes, salt)
-    # On le retourne en string pour pouvoir le sauvegarder dans PostgreSQL
     return hashed_password.decode('utf-8')
 
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    # On vérifie que le mot de passe correspond au hash de la base de données
     password_byte_enc = plain_password.encode('utf-8')
     hashed_password_byte_enc = hashed_password.encode('utf-8')
     return bcrypt.checkpw(password_byte_enc, hashed_password_byte_enc)
+
 
 def create_access_token(data: dict):
     to_encode = data.copy()

@@ -1,25 +1,26 @@
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from entities import User
+from typing import Optional
+from interfaces.user_dao_interface import IUserDao
+from entities.user_entity import User
 
 
-class UserDao:
-    @staticmethod
-    def find_by_identifier(db: Session, identifier: str):
-        return db.query(User).filter(
-            (User.email == identifier) | (User.phone == identifier)
-        ).first()
+class UserDao(IUserDao):
 
-    @staticmethod
-    def find_by_email(db: Session, email: str):
+    def find_by_identifier(self, db: Session, identifier: str) -> Optional[User]:
+        return (
+            db.query(User)
+            .filter((User.email == identifier) | (User.phone == identifier))
+            .first()
+        )
+
+    def find_by_email(self, db: Session, email: str) -> Optional[User]:
         return db.query(User).filter(User.email == email).first()
 
-    @staticmethod
-    def read(db: Session, user_id: int):
+    def read(self, db: Session, user_id: int) -> Optional[User]:
         return db.query(User).filter(User.id == user_id).first()
 
-    @staticmethod
-    def create(db: Session, user: User):
+    def create(self, db: Session, user: User) -> Optional[User]:
         try:
             db.add(user)
             db.commit()

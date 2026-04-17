@@ -1,16 +1,11 @@
-from .user_dto import UserRegister, LoginRequest, UserResponse, GoogleLoginRequest
-from .address_dto import AddressDTO
-from .product_dto import ProductResponseDTO
-from .commande_dto import VoiceBasketResponseDTO, LigneCommandeDTO, TextBasketRequest
+from dto.user_dto import UserRegister, LoginRequest, UserResponse, GoogleLoginRequest
+from dto.address_dto import AddressDTO
+from dto.product_dto import ProductResponseDTO
+from dto.commande_dto import VoiceBasketResponseDTO, LigneCommandeDTO, TextBasketRequest
 
 __all__ = [
-    "UserRegister",
-    "LoginRequest",
-    "UserResponse",
-    "GoogleLoginRequest",
+    "UserRegister", "LoginRequest", "UserResponse", "GoogleLoginRequest",
     "AddressDTO",
     "ProductResponseDTO",
-    "VoiceBasketResponseDTO",
-    "LigneCommandeDTO",
-    "TextBasketRequest",
+    "VoiceBasketResponseDTO", "LigneCommandeDTO", "TextBasketRequest",
 ]
