@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
-from dto.commande_dto import VoiceBasketResponseDTO, TextBasketRequest
+from dto.commande_dto import VoiceBasketResponseDTO, TextBasketRequest, CommandeCheckoutDTO
 from interfaces.commande_service_interface import ICommandeVocaleService
 from dependencies import get_voice_service
 import base64
@@ -41,3 +41,16 @@ def process_voice_basket(
 
     with service:
         return service.traiter_audio(audio_b64, mime)
+
+@router_voice.get("/commandes/{commande_id}", response_model=CommandeCheckoutDTO)
+def get_commande_checkout(
+    commande_id: int, 
+    service: ICommandeVocaleService = Depends(get_voice_service)
+):
+    # Le "with" appelle __enter__ du service (qui ouvre la session DB)
+    # et garantit __exit__ à la fin (qui ferme la session, même en cas d'erreur)
+    with service:
+        detail = service.get_commande_checkout(commande_id)
+        if not detail:
+            raise HTTPException(status_code=404, detail="Commande non trouvée")
+        return detail

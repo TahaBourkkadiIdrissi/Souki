@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Leaf, User, Users, Truck, Shield } from "lucide-react"
+import { User, Users, Truck } from "lucide-react"
 
 export default function PreLoginPage() {
   const roles = [
@@ -40,18 +40,6 @@ export default function PreLoginPage() {
       lightBgHover: "group-[&:hover]:bg-[#FFF3E0]",
       borderColor: "hover:border-[#F07C00]",
       shadowColor: "hover:shadow-[#F07C00]/10"
-    },
-    {
-      title: "Administrateur",
-      description: "Panel de gestion des commandes",
-      icon: Shield,
-      href: "/login/admin",
-      color: "bg-[#1A4F8A]",
-      textHover: "group-[&:hover]:text-[#1A4F8A]",
-      bgHover: "group-[&:hover]:bg-[#1A4F8A]",
-      lightBgHover: "group-[&:hover]:bg-[#EFF6FF]",
-      borderColor: "hover:border-[#2563EB]",
-      shadowColor: "hover:shadow-[#2563EB]/10"
     }
   ]
 

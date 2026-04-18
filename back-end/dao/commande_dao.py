@@ -46,3 +46,25 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
             session.rollback()
             print(f"Erreur create ligne: {e}")
             return False
+        
+    def get_details_for_checkout(self, session: Session, commande_id: int) -> Optional[dict]:
+        cmd = session.query(CommandeVocale).filter(CommandeVocale.id == commande_id).first()
+        if not cmd:
+            return None
+        
+        lignes_formatees = []
+        for ligne in cmd.lignes:
+            lignes_formatees.append({
+                "product_id": ligne.product_id,
+                "nom_produit": ligne.produit.nom_fr if ligne.produit else "Produit supprimé",
+                "quantite_effective": ligne.quantite_effective,
+                "prix_unitaire": ligne.prix_unitaire,
+                "sous_total": round(ligne.quantite_effective * ligne.prix_unitaire, 2),
+                "unite": ligne.produit.unite if ligne.produit else "kg"
+            })
+            
+        return {
+            "commande_id": cmd.id,
+            "transcription": cmd.transcription_brute,
+            "lignes": lignes_formatees
+        }
