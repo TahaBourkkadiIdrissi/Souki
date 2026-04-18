@@ -1,6 +1,7 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import entities
 from config import Base, engine
 from controllers.auth_controller import auth_router
 from controllers.profile_controller import profile_router
