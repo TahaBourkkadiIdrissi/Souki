@@ -14,5 +14,5 @@ SECRET_KEY: str = os.getenv("SECRET_KEY", "VOTRE_CLE_SECRETE")
 ALGORITHM: str = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 jours
 
-# ── Clé Google Gemini ──────────────────────────────────────────────────────────
+# ── Clé Google Gemini pour generation de panier ──────────────────────────────────────────────────────────
 GEMINI_API_KEY_GPA: str = os.getenv("GEMINI_API_KEY_GPA", "")
