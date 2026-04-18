@@ -1,6 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react"
+import { API_BASE_URL } from "@/lib/api"
 
 export interface User {
   id: number
@@ -75,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const validateTokenWithBackend = async (tok: string): Promise<boolean> => {
     try {
-      const response = await fetch("http://localhost:8000/auth/me", {
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${tok}`,
@@ -110,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (loginId: string, password: string) => {
     try {
-      const response = await fetch("http://localhost:8000/auth/login", {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
