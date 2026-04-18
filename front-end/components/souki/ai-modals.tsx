@@ -24,6 +24,7 @@ interface VoiceBasketResponseDTO {
   lignes_panier: LigneCommandeDTO[];
   total_dh: number;
   nombre_articles: number;
+  commande_id?: number; // AJOUTÉ pour le passer au checkout
 }
 // -----------------------------
 
@@ -31,25 +32,23 @@ const API_URL = "http://localhost:8000/api"
 
 interface AIModalsProps {
   isOpen: boolean
-  onClose: () => void
+  onClose: void
   mode: "voice" | "smart" | null
 }
 
 export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
   const router = useRouter()
   const [isListening, setIsListening] = useState(false)
-  const [isSending, setIsSending] = useState(false) // Pendant l'envoi à l'IA
+  const [isSending, setIsSending] = useState(false)
   const [result, setResult] = useState<VoiceBasketResponseDTO | null>(null)
   const [error, setError] = useState<string | null>(null)
   
   const [budget, setBudget] = useState("150")
   const [duration, setDuration] = useState("1 semaine")
 
-  // Refs pour l'enregistrement audio
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
 
-  // Cleanup on close
   useEffect(() => {
     if (!isOpen) {
       setIsListening(false)
@@ -66,19 +65,16 @@ export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
     }
   }
 
-  // --- LOGIQUE RÉELLE DU MICRO (LIAISON BACKEND) ---
   const handleVoiceInteraction = async () => {
     setError(null)
     setResult(null)
 
-    // Si on est déjà en train d'écouter, on arrête
     if (isListening) {
       stopListening()
       return
     }
 
     try {
-      // 1. Demander l'autorisation du micro et lancer l'enregistrement
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" })
       
@@ -87,17 +83,15 @@ export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
         if (event.data.size > 0) audioChunksRef.current.push(event.data)
       }
 
-      // 2. Quand on clique sur "Arrêter", on envoie au backend
       mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach(track => track.stop()) // Coupe le micro physiquement
-        setIsSending(true) // Affiche le loader "Analyse en cours..."
+        stream.getTracks().forEach(track => track.stop())
+        setIsSending(true)
 
         try {
           const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" })
           const formData = new FormData()
           formData.append("audio", audioBlob, "enregistrement.webm")
 
-          // 3. Appel vers ton backend FastAPI
           const response = await fetch(`${API_URL}/voice-basket`, {
             method: "POST",
             body: formData
@@ -106,7 +100,7 @@ export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
           if (!response.ok) throw new Error("Erreur serveur")
           
           const data: VoiceBasketResponseDTO = await response.json()
-          setResult(data) // Affiche le panier dans la modal
+          setResult(data)
         } catch (err) {
           setError("Impossible de contacter l'IA. Vérifiez que le backend est lancé.")
         } finally {
@@ -123,7 +117,6 @@ export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
     }
   }
 
-  // (Le smart generation reste un mock comme tu l'avais fait)
   const handleSmartGeneration = () => {
     setIsListening(true)
     setTimeout(() => {
@@ -137,13 +130,11 @@ export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
 
-      {/* Modal Container */}
       <div className={cn(
         "relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col",
         mode === "voice" ? "bg-[#111116]" : "bg-white"
@@ -152,6 +143,7 @@ export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
         {/* === VOICE MODAL === */}
         {mode === "voice" && (
           <div className="flex flex-col h-full text-white overflow-y-auto">
+            
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-white/5 shrink-0">
               <div className="flex items-center gap-3">
@@ -184,7 +176,6 @@ export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
 
             {/* Visualizer Area */}
             <div className="py-12 border-b border-white/5 relative flex flex-col items-center justify-center shrink-0">
-              {/* Glow center */}
               <div className={cn(
                 "relative w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-6 transition-all duration-700",
                 isSending ? "bg-gradient-to-tr from-[#F07C00] to-[#FF9421] shadow-[0_0_30px_#F07C00]" :
@@ -193,7 +184,6 @@ export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
                 {isSending ? <Loader2 className="w-6 h-6 text-white animate-spin" /> : <div className="w-4 h-4 rounded-full bg-white opacity-80" />}
               </div>
               
-              {/* Bars placeholder */}
               <div className="flex items-center gap-1 justify-center h-8">
                 {[...Array(15)].map((_, i) => (
                   <div 
@@ -287,8 +277,9 @@ export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
                   <span className="text-xl font-black text-[#4CB84A]">{result.total_dh} DH</span>
                 </div>
 
+                {/* LE BOUTON QUI ENVOIE L'ID AU CHECKOUT */}
                 <button 
-                  onClick={() => { onClose(); router.push("/checkout?mode=voice") }}
+                  onClick={() => { onClose(); router.push(`/checkout?commande_id=${result.commande_id}`) }}
                   className="w-full mt-2 flex items-center justify-center gap-2 py-2.5 bg-[#1E8A3C] text-white rounded-xl font-bold text-sm hover:bg-[#176B2E] transition-colors"
                 >
                   Valider et Commander <ArrowRight className="w-4 h-4" />
