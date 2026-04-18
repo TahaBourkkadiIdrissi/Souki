@@ -2,8 +2,9 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
+import { API_BASE_URL } from "@/lib/api"
 import { 
   Leaf, 
   Eye, 
@@ -26,7 +27,9 @@ const cities = ["Fès", "Meknès", "Casablanca", "Rabat"]
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { login: contextLogin } = useAuth()
+  const redirectTarget = searchParams.get("redirect") || "/catalogue"
   const [mode, setMode] = useState<AuthMode>("login")
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -69,7 +72,7 @@ export default function LoginPage() {
           formattedPhone = phone.startsWith("0") ? `+212${phone.substring(1)}` : `+212${phone}`;
         }
 
-        const response = await fetch("http://localhost:8000/auth/register", {
+        const response = await fetch(`${API_BASE_URL}/auth/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -97,7 +100,7 @@ export default function LoginPage() {
         
         // Attendre un peu pour que le contexte se mette à jour
         setTimeout(() => {
-          router.push("/");
+          router.push(redirectTarget);
         }, 300);
       }
     } catch (err: any) {
