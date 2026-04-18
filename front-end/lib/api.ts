@@ -40,9 +40,9 @@ export async function validateUserToken(token: string) {
   return apiCall("/auth/me", { token })
 }
 
-export async function loginUser(loginId: string, password: string) {
+export async function loginUser(loginId: string, password: string, role = "CLIENT") {
   return apiCall("/auth/login", {
     method: "POST",
-    body: { login_id: loginId, password },
+    body: { login_id: loginId, password, role },
   })
 }

@@ -1,5 +1,7 @@
-from pydantic import BaseModel, EmailStr, validator
+import re
 from typing import Optional
+
+from pydantic import BaseModel, EmailStr, validator
 
 
 class UserRegister(BaseModel):
@@ -8,20 +10,69 @@ class UserRegister(BaseModel):
     password: str
     role: str = "CLIENT"
 
-    @validator('phone')
+    @validator("role")
+    def validate_role(cls, v):
+        role = v.upper()
+        if role not in {"CLIENT", "PARENT", "LIVREUR", "ADMIN"}:
+            raise ValueError("Role invalide")
+        return role
+
+    @validator("phone")
     def validate_phone(cls, v):
-        if v and not v.startswith('+212'):
-            raise ValueError("Le numéro doit commencer par +212")
+        if v:
+            pattern = r"^\+212[67]\d{8}$"
+            if not re.match(pattern, v):
+                raise ValueError("Le numéro doit être au format +212XXXXXXXXX (9 chiffres commençant par 6 ou 7)")
         return v
+
+    @validator("password")
+    def validate_password(cls, v):
+        if len(v) < 8:
+            raise ValueError("Le mot de passe doit contenir au moins 8 caractères")
+        if not any(char.isupper() for char in v):
+            raise ValueError("Le mot de passe doit contenir au moins une lettre majuscule")
+        if not any(char.isdigit() for char in v):
+            raise ValueError("Le mot de passe doit contenir au moins un chiffre")
+        return v
+
+    @validator("email", always=True)
+    def validate_contact_method(cls, email, values):
+        if not email and not values.get("phone"):
+            raise ValueError("Un email ou un numéro de téléphone est requis")
+        return email
 
 
 class LoginRequest(BaseModel):
-    login_id: str   # Email ou Phone
+    login_id: str
     password: str
+    role: str
 
 
 class GoogleLoginRequest(BaseModel):
     token: str
+
+
+class OTPVerifyRequest(BaseModel):
+    user_id: int
+    code: str
+    channel: Optional[str] = None
+
+    @validator("code", pre=True)
+    def normalize_code(cls, v):
+        if v is None:
+            return v
+        return str(v).strip().replace(" ", "")
+
+    @validator("code")
+    def validate_code(cls, v):
+        if not re.fullmatch(r"\d{6}", v):
+            raise ValueError("Le code OTP doit contenir 6 chiffres")
+        return v
+
+
+class OTPResendRequest(BaseModel):
+    user_id: int
+    channel: Optional[str] = None
 
 
 class UserResponse(BaseModel):
@@ -32,3 +83,24 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class RegisterResponse(UserResponse):
+    is_verified: bool
+    verification_required: bool
+    verification_channel: Optional[str] = None
+    verification_target: Optional[str] = None
+    expires_in_seconds: Optional[int] = None
+    resend_available_in_seconds: Optional[int] = None
+    message: str
+
+
+class OTPVerificationResponse(BaseModel):
+    message: str
+    access_token: Optional[str] = None
+    token_type: Optional[str] = None
+    is_verified: bool
+    verification_channel: Optional[str] = None
+    verification_target: Optional[str] = None
+    expires_in_seconds: Optional[int] = None
+    resend_available_in_seconds: Optional[int] = None

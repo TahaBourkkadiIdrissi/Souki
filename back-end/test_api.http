@@ -1,58 +1,115 @@
 ### Variables
-@base = http://localhost:8000
+@BASE_URL = http://localhost:8000
 @token = VOTRE_TOKEN_JWT_ICI
 
 ### ─────────────────────────────────────────────
-### AUTH
+### 🔐 AUTHENTIFICATION & SÉCURITÉ DES RÔLES
 ### ─────────────────────────────────────────────
 
-### Register
-POST {{base}}/auth/register
+### 1. Inscription d'un compte CLIENT
+POST {{BASE_URL}}/auth/register
 Content-Type: application/json
 
 {
-  "email": "test@example.com",
-  "phone": "+212612345678",
-  "password": "testpassword123",
+  "email": "client_test@example.ma",
+  "phone": "+212611111111",
+  "password": "Testpassword123",
   "role": "CLIENT"
 }
 
-###
-
-### Login
-POST {{base}}/auth/login
+### 2. Connexion CLIENT (Cas de Succès - 200 OK)
+# Le rôle correspond bien à celui en base de données.
+# @name client_login
+POST {{BASE_URL}}/auth/login
 Content-Type: application/json
 
 {
-  "login_id": "test@example.com",
-  "password": "testpassword123"
+  "login_id": "client_test@example.ma",
+  "password": "Testpassword123",
+  "role": "CLIENT"
 }
 
-###
-
-### Google Login
-POST {{base}}/auth/google-login
+### 3. Connexion CLIENT sur l'espace LIVREUR (Cas d'Échec - 403 Forbidden)
+# Résultat attendu : Accès refusé car ce compte est un CLIENT, pas un LIVREUR.
+POST {{BASE_URL}}/auth/login
 Content-Type: application/json
 
 {
-  "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImIzZDk1Yjk1ZmE0OGQxODBiODVmZmU4MDgyZmNmYTIxNzRiMDQ2NjciLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJhenAiOiI0MDc0MDg3MTgxOTIuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJhdWQiOiI0MDc0MDg3MTgxOTIuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJzdWIiOiIxMTgyNjEyNTQ2MDE2NjU1MzkyNjEiLCJoZCI6ImVzaXNhLmFjLm1hIiwiZW1haWwiOiJ0LmJvdXJra2FkaWlkcmlzc2lAZXNpc2EuYWMubWEiLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiYXRfaGFzaCI6ImVhaVFIc09Sb2E5c0l4QVRZRnFuVUEiLCJpYXQiOjE3NzY0MjMzMjMsImV4cCI6MTc3NjQyNjkyM30.uMayjhOHbITTMHhQEyMWLoD81fuVn_nGHVB44OIl6KWEofmZEwa4pMt0BFtqaP3yk9dX7e821a0RYo-GqDvge2YZWY_DkWimbYkYhOq2i-U2JchFPjA1_1-Ij_3at9GZU92JUVMW3zM7RNTDCefgI94pqMALACWEU2WbheKoA1cT1r1ltSnKS-uarP6dArAuzQd25wFMw2sZGkRpfajfVsEgI3keHDrJk2LBrXxsHfZk5cEhuuE1QUhHNCpxf8SGJrRsWVyEhWL79Y3KQ4QYPHBKYeFdYEkYMcVKTBvvlCqH0DJm9DGeoDTkcOAFpeRgtR9qZIp5TDyeco-4TD7m2w"
+  "login_id": "client_test@example.ma",
+  "password": "Testpassword123",
+  "role": "LIVREUR"
 }
 
-###
 
-### Get Me
-GET {{base}}/auth/me
-Authorization: Bearer {{token}}
+### 4. Inscription d'un compte LIVREUR
+POST {{BASE_URL}}/auth/register
+Content-Type: application/json
 
-###
+{
+  "email": "livreur_test@example.ma",
+  "phone": "+212622222222",
+  "password": "Testpassword123",
+  "role": "LIVREUR"
+}
+
+### 5. Connexion LIVREUR (Cas de Succès - 200 OK)
+POST {{BASE_URL}}/auth/login
+Content-Type: application/json
+
+{
+  "login_id": "livreur_test@example.ma",
+  "password": "Testpassword123",
+  "role": "LIVREUR"
+}
+
+### 6. Connexion avec rôle manquant (Cas d'Échec - 422 Validation Error)
+# Résultat attendu : Pydantic bloque la requête car il manque "role".
+POST {{BASE_URL}}/auth/login
+Content-Type: application/json
+
+{
+  "login_id": "client_test@example.ma",
+  "password": "Testpassword123"
+}
+
+### 7. Récupérer le profil de l'utilisateur connecté
+# Utilise le token généré par la requête #2
+@client_token = {{client_login.response.body.access_token}}
+
+GET {{BASE_URL}}/auth/me
+Authorization: Bearer {{client_token}}
+
 
 ### ─────────────────────────────────────────────
-### PROFILE
+### 🌐 CONNEXION GOOGLE
 ### ─────────────────────────────────────────────
 
-### Add Address
-POST {{base}}/profile/address
-Authorization: Bearer {{token}}
+### 8. Connexion / Inscription via Google (Cas de succès)
+# ⚠️ Remplace la valeur de "token" par un vrai jeton généré par Google côté client
+# @name google_login
+POST {{BASE_URL}}/auth/google-login
+Content-Type: application/json
+
+{
+    "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImIzZDk1Yjk1ZmE0OGQxODBiODVmZmU4MDgyZmNmYTIxNzRiMDQ2NjciLCJ0eXAiOiJKV1QifQ..."
+}
+
+### 9. Connexion via Google (Cas d'échec : Token invalide ou falsifié)
+POST {{BASE_URL}}/auth/google-login
+Content-Type: application/json
+
+{
+    "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImZhbHNpZmll..."
+}
+
+
+### ─────────────────────────────────────────────
+### 📍 PROFIL ET ADRESSES
+### ─────────────────────────────────────────────
+
+### 10. Ajouter une adresse
+POST {{BASE_URL}}/profile/address
+Authorization: Bearer {{client_token}}
 Content-Type: application/json
 
 {
@@ -61,38 +118,26 @@ Content-Type: application/json
   "details": "Appart 3, 2ème étage"
 }
 
-###
 
 ### ─────────────────────────────────────────────
-### CATALOGUE
+### 📦 CATALOGUE & COMMANDES VOCALES
 ### ─────────────────────────────────────────────
 
-### Get Catalogue
-GET {{base}}/api/catalogue
+### 11. Get Catalogue
+GET {{BASE_URL}}/api/catalogue
 
-###
-
-### ─────────────────────────────────────────────
-### COMMANDE VOCALE
-### ─────────────────────────────────────────────
-
-### Text Basket
-POST {{base}}/api/text-basket
+### 12. Text Basket
+POST {{BASE_URL}}/api/text-basket
 Content-Type: application/json
 
 {
   "texte": "3 kg de btata w kilo d tomates"
 }
 
-###
-
-### Voice Basket (multipart)
-POST {{base}}/api/voice-basket
+### 13. Voice Basket (multipart)
+POST {{BASE_URL}}/api/voice-basket
 Content-Type: multipart/form-data; boundary=----Boundary
 
 ------Boundary
 Content-Disposition: form-data; name="audio"; filename="commande.wav"
 Content-Type: audio/wav
-
-< ./commande.wav
-------Boundary--
