@@ -3,6 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+import entities
 from config import Base, engine
 from controllers.auth_controller import auth_router
 from controllers.profile_controller import profile_router
