@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
+import { GoogleLoginButton } from "@/components/auth/google-login-button"
 import { PasswordStrength } from "@/components/souki/password-strength"
 import { 
   Eye, 
@@ -27,7 +28,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 export default function LivreurLoginPage() {
   const router = useRouter()
-  const { login: contextLogin } = useAuth()
+  const { googleLogin } = useAuth()
   const [mode, setMode] = useState<AuthMode>("login")
   
   // UI States
@@ -226,6 +227,12 @@ export default function LivreurLoginPage() {
     }
   };
 
+  const handleGoogleLogin = async (credential: string) => {
+    setGeneralError("")
+    await googleLogin(credential, "LIVREUR")
+    router.push("/dashboard/livreur")
+  }
+
   // Composant réutilisable pour afficher l'erreur sous le champ
   const ErrorMessage = ({ message }: { message?: string }) => {
     if (!message) return null;
@@ -420,7 +427,20 @@ export default function LivreurLoginPage() {
                 {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Se connecter"}
               </button>
 
-              {/* ... (Google Login Omitted for Brevity if not strictly needed, kept generic structure) ... */}
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-4 bg-white text-[#8A8A8A]">ou continuer avec</span>
+                </div>
+              </div>
+
+              <GoogleLoginButton
+                onCredential={handleGoogleLogin}
+                onError={setGeneralError}
+                disabled={loading}
+              />
             </form>
           )}
 
