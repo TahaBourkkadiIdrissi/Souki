@@ -51,7 +51,7 @@ def resend_otp(data: OTPResendRequest):
 
 @auth_router.post("/google")
 def google_login(data: GoogleLoginRequest):
-    token = AuthService().google_login(data.token)
+    token = AuthService().google_login(data.token, data.role)
     if not token:
         raise HTTPException(status_code=401, detail="Token Google invalide ou expiré.")
     return {"access_token": token, "token_type": "bearer"}
@@ -59,7 +59,7 @@ def google_login(data: GoogleLoginRequest):
 
 @auth_router.post("/google-login")
 def google_login_legacy(data: GoogleLoginRequest):
-    token = AuthService().google_login(data.token)
+    token = AuthService().google_login(data.token, data.role)
     if not token:
         raise HTTPException(status_code=401, detail="Token Google invalide ou expiré.")
     return {"access_token": token, "token_type": "bearer"}

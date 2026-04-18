@@ -50,6 +50,14 @@ class LoginRequest(BaseModel):
 
 class GoogleLoginRequest(BaseModel):
     token: str
+    role: str = "CLIENT"
+
+    @validator("role")
+    def validate_role(cls, v):
+        role = v.upper()
+        if role not in {"CLIENT", "PARENT", "LIVREUR"}:
+            raise ValueError("Role invalide")
+        return role
 
 
 class OTPVerifyRequest(BaseModel):

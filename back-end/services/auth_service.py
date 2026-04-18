@@ -1,4 +1,3 @@
-import os
 import random
 from datetime import datetime, timedelta
 from typing import Optional
@@ -7,15 +6,17 @@ from fastapi import HTTPException
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 
-from config import LocalSession
+from config import GOOGLE_CLIENT_ID, LocalSession
 from dao.user_dao import UserDao
+from entities.client_entity import Client
+from entities.livreur_entity import Livreur
+from entities.parent_entity import Parent
 from entities.user_entity import User
 from entities.verification_code_entity import VerificationCode
 from entities.wallet_entity import Wallet
 from services.email_delivery_service import EmailDeliveryService
 from security import create_access_token, hash_password, verify_password
 
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 OTP_EXPIRATION_MINUTES = 15
 OTP_RESEND_LIMIT = 3
 OTP_RESEND_WINDOW_HOURS = 1
@@ -200,12 +201,14 @@ class AuthService:
         finally:
             db.close()
 
-    def google_login(self, token: str):
+    def google_login(self, token: str, role: str = "CLIENT"):
         try:
             idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), GOOGLE_CLIENT_ID)
             email = idinfo.get("email")
             if not email:
                 return None
+
+            normalized_role = (role or "CLIENT").upper()
 
             db = LocalSession()
             try:
@@ -213,7 +216,7 @@ class AuthService:
                 if not user:
                     user = User(
                         email=email,
-                        role="CLIENT",
+                        role=normalized_role,
                         password=None,
                         is_verified=True,
                         is_email_verified=True,
@@ -223,10 +226,16 @@ class AuthService:
                     db.add(user)
                     db.flush()
                 else:
+                    if user.role.upper() != normalized_role:
+                        raise HTTPException(
+                            status_code=403,
+                            detail=f"Acces refuse. Ce compte appartient a un profil {user.role}, vous ne pouvez pas vous connecter sur l'espace {normalized_role}."
+                        )
                     user.is_verified = True
                     user.is_email_verified = True
                     user.auth_provider = self._merge_auth_provider(user.auth_provider, "google")
 
+                self._ensure_role_profile(db, user)
                 self._ensure_wallet(db, user)
                 db.commit()
                 db.refresh(user)
@@ -344,3 +353,29 @@ class AuthService:
         if user.wallet:
             return
         db.add(Wallet(user_id=user.id, solde=0))
+
+    def _ensure_client_profile(self, db, user: User):
+        if user.role != "CLIENT":
+            return
+        if user.client_profile:
+            return
+        db.add(Client(user_id=user.id))
+
+    def _ensure_parent_profile(self, db, user: User):
+        if user.role != "PARENT":
+            return
+        if user.parent_profile:
+            return
+        db.add(Parent(user_id=user.id))
+
+    def _ensure_livreur_profile(self, db, user: User):
+        if user.role != "LIVREUR":
+            return
+        if user.livreur_profile:
+            return
+        db.add(Livreur(user_id=user.id))
+
+    def _ensure_role_profile(self, db, user: User):
+        self._ensure_client_profile(db, user)
+        self._ensure_parent_profile(db, user)
+        self._ensure_livreur_profile(db, user)
