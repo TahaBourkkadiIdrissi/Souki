@@ -187,10 +187,12 @@ export default function LivreurLoginPage() {
           throw new Error(data.detail || "Erreur lors de la création du compte.");
         }
 
-        setMode("login");
+        router.push(
+          `/verify?userId=${data.id}&channel=${data.verification_channel}&target=${encodeURIComponent(data.verification_target || "")}&role=${String(data.role || selectedRole).toLowerCase()}`
+        );
         alert("Compte livreur créé avec succès ! En attente de validation par un administrateur.");
         setPassword(""); 
-        setConfirmPassword("");
+        return;
 
       } else {
         // --- NOUVELLE LOGIQUE DE CONNEXION SÉCURISÉE ---

@@ -12,7 +12,6 @@ import {
   Truck, 
   Users, 
   CreditCard, 
-  Wallet, 
   Banknote,
   Star,
   ArrowRight,
@@ -25,7 +24,6 @@ import {
   Zap
 } from "lucide-react"     
 import { ProductCard } from "@/components/souki/product-card"
-import { AIModals } from "@/components/souki/ai-modals"
 import { Navbar } from "@/components/souki/navbar"
 
 /*liste d'objets products*/
@@ -50,7 +48,6 @@ const testimonials = [
 export default function HomePage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [cart, setCart] = useState<{id: string, quantity: number}[]>([])
-  const [activeModal, setActiveModal] = useState<"voice" | "smart" | null>(null)
   const { isAuthenticated, validateToken } = useAuth()
   const router = useRouter()
 
@@ -67,23 +64,16 @@ export default function HomePage() {
   }, [])
 
   // Fonction helper pour protéger les actions
-  const protectAction = (callback: () => void) => {
-    return () => {
-      if (!isAuthenticated) {
-        router.push("/login")
-        return
-      }
-      callback()
-    }
-  }
-
-  const handleAddToCart = (id: string, quantity: number) => {
+  const handleAddToCart = (id: number | string, quantity: number) => {
+    const normalizedId = String(id)
     setCart(prev => {
-      const existing = prev.find(item => item.id === id)
+      const existing = prev.find(item => item.id === normalizedId)
       if (existing) {
-        return prev.map(item => item.id === id ? { ...item, quantity: item.quantity + quantity } : item)
+        return prev.map(item =>
+          item.id === normalizedId ? { ...item, quantity: item.quantity + quantity } : item
+        )
       }
-      return [...prev, { id, quantity }]
+      return [...prev, { id: normalizedId, quantity }]
     })
   }
 
@@ -93,11 +83,11 @@ export default function HomePage() {
   }
 
   const handleOpenVoiceModal = () => {
-    setActiveModal("voice")
+    router.push("/catalogue?assistant=voice")
   }
 
   const handleOpenSmartModal = () => {
-    setActiveModal("smart")
+    router.push("/catalogue?assistant=smart")
   }
 
   const cartItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0)
@@ -136,7 +126,7 @@ export default function HomePage() {
 
             <div className="flex flex-col items-center gap-8 pt-4">
               <button
-                onClick={protectAction(() => router.push("/catalogue"))}
+                onClick={() => router.push("/catalogue")}
                 className="group relative inline-flex items-center justify-center gap-3 px-10 py-5 bg-[#1E8A3C] text-white rounded-2xl font-bold text-2xl hover:bg-[#176B2E] transition-all hover:scale-105 shadow-[0_20px_50px_-10px_rgba(30,138,60,0.5)] overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
@@ -146,7 +136,7 @@ export default function HomePage() {
 
               <div className="grid sm:grid-cols-2 gap-4 w-full max-w-2xl px-4">
                 <button 
-                  onClick={protectAction(handleOpenVoiceModal)}
+                  onClick={handleOpenVoiceModal}
                   className="glass-morphism group flex items-center justify-center gap-3 px-6 py-4 text-white rounded-2xl font-bold text-lg hover:bg-white/40 border-2 border-white/50 transition-all active:scale-95 transition-all"
                 >
                   <div className="w-10 h-10 rounded-full bg-white/30 flex items-center justify-center group-hover:bg-[#4CB84A]/30 transition-colors">
@@ -155,7 +145,7 @@ export default function HomePage() {
                   Assistant Vocal
                 </button>
                 <button 
-                  onClick={protectAction(handleOpenSmartModal)}
+                  onClick={handleOpenSmartModal}
                   className="bg-white/20 backdrop-blur-xl border-2 border-white/50 group flex items-center justify-center gap-3 px-6 py-4 text-white rounded-2xl font-bold text-lg hover:bg-white/40 transition-all active:scale-95 shadow-xl transition-all"
                 >
                   <div className="w-10 h-10 rounded-full bg-white/30 flex items-center justify-center group-hover:bg-[#F07C00]/30 transition-colors">
@@ -204,7 +194,7 @@ export default function HomePage() {
               <Shield className="w-6 h-6 shrink-0 opacity-80" />
               <div>
                 <p className="font-bold text-sm leading-tight">Paiement Sécurisé</p>
-                <p className="text-xs text-white/70">Cash, CMI, Wallet</p>
+                <p className="text-xs text-white/70">Cash et CMI</p>
               </div>
             </div>
             <div className="flex items-center gap-3 justify-center md:justify-start">
@@ -273,7 +263,11 @@ export default function HomePage() {
               <ProductCard
                 key={product.id}
                 {...product}
-                onAddToCart={!isAuthenticated ? () => router.push("/login") : handleAddToCart}
+                onAddToCart={
+                  !isAuthenticated
+                    ? () => router.push("/login/client?redirect=/catalogue")
+                    : handleAddToCart
+                }
               />
             ))}
           </div>
@@ -380,13 +374,6 @@ export default function HomePage() {
                 </div>
               </div>
               <span className="text-sm font-medium text-[#3D3D3D]">Carte Bancaire</span>
-            </div>
-
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-20 h-14 bg-white rounded-lg shadow-sm border border-gray-100 flex items-center justify-center">
-                <Wallet className="w-8 h-8 text-[#1E8A3C]" />
-              </div>
-              <span className="text-sm font-medium text-[#3D3D3D]">Wallet SOUKI</span>
             </div>
 
             <div className="flex flex-col items-center gap-3">
@@ -574,11 +561,6 @@ export default function HomePage() {
         </div>
       </footer>
 
-      <AIModals 
-        isOpen={activeModal !== null} 
-        onClose={() => setActiveModal(null)} 
-        mode={activeModal} 
-      />
     </div>
   )
 }

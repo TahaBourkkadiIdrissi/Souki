@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import { PasswordStrength } from "@/components/souki/password-strength"
 import { 
@@ -28,7 +28,9 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { login: contextLogin } = useAuth()
+  const redirectTarget = searchParams.get("redirect") || "/"
   const [mode, setMode] = useState<AuthMode>("login")
   
   // UI States
@@ -162,9 +164,11 @@ export default function LoginPage() {
           throw new Error(data.detail || "Erreur lors de la création du compte.");
         }
 
-        setMode("login");
+        router.push(
+          `/verify?userId=${data.id}&channel=${data.verification_channel}&target=${encodeURIComponent(data.verification_target || "")}&role=${String(data.role || selectedRole).toLowerCase()}`
+        );
         alert("Compte créé avec succès ! Vous pouvez maintenant vous connecter.");
-        resetForm();
+        return;
 
       } else {
         // --- NOUVELLE LOGIQUE DE CONNEXION SÉCURISÉE ---
@@ -187,9 +191,14 @@ export default function LoginPage() {
         // Si ton hook useAuth gère l'état global avec le token, tu peux l'appeler ici
         // await contextLogin(data.access_token);
         localStorage.setItem("token", data.access_token);
+        window.dispatchEvent(
+          new CustomEvent("auth-token-changed", {
+            detail: { token: data.access_token },
+          })
+        );
 
         setTimeout(() => {
-          router.push("/dashboard");
+          router.push(redirectTarget);
         }, 300);
       }
     } catch (err: any) {

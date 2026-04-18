@@ -14,6 +14,10 @@ class User(Base):
     is_verified= Column(Boolean,     default=False)
     parent_id  = Column(Integer, ForeignKey('t_users.id'), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+    auth_provider = Column(String(50), default="local") # Valeurs possibles : "local", "google"
+    # Au lieu d'un simple is_verified yes:
+    is_email_verified = Column(Boolean, default=False)
+    is_phone_verified = Column(Boolean, default=False)
 
     addresses       = relationship("Address", back_populates="owner")
     client_profile  = relationship("Client", back_populates="user", uselist=False)

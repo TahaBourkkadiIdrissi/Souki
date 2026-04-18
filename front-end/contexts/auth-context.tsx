@@ -1,6 +1,7 @@
 "use client"
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react"
+import React, { createContext, useContext, useEffect, useState, ReactNode } from "react"
+import { API_BASE_URL } from "@/lib/api"
 
 export interface User {
   id: number
@@ -15,7 +16,7 @@ interface AuthContextType {
   token: string | null
   isLoading: boolean
   isAuthenticated: boolean
-  login: (loginId: string, password: string) => Promise<void>
+  login: (loginId: string, password: string, role?: string) => Promise<void>
   logout: () => void
   validateToken: () => Promise<boolean>
 }
@@ -28,97 +29,108 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
-  // Valider le token au démarrage
-  useEffect(() => {
-    const initializeAuth = async () => {
-      setIsLoading(true)
-      const storedToken = localStorage.getItem("token")
-      
-      if (storedToken) {
-        setToken(storedToken)
-        const isValid = await validateTokenWithBackend(storedToken)
-        
-        if (isValid) {
-          setIsAuthenticated(true)
-        } else {
-          // Token invalide, le supprimer
-          localStorage.removeItem("token")
-          setToken(null)
-          setIsAuthenticated(false)
-        }
-      } else {
-        setIsAuthenticated(false)
-      }
-      
-      setIsLoading(false)
-    }
-
-    initializeAuth()
-
-    // Ajouter un listener pour les changements de localStorage
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "token") {
-        if (e.newValue) {
-          setToken(e.newValue)
-          setIsAuthenticated(true)
-        } else {
-          setToken(null)
-          setUser(null)
-          setIsAuthenticated(false)
-        }
-      }
-    }
-
-    window.addEventListener("storage", handleStorageChange)
-    return () => window.removeEventListener("storage", handleStorageChange)
-  }, [])
-
   const validateTokenWithBackend = async (tok: string): Promise<boolean> => {
     try {
-      const response = await fetch("http://localhost:8000/auth/me", {
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
         method: "GET",
         headers: {
-          "Authorization": `Bearer ${tok}`,
-          "Content-Type": "application/json"
+          Authorization: `Bearer ${tok}`,
+          "Content-Type": "application/json",
         },
         mode: "cors",
-        credentials: "omit"
+        credentials: "omit",
       })
 
-      if (response.ok) {
-        const userData = await response.json()
-        setUser(userData)
-        return true
+      if (!response.ok) {
+        return false
       }
-      return false
+
+      const userData = await response.json()
+      setUser(userData)
+      return true
     } catch (error) {
       console.error("Token validation error:", error)
       return false
     }
   }
 
-  const validateToken = async (): Promise<boolean> => {
-    if (!token) return false
-    const isValid = await validateTokenWithBackend(token)
+  const syncAuthState = async (nextToken: string | null): Promise<boolean> => {
+    if (!nextToken) {
+      localStorage.removeItem("token")
+      setToken(null)
+      setUser(null)
+      setIsAuthenticated(false)
+      return false
+    }
+
+    localStorage.setItem("token", nextToken)
+    setToken(nextToken)
+
+    const isValid = await validateTokenWithBackend(nextToken)
     if (isValid) {
       setIsAuthenticated(true)
-    } else {
-      setIsAuthenticated(false)
+      return true
     }
-    return isValid
+
+    localStorage.removeItem("token")
+    setToken(null)
+    setUser(null)
+    setIsAuthenticated(false)
+    return false
   }
 
-  const login = async (loginId: string, password: string) => {
+  useEffect(() => {
+    const initializeAuth = async () => {
+      setIsLoading(true)
+      const storedToken = localStorage.getItem("token")
+
+      if (storedToken) {
+        await syncAuthState(storedToken)
+      } else {
+        setIsAuthenticated(false)
+      }
+
+      setIsLoading(false)
+    }
+
+    const handleStorageChange = async (e: StorageEvent) => {
+      if (e.key === "token") {
+        await syncAuthState(e.newValue)
+      }
+    }
+
+    const handleAuthTokenChanged = async (event: Event) => {
+      const customEvent = event as CustomEvent<{ token: string | null }>
+      await syncAuthState(customEvent.detail?.token ?? null)
+    }
+
+    void initializeAuth()
+    window.addEventListener("storage", handleStorageChange)
+    window.addEventListener("auth-token-changed", handleAuthTokenChanged as EventListener)
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange)
+      window.removeEventListener("auth-token-changed", handleAuthTokenChanged as EventListener)
+    }
+  }, [])
+
+  const validateToken = async (): Promise<boolean> => {
+    if (!token) return false
+    return syncAuthState(token)
+  }
+
+  const login = async (loginId: string, password: string, role = "CLIENT") => {
     try {
-      const response = await fetch("http://localhost:8000/auth/login", {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           login_id: loginId,
-          password: password
+          password,
+          role,
         }),
         mode: "cors",
-        credentials: "omit"
+        credentials: "omit",
       })
 
       if (!response.ok) {
@@ -128,42 +140,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const data = await response.json()
       const newToken = data.access_token
-      
-      // Sauvegarder token AVANT de valider
-      localStorage.setItem("token", newToken)
-      setToken(newToken)
 
-      // Valider et charger les données utilisateur
-      const isValid = await validateTokenWithBackend(newToken)
-      if (isValid) {
-        setIsAuthenticated(true)
-      } else {
-        // Si la validation échoue, nettoyer
-        localStorage.removeItem("token")
-        setToken(null)
-        setIsAuthenticated(false)
-        throw new Error("Validation du token échouée")
+      const isValid = await syncAuthState(newToken)
+      if (!isValid) {
+        throw new Error("Validation du token echouee")
       }
     } catch (error) {
       console.error("Login error:", error)
-      // Nettoyage en cas d'erreur
-      localStorage.removeItem("token")
-      setToken(null)
-      setUser(null)
-      setIsAuthenticated(false)
+      await syncAuthState(null)
       throw error
     }
   }
 
   const logout = () => {
-    localStorage.removeItem("token")
-    setToken(null)
-    setUser(null)
-    setIsAuthenticated(false)
+    void syncAuthState(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, isAuthenticated, login, logout, validateToken }}>
+    <AuthContext.Provider
+      value={{ user, token, isLoading, isAuthenticated, login, logout, validateToken }}
+    >
       {children}
     </AuthContext.Provider>
   )

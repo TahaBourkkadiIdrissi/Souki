@@ -10,6 +10,7 @@ from entities.ligne_panier_entity import LignePanier
 from entities.commande_entity import Commande
 from entities.paiement_entity import Paiement
 from entities.wallet_entity import Wallet
+from entities.verification_code_entity import VerificationCode
 from entities.transaction_wallet_entity import TransactionWallet
 from entities.abonnement_entity import Abonnement
 from entities.jit_log_entity import JITLog
@@ -29,6 +30,7 @@ __all__ = [
     "Commande",
     "Paiement",
     "Wallet",
+    "VerificationCode",
     "TransactionWallet",
     "Abonnement",
     "JITLog",

@@ -191,14 +191,16 @@ export default function ParentLoginPage() {
           throw new Error(data.detail || "Erreur lors de la création du compte.");
         }
 
-        setMode("login");
+        router.push(
+          `/verify?userId=${data.id}&channel=${data.verification_channel}&target=${encodeURIComponent(data.verification_target || "")}&role=${String(data.role || selectedRole).toLowerCase()}`
+        );
         alert("Compte parent créé avec succès ! Vous pouvez maintenant vous connecter.");
         setPassword(""); 
-        setConfirmPassword("");
+        return;
 
       } else {
         // Mode Login
-        await contextLogin(loginId, password);
+        await contextLogin(loginId, password, "PARENT");
         setTimeout(() => {
           router.push("/dashboard"); // À adapter vers le dashboard parent
         }, 300);

@@ -43,7 +43,7 @@ export function Navbar() {
               ) : (
                 <>
                   <Link 
-                    href="/login" 
+                    href="/login/client" 
                     className="hidden sm:flex items-center px-4 py-2 border-2 border-[#1E8A3C] text-[#1E8A3C] rounded-xl font-semibold hover:bg-[#1E8A3C] hover:text-white transition-colors"
                   >
                     Connexion
