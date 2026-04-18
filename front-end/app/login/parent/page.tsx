@@ -3,8 +3,10 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/hooks/useAuth"
+import { GoogleLoginButton } from "@/components/auth/google-login-button"
+import { PasswordStrength } from "@/components/souki/password-strength"
 import { 
-  Leaf, 
   Eye, 
   EyeOff, 
   Mail, 
@@ -12,125 +14,231 @@ import {
   User, 
   Phone, 
   MapPin,
-  Clock,
   ChevronDown,
   Check,
-  Loader2
+  Loader2,
+  Users, 
+  AlertCircle 
 } from "lucide-react"
 
 type AuthMode = "login" | "signup"
 type UserRole = "client" | "parent" | "livreur"
 
 const cities = ["Fès", "Meknès", "Casablanca", "Rabat"]
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
-export default function LoginPage() {
+export default function ParentLoginPage() {
   const router = useRouter()
+  const { login: contextLogin, googleLogin } = useAuth()
   const [mode, setMode] = useState<AuthMode>("login")
+  
+  // UI States
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
   const [acceptTerms, setAcceptTerms] = useState(false)
-  // Par défaut, on sélectionne "parent" car on est sur la page Parent
+  const [showCityDropdown, setShowCityDropdown] = useState(false)
+  
+  // Form States
   const [selectedRole, setSelectedRole] = useState<UserRole>("parent")
   const [selectedCity, setSelectedCity] = useState("")
-  const [showCityDropdown, setShowCityDropdown] = useState(false)
-
-  // États du formulaire
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
+  const [loginId, setLoginId] = useState(""); // Sert d'email pour l'inscription, et d'identifiant (email/tel) pour le login
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   
-  // États de chargement et d'erreur
-  const [error, setError] = useState("");
+  // Loading & Error States
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [generalError, setGeneralError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Nettoyer l'erreur d'un champ
+  const clearFieldError = (field: string) => {
+    setFieldErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[field];
+      return newErrors;
+    });
+  };
+
+  // Validation en temps réel pendant la frappe (Live Validation)
+  const handleFieldChange = (field: string, value: string) => {
+    if (field === "firstName") setFirstName(value);
+    if (field === "lastName") setLastName(value);
+    if (field === "loginId") setLoginId(value);
+    if (field === "phone") setPhone(value);
+    if (field === "password") setPassword(value);
+    if (field === "confirmPassword") setConfirmPassword(value);
+
+    if (mode === "signup") {
+      let currentError = "";
+
+      if (field === "phone") {
+        const localRegex = /^(0|)[67]\d{8}$/;
+        const intlRegex = /^\+212[67]\d{8}$/;
+        if (value && !localRegex.test(value) && !intlRegex.test(value)) {
+          currentError = "Format invalide (ex: 06XXXXXXXX ou +2126XXXXXXXX)";
+        }
+      }
+
+      if (field === "password") {
+        if (value.length > 0 && value.length < 8) currentError = "8 caractères minimum requis.";
+        else if (value.length > 0 && !/[A-Z]/.test(value)) currentError = "Doit contenir une lettre majuscule.";
+        else if (value.length > 0 && !/[0-9]/.test(value)) currentError = "Doit contenir au moins un chiffre.";
+        
+        if (confirmPassword && value !== confirmPassword) {
+          setFieldErrors(prev => ({ ...prev, confirmPassword: "Les mots de passe ne correspondent pas." }));
+        } else if (confirmPassword && value === confirmPassword) {
+          setFieldErrors(prev => { const n = {...prev}; delete n.confirmPassword; return n; });
+        }
+      }
+
+      if (field === "confirmPassword") {
+        if (value && value !== password) {
+          currentError = "Les mots de passe ne correspondent pas.";
+        }
+      }
+
+      setFieldErrors(prev => {
+        if (!currentError) {
+          const newErrors = { ...prev };
+          delete newErrors[field];
+          return newErrors;
+        }
+        return { ...prev, [field]: currentError };
+      });
+    }
+  };
+
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+
+    if (mode === "signup") {
+      if (!firstName.trim()) errors.firstName = "Le prénom est requis.";
+      if (!lastName.trim()) errors.lastName = "Le nom est requis.";
+      if (!loginId.trim()) errors.loginId = "L'adresse email est requise.";
+      else if (!/\S+@\S+\.\S+/.test(loginId)) errors.loginId = "Format d'email invalide.";
+      
+      if (!selectedCity) errors.selectedCity = "Veuillez sélectionner une ville.";
+      
+      if (!password) errors.password = "Le mot de passe est requis.";
+      else if (password.length < 8) errors.password = "Le mot de passe doit faire au moins 8 caractères.";
+      
+      if (password !== confirmPassword) errors.confirmPassword = "Les mots de passe ne correspondent pas.";
+      if (!acceptTerms) errors.acceptTerms = "Vous devez accepter les conditions (CGU).";
+    } else {
+      if (!loginId.trim()) errors.loginId = "L'email ou le téléphone est requis.";
+      if (!password) errors.password = "Le mot de passe est requis.";
+    }
+
+    return errors;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(""); // On réinitialise les erreurs
+    setGeneralError(""); 
+    
+    if (Object.keys(fieldErrors).length > 0) return;
+
+    const validationErrors = validateForm();
+    if (Object.keys(validationErrors).length > 0) {
+      setFieldErrors(validationErrors);
+      return;
+    }
+
     setLoading(true);
 
     try {
       if (mode === "signup") {
-        // --- LOGIQUE D'INSCRIPTION ---
-        if (password !== confirmPassword) {
-          throw new Error("Les mots de passe ne correspondent pas.");
-        }
-        if (!acceptTerms) {
-          throw new Error("Vous devez accepter les conditions (CGU).");
-        }
-
-        // Formatage du téléphone pour le backend (ajout de +212)
-        let formattedPhone = phone;
-        if (phone) {
-          formattedPhone = phone.startsWith("0") ? `+212${phone.substring(1)}` : `+212${phone}`;
+        let formattedPhone = phone.trim();
+        if (formattedPhone) {
+          if (formattedPhone.startsWith("+212")) {
+             // OK
+          } else if (formattedPhone.startsWith("0")) {
+            formattedPhone = `+212${formattedPhone.substring(1)}`;
+          } else {
+            formattedPhone = `+212${formattedPhone}`;
+          }
         }
 
-        const response = await fetch("http://localhost:8000/auth/register", {
+        const response = await fetch(`${API_URL}/auth/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            email: email,
-            phone: formattedPhone || undefined, // On envoie le tel uniquement s'il est rempli
+            email: loginId,
+            phone: formattedPhone || undefined,
             password: password,
-            role: selectedRole.toUpperCase() // Envoie CLIENT, PARENT ou LIVREUR
+            role: selectedRole.toUpperCase()
           }),
         });
-
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.detail || "Erreur lors de la création du compte.");
-        }
-
-        // Si c'est un succès
-        setMode("login");
-        alert("Compte créé avec succès ! Vous pouvez maintenant vous connecter.");
-        setPassword(""); 
-        setConfirmPassword("");
-
-      } else {
-        // --- LOGIQUE DE CONNEXION ---
-        const response = await fetch("http://localhost:8000/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            login_id: email, // Ton backend gère l'email ou le téléphone ici !
-            password: password,
-          }),
-        });
-
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.detail || "Email ou mot de passe incorrect.");
-        }
 
         const data = await response.json();
-        
-        // On sauvegarde le token JWT
-        localStorage.setItem("token", data.access_token);
-        
-        // Redirection vers le tableau de bord parent
-        router.push("/dashboard"); 
+
+        if (!response.ok) {
+          // Gestion des erreurs de validation de Pydantic (FastAPI)
+          if (response.status === 422 && Array.isArray(data.detail)) {
+            const apiErrors: Record<string, string> = {};
+            data.detail.forEach((err: any) => {
+              const field = err.loc[err.loc.length - 1]; // Extrait le nom du champ (ex: 'phone')
+              apiErrors[field] = err.msg;
+            });
+            setFieldErrors(apiErrors);
+            setLoading(false);
+            return;
+          }
+          // Gestion des erreurs métier (ex: email déjà pris)
+          throw new Error(data.detail || "Erreur lors de la création du compte.");
+        }
+
+        router.push(
+          `/verify?userId=${data.id}&channel=${data.verification_channel}&target=${encodeURIComponent(data.verification_target || "")}&role=${String(data.role || selectedRole).toLowerCase()}`
+        );
+        alert("Compte parent créé avec succès ! Vous pouvez maintenant vous connecter.");
+        setPassword(""); 
+        return;
+
+      } else {
+        // Mode Login
+        await contextLogin(loginId, password, "PARENT");
+        setTimeout(() => {
+          router.push("/dashboard"); // À adapter vers le dashboard parent
+        }, 300);
       }
     } catch (err: any) {
-      setError(err.message);
+      setGeneralError(err.message || "Une erreur inattendue est survenue.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleLogin = async (credential: string) => {
+    setGeneralError("")
+    await googleLogin(credential, "PARENT")
+    router.push("/dashboard")
+  }
+
+  const ErrorMessage = ({ message }: { message?: string }) => {
+    if (!message) return null;
+    return (
+      <span className="text-red-500 text-xs mt-1.5 flex items-center gap-1 font-medium animate-in fade-in slide-in-from-top-1">
+        <AlertCircle className="w-3.5 h-3.5" />
+        {message}
+      </span>
+    );
   };
 
   return (
     <div className="min-h-screen flex">
       {/* Left Side - Brand Visual */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#F5C400] to-[#EAB308] p-12 flex-col justify-between relative overflow-hidden">
-        {/* Floating parent/school decoration */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-20 left-20 text-8xl rotate-12 animate-bounce" style={{ animationDuration: '3s' }}>🎒</div>
+        {/* Floating decorations */}
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-20 left-20 text-8xl rotate-12 animate-bounce" style={{ animationDuration: '3s' }}>👨‍👩‍👧‍👦</div>
           <div className="absolute top-40 right-32 text-7xl -rotate-12 animate-bounce" style={{ animationDuration: '4s', animationDelay: '1s' }}>🍎</div>
-          <div className="absolute bottom-40 left-32 text-6xl rotate-45 animate-bounce" style={{ animationDuration: '5s', animationDelay: '0.5s' }}>👦</div>
-          <div className="absolute bottom-20 right-20 text-8xl -rotate-6 animate-bounce" style={{ animationDuration: '3.5s', animationDelay: '1.5s' }}>🥪</div>
+          <div className="absolute bottom-40 left-32 text-6xl rotate-45 animate-bounce" style={{ animationDuration: '5s', animationDelay: '0.5s' }}>🥪</div>
+          <div className="absolute bottom-20 right-20 text-8xl -rotate-6 animate-bounce" style={{ animationDuration: '3.5s', animationDelay: '1.5s' }}>🥦</div>
         </div>
 
         {/* Logo */}
@@ -141,101 +249,106 @@ export default function LoginPage() {
             </div>
             <div>
               <span className="text-3xl font-bold text-white">SOUKI</span>
-              <span className="text-lg text-white/80 ml-2">Espace Parent</span>
+              <span className="text-lg text-white/90 ml-2 font-medium">Espace Parent</span>
             </div>
           </Link>
         </div>
 
         {/* Central content */}
         <div className="relative z-10 flex-1 flex flex-col justify-center">
-          <h1 className="text-4xl xl:text-5xl font-bold text-white mb-6 leading-tight text-balance">
-            Des repas sains pour vos enfants.
+          <h1 className="text-4xl xl:text-5xl font-bold text-white mb-6 leading-tight text-balance shadow-sm">
+            Prenez soin de votre famille.
           </h1>
-          <p className="text-xl text-white/80 mb-8 max-w-md">
-            Gérez les cantines, suivez les livraisons à l'école et assurez une alimentation équilibrée.
+          <p className="text-xl text-white/90 mb-8 max-w-md font-medium">
+            Planifiez des repas sains et commandez des produits frais pour le bien-être de vos proches.
           </p>
           
-          <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-2xl p-4 max-w-sm">
-            <div className="p-2 bg-white/20 rounded-xl">
-              <User className="w-6 h-6 text-white" />
+          <div className="flex items-center gap-3 bg-white/20 backdrop-blur-md rounded-2xl p-4 max-w-sm border border-white/30">
+            <div className="p-2 bg-white/30 rounded-xl">
+              <Users className="w-6 h-6 text-white" />
             </div>
             <div>
-              <p className="text-white font-semibold">Famille & École</p>
-              <p className="text-white/70 text-sm">Simplifiez votre quotidien</p>
+              <p className="text-white font-semibold">Gestion simplifiée</p>
+              <p className="text-white/80 text-sm">Pour toute la famille</p>
             </div>
           </div>
         </div>
 
         {/* Bottom decoration */}
-        <div className="relative z-10 text-white/60 text-sm">
+        <div className="relative z-10 text-white/80 text-sm font-medium">
           © 2026 SOUKI Fresh Market
         </div>
       </div>
 
       {/* Right Side - Form */}
-      <div className="flex-1 flex flex-col justify-center px-6 lg:px-12 xl:px-20 py-12 bg-white">
+      <div className="flex-1 flex flex-col justify-center px-6 lg:px-12 xl:px-20 py-12 bg-white overflow-y-auto">
         <div className="max-w-md mx-auto w-full">
           {/* Mobile logo */}
           <div className="lg:hidden mb-8">
             <Link href="/" className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-xl shadow-sm overflow-hidden flex items-center justify-center bg-white p-0.5 pointer-events-none">
+              <div className="w-10 h-10 rounded-xl shadow-sm overflow-hidden flex items-center justify-center bg-white p-0.5 pointer-events-none border border-gray-100">
                 <img src="/logo3.png" alt="SOUKI" className="w-[175%] h-full max-w-none object-cover" style={{ objectPosition: "left center" }} />
               </div>
-              <span className="text-xl font-bold text-[#1E8A3C]">SOUKI Fresh Market</span>
+              <span className="text-xl font-bold text-[#D97706]">SOUKI Espace Parent</span>
             </Link>
           </div>
 
           {/* Tabs */}
           <div className="flex gap-4 mb-6 border-b border-gray-200">
             <button
-              onClick={() => { setMode("login"); setError(""); }}
+              onClick={() => { setMode("login"); setGeneralError(""); setFieldErrors({}); }}
               className={`pb-4 px-2 font-semibold text-lg transition-colors relative ${
-                mode === "login" ? "text-[#EAB308]" : "text-[#8A8A8A] hover:text-[#3D3D3D]"
+                mode === "login" ? "text-[#D97706]" : "text-[#8A8A8A] hover:text-[#3D3D3D]"
               }`}
             >
               Se connecter
               {mode === "login" && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#EAB308]" />
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#F5C400]" />
               )}
             </button>
             <button
-              onClick={() => { setMode("signup"); setError(""); }}
+              onClick={() => { setMode("signup"); setGeneralError(""); setFieldErrors({}); }}
               className={`pb-4 px-2 font-semibold text-lg transition-colors relative ${
-                mode === "signup" ? "text-[#EAB308]" : "text-[#8A8A8A] hover:text-[#3D3D3D]"
+                mode === "signup" ? "text-[#D97706]" : "text-[#8A8A8A] hover:text-[#3D3D3D]"
               }`}
             >
               S'inscrire
               {mode === "signup" && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#EAB308]" />
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#F5C400]" />
               )}
             </button>
           </div>
 
-          {/* Affichage des Erreurs */}
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl text-sm font-medium border border-red-100">
-              {error}
+          {/* Erreur générale du Backend */}
+          {generalError && (
+            <div className="mb-6 flex items-start gap-3 p-4 bg-red-50 text-red-700 rounded-xl text-sm font-medium border border-red-200">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              <p>{generalError}</p>
             </div>
           )}
 
           {/* Login Form */}
           {mode === "login" && (
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-5" noValidate>
               <div>
                 <label className="block text-sm font-medium text-[#3D3D3D] mb-2">
                   Email ou Téléphone
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
+                  <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${fieldErrors.loginId ? 'text-red-500' : 'text-[#8A8A8A]'}`} />
                   <input
                     type="text"
-                    required
-                    placeholder="votre@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#EAB308] focus:outline-none transition-colors"
+                    placeholder="votre@email.com ou 06XXXXXXXX"
+                    value={loginId}
+                    onChange={(e) => handleFieldChange("loginId", e.target.value)}
+                    className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                      fieldErrors.loginId 
+                        ? 'border-red-500 bg-red-50 focus:border-red-500' 
+                        : 'border-gray-200 focus:border-[#F5C400]'
+                    }`}
                   />
                 </div>
+                <ErrorMessage message={fieldErrors.loginId} />
               </div>
 
               <div>
@@ -243,14 +356,17 @@ export default function LoginPage() {
                   Mot de passe
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
+                  <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${fieldErrors.password ? 'text-red-500' : 'text-[#8A8A8A]'}`} />
                   <input
                     type={showPassword ? "text" : "password"}
-                    required
                     placeholder="••••••••"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-12 pr-12 py-3 border-2 border-gray-200 rounded-xl focus:border-[#EAB308] focus:outline-none transition-colors"
+                    onChange={(e) => handleFieldChange("password", e.target.value)}
+                    className={`w-full pl-12 pr-12 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                      fieldErrors.password 
+                        ? 'border-red-500 bg-red-50 focus:border-red-500' 
+                        : 'border-gray-200 focus:border-[#F5C400]'
+                    }`}
                   />
                   <button
                     type="button"
@@ -260,6 +376,7 @@ export default function LoginPage() {
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
+                <ErrorMessage message={fieldErrors.password} />
               </div>
 
               <div className="flex items-center justify-between">
@@ -267,14 +384,14 @@ export default function LoginPage() {
                   <div
                     onClick={() => setRememberMe(!rememberMe)}
                     className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                      rememberMe ? "bg-[#EAB308] border-[#EAB308]" : "border-gray-300"
+                      rememberMe ? "bg-[#F5C400] border-[#F5C400]" : "border-gray-300"
                     }`}
                   >
                     {rememberMe && <Check className="w-3 h-3 text-white" />}
                   </div>
                   <span className="text-sm text-[#3D3D3D]">Se souvenir de moi</span>
                 </label>
-                <Link href="/forgot-password" className="text-sm text-[#1A4F8A] hover:underline">
+                <Link href="/forgot-password" className="text-sm text-[#D97706] hover:underline font-medium">
                   Mot de passe oublié ?
                 </Link>
               </div>
@@ -282,7 +399,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center py-3.5 bg-[#F07C00] text-white rounded-xl font-semibold text-lg hover:bg-[#D66B00] transition-colors shadow-lg shadow-[#F07C00]/30 disabled:opacity-70"
+                className="w-full flex items-center justify-center py-3.5 bg-[#F5C400] text-white rounded-xl font-semibold text-lg hover:bg-[#EAB308] transition-colors shadow-lg shadow-[#F5C400]/30 disabled:opacity-70"
               >
                 {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Se connecter"}
               </button>
@@ -296,103 +413,101 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                className="w-full py-3 border-2 border-gray-200 rounded-xl font-medium flex items-center justify-center gap-3 hover:bg-gray-50 transition-colors"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                <span className="text-[#3D3D3D]">Continuer avec Google</span>
-              </button>
+              <GoogleLoginButton
+                onCredential={handleGoogleLogin}
+                onError={setGeneralError}
+                disabled={loading}
+              />
             </form>
           )}
 
           {/* Signup Form */}
           {mode === "signup" && (
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4 pb-12" noValidate>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-[#3D3D3D] mb-2">
-                    Prénom
-                  </label>
+                  <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Prénom</label>
                   <div className="relative">
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
+                    <User className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${fieldErrors.firstName ? 'text-red-500' : 'text-[#8A8A8A]'}`} />
                     <input
                       type="text"
                       placeholder="Prénom"
                       value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#EAB308] focus:outline-none transition-colors"
+                      onChange={(e) => handleFieldChange("firstName", e.target.value)}
+                      className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                        fieldErrors.firstName ? 'border-red-500 bg-red-50 focus:border-red-500' : 'border-gray-200 focus:border-[#F5C400]'
+                      }`}
                     />
                   </div>
+                  <ErrorMessage message={fieldErrors.firstName} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[#3D3D3D] mb-2">
-                    Nom
-                  </label>
+                  <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Nom</label>
                   <input
                     type="text"
                     placeholder="Nom"
                     value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#EAB308] focus:outline-none transition-colors"
+                    onChange={(e) => handleFieldChange("lastName", e.target.value)}
+                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                      fieldErrors.lastName ? 'border-red-500 bg-red-50 focus:border-red-500' : 'border-gray-200 focus:border-[#F5C400]'
+                    }`}
                   />
+                  <ErrorMessage message={fieldErrors.lastName} />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[#3D3D3D] mb-2">
-                  Email
-                </label>
+                <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Email</label>
                 <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
+                  <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${fieldErrors.loginId ? 'text-red-500' : 'text-[#8A8A8A]'}`} />
                   <input
                     type="email"
-                    required
                     placeholder="votre@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#EAB308] focus:outline-none transition-colors"
+                    value={loginId}
+                    onChange={(e) => handleFieldChange("loginId", e.target.value)}
+                    className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                      fieldErrors.loginId ? 'border-red-500 bg-red-50 focus:border-red-500' : 'border-gray-200 focus:border-[#F5C400]'
+                    }`}
                   />
                 </div>
+                <ErrorMessage message={fieldErrors.loginId} />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[#3D3D3D] mb-2">
-                  Téléphone
-                </label>
+                <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Téléphone</label>
                 <div className="flex gap-2">
-                  <div className="flex items-center gap-1 px-3 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-[#3D3D3D]">
+                  <div className={`flex items-center gap-1 px-3 py-3 border-2 rounded-xl text-[#3D3D3D] ${
+                    fieldErrors.phone ? "border-red-500 bg-red-50" : "border-gray-200 bg-gray-50"
+                  }`}>
                     <span className="text-lg">🇲🇦</span>
-                    <span>+212</span>
+                    <span className="font-medium">+212</span>
                   </div>
                   <div className="relative flex-1">
-                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
+                    <Phone className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${fieldErrors.phone ? 'text-red-500' : 'text-[#8A8A8A]'}`} />
                     <input
                       type="tel"
                       placeholder="6XX-XXXXXX"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#EAB308] focus:outline-none transition-colors"
+                      onChange={(e) => handleFieldChange("phone", e.target.value)}
+                      className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                        fieldErrors.phone ? 'border-red-500 bg-red-50 focus:border-red-500' : 'border-gray-200 focus:border-[#F5C400]'
+                      }`}
                     />
                   </div>
                 </div>
+                <ErrorMessage message={fieldErrors.phone} />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[#3D3D3D] mb-2">
-                  Ville
-                </label>
+                <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Ville</label>
                 <div className="relative">
-                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
+                  <MapPin className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${fieldErrors.selectedCity ? 'text-red-500' : 'text-[#8A8A8A]'}`} />
                   <button
                     type="button"
                     onClick={() => setShowCityDropdown(!showCityDropdown)}
-                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#EAB308] focus:outline-none transition-colors text-left flex items-center justify-between"
+                    className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:outline-none transition-colors text-left flex items-center justify-between bg-white ${
+                      fieldErrors.selectedCity ? 'border-red-500 bg-red-50' : 'border-gray-200 focus:border-[#F5C400]'
+                    }`}
                   >
                     <span className={selectedCity ? "text-[#3D3D3D]" : "text-[#8A8A8A]"}>
                       {selectedCity || "Sélectionnez votre ville"}
@@ -406,11 +521,12 @@ export default function LoginPage() {
                           key={city}
                           type="button"
                           onClick={() => {
-                            setSelectedCity(city)
-                            setShowCityDropdown(false)
+                            setSelectedCity(city);
+                            clearFieldError("selectedCity");
+                            setShowCityDropdown(false);
                           }}
                           className={`w-full px-4 py-3 text-left hover:bg-[#FFFBEB] transition-colors ${
-                            selectedCity === city ? "bg-[#FFFBEB] text-[#EAB308]" : "text-[#3D3D3D]"
+                            selectedCity === city ? "bg-[#FFFBEB] text-[#D97706]" : "text-[#3D3D3D]"
                           }`}
                         >
                           {city}
@@ -419,21 +535,21 @@ export default function LoginPage() {
                     </div>
                   )}
                 </div>
+                <ErrorMessage message={fieldErrors.selectedCity} />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[#3D3D3D] mb-2">
-                  Mot de passe
-                </label>
+                <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Mot de passe</label>
                 <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
+                  <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${fieldErrors.password ? 'text-red-500' : 'text-[#8A8A8A]'}`} />
                   <input
                     type={showPassword ? "text" : "password"}
-                    required
                     placeholder="••••••••"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-12 pr-12 py-3 border-2 border-gray-200 rounded-xl focus:border-[#EAB308] focus:outline-none transition-colors"
+                    onChange={(e) => handleFieldChange("password", e.target.value)}
+                    className={`w-full pl-12 pr-12 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                      fieldErrors.password ? 'border-red-500 bg-red-50 focus:border-red-500' : 'border-gray-200 focus:border-[#F5C400]'
+                    }`}
                   />
                   <button
                     type="button"
@@ -443,21 +559,22 @@ export default function LoginPage() {
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
+                <PasswordStrength password={password} />
+                <ErrorMessage message={fieldErrors.password} />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[#3D3D3D] mb-2">
-                  Confirmer le mot de passe
-                </label>
+                <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Confirmer le mot de passe</label>
                 <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
+                  <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${fieldErrors.confirmPassword ? 'text-red-500' : 'text-[#8A8A8A]'}`} />
                   <input
                     type={showConfirmPassword ? "text" : "password"}
-                    required
                     placeholder="••••••••"
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full pl-12 pr-12 py-3 border-2 border-gray-200 rounded-xl focus:border-[#EAB308] focus:outline-none transition-colors"
+                    onChange={(e) => handleFieldChange("confirmPassword", e.target.value)}
+                    className={`w-full pl-12 pr-12 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                      fieldErrors.confirmPassword ? 'border-red-500 bg-red-50 focus:border-red-500' : 'border-gray-200 focus:border-[#F5C400]'
+                    }`}
                   />
                   <button
                     type="button"
@@ -467,9 +584,10 @@ export default function LoginPage() {
                     {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
+                <ErrorMessage message={fieldErrors.confirmPassword} />
               </div>
 
-              {/* Role Selector */}
+              {/* Role Selector (Mis par défaut sur Parent et avec les couleurs Espace Parent) */}
               <div>
                 <label className="block text-sm font-medium text-[#3D3D3D] mb-2">
                   Type de compte
@@ -484,10 +602,10 @@ export default function LoginPage() {
                       key={role.value}
                       type="button"
                       onClick={() => setSelectedRole(role.value as UserRole)}
-                      className={`flex-1 py-2.5 rounded-xl font-medium text-sm transition-all ${
+                      className={`flex-1 py-2.5 rounded-xl font-medium text-sm transition-all border-2 ${
                         selectedRole === role.value
-                          ? "bg-[#EAB308] text-white"
-                          : "bg-gray-100 text-[#3D3D3D] hover:bg-gray-200"
+                          ? "bg-[#F5C400] border-[#F5C400] text-white shadow-md shadow-[#F5C400]/20"
+                          : "bg-white border-gray-200 text-[#3D3D3D] hover:border-[#F5C400]/30 hover:bg-[#FFFBEB]"
                       }`}
                     >
                       {role.label}
@@ -496,31 +614,38 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <div className="flex items-start gap-2">
-                <div
-                  onClick={() => setAcceptTerms(!acceptTerms)}
-                  className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors cursor-pointer flex-shrink-0 mt-0.5 ${
-                    acceptTerms ? "bg-[#EAB308] border-[#EAB308]" : "border-gray-300"
-                  }`}
-                >
-                  {acceptTerms && <Check className="w-3 h-3 text-white" />}
+              <div>
+                <div className="flex items-start gap-2 pt-2">
+                  <div
+                    onClick={() => { setAcceptTerms(!acceptTerms); clearFieldError("acceptTerms"); }}
+                    className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors cursor-pointer flex-shrink-0 mt-0.5 ${
+                      acceptTerms 
+                        ? "bg-[#F5C400] border-[#F5C400]" 
+                        : fieldErrors.acceptTerms 
+                          ? "border-red-500 bg-red-50" 
+                          : "border-gray-300"
+                    }`}
+                  >
+                    {acceptTerms && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  <span className="text-sm text-[#3D3D3D]">
+                    J'accepte les{" "}
+                    <Link href="/cgu" className="text-[#D97706] hover:underline">
+                      CGU
+                    </Link>{" "}
+                    et la{" "}
+                    <Link href="/privacy" className="text-[#D97706] hover:underline">
+                      Politique de Confidentialité
+                    </Link>
+                  </span>
                 </div>
-                <span className="text-sm text-[#3D3D3D]">
-                  J'accepte les{" "}
-                  <Link href="/cgu" className="text-[#1A4F8A] hover:underline">
-                    CGU
-                  </Link>{" "}
-                  et la{" "}
-                  <Link href="/privacy" className="text-[#1A4F8A] hover:underline">
-                    Politique de Confidentialité
-                  </Link>
-                </span>
+                <ErrorMessage message={fieldErrors.acceptTerms} />
               </div>
 
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full flex items-center justify-center py-3.5 bg-[#F07C00] text-white rounded-xl font-semibold text-lg hover:bg-[#D66B00] transition-colors shadow-lg shadow-[#F07C00]/30 disabled:opacity-70"
+                disabled={loading || Object.keys(fieldErrors).length > 0}
+                className="w-full flex items-center justify-center py-3.5 bg-[#F5C400] text-white rounded-xl font-semibold text-lg hover:bg-[#EAB308] transition-colors shadow-lg shadow-[#F5C400]/30 disabled:opacity-50 mt-4"
               >
                 {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Créer mon compte"}
               </button>

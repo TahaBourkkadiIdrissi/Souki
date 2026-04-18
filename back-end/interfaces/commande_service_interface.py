@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
-from dto.commande_dto import VoiceBasketResponseDTO
+from dto.commande_dto import VoiceBasketResponseDTO, CommandeCheckoutDTO
+
 
 
 class ICommandeVocaleService(ABC):
@@ -23,4 +24,9 @@ class ICommandeVocaleService(ABC):
     @abstractmethod
     def traiter_audio(self, audio_b64: str, mime_type: str) -> VoiceBasketResponseDTO:
         """Traite une commande sous forme d'audio encode en base64."""
+        pass
+
+    @abstractmethod
+    def get_commande_checkout(self, commande_id: int) -> Optional[CommandeCheckoutDTO]:
+        """Récupère le détail d'une commande pour le checkout."""
         pass

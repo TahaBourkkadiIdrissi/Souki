@@ -1,19 +1,37 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { Mic, X, Trash2, Zap, ArrowRight, Sparkles, Check, ChevronDown, ShoppingCart, AlertTriangle, Loader2 } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { useRouter } from "next/navigation"
+import { useEffect, useRef, useState } from "react"
+import {
+  AlertTriangle,
+  ArrowRight,
+  Check,
+  ChevronDown,
+  Loader2,
+  Mic,
+  ShoppingCart,
+  Sparkles,
+  Trash2,
+  X,
+  Zap,
+} from "lucide-react"
 
-// --- TYPES RÉPONSE BACKEND ---
+import { API_BASE_URL } from "@/lib/api"
+import {
+  BasketSelection,
+  CatalogueProduct,
+  buildSmartBasket,
+  formatQuantity,
+} from "@/lib/catalogue"
+import { cn } from "@/lib/utils"
+
 interface LigneCommandeDTO {
-  product_id: number;
-  nom_produit: string;
-  quantite_demandee: number;
-  quantite_effective: number;
-  prix_unitaire: number;
-  sous_total: number;
-  message_ajustement?: string | null;
+  product_id: number
+  nom_produit: string
+  quantite_demandee: number
+  quantite_effective: number
+  prix_unitaire: number
+  sous_total: number
+  message_ajustement?: string | null
 }
 
 interface VoiceBasketResponseDTO {
@@ -26,25 +44,29 @@ interface VoiceBasketResponseDTO {
   nombre_articles: number;
   commande_id?: number; // AJOUTÉ pour le passer au checkout
 }
-// -----------------------------
-
-const API_URL = "http://localhost:8000/api"
 
 interface AIModalsProps {
   isOpen: boolean
   onClose: void
   mode: "voice" | "smart" | null
+  products?: CatalogueProduct[]
+  onApplySelections?: (selections: BasketSelection[]) => void
 }
 
-export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
-  const router = useRouter()
+export function AIModals({
+  isOpen,
+  onClose,
+  mode,
+  products = [],
+  onApplySelections,
+}: AIModalsProps) {
   const [isListening, setIsListening] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [result, setResult] = useState<VoiceBasketResponseDTO | null>(null)
   const [error, setError] = useState<string | null>(null)
-  
   const [budget, setBudget] = useState("150")
   const [duration, setDuration] = useState("1 semaine")
+  const [smartSelections, setSmartSelections] = useState<BasketSelection[]>([])
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
@@ -52,17 +74,19 @@ export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
   useEffect(() => {
     if (!isOpen) {
       setIsListening(false)
+      setIsSending(false)
       setResult(null)
       setError(null)
+      setSmartSelections([])
       stopListening()
     }
   }, [isOpen])
 
   const stopListening = () => {
-    if (mediaRecorderRef.current && isListening) {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop()
-      setIsListening(false)
     }
+    setIsListening(false)
   }
 
   const handleVoiceInteraction = async () => {
@@ -94,11 +118,13 @@ export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
 
           const response = await fetch(`${API_URL}/voice-basket`, {
             method: "POST",
-            body: formData
+            body: formData,
           })
 
-          if (!response.ok) throw new Error("Erreur serveur")
-          
+          if (!response.ok) {
+            throw new Error("Erreur serveur")
+          }
+
           const data: VoiceBasketResponseDTO = await response.json()
           setResult(data)
         } catch (err) {
@@ -111,9 +137,8 @@ export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
       mediaRecorderRef.current = mediaRecorder
       mediaRecorder.start()
       setIsListening(true)
-
-    } catch (err) {
-      setError("Microphone non autorisé. Veuillez autoriser l'accès dans votre navigateur.")
+    } catch {
+      setError("Microphone non autorise. Veuillez autoriser l'acces dans votre navigateur.")
     }
   }
 
@@ -147,29 +172,26 @@ export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-white/5 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full border border-[#1E8A3C]/30 flex items-center justify-center bg-gradient-to-br from-[#1E8A3C]/10 to-transparent">
-                  <div className="w-8 h-8 rounded-full border border-[#1E8A3C]/20" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[#1E8A3C]/30 bg-gradient-to-br from-[#1E8A3C]/10 to-transparent">
+                  <Sparkles className="h-5 w-5 text-[#4CB84A]" />
                 </div>
-                <div className="flex flex-col">
-                  <span className="font-bold text-lg leading-none tracking-tight">IA-SOUKI</span>
-                  <div className="flex items-center gap-1 mt-1">
-                    <Sparkles className="w-3 h-3 text-[#f5c400]" />
-                    <span className="text-xs text-white/60">
-                      {isSending ? "Analyse..." : isListening ? "Écoute..." : "Prêt"}
-                    </span>
-                  </div>
+                <div>
+                  <span className="text-lg font-bold">IA-SOUKI Vocal</span>
+                  <p className="text-xs text-white/60">
+                    {isSending ? "Analyse en cours..." : isListening ? "Je vous ecoute..." : "Pret a ecouter"}
+                  </p>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 px-2 py-1 rounded bg-[#2a2a35] text-xs font-medium text-[#4CB84A]">
-                  <Check className="w-3 h-3" /> Auto
-                </div>
-                <button className="p-2 text-white/40 hover:text-white/80 transition-colors">
-                  <Trash2 className="w-4 h-4" />
+                <button className="rounded-full bg-white/5 p-2 text-white/40 transition-colors hover:text-white/80">
+                  <Trash2 className="h-4 w-4" />
                 </button>
-                <button onClick={onClose} className="p-2 text-white/40 hover:text-white/80 transition-colors rounded-full bg-white/5">
-                  <X className="w-4 h-4" />
+                <button
+                  onClick={onClose}
+                  className="rounded-full bg-white/5 p-2 text-white/40 transition-colors hover:text-white/80"
+                >
+                  <X className="h-4 w-4" />
                 </button>
               </div>
             </div>
@@ -219,62 +241,81 @@ export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
                 onClick={handleVoiceInteraction}
                 disabled={isSending}
                 className={cn(
-                  "flex flex-col items-center justify-center w-full max-w-[200px] h-32 rounded-3xl transition-all duration-300 group",
-                  isListening ? "bg-white/5" : "bg-white/5 hover:bg-white/10",
-                  isSending && "opacity-50 cursor-not-allowed"
+                  "mt-8 flex w-full max-w-[220px] flex-col items-center justify-center rounded-3xl bg-white/5 px-6 py-5 transition-all duration-300 hover:bg-white/10",
+                  isSending && "cursor-not-allowed opacity-50"
                 )}
               >
-                <div className={cn(
-                  "w-16 h-16 rounded-full flex items-center justify-center mb-3 transition-colors duration-300",
-                  isSending ? "bg-gradient-to-tr from-[#F07C00]/50 to-[#FF9421]/50" :
-                  isListening ? "bg-gradient-to-tr from-[#1E8A3C] to-[#4CB84A] shadow-[0_0_40px_rgba(30,138,60,0.5)]" : "bg-gradient-to-tr from-[#1E8A3C]/50 to-[#4CB84A]/50"
-                )}>
-                  <Mic className="w-6 h-6 text-white" />
+                <div
+                  className={cn(
+                    "mb-3 flex h-16 w-16 items-center justify-center rounded-full",
+                    isListening
+                      ? "bg-gradient-to-tr from-[#1E8A3C] to-[#4CB84A]"
+                      : "bg-gradient-to-tr from-[#1E8A3C]/50 to-[#4CB84A]/50"
+                  )}
+                >
+                  <Mic className="h-6 w-6 text-white" />
                 </div>
-                <span className="text-xs font-medium text-white/60 group-hover:text-white/90">
-                  {isSending ? "Traitement en cours..." : isListening ? "Appuyez pour arrêter" : "Appuyez pour parler"}
+                <span className="text-xs font-medium text-white/70">
+                  {isSending ? "Traitement..." : isListening ? "Arreter" : "Commencer a parler"}
                 </span>
               </button>
             </div>
 
-            {/* --- AFFICHAGE DU RÉSULTAT BACKEND --- */}
             {error && (
-              <div className="mx-6 mb-6 bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl flex items-center gap-2 text-sm">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
-                <p>{error}</p>
+              <div className="mx-6 mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <p>{error}</p>
+                </div>
               </div>
             )}
 
             {result && (
-              <div className="mx-6 mb-6 bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3 text-left animate-in fade-in slide-in-from-bottom-4 duration-300">
-                <div className="flex items-center gap-2 text-[#4CB84A]">
-                  <ShoppingCart className="w-4 h-4" />
-                  <h4 className="font-bold text-sm">Panier Extrait ({result.nombre_articles} articles)</h4>
+              <div className="mx-6 my-6 rounded-3xl border border-white/10 bg-white/5 p-4">
+                <div className="mb-3 flex items-center gap-2 text-[#4CB84A]">
+                  <ShoppingCart className="h-4 w-4" />
+                  <h4 className="text-sm font-bold">
+                    Panier detecte ({result.nombre_articles} article{result.nombre_articles > 1 ? "s" : ""})
+                  </h4>
                 </div>
-                
+
                 {result.transcription && (
-                  <p className="text-xs text-white/50 italic bg-white/5 p-2 rounded-lg">“{result.transcription}”</p>
+                  <p className="mb-3 rounded-xl bg-white/5 p-3 text-xs italic text-white/55">
+                    "{result.transcription}"
+                  </p>
                 )}
+
+                <div className="space-y-2">
+                  {result.lignes_panier.map((line) => (
+                    <div
+                      key={`${line.product_id}-${line.nom_produit}`}
+                      className="flex items-center justify-between rounded-2xl bg-white/5 p-3"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-white">{line.nom_produit}</p>
+                        <p className="text-xs text-white/45">
+                          {formatVoiceQuantity(line.quantite_effective)} x{" "}
+                          {line.prix_unitaire.toFixed(2)} DH
+                        </p>
+                      </div>
+                      <span className="text-sm font-bold text-[#4CB84A]">
+                        {line.sous_total.toFixed(2)} DH
+                      </span>
+                    </div>
+                  ))}
+                </div>
 
                 {result.produits_non_disponibles.length > 0 && (
-                  <p className="text-xs text-orange-400">Non trouvé(s) : {result.produits_non_disponibles.join(", ")}</p>
+                  <p className="mt-3 text-xs text-orange-300">
+                    Non trouves: {result.produits_non_disponibles.join(", ")}
+                  </p>
                 )}
 
-                <ul className="space-y-2">
-                  {result.lignes_panier.map((ligne, index) => (
-                    <li key={index} className="flex justify-between items-center bg-white/5 p-2 rounded-lg">
-                      <div>
-                        <p className="text-sm font-semibold text-white">{ligne.nom_produit}</p>
-                        <p className="text-[10px] text-white/40">{ligne.quantite_effective} x {ligne.prix_unitaire} DH</p>
-                      </div>
-                      <p className="font-bold text-sm text-[#4CB84A]">{ligne.sous_total} DH</p>
-                    </li>
-                  ))}
-                </ul>
-
-                <div className="border-t border-white/10 pt-3 flex justify-between items-center">
-                  <span className="text-sm font-bold text-white/80">Total</span>
-                  <span className="text-xl font-black text-[#4CB84A]">{result.total_dh} DH</span>
+                <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4">
+                  <span className="font-semibold text-white/75">Total</span>
+                  <span className="text-xl font-black text-[#4CB84A]">
+                    {result.total_dh.toFixed(2)} DH
+                  </span>
                 </div>
 
                 {/* LE BOUTON QUI ENVOIE L'ID AU CHECKOUT */}
@@ -282,90 +323,137 @@ export function AIModals({ isOpen, onClose, mode }: AIModalsProps) {
                   onClick={() => { onClose(); router.push(`/checkout?commande_id=${result.commande_id}`) }}
                   className="w-full mt-2 flex items-center justify-center gap-2 py-2.5 bg-[#1E8A3C] text-white rounded-xl font-bold text-sm hover:bg-[#176B2E] transition-colors"
                 >
-                  Valider et Commander <ArrowRight className="w-4 h-4" />
+                  Ajouter ce panier
+                  <ArrowRight className="h-4 w-4" />
                 </button>
               </div>
             )}
           </div>
         )}
 
-        {/* === SMART CART MODAL (Inchangé) === */}
         {mode === "smart" && (
-          <div className="flex flex-col h-full bg-white">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+          <div className="flex flex-col">
+            <div className="flex items-center justify-between border-b border-gray-100 p-6">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#F07C00] to-[#FF9421] flex items-center justify-center text-white shadow-lg shadow-orange-500/20">
-                  <Zap className="w-5 h-5" />
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#F07C00] to-[#FF9421] text-white shadow-lg shadow-orange-500/20">
+                  <Zap className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-[#3D3D3D] leading-tight">Panier Intelligent</h3>
-                  <p className="text-xs text-[#8A8A8A]">Généré par IA-SOUKI</p>
+                  <h3 className="font-bold text-[#264129]">Panier Intelligent IA-SOUKI</h3>
+                  <p className="text-xs text-[#6C7E6E]">Suggestion basee sur votre budget</p>
                 </div>
               </div>
-              <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
-                <X className="w-5 h-5" />
+              <button
+                onClick={onClose}
+                className="rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+              >
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="space-y-6 p-6">
               <div>
-                <label className="block text-sm font-semibold text-[#3D3D3D] mb-2">Quel est votre budget ?</label>
+                <label className="mb-2 block text-sm font-semibold text-[#264129]">
+                  Quel est votre budget ?
+                </label>
                 <div className="relative">
-                  <input 
+                  <input
                     type="number"
                     value={budget}
-                    onChange={(e) => setBudget(e.target.value)}
-                    className="w-full pl-4 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[#3D3D3D] font-medium focus:border-[#F07C00] focus:ring-1 focus:ring-[#F07C00] outline-none transition-all"
+                    onChange={(event) => setBudget(event.target.value)}
+                    className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 pr-14 text-[#264129] outline-none transition-all focus:border-[#F07C00]"
                     placeholder="Ex: 150"
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8A8A8A] font-medium">DH</span>
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-[#6C7E6E]">
+                    DH
+                  </span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-[#3D3D3D] mb-2">Pour quelle durée ?</label>
+                <label className="mb-2 block text-sm font-semibold text-[#264129]">
+                  Pour quelle duree ?
+                </label>
                 <div className="relative">
-                  <select 
+                  <select
                     value={duration}
-                    onChange={(e) => setDuration(e.target.value)}
-                    className="w-full appearance-none pl-4 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[#3D3D3D] font-medium focus:border-[#F07C00] focus:ring-1 focus:ring-[#F07C00] outline-none transition-all"
+                    onChange={(event) => setDuration(event.target.value)}
+                    className="w-full appearance-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 pr-10 text-[#264129] outline-none transition-all focus:border-[#F07C00]"
                   >
-                    <option value="3 jours">3 Jours</option>
-                    <option value="1 semaine">1 Semaine</option>
-                    <option value="2 semaines">2 Semaines</option>
-                    <option value="1 mois">1 Mois</option>
+                    <option value="3 jours">3 jours</option>
+                    <option value="1 semaine">1 semaine</option>
+                    <option value="2 semaines">2 semaines</option>
+                    <option value="1 mois">1 mois</option>
                   </select>
-                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A] pointer-events-none" />
+                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#6C7E6E]" />
                 </div>
               </div>
-              
-              <div className="bg-[#FFF5EB] p-4 rounded-xl text-sm text-[#D66B00]">
-                <b>IA-SOUKI</b> sélectionnera les meilleurs légumes frais du jour et au meilleur prix pour composer un panier optimal.
+
+              <div className="rounded-2xl bg-[#FFF5EB] p-4 text-sm text-[#C96A00]">
+                IA-SOUKI compose un panier simple avec les produits les plus utiles du jour
+                selon votre budget.
               </div>
+
+              {error && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+                  {error}
+                </div>
+              )}
+
+              {smartPreview.length > 0 && (
+                <div className="rounded-3xl border border-[#F3E2CE] bg-[#FFFBF7] p-4">
+                  <div className="mb-3 flex items-center gap-2 text-[#C96A00]">
+                    <Check className="h-4 w-4" />
+                    <h4 className="text-sm font-bold">Panier suggere</h4>
+                  </div>
+                  <div className="space-y-2">
+                    {smartPreview.map((item) => (
+                      <div
+                        key={item.product.id}
+                        className="flex items-center justify-between rounded-2xl bg-white p-3"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-[#264129]">{item.product.name}</p>
+                          <p className="text-xs text-[#6C7E6E]">
+                            {formatQuantity(item.quantity, item.product.unit)}
+                          </p>
+                        </div>
+                        <span className="text-sm font-bold text-[#F07C00]">
+                          {item.total.toFixed(2)} DH
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="p-6 pt-0 mt-auto">
-              <button 
-                onClick={handleSmartGeneration}
-                disabled={isListening}
-                className="w-full flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-[#F07C00] to-[#FF9421] text-white rounded-xl font-bold shadow-lg shadow-orange-500/25 hover:opacity-90 transition-opacity disabled:opacity-70"
-              >
-                {isListening ? (
-                  <>
-                    <Zap className="w-5 h-5 animate-pulse" />
-                    Création du panier...
-                  </>
-                ) : (
-                  <>
-                    Générer mon panier
-                    <ArrowRight className="w-5 h-5" />
-                  </>
-                )}
-              </button>
+            <div className="mt-auto border-t border-gray-100 p-6">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  onClick={handleSmartGeneration}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-[#F5D4AE] bg-[#FFF5EB] px-4 py-3 font-semibold text-[#C96A00] transition-colors hover:bg-[#FFE8CC]"
+                >
+                  <Zap className="h-4 w-4" />
+                  Generer
+                </button>
+                <button
+                  onClick={handleApplySmartBasket}
+                  disabled={smartSelections.length === 0}
+                  className={cn(
+                    "flex items-center justify-center gap-2 rounded-2xl px-4 py-3 font-semibold text-white transition-colors",
+                    smartSelections.length === 0
+                      ? "cursor-not-allowed bg-gray-300"
+                      : "bg-[#F07C00] hover:bg-[#D66B00]"
+                  )}
+                >
+                  Ajouter au panier
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </div>
         )}
-
       </div>
     </div>
   )

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"    
+import { useState, useEffect, useRef } from "react"    
 import Link from "next/link"        
 import Image from "next/image"      
 import { useRouter } from "next/navigation"
@@ -12,7 +12,6 @@ import {
   Truck, 
   Users, 
   CreditCard, 
-  Wallet, 
   Banknote,
   Star,
   ArrowRight,
@@ -22,11 +21,15 @@ import {
   Instagram,
   CheckCircle,
   Shield,
-  Zap
+  Zap,
+  Mic,
+  MicOff,
+  Loader2
 } from "lucide-react"     
 import { ProductCard } from "@/components/souki/product-card"
-import { AIModals } from "@/components/souki/ai-modals"
 import { Navbar } from "@/components/souki/navbar"
+
+const BACKEND_URL = "http://localhost:8000" // METTEZ VOTRE VRAIE URL ICI
 
 /*liste d'objets products*/
 const products = [
@@ -50,9 +53,15 @@ const testimonials = [
 export default function HomePage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [cart, setCart] = useState<{id: string, quantity: number}[]>([])
-  const [activeModal, setActiveModal] = useState<"voice" | "smart" | null>(null)
   const { isAuthenticated, validateToken } = useAuth()
   const router = useRouter()
+
+  // --- États pour le modal vocal ---
+  const [isVoiceOpen, setIsVoiceOpen] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [voiceError, setVoiceError] = useState<string | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
 
   // Revalider l'authentification quand la page se monte
   useEffect(() => {
@@ -67,37 +76,95 @@ export default function HomePage() {
   }, [])
 
   // Fonction helper pour protéger les actions
-  const protectAction = (callback: () => void) => {
-    return () => {
-      if (!isAuthenticated) {
-        router.push("/login")
-        return
-      }
-      callback()
-    }
-  }
-
-  const handleAddToCart = (id: string, quantity: number) => {
+  const handleAddToCart = (id: number | string, quantity: number) => {
+    const normalizedId = String(id)
     setCart(prev => {
-      const existing = prev.find(item => item.id === id)
+      const existing = prev.find(item => item.id === normalizedId)
       if (existing) {
-        return prev.map(item => item.id === id ? { ...item, quantity: item.quantity + quantity } : item)
+        return prev.map(item =>
+          item.id === normalizedId ? { ...item, quantity: item.quantity + quantity } : item
+        )
       }
-      return [...prev, { id, quantity }]
+      return [...prev, { id: normalizedId, quantity }]
     })
   }
 
   const handleNavigateToCheckout = () => {
-    // Aller à la page checkout
     router.push("/checkout")
   }
 
   const handleOpenVoiceModal = () => {
-    setActiveModal("voice")
+    if (!isAuthenticated) {
+      router.push("/login/client?redirect=/")
+      return
+    }
+    setIsVoiceOpen(true)
   }
 
   const handleOpenSmartModal = () => {
-    setActiveModal("smart")
+    router.push("/catalogue?assistant=smart")
+  }
+
+  // --- Logique d'enregistrement vocal ---
+  const startRecording = async () => {
+    setVoiceError(null)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mediaRecorder = new MediaRecorder(stream)
+      mediaRecorderRef.current = mediaRecorder
+
+      const audioChunks: BlobPart[] = []
+      mediaRecorder.ondataavailable = (event) => audioChunks.push(event.data)
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks, { type: "audio/webm" })
+        await sendToBackend(audioBlob)
+        stream.getTracks().forEach(track => track.stop())
+      }
+
+      mediaRecorder.start()
+      setIsRecording(true)
+    } catch {
+      setVoiceError("Veuillez autoriser l'accès au micro dans votre navigateur.")
+    }
+  }
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop()
+      setIsRecording(false)
+      setIsProcessing(true)
+    }
+  }
+
+  const sendToBackend = async (audioBlob: Blob) => {
+    try {
+      const formData = new FormData()
+      formData.append("audio", audioBlob, "recording.webm")
+
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      
+      const response = await fetch(`${BACKEND_URL}/api/voice-basket`, {
+        method: "POST",
+        headers: token ? { "Authorization": `Bearer ${token}` } : {},
+        body: formData,
+      })
+
+      if (!response.ok) throw new Error("Erreur lors de l'analyse vocale")
+
+      const data = await response.json()
+
+      if (data.commande_id) {
+        setIsVoiceOpen(false)
+        router.push(`/checkout?commande_id=${data.commande_id}`)
+      } else {
+        setVoiceError("L'IA n'a pas pu comprendre votre commande. Réessayez.")
+        setIsProcessing(false)
+      }
+    } catch {
+      setVoiceError("Impossible de contacter le serveur. Vérifiez votre connexion.")
+      setIsProcessing(false)
+    }
   }
 
   const cartItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0)
@@ -136,7 +203,7 @@ export default function HomePage() {
 
             <div className="flex flex-col items-center gap-8 pt-4">
               <button
-                onClick={protectAction(() => router.push("/catalogue"))}
+                onClick={() => router.push("/catalogue")}
                 className="group relative inline-flex items-center justify-center gap-3 px-10 py-5 bg-[#1E8A3C] text-white rounded-2xl font-bold text-2xl hover:bg-[#176B2E] transition-all hover:scale-105 shadow-[0_20px_50px_-10px_rgba(30,138,60,0.5)] overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
@@ -146,8 +213,8 @@ export default function HomePage() {
 
               <div className="grid sm:grid-cols-2 gap-4 w-full max-w-2xl px-4">
                 <button 
-                  onClick={protectAction(handleOpenVoiceModal)}
-                  className="glass-morphism group flex items-center justify-center gap-3 px-6 py-4 text-white rounded-2xl font-bold text-lg hover:bg-white/40 border-2 border-white/50 transition-all active:scale-95 transition-all"
+                  onClick={handleOpenVoiceModal}
+                  className="glass-morphism group flex items-center justify-center gap-3 px-6 py-4 text-white rounded-2xl font-bold text-lg hover:bg-white/40 border-2 border-white/50 transition-all active:scale-95"
                 >
                   <div className="w-10 h-10 rounded-full bg-white/30 flex items-center justify-center group-hover:bg-[#4CB84A]/30 transition-colors">
                     <MessageCircle className="w-6 h-6 text-[#4CB84A]" />
@@ -155,8 +222,8 @@ export default function HomePage() {
                   Assistant Vocal
                 </button>
                 <button 
-                  onClick={protectAction(handleOpenSmartModal)}
-                  className="bg-white/20 backdrop-blur-xl border-2 border-white/50 group flex items-center justify-center gap-3 px-6 py-4 text-white rounded-2xl font-bold text-lg hover:bg-white/40 transition-all active:scale-95 shadow-xl transition-all"
+                  onClick={handleOpenSmartModal}
+                  className="bg-white/20 backdrop-blur-xl border-2 border-white/50 group flex items-center justify-center gap-3 px-6 py-4 text-white rounded-2xl font-bold text-lg hover:bg-white/40 transition-all active:scale-95 shadow-xl"
                 >
                   <div className="w-10 h-10 rounded-full bg-white/30 flex items-center justify-center group-hover:bg-[#F07C00]/30 transition-colors">
                     <Zap className="w-6 h-6 text-[#F07C00]" />
@@ -204,7 +271,7 @@ export default function HomePage() {
               <Shield className="w-6 h-6 shrink-0 opacity-80" />
               <div>
                 <p className="font-bold text-sm leading-tight">Paiement Sécurisé</p>
-                <p className="text-xs text-white/70">Cash, CMI, Wallet</p>
+                <p className="text-xs text-white/70">Cash et CMI</p>
               </div>
             </div>
             <div className="flex items-center gap-3 justify-center md:justify-start">
@@ -273,7 +340,11 @@ export default function HomePage() {
               <ProductCard
                 key={product.id}
                 {...product}
-                onAddToCart={!isAuthenticated ? () => router.push("/login") : handleAddToCart}
+                onAddToCart={
+                  !isAuthenticated
+                    ? () => router.push("/login/client?redirect=/catalogue")
+                    : handleAddToCart
+                }
               />
             ))}
           </div>
@@ -292,7 +363,6 @@ export default function HomePage() {
 
       {/* Abonnement Parental — Revolution Redesign */}
       <section className="relative min-h-[80vh] flex items-center justify-center overflow-hidden bg-[#1E8A3C]/10">
-        {/* Background Image Container */}
         <div className="absolute inset-0 z-0">
           <Image
             src="https://images.unsplash.com/photo-1610348725531-843dff563e2c?w=1920&q=80"
@@ -301,7 +371,6 @@ export default function HomePage() {
             className="object-cover animate-slow-zoom"
             priority
           />
-          {/* Refined gradient overlay for depth and readability */}
           <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/40 to-black/80" />
         </div>
 
@@ -359,14 +428,12 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <p className="text-center text-[#8A8A8A] mb-8 font-medium">Paiements 100% sécurisés</p>
           <div className="flex flex-wrap justify-center gap-6 lg:gap-12">
-            
             <div className="flex flex-col items-center gap-3">
               <div className="w-20 h-14 bg-white rounded-lg shadow-sm border border-gray-100 flex items-center justify-center">
                 <Banknote className="w-8 h-8 text-[#1E8A3C]" />
               </div>
               <span className="text-sm font-medium text-[#3D3D3D]">Cash à la livraison</span>
             </div>
-
             <div className="flex flex-col items-center gap-3">
               <div className="w-32 h-14 bg-white rounded-lg shadow-sm border border-gray-100 flex items-center justify-center gap-3 px-3">
                 <span className="font-extrabold text-[#3D3D3D] tracking-tighter text-lg">CMI</span>
@@ -381,21 +448,12 @@ export default function HomePage() {
               </div>
               <span className="text-sm font-medium text-[#3D3D3D]">Carte Bancaire</span>
             </div>
-
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-20 h-14 bg-white rounded-lg shadow-sm border border-gray-100 flex items-center justify-center">
-                <Wallet className="w-8 h-8 text-[#1E8A3C]" />
-              </div>
-              <span className="text-sm font-medium text-[#3D3D3D]">Wallet SOUKI</span>
-            </div>
-
             <div className="flex flex-col items-center gap-3">
               <div className="w-20 h-14 bg-[#1E8A3C] rounded-lg shadow-sm flex items-center justify-center">
                 <Users className="w-8 h-8 text-white" />
               </div>
               <span className="text-sm font-medium text-[#3D3D3D]">Abonnement Premium</span>
             </div>
-
           </div>
         </div>
       </section>
@@ -407,19 +465,12 @@ export default function HomePage() {
             <h2 className="text-3xl lg:text-4xl font-bold text-[#1E8A3C] mb-4">Ce que disent nos clients</h2>
             <p className="text-[#8A8A8A]">La satisfaction de nos clients est notre priorité</p>
           </div>
-
           <div className="grid md:grid-cols-3 gap-6">
             {testimonials.map((testimonial, index) => (
-              <div 
-                key={index}
-                className="bg-white rounded-2xl p-6 shadow-md border border-gray-100"
-              >
+              <div key={index} className="bg-white rounded-2xl p-6 shadow-md border border-gray-100">
                 <div className="flex items-center gap-1 mb-4">
                   {[...Array(5)].map((_, i) => (
-                    <Star 
-                      key={i} 
-                      className={`w-5 h-5 ${i < testimonial.rating ? 'text-[#F5C400] fill-[#F5C400]' : 'text-gray-200'}`}
-                    />
+                    <Star key={i} className={`w-5 h-5 ${i < testimonial.rating ? 'text-[#F5C400] fill-[#F5C400]' : 'text-gray-200'}`} />
                   ))}
                 </div>
                 <p className="text-[#3D3D3D] mb-4">"{testimonial.text}"</p>
@@ -448,12 +499,7 @@ export default function HomePage() {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="order-2 lg:order-1 relative">
               <div className="md:w-full aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl border-4 border-white relative">
-                <Image 
-                  src="https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=1200&q=80" 
-                  alt="Légumes frais et biologiques" 
-                  fill
-                  className="object-cover transform hover:scale-105 transition-transform duration-700"
-                />
+                <Image src="https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=1200&q=80" alt="Légumes frais et biologiques" fill className="object-cover transform hover:scale-105 transition-transform duration-700" />
               </div>
               <div className="absolute -bottom-6 -right-6 bg-white p-6 rounded-2xl shadow-xl hidden md:block border border-gray-100">
                 <div className="flex items-center gap-4">
@@ -467,55 +513,35 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
-            
             <div className="order-1 lg:order-2 space-y-8">
               <div>
-                <span className="inline-flex items-center gap-2 px-4 py-2 bg-[#F0FAF1] text-[#1E8A3C] rounded-full text-sm font-bold tracking-wide uppercase mb-4">
-                  Notre Mission
-                </span>
-                <h2 className="text-3xl lg:text-4xl font-bold text-[#3D3D3D] leading-tight">
-                  Redonner du sens à vos achats quotidiens
-                </h2>
+                <span className="inline-flex items-center gap-2 px-4 py-2 bg-[#F0FAF1] text-[#1E8A3C] rounded-full text-sm font-bold tracking-wide uppercase mb-4">Notre Mission</span>
+                <h2 className="text-3xl lg:text-4xl font-bold text-[#3D3D3D] leading-tight">Redonner du sens à vos achats quotidiens</h2>
               </div>
-              
               <div className="space-y-6">
                 <div className="flex gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-[#F0FAF1] text-[#1E8A3C] flex items-center justify-center shrink-0">
-                    <Zap className="w-6 h-6" />
-                  </div>
+                  <div className="w-12 h-12 rounded-xl bg-[#F0FAF1] text-[#1E8A3C] flex items-center justify-center shrink-0"><Zap className="w-6 h-6" /></div>
                   <div>
                     <h3 className="text-xl font-bold text-[#3D3D3D] mb-2">Innovation Continue</h3>
                     <p className="text-[#8A8A8A]">Nous intégrons les dernières technologies comme IA-SOUKI pour simplifier vos achats et optimiser notre chaîne d'approvisionnement.</p>
                   </div>
                 </div>
-                
                 <div className="flex gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-orange-50 text-[#F07C00] flex items-center justify-center shrink-0">
-                    <Users className="w-6 h-6" />
-                  </div>
+                  <div className="w-12 h-12 rounded-xl bg-orange-50 text-[#F07C00] flex items-center justify-center shrink-0"><Users className="w-6 h-6" /></div>
                   <div>
                     <h3 className="text-xl font-bold text-[#3D3D3D] mb-2">Accessibilité pour Tous</h3>
                     <p className="text-[#8A8A8A]">Nous garantissons des prix justes, équivalents à ceux du marché de gros, pour que la qualité premium soit accessible à toutes les familles.</p>
                   </div>
                 </div>
-
                 <div className="flex gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-[#e6f3ea] text-[#1E8A3C] flex items-center justify-center shrink-0">
-                    <Leaf className="w-6 h-6" />
-                  </div>
+                  <div className="w-12 h-12 rounded-xl bg-[#e6f3ea] text-[#1E8A3C] flex items-center justify-center shrink-0"><Leaf className="w-6 h-6" /></div>
                   <div>
                     <h3 className="text-xl font-bold text-[#3D3D3D] mb-2">Impact Local Positif</h3>
                     <p className="text-[#8A8A8A]">En supprimant les intermédiaires, nous soutenons directement l'économie locale et réduisons drastiquement le gaspillage alimentaire.</p>
                   </div>
                 </div>
               </div>
-              
-              <Link 
-                href="/catalogue"
-                className="inline-flex items-center justify-center px-8 py-4 bg-[#1E8A3C] text-white rounded-xl font-bold text-lg hover:bg-[#176B2E] transition-all shadow-lg shadow-green-900/20"
-              >
-                Découvrir nos produits
-              </Link>
+              <Link href="/catalogue" className="inline-flex items-center justify-center px-8 py-4 bg-[#1E8A3C] text-white rounded-xl font-bold text-lg hover:bg-[#176B2E] transition-all shadow-lg shadow-green-900/20">Découvrir nos produits</Link>
             </div>
           </div>
         </div>
@@ -535,19 +561,12 @@ export default function HomePage() {
                   <span className="text-xs font-medium text-white/80 mt-1 uppercase tracking-wider">Fresh Market</span>
                 </div>
               </div>
-              <p className="text-white/80 mb-4 max-w-sm">
-                Du champ au panier, le matin même. Légumes frais du marché de gros de Fès livrés chez vous.
-              </p>
+              <p className="text-white/80 mb-4 max-w-sm">Du champ au panier, le matin même. Légumes frais du marché de gros de Fès livrés chez vous.</p>
               <div className="flex gap-3">
-                <a href="#" className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center hover:bg-white/20 transition-colors">
-                  <MessageCircle className="w-5 h-5" />
-                </a>
-                <a href="#" className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center hover:bg-white/20 transition-colors">
-                  <Instagram className="w-5 h-5" />
-                </a>
+                <a href="#" className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center hover:bg-white/20 transition-colors"><MessageCircle className="w-5 h-5" /></a>
+                <a href="#" className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center hover:bg-white/20 transition-colors"><Instagram className="w-5 h-5" /></a>
               </div>
             </div>
-
             <div>
               <h3 className="font-semibold mb-4">Liens utiles</h3>
               <ul className="space-y-2 text-white/80">
@@ -557,7 +576,6 @@ export default function HomePage() {
                 <li><Link href="/contact" className="hover:text-white transition-colors">Contact</Link></li>
               </ul>
             </div>
-
             <div>
               <h3 className="font-semibold mb-4">Légal</h3>
               <ul className="space-y-2 text-white/80">
@@ -567,18 +585,55 @@ export default function HomePage() {
               </ul>
             </div>
           </div>
-
           <div className="border-t border-white/20 pt-8 text-center text-white/60 text-sm">
             <p>© 2026 SOUKI Fresh Market — Fès, Maroc — "Du champ au panier, le matin même."</p>
           </div>
         </div>
       </footer>
 
-      <AIModals 
-        isOpen={activeModal !== null} 
-        onClose={() => setActiveModal(null)} 
-        mode={activeModal} 
-      />
+      {/* --- MODAL VOCAL INTÉGRÉ DIRECTEMENT ICI --- */}
+      {isVoiceOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative animate-fade-in">
+            <button 
+              onClick={() => { setIsVoiceOpen(false); setIsRecording(false); setIsProcessing(false); setVoiceError(null); }} 
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-6 h-6" />
+            </button>
+
+            <div className="w-16 h-16 rounded-2xl bg-[#F0FAF1] flex items-center justify-center mx-auto mb-4">
+              <MessageCircle className="w-8 h-8 text-[#1E8A3C]" />
+            </div>
+            <h3 className="text-2xl font-bold text-[#3D3D3D] mb-2">Assistant Vocal SOUKI</h3>
+            <p className="text-[#8A8A8A] mb-8 text-sm">Dites-moi ce dont vous avez besoin...</p>
+
+            <div className="flex justify-center mb-8">
+              {!isProcessing ? (
+                <button
+                  onClick={isRecording ? stopRecording : startRecording}
+                  className={`w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg ${
+                    isRecording ? "bg-red-500 animate-pulse hover:bg-red-600" : "bg-[#1E8A3C] hover:bg-[#176B2E] hover:scale-105"
+                  }`}
+                >
+                  {isRecording ? <MicOff className="w-10 h-10 text-white" /> : <Mic className="w-10 h-10 text-white" />}
+                </button>
+              ) : (
+                <div className="w-24 h-24 rounded-full bg-[#F07C00] flex items-center justify-center animate-pulse">
+                  <Loader2 className="w-10 h-10 text-white animate-spin" />
+                </div>
+              )}
+            </div>
+
+            <p className="text-sm font-medium text-[#3D3D3D] min-h-[40px] flex items-center justify-center">
+              {voiceError && <span className="text-red-500">{voiceError}</span>}
+              {isRecording && <span className="text-red-500">🔒 Écoute en cours... Cliquez pour arrêter</span>}
+              {isProcessing && <span className="text-[#F07C00]">🧠 L'IA analyse votre commande...</span>}
+              {!isRecording && !isProcessing && !voiceError && <span className="text-[#8A8A8A]">👆 Appuyez pour parler</span>}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

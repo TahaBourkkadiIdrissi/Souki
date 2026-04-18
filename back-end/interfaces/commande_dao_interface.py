@@ -21,3 +21,8 @@ class ICommandeVocaleDao(ABC):
     ) -> bool:
         """Crée une ligne de commande vocale. Retourne True si succès."""
         pass
+    
+    @abstractmethod
+    def get_details_for_checkout(self, session: Session, commande_id: int) -> Optional[dict]:
+        """Récupère les données formatées pour le checkout."""
+        pass
