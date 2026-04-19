@@ -1,9 +1,13 @@
 "use client"
 
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { User, Users, Truck } from "lucide-react"
 
 export default function PreLoginPage() {
+  const searchParams = useSearchParams()
+  const redirectTarget = searchParams.get("redirect")
+
   const roles = [
     {
       title: "Client",
@@ -42,6 +46,9 @@ export default function PreLoginPage() {
       shadowColor: "hover:shadow-[#F07C00]/10"
     }
   ]
+
+  const withRedirect = (href: string) =>
+    redirectTarget ? `${href}?redirect=${encodeURIComponent(redirectTarget)}` : href
 
   return (
     <div className="min-h-screen flex">
@@ -108,7 +115,7 @@ export default function PreLoginPage() {
               return (
                 <Link 
                   key={role.href} 
-                  href={role.href}
+                  href={withRedirect(role.href)}
                   className={`group relative flex items-center p-4 rounded-2xl border-2 border-gray-100 bg-white transition-all duration-300 overflow-hidden ${role.borderColor} ${role.shadowColor} hover:shadow-lg`}
                 >
                   <div className={`absolute inset-0 opacity-0 group-[&:hover]:opacity-5 ${role.color} transition-opacity duration-300`} />
