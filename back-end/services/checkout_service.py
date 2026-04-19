@@ -55,7 +55,7 @@ class CheckoutService(ICheckoutService):
 
             product_ids = [item.product_id for item in payload.items]
             products = self.checkout_dao.get_products_by_ids(session, product_ids)
-            products_by_id = {int(product.id): product for product in products}
+            products_by_id = {int(product.id): product for product in products} # type: ignore
 
             if len(products_by_id) != len(set(product_ids)):
                 raise ValueError("Un ou plusieurs produits du panier sont introuvables.")
@@ -70,18 +70,18 @@ class CheckoutService(ICheckoutService):
 
                 product = products_by_id[item.product_id]
                 requested_quantity = float(item.quantity)
-                available_stock = float(product.stock)
+                available_stock = float(product.stock) # type: ignore
 
                 if available_stock < requested_quantity:
                     raise ValueError(
                         f"Stock insuffisant pour {product.nom_fr}. Disponible: {available_stock} {product.unite}."
                     )
 
-                line_total = round(float(product.prix_kg) * requested_quantity, 2)
+                line_total = round(float(product.prix_kg) * requested_quantity, 2) # type: ignore
                 sous_total += line_total
                 total_legumes += requested_quantity
                 total_articles += 1
-                product.stock = available_stock - requested_quantity
+                product.stock = available_stock - requested_quantity # type: ignore
 
             montant_total = round(sous_total + DELIVERY_FEE, 2)
             panier = self.checkout_dao.create_panier(
@@ -94,10 +94,10 @@ class CheckoutService(ICheckoutService):
 
             for item in payload.items:
                 product = products_by_id[item.product_id]
-                line_total = round(float(product.prix_kg) * float(item.quantity), 2)
+                line_total = round(float(product.prix_kg) * float(item.quantity), 2) # type: ignore
                 self.checkout_dao.create_ligne_panier(
                     session=session,
-                    panier_id=int(panier.id),
+                    panier_id=int(panier.id), # type: ignore
                     produit_id=item.product_id,
                     quantite_kg=float(item.quantity),
                     sous_total=line_total,
@@ -105,8 +105,9 @@ class CheckoutService(ICheckoutService):
 
             commande = self.checkout_dao.create_commande(
                 session=session,
-                client_id=int(client.user_id),
-                panier_id=int(panier.id),
+                client_id=int(client.user_id), # type: ignore
+                panier_id=int(panier.id), # type: ignore
+                brouillon_vocal_id=payload.brouillon_vocal_id,
                 statut="en_attente",
                 creneau_livraison=payload.creneau_livraison,
                 mode_paiement=payload.mode_paiement,
@@ -117,8 +118,8 @@ class CheckoutService(ICheckoutService):
 
             return CheckoutResponseDTO(
                 status="success",
-                commande_id=int(commande.id),
-                panier_id=int(panier.id),
+                commande_id=int(commande.id), # type: ignore
+                panier_id=int(panier.id), # type: ignore
                 total_articles=total_articles,
                 sous_total=round(sous_total, 2),
                 frais_livraison=DELIVERY_FEE,

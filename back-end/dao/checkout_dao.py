@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -69,6 +69,7 @@ class CheckoutDaoBD(ICheckoutDao):
         session: Session,
         client_id: int,
         panier_id: int,
+        brouillon_vocal_id : Optional[int],
         statut: str,
         creneau_livraison: str,
         mode_paiement: str,
@@ -77,6 +78,7 @@ class CheckoutDaoBD(ICheckoutDao):
         commande = Commande(
             client_id=client_id,
             panier_id=panier_id,
+            brouillon_vocal_id=brouillon_vocal_id,
             livreur_id=None,
             statut=statut,
             creneau_livraison=creneau_livraison,

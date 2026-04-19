@@ -10,6 +10,7 @@ class Commande(Base):
     client_id          = Column(Integer, ForeignKey("t_clients.user_id"))
     panier_id          = Column(Integer, ForeignKey("t_paniers.id"))
     livreur_id         = Column(Integer, ForeignKey("t_livreurs.user_id"))
+    brouillon_vocal_id = Column(Integer, ForeignKey("T_CommandeVocale.id"), nullable=True)
     statut             = Column(String(50))
     date_commande      = Column(DateTime, server_default=func.now())
     creneau_livraison  = Column(String(100))

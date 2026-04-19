@@ -35,18 +35,19 @@ interface LigneCommandeDTO {
 }
 
 interface VoiceBasketResponseDTO {
-  status: string
-  transcription?: string
-  langue_detectee?: string
-  produits_non_disponibles: string[]
-  lignes_panier: LigneCommandeDTO[]
-  total_dh: number
-  nombre_articles: number
+  status: string;
+  transcription?: string;
+  langue_detectee?: string;
+  produits_non_disponibles: string[];
+  lignes_panier: LigneCommandeDTO[];
+  total_dh: number;
+  nombre_articles: number;
+  commande_id?: number; // AJOUTÉ pour le passer au checkout
 }
 
 interface AIModalsProps {
   isOpen: boolean
-  onClose: () => void
+  onClose: void
   mode: "voice" | "smart" | null
   products?: CatalogueProduct[]
   onApplySelections?: (selections: BasketSelection[]) => void
@@ -69,23 +70,6 @@ export function AIModals({
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
-
-  const smartPreview = smartSelections
-    .map((selection) => {
-      const product = products.find((item) => item.id === selection.productId)
-      if (!product) {
-        return null
-      }
-      return {
-        product,
-        quantity: selection.quantity,
-        total: product.price * selection.quantity,
-      }
-    })
-    .filter((item): item is NonNullable<typeof item> => item !== null)
-
-  const formatVoiceQuantity = (quantity: number) =>
-    Number.isInteger(quantity) ? quantity.toFixed(0) : quantity.toFixed(2)
 
   useEffect(() => {
     if (!isOpen) {
@@ -115,28 +99,16 @@ export function AIModals({
     }
 
     try {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error("Microphone non disponible")
-      }
-
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const preferredMimeType =
-        typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/webm")
-          ? "audio/webm"
-          : ""
-      const mediaRecorder = preferredMimeType
-        ? new MediaRecorder(stream, { mimeType: preferredMimeType })
-        : new MediaRecorder(stream)
-
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" })
+      
       audioChunksRef.current = []
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data)
-        }
+        if (event.data.size > 0) audioChunksRef.current.push(event.data)
       }
 
       mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach((track) => track.stop())
+        stream.getTracks().forEach(track => track.stop())
         setIsSending(true)
 
         try {
@@ -144,7 +116,7 @@ export function AIModals({
           const formData = new FormData()
           formData.append("audio", audioBlob, "enregistrement.webm")
 
-          const response = await fetch(`${API_BASE_URL}/api/voice-basket`, {
+          const response = await fetch(`${API_URL}/voice-basket`, {
             method: "POST",
             body: formData,
           })
@@ -155,8 +127,8 @@ export function AIModals({
 
           const data: VoiceBasketResponseDTO = await response.json()
           setResult(data)
-        } catch {
-          setError("Impossible de contacter l'IA. Verifiez que le back-end est lance.")
+        } catch (err) {
+          setError("Impossible de contacter l'IA. Vérifiez que le backend est lancé.")
         } finally {
           setIsSending(false)
         }
@@ -170,59 +142,35 @@ export function AIModals({
     }
   }
 
-  const handleApplyVoiceBasket = () => {
-    if (!result) {
-      return
-    }
-    onApplySelections?.(
-      result.lignes_panier.map((line) => ({
-        productId: line.product_id,
-        quantity: line.quantite_effective,
-      }))
-    )
-    onClose()
-  }
-
   const handleSmartGeneration = () => {
-    const numericBudget = Number(budget)
-    if (!products.length) {
-      setError("Le catalogue n'est pas encore charge.")
-      return
-    }
-    if (!Number.isFinite(numericBudget) || numericBudget <= 0) {
-      setError("Entrez un budget valide pour generer le panier.")
-      return
-    }
-
-    setError(null)
-    setSmartSelections(buildSmartBasket(products, numericBudget, duration))
+    setIsListening(true)
+    setTimeout(() => {
+      setIsListening(false)
+      onClose()
+      router.push("/checkout?mode=smart")
+    }, 2000)
   }
 
-  const handleApplySmartBasket = () => {
-    if (!smartSelections.length) {
-      return
-    }
-    onApplySelections?.(smartSelections)
-    onClose()
-  }
-
-  if (!isOpen || !mode) {
-    return null
-  }
+  if (!isOpen || !mode) return null
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div 
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
 
-      <div
-        className={cn(
-          "relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl shadow-2xl",
-          mode === "voice" ? "border border-white/10 bg-[#111116]" : "bg-white"
-        )}
-      >
+      <div className={cn(
+        "relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col",
+        mode === "voice" ? "bg-[#111116]" : "bg-white"
+      )}>
+        
+        {/* === VOICE MODAL === */}
         {mode === "voice" && (
-          <div className="flex flex-col overflow-y-auto text-white">
-            <div className="flex items-center justify-between border-b border-white/5 p-4">
+          <div className="flex flex-col h-full text-white overflow-y-auto">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-white/5 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[#1E8A3C]/30 bg-gradient-to-br from-[#1E8A3C]/10 to-transparent">
                   <Sparkles className="h-5 w-5 text-[#4CB84A]" />
@@ -248,36 +196,48 @@ export function AIModals({
               </div>
             </div>
 
-            <div className="flex flex-col items-center justify-center border-b border-white/5 px-6 py-10 text-center">
-              <div
-                className={cn(
-                  "mb-6 flex h-16 w-16 items-center justify-center rounded-full transition-all duration-700",
-                  isSending
-                    ? "bg-gradient-to-tr from-[#F07C00] to-[#FF9421] shadow-[0_0_30px_#F07C00]"
-                    : isListening
-                      ? "bg-gradient-to-tr from-[#1E8A3C] to-[#4CB84A] shadow-[0_0_30px_#1E8A3C]"
-                      : "bg-white/10"
-                )}
-              >
-                {isSending ? (
-                  <Loader2 className="h-7 w-7 animate-spin text-white" />
-                ) : (
-                  <Mic className="h-7 w-7 text-white" />
-                )}
+            {/* Visualizer Area */}
+            <div className="py-12 border-b border-white/5 relative flex flex-col items-center justify-center shrink-0">
+              <div className={cn(
+                "relative w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-6 transition-all duration-700",
+                isSending ? "bg-gradient-to-tr from-[#F07C00] to-[#FF9421] shadow-[0_0_30px_#F07C00]" :
+                isListening ? "bg-gradient-to-tr from-[#1E8A3C] to-[#4CB84A] shadow-[0_0_30px_#1E8A3C]" : "bg-white/10"
+              )}>
+                {isSending ? <Loader2 className="w-6 h-6 text-white animate-spin" /> : <div className="w-4 h-4 rounded-full bg-white opacity-80" />}
               </div>
-
-              <p className="mb-2 text-sm font-medium text-white/85">
-                {isSending
-                  ? "IA-SOUKI analyse votre commande vocale..."
-                  : isListening
-                    ? "Appuyez a nouveau pour arreter l'enregistrement"
-                    : "Appuyez sur le micro et dites votre panier"}
-              </p>
-              <p className="text-xs text-white/45">
-                Detection automatique du silence. Darija et francais.
-              </p>
-
-              <button
+              
+              <div className="flex items-center gap-1 justify-center h-8">
+                {[...Array(15)].map((_, i) => (
+                  <div 
+                    key={i} 
+                    className={cn(
+                      "w-1.5 rounded-full bg-white/20 transition-all duration-300",
+                      isListening ? "animate-pulse" : "h-2"
+                    )}
+                    style={{ 
+                      height: isListening ? `${Math.max(8, Math.random() * 32)}px` : '8px',
+                      animationDelay: `${i * 0.1}s`
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+            
+            {/* Action Area */}
+            <div className="p-6 flex flex-col items-center text-center">
+              <div className="mb-6">
+                <div className="w-10 h-10 mx-auto bg-white/5 rounded-full flex items-center justify-center mb-4">
+                  <Mic className="w-5 h-5 text-white/60" />
+                </div>
+                <p className="text-sm font-medium text-white/80 mb-2">
+                  {isSending ? "IA-SOUKI analyse votre voix..." : isListening ? "Je vous écoute..." : "Appuyez sur le micro et parlez à IA-SOUKI"}
+                </p>
+                <p className="text-[10px] text-white/40">
+                  Détection automatique du silence • Darija & Français
+                </p>
+              </div>
+              
+              <button 
                 onClick={handleVoiceInteraction}
                 disabled={isSending}
                 className={cn(
@@ -358,9 +318,10 @@ export function AIModals({
                   </span>
                 </div>
 
-                <button
-                  onClick={handleApplyVoiceBasket}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1E8A3C] px-4 py-3 font-bold text-white transition-colors hover:bg-[#176B2E]"
+                {/* LE BOUTON QUI ENVOIE L'ID AU CHECKOUT */}
+                <button 
+                  onClick={() => { onClose(); router.push(`/checkout?commande_id=${result.commande_id}`) }}
+                  className="w-full mt-2 flex items-center justify-center gap-2 py-2.5 bg-[#1E8A3C] text-white rounded-xl font-bold text-sm hover:bg-[#176B2E] transition-colors"
                 >
                   Ajouter ce panier
                   <ArrowRight className="h-4 w-4" />

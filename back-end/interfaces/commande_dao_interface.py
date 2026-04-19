@@ -8,7 +8,7 @@ class ICommandeVocaleDao(ABC):
 
     @abstractmethod
     def create_commande(
-        self, session: Session, transcription: str, json_brut: str, langue: str
+        self, session: Session, user_id: int, transcription: str, json_brut: str, langue: str
     ) -> Optional[CommandeVocale]:
         """Crée une commande vocale en BDD."""
         pass
@@ -20,4 +20,9 @@ class ICommandeVocaleDao(ABC):
         sous_total: float, message: Optional[str]
     ) -> bool:
         """Crée une ligne de commande vocale. Retourne True si succès."""
+        pass
+    
+    @abstractmethod
+    def get_details_for_checkout(self, session: Session, commande_id: int) -> Optional[dict]:
+        """Récupère les données formatées pour le checkout."""
         pass
