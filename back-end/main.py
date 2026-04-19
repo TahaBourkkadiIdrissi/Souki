@@ -10,7 +10,11 @@ from controllers.auth_controller import auth_router
 from controllers.catalogue_controller import router_catalogue
 from controllers.checkout_controller import router_checkout
 from controllers.commande_controller import router_voice
+<<<<<<< HEAD
 from controllers.livreur_controller import router_livreur
+=======
+from controllers.panier_controller import router_panier
+>>>>>>> main
 from controllers.profile_controller import profile_router
 from services.catalogue_bootstrap_service import CatalogueBootstrapService
 
@@ -45,6 +49,7 @@ app.include_router(auth_router)
 app.include_router(profile_router)
 app.include_router(router_catalogue)
 app.include_router(router_voice)
+app.include_router(router_panier)
 app.include_router(router_checkout)
 app.include_router(router_livreur)
 

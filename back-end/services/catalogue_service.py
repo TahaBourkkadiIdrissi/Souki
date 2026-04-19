@@ -62,7 +62,7 @@ class CatalogueService(ICatalogueService):
         self, item_gemini: dict
     ) -> Tuple[Optional[LigneCommandeDTO], Optional[str]]:
         auto_session = self.session is None
-        alias = item_gemini.get("produit_darija") or item_gemini.get("produit_fr")
+        alias = item_gemini.get("produit_fr") or item_gemini.get("produit_darija")
         if not alias:
             return None, "Inconnu"
 
