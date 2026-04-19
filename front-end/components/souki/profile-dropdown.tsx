@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import { User } from "@/contexts/auth-context"
-import { ChevronDown, LogOut, User as UserIcon } from "lucide-react"
+import { Menu, LogOut, User as UserIcon, Heart } from "lucide-react"
 
 export function ProfileDropdown({ user }: { user: User }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -36,7 +36,7 @@ export function ProfileDropdown({ user }: { user: User }) {
 
   // Initiales de l'utilisateur pour l'avatar
   const initials = user.email 
-    ? user.email.substring(0, 2).toUpperCase() 
+    ? user.email.substring(0, 1).toUpperCase() 
     : user.phone 
     ? user.phone.substring(0, 2) 
     : "U"
@@ -45,38 +45,49 @@ export function ProfileDropdown({ user }: { user: User }) {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+        className="flex items-center gap-3 px-2 py-1.5 rounded-full border border-gray-200 bg-white hover:shadow-md transition-all duration-300 shadow-sm"
       >
-        <div className="w-9 h-9 rounded-full bg-[#1E8A3C] text-white flex items-center justify-center font-semibold text-sm">
+        <Menu size={18} className="text-[#8A8A8A] ml-2" />
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#1E8A3C] to-[#4CB84A] text-white flex items-center justify-center font-bold text-sm shadow-inner">
           {initials}
         </div>
-        <ChevronDown size={18} className={`transition-transform ${isOpen ? "rotate-180" : ""}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 overflow-hidden z-50">
+        <div className="absolute right-0 mt-3 w-64 bg-white/95 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100 overflow-hidden z-50 animate-fade-in origin-top-right">
           {/* Header avec infos utilisateur */}
-          <div className="px-4 py-3 bg-gray-50 border-b">
-            <p className="font-semibold text-sm text-[#1E8A3C]">{user.role}</p>
-            <p className="text-xs text-gray-600">{user.email || user.phone}</p>
+          <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-br from-gray-50/50 to-white">
+            <p className="font-bold text-[#3D3D3D] text-sm uppercase tracking-wider">{user.role}</p>
+            <p className="text-sm text-[#8A8A8A] truncate mt-0.5">{user.email || user.phone}</p>
           </div>
 
           {/* Menu items */}
-          <button
-            onClick={handleProfileClick}
-            className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-2 text-sm text-gray-700 transition-colors"
-          >
-            <UserIcon size={18} />
-            Mon profil
-          </button>
-
-          <button
-            onClick={handleLogout}
-            className="w-full text-left px-4 py-3 hover:bg-red-50 flex items-center gap-2 text-sm text-red-600 transition-colors border-t"
-          >
-            <LogOut size={18} />
-            Déconnexion
-          </button>
+          <div className="p-2">
+            <button
+              onClick={handleProfileClick}
+              className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-[#F0FAF1] flex items-center gap-3 text-sm font-medium text-[#3D3D3D] transition-colors"
+            >
+              <UserIcon size={18} className="text-[#8A8A8A]" />
+              Mon Profil
+            </button>
+            <button
+              onClick={() => { setIsOpen(false); router.push("/commandes"); }}
+              className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-[#F0FAF1] flex items-center gap-3 text-sm font-medium text-[#3D3D3D] transition-colors"
+            >
+              <Heart size={18} className="text-[#8A8A8A]" />
+              Abonnements & Favoris
+            </button>
+            
+            <div className="h-px bg-gray-100 my-2 mx-2" />
+            
+            <button
+              onClick={handleLogout}
+              className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-red-50 flex items-center gap-3 text-sm font-medium text-red-600 transition-colors group"
+            >
+              <LogOut size={18} className="text-red-500 group-hover:scale-110 transition-transform" />
+              Se déconnecter
+            </button>
+          </div>
         </div>
       )}
     </div>

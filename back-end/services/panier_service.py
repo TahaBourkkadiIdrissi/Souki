@@ -144,6 +144,14 @@ class PanierService(IPanierService):
                 total_facture=montant_total,
             )
 
+            # Créer la commande brouillon liée à ce panier manuel
+            self.panier_dao.create_commande_draft(
+                session=session,
+                client_id=user_id,
+                panier_id=int(panier.id), # type: ignore
+                montant_total=montant_total
+            )
+
             # Créer les lignes du panier
             for i, item in enumerate(payload.items):
                 product = products_by_id[item.product_id]

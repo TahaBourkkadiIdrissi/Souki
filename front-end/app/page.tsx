@@ -11,23 +11,18 @@ import {
   Clock, 
   Truck, 
   Users, 
-  CreditCard, 
   Banknote,
   Star,
   ArrowRight,
-  Menu,
-  X,
   MessageCircle,
   Instagram,
   CheckCircle,
   Shield,
-  Zap,
-  Mic,
-  MicOff,
-  Loader2
+  Zap
 } from "lucide-react"     
 import { ProductCard } from "@/components/souki/product-card"
 import { Navbar } from "@/components/souki/navbar"
+import { AIModals } from "@/components/souki/ai-modals"
 
 const BACKEND_URL = "http://localhost:8000" // METTEZ VOTRE VRAIE URL ICI
 
@@ -51,123 +46,40 @@ const testimonials = [
 ]
 
 export default function HomePage() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [cart, setCart] = useState<{id: string, quantity: number}[]>([])
   const { isAuthenticated, validateToken } = useAuth()
   const router = useRouter()
 
-  // --- États pour le modal vocal ---
-  const [isVoiceOpen, setIsVoiceOpen] = useState(false)
-  const [isRecording, setIsRecording] = useState(false)
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [voiceError, setVoiceError] = useState<string | null>(null)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-
-  // Revalider l'authentification quand la page se monte
-  useEffect(() => {
-    const revalidateAuth = async () => {
-      try {
-        await validateToken()
-      } catch (error) {
-        console.error("Auth revalidation failed:", error)
-      }
-    }
-    revalidateAuth()
-  }, [])
+  const [activeModal, setActiveModal] = useState<"voice" | "smart" | null>(null)
 
   // Fonction helper pour protéger les actions
+  const requireAuth = (callback: () => void) => {
+    if (!isAuthenticated) {
+      router.push("/login?redirect=/")
+    } else {
+      callback()
+    }
+  }
+
   const handleAddToCart = (id: number | string, quantity: number) => {
-    const normalizedId = String(id)
-    setCart(prev => {
-      const existing = prev.find(item => item.id === normalizedId)
-      if (existing) {
-        return prev.map(item =>
-          item.id === normalizedId ? { ...item, quantity: item.quantity + quantity } : item
-        )
+    requireAuth(() => {
+      const normalizedId = String(id)
+      const product = products.find((item) => item.id === normalizedId)
+      if (product) {
+        let backendName = product.name;
+        if (backendName === "Tomates Marocaines") backendName = "Tomates";
+        if (backendName === "Pommes de Terre") backendName = "Pommes de terre";
+        if (backendName === "Oignons") backendName = "Oignons rouge";
+        if (backendName === "Herbes Fraîches") backendName = "Persil";
+
+        router.push(`/catalogue?add_product=${encodeURIComponent(backendName)}&qty=${quantity}`)
+      } else {
+        router.push("/catalogue")
       }
-      return [...prev, { id: normalizedId, quantity }]
     })
   }
 
-  const handleNavigateToCheckout = () => {
-    router.push("/checkout")
-  }
-
-  const handleOpenVoiceModal = () => {
-    if (!isAuthenticated) {
-      router.push("/login/client?redirect=/")
-      return
-    }
-    setIsVoiceOpen(true)
-  }
-
-  const handleOpenSmartModal = () => {
-    router.push("/catalogue?assistant=smart")
-  }
-
-  // --- Logique d'enregistrement vocal ---
-  const startRecording = async () => {
-    setVoiceError(null)
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mediaRecorder = new MediaRecorder(stream)
-      mediaRecorderRef.current = mediaRecorder
-
-      const audioChunks: BlobPart[] = []
-      mediaRecorder.ondataavailable = (event) => audioChunks.push(event.data)
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: "audio/webm" })
-        await sendToBackend(audioBlob)
-        stream.getTracks().forEach(track => track.stop())
-      }
-
-      mediaRecorder.start()
-      setIsRecording(true)
-    } catch {
-      setVoiceError("Veuillez autoriser l'accès au micro dans votre navigateur.")
-    }
-  }
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop()
-      setIsRecording(false)
-      setIsProcessing(true)
-    }
-  }
-
-  const sendToBackend = async (audioBlob: Blob) => {
-    try {
-      const formData = new FormData()
-      formData.append("audio", audioBlob, "recording.webm")
-
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-      
-      const response = await fetch(`${BACKEND_URL}/api/voice-basket`, {
-        method: "POST",
-        headers: token ? { "Authorization": `Bearer ${token}` } : {},
-        body: formData,
-      })
-
-      if (!response.ok) throw new Error("Erreur lors de l'analyse vocale")
-
-      const data = await response.json()
-
-      if (data.commande_id) {
-        setIsVoiceOpen(false)
-        router.push(`/checkout?commande_id=${data.commande_id}`)
-      } else {
-        setVoiceError("L'IA n'a pas pu comprendre votre commande. Réessayez.")
-        setIsProcessing(false)
-      }
-    } catch {
-      setVoiceError("Impossible de contacter le serveur. Vérifiez votre connexion.")
-      setIsProcessing(false)
-    }
-  }
-
-  const cartItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0)
+  const handleOpenVoiceModal = () => requireAuth(() => setActiveModal("voice"))
+  const handleOpenSmartModal = () => requireAuth(() => setActiveModal("smart"))
 
   return (
     <div className="min-h-screen bg-white">
@@ -203,7 +115,7 @@ export default function HomePage() {
 
             <div className="flex flex-col items-center gap-8 pt-4">
               <button
-                onClick={() => router.push("/catalogue")}
+                onClick={() => requireAuth(() => router.push("/catalogue"))}
                 className="group relative inline-flex items-center justify-center gap-3 px-10 py-5 bg-[#1E8A3C] text-white rounded-2xl font-bold text-2xl hover:bg-[#176B2E] transition-all hover:scale-105 shadow-[0_20px_50px_-10px_rgba(30,138,60,0.5)] overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
@@ -340,23 +252,19 @@ export default function HomePage() {
               <ProductCard
                 key={product.id}
                 {...product}
-                onAddToCart={
-                  !isAuthenticated
-                    ? () => router.push("/login/client?redirect=/catalogue")
-                    : handleAddToCart
-                }
+                onAddToCart={handleAddToCart}
               />
             ))}
           </div>
 
           <div className="text-center mt-12">
-            <Link 
-              href="/catalogue"
+            <button 
+              onClick={() => requireAuth(() => router.push("/catalogue"))}
               className="inline-flex items-center gap-2 px-6 py-3 bg-[#1E8A3C] text-white rounded-xl font-semibold hover:bg-[#176B2E] transition-colors"
             >
               Voir tous les produits
               <ArrowRight className="w-5 h-5" />
-            </Link>
+            </button>
           </div>
         </div>
       </section>
@@ -406,14 +314,14 @@ export default function HomePage() {
             </div>
 
             <div className="flex flex-col items-center gap-6 pt-6 animate-fade-in stagger-3">
-              <Link 
-                href="/abonnements"
+              <button 
+                onClick={() => requireAuth(() => router.push("/abonnements"))}
                 className="group relative inline-flex items-center justify-center gap-4 px-12 py-5 bg-[#F07C00] text-white rounded-2xl font-black text-2xl hover:bg-[#D66B00] transition-all hover:scale-105 shadow-[0_20px_50px_-10px_rgba(240,124,0,0.5)] overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
                 Découvrir l'abonnement
                 <ArrowRight className="w-8 h-8 group-hover:translate-x-1 transition-transform" />
-              </Link>
+              </button>
               <div className="flex items-center gap-2 text-white/70 text-sm font-medium">
                 <Shield className="w-4 h-4" />
                 Paiement 100% sécurisé via CMI & Visa
@@ -541,7 +449,7 @@ export default function HomePage() {
                   </div>
                 </div>
               </div>
-              <Link href="/catalogue" className="inline-flex items-center justify-center px-8 py-4 bg-[#1E8A3C] text-white rounded-xl font-bold text-lg hover:bg-[#176B2E] transition-all shadow-lg shadow-green-900/20">Découvrir nos produits</Link>
+              <button onClick={() => requireAuth(() => router.push("/catalogue"))} className="inline-flex items-center justify-center px-8 py-4 bg-[#1E8A3C] text-white rounded-xl font-bold text-lg hover:bg-[#176B2E] transition-all shadow-lg shadow-green-900/20">Découvrir nos produits</button>
             </div>
           </div>
         </div>
@@ -591,48 +499,13 @@ export default function HomePage() {
         </div>
       </footer>
 
-      {/* --- MODAL VOCAL INTÉGRÉ DIRECTEMENT ICI --- */}
-      {isVoiceOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative animate-fade-in">
-            <button 
-              onClick={() => { setIsVoiceOpen(false); setIsRecording(false); setIsProcessing(false); setVoiceError(null); }} 
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-            >
-              <X className="w-6 h-6" />
-            </button>
-
-            <div className="w-16 h-16 rounded-2xl bg-[#F0FAF1] flex items-center justify-center mx-auto mb-4">
-              <MessageCircle className="w-8 h-8 text-[#1E8A3C]" />
-            </div>
-            <h3 className="text-2xl font-bold text-[#3D3D3D] mb-2">Assistant Vocal SOUKI</h3>
-            <p className="text-[#8A8A8A] mb-8 text-sm">Dites-moi ce dont vous avez besoin...</p>
-
-            <div className="flex justify-center mb-8">
-              {!isProcessing ? (
-                <button
-                  onClick={isRecording ? stopRecording : startRecording}
-                  className={`w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg ${
-                    isRecording ? "bg-red-500 animate-pulse hover:bg-red-600" : "bg-[#1E8A3C] hover:bg-[#176B2E] hover:scale-105"
-                  }`}
-                >
-                  {isRecording ? <MicOff className="w-10 h-10 text-white" /> : <Mic className="w-10 h-10 text-white" />}
-                </button>
-              ) : (
-                <div className="w-24 h-24 rounded-full bg-[#F07C00] flex items-center justify-center animate-pulse">
-                  <Loader2 className="w-10 h-10 text-white animate-spin" />
-                </div>
-              )}
-            </div>
-
-            <p className="text-sm font-medium text-[#3D3D3D] min-h-[40px] flex items-center justify-center">
-              {voiceError && <span className="text-red-500">{voiceError}</span>}
-              {isRecording && <span className="text-red-500">🔒 Écoute en cours... Cliquez pour arrêter</span>}
-              {isProcessing && <span className="text-[#F07C00]">🧠 L'IA analyse votre commande...</span>}
-              {!isRecording && !isProcessing && !voiceError && <span className="text-[#8A8A8A]">👆 Appuyez pour parler</span>}
-            </p>
-          </div>
-        </div>
+      {/* --- MODAL IA INTÉGRÉ --- */}
+      {activeModal && (
+        <AIModals
+          isOpen={activeModal !== null}
+          onClose={() => setActiveModal(null)}
+          mode={activeModal}
+        />
       )}
     </div>
   )

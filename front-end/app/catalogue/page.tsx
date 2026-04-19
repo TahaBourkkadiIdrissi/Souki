@@ -123,6 +123,20 @@ export default function CataloguePage() {
     }
   }, [isAuthenticated, isLoading, searchParams])
 
+  useEffect(() => {
+    const addProductName = searchParams.get("add_product")
+    const qtyStr = searchParams.get("qty")
+    if (addProductName && qtyStr && products.length > 0 && isAuthenticated) {
+      const qty = Number(qtyStr)
+      const product = products.find((p) => p.name === addProductName)
+      if (product && !Number.isNaN(qty)) {
+        setCart((currentCart) => upsertCartItem(currentCart, product, qty))
+        setShowCart(true)
+        router.replace("/catalogue")
+      }
+    }
+  }, [searchParams, products, isAuthenticated, router])
+
   const redirectToLogin = (redirectTarget: string) => {
     router.push(`/login?redirect=${encodeURIComponent(redirectTarget)}`)
   }

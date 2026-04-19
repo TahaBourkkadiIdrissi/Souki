@@ -18,6 +18,17 @@ class IPanierDao(ABC):
         pass
 
     @abstractmethod
+    def create_commande_draft(
+        self,
+        session: Session,
+        client_id: int,
+        panier_id: int,
+        montant_total: float,
+    ) -> any:
+        """Crée une commande brouillon liée à un panier manuel"""
+        pass
+
+    @abstractmethod
     def create_ligne_panier(
         self,
         session: Session,

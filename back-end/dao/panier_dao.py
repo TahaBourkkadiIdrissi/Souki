@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 
 from entities.panier_entity import Panier
 from entities.ligne_panier_entity import LignePanier
+from entities.commande_entity import Commande
+from entities.client_entity import Client
 from entities.product_entity import Product
 from interfaces.panier_dao_interface import IPanierDao
 
@@ -27,6 +29,30 @@ class PanierDaoBD(IPanierDao):
         session.add(panier)
         session.flush()
         return panier
+
+    def create_commande_draft(
+        self,
+        session: Session,
+        client_id: int,
+        panier_id: int,
+        montant_total: float,
+    ) -> Commande:
+        """Crée une commande brouillon liée à un panier"""
+        client = session.query(Client).filter(Client.user_id == client_id).first()
+        if not client:
+            client = Client(user_id=client_id)
+            session.add(client)
+            session.flush()
+
+        commande = Commande(
+            client_id=client_id,
+            panier_id=panier_id,
+            statut="brouillon",
+            montant_total=montant_total
+        )
+        session.add(commande)
+        session.flush()
+        return commande
 
     def create_ligne_panier(
         self,
