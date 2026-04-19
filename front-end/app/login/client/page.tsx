@@ -30,7 +30,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { googleLogin } = useAuth()
+  const { login, googleLogin } = useAuth()
   const redirectTarget = searchParams.get("redirect") || "/"
   const [mode, setMode] = useState<AuthMode>("login")
   
@@ -173,34 +173,8 @@ export default function LoginPage() {
 
       } else {
         // --- NOUVELLE LOGIQUE DE CONNEXION SÉCURISÉE ---
-        const response = await fetch(`${API_URL}/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            login_id: loginId,
-            password: password,
-            role: "CLIENT" // <-- L'envoi du rôle requis par notre backend ! (Modifie ici pour Parent ou Livreur)
-          }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.detail || "Identifiants incorrects ou accès refusé.");
-        }
-
-        // Si ton hook useAuth gère l'état global avec le token, tu peux l'appeler ici
-        // await contextLogin(data.access_token);
-        localStorage.setItem("token", data.access_token);
-        window.dispatchEvent(
-          new CustomEvent("auth-token-changed", {
-            detail: { token: data.access_token },
-          })
-        );
-
-        setTimeout(() => {
-          router.push(redirectTarget);
-        }, 300);
+        await login(loginId, password, "CLIENT");
+        router.push(redirectTarget);
       }
     } catch (err: any) {
       setError(err.message || "Une erreur inattendue est survenue.");
