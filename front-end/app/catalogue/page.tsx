@@ -32,9 +32,12 @@ import {
   loadStoredCart,
   mergeSelectionsIntoCart,
   saveStoredCart,
+  submitManualBasket,
   upsertCartItem,
 } from "@/lib/catalogue"
 import { cn } from "@/lib/utils"
+
+const CATALOGUE_REFRESH_INTERVAL_MS = 5 * 60 * 1000
 
 const categories = [
   { id: "tous", label: "Tous" },
@@ -66,23 +69,43 @@ export default function CataloguePage() {
   const [activeModal, setActiveModal] = useState<"voice" | "smart" | null>(null)
   const [isFetching, setIsFetching] = useState(true)
   const [error, setError] = useState("")
+  const [isSubmittingCart, setIsSubmittingCart] = useState(false)
 
   useEffect(() => {
-    const loadCatalogue = async () => {
+    let isMounted = true
+
+    const loadCatalogue = async (showLoader = false) => {
       try {
-        setIsFetching(true)
-        setError("")
+        if (showLoader && isMounted) {
+          setIsFetching(true)
+        }
         const catalogue = await fetchCatalogueProducts()
+        if (!isMounted) {
+          return
+        }
+        setError("")
         setProducts(catalogue)
       } catch (fetchError) {
-        setError("Impossible de charger le catalogue pour le moment.")
+        if (isMounted && showLoader) {
+          setError("Impossible de charger le catalogue pour le moment.")
+        }
       } finally {
-        setIsFetching(false)
+        if (showLoader && isMounted) {
+          setIsFetching(false)
+        }
       }
     }
 
-    loadCatalogue()
+    loadCatalogue(true)
     setCart(loadStoredCart())
+    const interval = window.setInterval(() => {
+      loadCatalogue()
+    }, CATALOGUE_REFRESH_INTERVAL_MS)
+
+    return () => {
+      isMounted = false
+      window.clearInterval(interval)
+    }
   }, [])
 
   useEffect(() => {
@@ -101,7 +124,7 @@ export default function CataloguePage() {
   }, [isAuthenticated, isLoading, searchParams])
 
   const redirectToLogin = (redirectTarget: string) => {
-    router.push(`/login/client?redirect=${encodeURIComponent(redirectTarget)}`)
+    router.push(`/login?redirect=${encodeURIComponent(redirectTarget)}`)
   }
 
   const requireAuth = (redirectTarget: string, action: () => void) => {
@@ -156,8 +179,35 @@ export default function CataloguePage() {
   }
 
   const handleCheckout = () => {
-    requireAuth("/checkout", () => {
-      router.push("/checkout")
+    requireAuth("/checkout", async () => {
+      if (cart.length === 0) {
+        alert("Votre panier est vide.")
+        return
+      }
+
+      setIsSubmittingCart(true)
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+        
+        const result = await submitManualBasket(cart)
+        
+        if (result && result.panier_id) {
+          // Rediriger vers checkout avec panier_id
+          router.push(`/checkout?panier_id=${result.panier_id}`)
+          // Vider le panier local après succès
+          saveStoredCart([])
+        } else {
+          alert("Erreur: réponse inattendue du serveur")
+        }
+      } catch (error: any) {
+        const errorMsg = 
+          error?.message || 
+          error?.detail || 
+          "Erreur lors de la création du panier"
+        alert(errorMsg)
+      } finally {
+        setIsSubmittingCart(false)
+      }
     })
   }
 
@@ -321,8 +371,8 @@ export default function CataloguePage() {
 
         <main className="flex-1 px-4 py-6 lg:px-8 lg:py-8">
           <div className="mb-8 rounded-[32px] bg-gradient-to-br from-[#F7FFF6] via-white to-[#FFF7EF] p-6 shadow-[0_18px_50px_-32px_rgba(0,0,0,0.18)] lg:p-8">
-            <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div>
+            <div className="mb-6 flex flex-col gap-5">
+              <div className="max-w-3xl">
                 <div className="mb-3 flex items-center gap-2 text-[#1E8A3C]">
                   <Leaf className="h-6 w-6" />
                   <span className="text-sm font-bold uppercase tracking-[0.22em]">
@@ -427,7 +477,7 @@ export default function CataloguePage() {
 
         <aside
           className={cn(
-            "fixed right-0 top-0 z-30 flex h-screen w-80 flex-col border-l border-[#E6F0E7] bg-white transition-transform lg:sticky lg:top-20 lg:h-[calc(100vh-80px)] lg:translate-x-0 xl:w-96",
+            "fixed right-0 top-0 z-30 flex h-screen w-80 flex-col border-l border-[#E6F0E7] bg-white transition-transform lg:sticky lg:top-20 lg:h-[calc(100vh-80px)] lg:w-[22rem] lg:translate-x-0 xl:w-[25rem]",
             showCart ? "translate-x-0" : "translate-x-full lg:translate-x-0"
           )}
         >
@@ -473,16 +523,16 @@ export default function CataloguePage() {
                 {cart.map((item) => (
                   <div
                     key={item.id}
-                    className="flex gap-3 rounded-[24px] border border-[#E6F0E7] bg-[#F7FCF7] p-3"
+                    className="flex gap-3 rounded-[24px] border border-[#E6F0E7] bg-[#F7FCF7] p-4"
                   >
                     <img
                       src={item.image}
                       alt={item.name}
-                      className="h-16 w-16 rounded-2xl object-cover"
+                      className="h-16 w-16 shrink-0 rounded-2xl object-cover"
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <div>
+                        <div className="min-w-0">
                           <h3 className="truncate text-sm font-bold text-[#264129]">{item.name}</h3>
                           <p className="text-xs text-[#6F8070]">
                             {item.price.toFixed(2)} DH / {item.displayUnit}
@@ -496,8 +546,8 @@ export default function CataloguePage() {
                         </button>
                       </div>
 
-                      <div className="mt-3 flex items-center justify-between gap-2">
-                        <div className="flex items-center rounded-full border border-[#CDE8D0] bg-white">
+                      <div className="mt-4 flex flex-wrap items-center gap-3">
+                        <div className="flex shrink-0 items-center rounded-full border border-[#CDE8D0] bg-white">
                           <button
                             onClick={() => updateCartQuantity(item.id, -item.quantityStep)}
                             className="p-2 text-[#2E5A33] transition-colors hover:bg-[#E7F5E8]"
@@ -514,7 +564,7 @@ export default function CataloguePage() {
                             <Plus className="h-3 w-3" />
                           </button>
                         </div>
-                        <span className="text-sm font-bold text-[#F07C00]">
+                        <span className="ml-auto shrink-0 text-sm font-bold text-[#F07C00]">
                           {(item.price * item.quantity).toFixed(2)} DH
                         </span>
                       </div>
@@ -545,9 +595,10 @@ export default function CataloguePage() {
 
               <button
                 onClick={handleCheckout}
-                className="mt-5 w-full rounded-2xl bg-[#F07C00] px-4 py-3 font-semibold text-white transition-colors hover:bg-[#D66B00]"
+                disabled={isSubmittingCart}
+                className="mt-5 w-full rounded-2xl bg-[#F07C00] px-4 py-3 font-semibold text-white transition-colors hover:bg-[#D66B00] disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                Valider la commande
+                {isSubmittingCart ? "Validation en cours..." : "Valider la commande"}
               </button>
 
               <p className="mt-3 text-center text-xs text-[#6F8070]">

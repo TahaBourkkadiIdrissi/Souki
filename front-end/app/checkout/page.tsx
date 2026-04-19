@@ -50,11 +50,13 @@ function CheckoutContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const commandeId = searchParams.get('commande_id')
+  const panierId = searchParams.get('panier_id')
   const cartParam = searchParams.get('cart')
   
   // États
   const [voiceData, setVoiceData] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(!!commandeId)
+  const [panierData, setPanierData] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(!!commandeId || !!panierId)
   const [voiceError, setVoiceError] = useState(false)
   
   // On initialise le panier vide, on le remplira dynamiquement dans le useEffect
@@ -70,6 +72,7 @@ function CheckoutContent() {
   // Récupération des données et INITIALISATION DU PANIER au bon moment
   useEffect(() => {
     if (commandeId) {
+      // Flux voix: récupérer CommandeCheckoutDTO
       fetch(`${BACKEND_URL}/api/commandes/${commandeId}`)
         .then(res => {
           if (!res.ok) throw new Error("Commande non trouvée")
@@ -78,17 +81,41 @@ function CheckoutContent() {
         .then(data => {
           setVoiceData(data)
           
-          // --- LA CORRECTION EST ICI ---
-          // On remplit le panier SEULEMENT quand les vraies données du backend arrivent
           if (data.lignes && data.lignes.length > 0) {
             const realCart = data.lignes.map((l: any) => ({
               id: String(l.product_id),
-              // On gère les deux cas possibles de nom de champ (nom_produit ou nom_fr)
               name: l.nom_produit || l.nom_fr || "Produit inconnu", 
               price: parseFloat(l.prix_unitaire || l.prix_kg || 0),
               quantity: parseFloat(l.quantite_effective || l.quantite_kg || 1),
-              unit: "kg",
-              image: DEFAULT_IMAGE
+              unit: l.unite || "kg",
+              image: l.image || DEFAULT_IMAGE
+            }))
+            setCart(realCart)
+          }
+          setIsLoading(false)
+        })
+        .catch(() => {
+          setVoiceError(true)
+          setIsLoading(false)
+        })
+    } else if (panierId) {
+      // Flux manuel: récupérer PanierDetailsDTO
+      fetch(`${BACKEND_URL}/api/paniers/${panierId}`)
+        .then(res => {
+          if (!res.ok) throw new Error("Panier non trouvé")
+          return res.json()
+        })
+        .then(data => {
+          setPanierData(data)
+          
+          if (data.lignes && data.lignes.length > 0) {
+            const realCart = data.lignes.map((l: any) => ({
+              id: String(l.product_id),
+              name: l.nom_produit || l.nom_fr || "Produit inconnu", 
+              price: parseFloat(l.prix_unitaire || l.prix_kg || 0),
+              quantity: parseFloat(l.quantite_kg || 1),
+              unit: l.unite || "kg",
+              image: l.image || DEFAULT_IMAGE
             }))
             setCart(realCart)
           }
@@ -109,7 +136,7 @@ function CheckoutContent() {
         { id: "4", name: "Carottes", price: 8.5, quantity: 2, unit: "kg", image: "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400&h=300&fit=crop" },
       ])
     }
-  }, [commandeId, cartParam])
+  }, [commandeId, panierId, cartParam])
 
   const walletBalance = 125.50
   const merchantPrice = cart.reduce((sum, item) => sum + (item.price * 1.1) * item.quantity, 0)
@@ -234,12 +261,22 @@ function CheckoutContent() {
           </div>
         )}
 
+        {panierData && (
+          <div className="bg-[#1E8A3C] text-white rounded-2xl p-5 mb-8 shadow-lg flex items-start gap-4">
+            <MessageCircle className="w-8 h-8 shrink-0 mt-1" />
+            <div>
+              <h2 className="font-bold text-lg mb-1">Récapitulatif de votre panier</h2>
+              <p className="text-white/90">{panierData.nombre_articles || cart.length} article{(panierData.nombre_articles || cart.length) > 1 ? "s" : ""} pour {panierData.sous_total?.toFixed(2) || "calculé"} DH</p>
+            </div>
+          </div>
+        )}
+
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Left Column - Cart */}
           <div className="space-y-6">
             <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
               <div className="p-6 border-b border-gray-100">
-                <h2 className="text-xl font-bold text-[#1E8A3C]">{voiceData ? "Panier validé par l'IA" : "Votre Panier"}</h2>
+                <h2 className="text-xl font-bold text-[#1E8A3C]">{voiceData ? "Panier validé par l'IA" : panierData ? "Votre panier validé" : "Votre Panier"}</h2>
               </div>
 
               <div className="divide-y divide-gray-100">
