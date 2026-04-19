@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Optional
 
 from dto.commande_dto import VoiceBasketResponseDTO, CommandeCheckoutDTO
 
@@ -17,12 +18,12 @@ class ICommandeVocaleService(ABC):
         pass
 
     @abstractmethod
-    def traiter_texte(self, texte: str) -> VoiceBasketResponseDTO:
+    def traiter_texte(self, user_id: int, texte: str) -> VoiceBasketResponseDTO:
         """Traite une commande sous forme de texte."""
         pass
 
     @abstractmethod
-    def traiter_audio(self, audio_b64: str, mime_type: str) -> VoiceBasketResponseDTO:
+    def traiter_audio(self, user_id: int, audio_b64: str, mime_type: str) -> VoiceBasketResponseDTO:
         """Traite une commande sous forme d'audio encode en base64."""
         pass
 

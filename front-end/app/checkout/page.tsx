@@ -146,7 +146,9 @@ function CheckoutContent() {
           quantity: item.quantity
         })),
         creneau_livraison: selectedTimeSlot,
-        mode_paiement: selectedPayment
+        mode_paiement: selectedPayment,
+        // On envoie l'ID du brouillon vocal s'il existe, sinon null
+        brouillon_vocal_id: commandeId ? parseInt(commandeId) : null
       }
 
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null

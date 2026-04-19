@@ -32,19 +32,21 @@ class CommandeVocaleService(ICommandeVocaleService):
             self.session.close()
 
     # ── Méthodes publiques ────────────────────────────────────────────────────
-    def traiter_texte(self, texte: str) -> VoiceBasketResponseDTO:
+    def traiter_texte(self, user_id: int, texte: str) -> VoiceBasketResponseDTO:
         parts = build_text_parts(texte)
         gemini_result = call_gemini(parts)
         return self._traiter_commande(
+            user_id,
             texte_transcrit=gemini_result.get("transcription", texte),
             json_brut_gemini=json.dumps(gemini_result),
             langue=gemini_result.get("langue_detectee", "inconnu")
         )
 
-    def traiter_audio(self, audio_b64: str, mime_type: str) -> VoiceBasketResponseDTO:
+    def traiter_audio(self, user_id: int, audio_b64: str, mime_type: str) -> VoiceBasketResponseDTO:
         parts = build_audio_parts(audio_b64, mime_type)
         gemini_result = call_gemini(parts)
         return self._traiter_commande(
+            user_id,
             texte_transcrit=gemini_result.get("transcription", ""),
             json_brut_gemini=json.dumps(gemini_result),
             langue=gemini_result.get("langue_detectee", "inconnu")
@@ -52,10 +54,10 @@ class CommandeVocaleService(ICommandeVocaleService):
 
     # ── Méthode privée ────────────────────────────────────────────────────────
     def _traiter_commande(
-        self, texte_transcrit: str, json_brut_gemini: str, langue: str
+        self, user_id: int, texte_transcrit: str, json_brut_gemini: str, langue: str
     ) -> VoiceBasketResponseDTO:
         commande_entity = self.commande_dao.create_commande(
-            self.session, texte_transcrit, json_brut_gemini, langue # type: ignore
+            self.session, user_id, texte_transcrit, json_brut_gemini, langue # type: ignore
         )
         items_gemini = json.loads(json_brut_gemini).get("items", [])
         print("🛠️ RÉPONSE BRUTE DE GEMINI :")

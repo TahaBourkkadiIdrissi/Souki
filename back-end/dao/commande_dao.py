@@ -7,9 +7,10 @@ from entities.commande_vocale_entity import CommandeVocale, LigneCommandeVocale
 class CommandeVocaleDaoBD(ICommandeVocaleDao):
 
     def create_commande(
-        self, session: Session, transcription: str, json_brut: str, langue: str
+        self, session: Session, user_id: int, transcription: str, json_brut: str, langue: str
     ) -> Optional[CommandeVocale]:
         cmd = CommandeVocale(
+            user_id=user_id,
             transcription_brute=transcription,
             json_gemini_brut=json_brut,
             langue_detectee=langue

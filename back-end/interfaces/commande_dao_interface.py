@@ -8,7 +8,7 @@ class ICommandeVocaleDao(ABC):
 
     @abstractmethod
     def create_commande(
-        self, session: Session, transcription: str, json_brut: str, langue: str
+        self, session: Session, user_id: int, transcription: str, json_brut: str, langue: str
     ) -> Optional[CommandeVocale]:
         """Crée une commande vocale en BDD."""
         pass
