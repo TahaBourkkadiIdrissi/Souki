@@ -16,7 +16,8 @@ interface AuthContextType {
   token: string | null
   isLoading: boolean
   isAuthenticated: boolean
-  login: (loginId: string, password: string, role?: string) => Promise<void>
+  login: (loginId: string, password: string, role?: string) => Promise<User>
+  googleLogin: (googleToken: string, role?: string) => Promise<User>
   logout: () => void
   validateToken: () => Promise<boolean>
 }
@@ -29,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
-  const validateTokenWithBackend = async (tok: string): Promise<boolean> => {
+  const validateTokenWithBackend = async (tok: string): Promise<User | null> => {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/me`, {
         method: "GET",
@@ -42,41 +43,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
 
       if (!response.ok) {
-        return false
+        return null
       }
 
       const userData = await response.json()
       setUser(userData)
-      return true
+      return userData
     } catch (error) {
       console.error("Token validation error:", error)
-      return false
+      return null
     }
   }
 
-  const syncAuthState = async (nextToken: string | null): Promise<boolean> => {
+  const syncAuthState = async (nextToken: string | null): Promise<User | null> => {
     if (!nextToken) {
       localStorage.removeItem("token")
       setToken(null)
       setUser(null)
       setIsAuthenticated(false)
-      return false
+      return null
     }
 
     localStorage.setItem("token", nextToken)
     setToken(nextToken)
 
-    const isValid = await validateTokenWithBackend(nextToken)
-    if (isValid) {
+    const nextUser = await validateTokenWithBackend(nextToken)
+    if (nextUser) {
       setIsAuthenticated(true)
-      return true
+      return nextUser
     }
 
     localStorage.removeItem("token")
     setToken(null)
     setUser(null)
     setIsAuthenticated(false)
-    return false
+    return null
   }
 
   useEffect(() => {
@@ -116,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const validateToken = async (): Promise<boolean> => {
     if (!token) return false
-    return syncAuthState(token)
+    return Boolean(await syncAuthState(token))
   }
 
   const login = async (loginId: string, password: string, role = "CLIENT") => {
@@ -141,12 +142,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await response.json()
       const newToken = data.access_token
 
-      const isValid = await syncAuthState(newToken)
-      if (!isValid) {
+      const nextUser = await syncAuthState(newToken)
+      if (!nextUser) {
         throw new Error("Validation du token echouee")
       }
+      return nextUser
     } catch (error) {
       console.error("Login error:", error)
+      await syncAuthState(null)
+      throw error
+    }
+  }
+
+  const googleLogin = async (googleToken: string, role = "CLIENT") => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: googleToken,
+          role,
+        }),
+        mode: "cors",
+        credentials: "omit",
+      })
+
+      if (!response.ok) {
+        const errData = await response.json()
+        throw new Error(errData.detail || "Erreur de connexion avec Google")
+      }
+
+      const data = await response.json()
+      const newToken = data.access_token
+
+      const nextUser = await syncAuthState(newToken)
+      if (!nextUser) {
+        throw new Error("Validation du token echouee")
+      }
+      return nextUser
+    } catch (error) {
+      console.error("Google login error:", error)
       await syncAuthState(null)
       throw error
     }
@@ -158,7 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, isLoading, isAuthenticated, login, logout, validateToken }}
+      value={{ user, token, isLoading, isAuthenticated, login, googleLogin, logout, validateToken }}
     >
       {children}
     </AuthContext.Provider>

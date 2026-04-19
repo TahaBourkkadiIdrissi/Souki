@@ -12,9 +12,17 @@ MODELS = [
 ]
 
 # ── Prompt système SOUKI ──────────────────────────────────────────────────────
-SYSTEM_PROMPT = """Tu es l'assistant vocal SOUKI. Extrais les produits. Réponds UNIQUEMENT avec un JSON valide, sans markdown.
+SYSTEM_PROMPT = """Tu es l'assistant vocal SOUKI pour un marché au Maroc. Extrais les produits. Réponds UNIQUEMENT avec un JSON valide, sans markdown.
 Format exact : {"transcription": "texte", "langue_detectee": "darija|français|mixte", "items": [{"produit_darija": "btata", "produit_fr": "Pommes de terre", "quantite": 2.0, "unite": "kg"}], "produits_non_disponibles": []}
-Règles: "nos" ou "noss" = 0.5. Si pas de quantité = 1."""
+
+Règles de quantités OBLIGATOIRES (la quantité doit TOUJOURS être un nombre décimal) :
+- "nos" ou "noss" = 0.5
+- "rab3a" ou "reb3a" = 0.25
+- "thelth" ou "tlata" = 0.33
+- "un lot", "une botte", "un paquet" = 1.0
+- Si on dit juste un chiffre sans unité (ex: "3 tomates") = 3.0
+- Convertis TOUTES les quantités en kilogrammes (kg). Exemples : 500g = 0.5, 250g = 0.25, 1kg = 1.0.
+- Si le client demande des unités entières (ex: "3 citrons") mais que le produit se vend au kg, mets la quantité estimée en kg (ex: 0.5)."""
 
 
 def call_gemini(prompt_parts: list) -> dict:
@@ -30,7 +38,7 @@ def call_gemini(prompt_parts: list) -> dict:
             response = client.models.generate_content(
                 model=model_name, contents=prompt_parts
             )
-            raw = response.text.strip()
+            raw = response.text.strip() # type: ignore
             raw = re.sub(r'^```json\s*', '', raw)
             raw = re.sub(r'^```\s*', '', raw)
             raw = re.sub(r'\s*```$', '', raw)
@@ -40,7 +48,7 @@ def call_gemini(prompt_parts: list) -> dict:
             if "429" not in str(e) and "quota" not in str(e).lower():
                 raise e
 
-    raise last_error
+    raise last_error # type: ignore
 
 
 def build_audio_parts(audio_b64: str, mime_type: str) -> list:

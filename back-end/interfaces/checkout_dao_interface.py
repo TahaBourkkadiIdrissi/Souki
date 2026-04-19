@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -48,6 +48,7 @@ class ICheckoutDao(ABC):
         session: Session,
         client_id: int,
         panier_id: int,
+        brouillon_vocal_id: Optional[int],
         statut: str,
         creneau_livraison: str,
         mode_paiement: str,

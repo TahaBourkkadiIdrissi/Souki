@@ -7,6 +7,7 @@ class CommandeVocale(Base):
     __tablename__ = 'T_CommandeVocale'
 
     id                  = Column(Integer, primary_key=True, index=True)
+    user_id             = Column(Integer, ForeignKey('t_users.id'), nullable=True)
     transcription_brute = Column(Text,        nullable=True)
     json_gemini_brut    = Column(Text,        nullable=True)
     langue_detectee     = Column(String(50),  nullable=True)

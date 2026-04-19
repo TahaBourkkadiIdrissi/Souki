@@ -66,7 +66,7 @@ const productPresentation: Record<
   },
   Aubergines: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1603048719539-9ecb4b2fb0e1?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1639428134238-b548770d4b77?w=800&h=600&fit=crop&auto=format",
   },
   Concombres: {
     category: "legumes",
@@ -108,7 +108,7 @@ const productPresentation: Record<
   },
   Laitue: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1622205313162-be1d5712a43d?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1691546327195-01ac1055a870?w=800&h=600&fit=crop&auto=format",
     displayUnit: "lot",
     quantityStep: 1,
   },
@@ -136,7 +136,7 @@ const productPresentation: Record<
   },
   Celeri: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1638034370936-7c8d00dcdf70?w=800&h=600&fit=crop",
+    image: "https://images.unsplash.com/photo-1760368104744-bca7a41e0315?w=800&h=600&fit=crop&auto=format",
   },
   Brocoli: {
     category: "legumes",
@@ -152,13 +152,19 @@ const productPresentation: Record<
   },
 }
 
-export async function fetchCatalogueProducts(): Promise<CatalogueProduct[]> {
-  const data = (await apiCall("/api/catalogue")) as ApiCatalogueProduct[]
-  return data.map((product) => {
-    const presentation = productPresentation[product.nom_fr] || {
+export function getCataloguePresentation(name: string) {
+  return (
+    productPresentation[name] || {
       category: "legumes" as const,
       image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&h=600&fit=crop",
     }
+  )
+}
+
+export async function fetchCatalogueProducts(): Promise<CatalogueProduct[]> {
+  const data = (await apiCall("/api/catalogue")) as ApiCatalogueProduct[]
+  return data.map((product) => {
+    const presentation = getCataloguePresentation(product.nom_fr)
 
     return {
       id: product.id,
@@ -293,4 +299,41 @@ export function buildSmartBasket(
   }
 
   return baseSelections
+}
+
+export interface ManualBasketResponse {
+  status: string
+  panier_id: number
+  lignes_panier: Array<{
+    product_id: number
+    nom_produit: string
+    quantite_kg: number
+    prix_unitaire: number
+    sous_total: number
+    unite: string
+  }>
+  total_dh: number
+  nombre_articles: number
+  frais_livraison: number
+}
+
+export async function submitManualBasket(cart: CartItem[]): Promise<ManualBasketResponse> {
+  const items = cart.map((item) => ({
+    product_id: typeof item.id === "string" ? parseInt(item.id) : item.id,
+    quantity: typeof item.quantity === "string" ? parseFloat(item.quantity) : item.quantity,
+  }))
+
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+  
+  const payload = { items }
+  console.log("Sending payload:", payload)
+
+  return apiCall("/api/manual-basket", {
+    method: "POST",
+    headers: { 
+      "Content-Type": "application/json",
+      ...(token ? { "Authorization": `Bearer ${token}` } : {})
+    },
+    body: payload,  // ← PAS de JSON.stringify! apiCall le fera
+  }) as Promise<ManualBasketResponse>
 }

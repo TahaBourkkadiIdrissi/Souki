@@ -53,6 +53,12 @@ web_modules/
 .venv/
 .npm
 
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
 # Optional eslint cache
 .eslintcache
 

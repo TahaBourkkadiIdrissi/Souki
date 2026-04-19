@@ -38,3 +38,7 @@ Base = declarative_base()
 SECRET_KEY = "VOTRE_CLE_REELLEMENT_SECRETE_POUR_FES" # À mettre en variable d'env
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 7 jours
+
+
+# Dans config.py
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
