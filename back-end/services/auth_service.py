@@ -66,6 +66,8 @@ class AuthService:
             user = _dao.create(db, new_user)
             if not user:
                 raise HTTPException(status_code=500, detail="Erreur interne lors de la création du compte.")
+            self._ensure_role_profile(db, user)
+            db.commit()
 
             otp_code = self._issue_otp(db, user, verification_channel, reset_rate_limit=True)
             self._send_otp(user, verification_channel, otp_code)

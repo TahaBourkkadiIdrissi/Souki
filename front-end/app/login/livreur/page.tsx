@@ -217,7 +217,7 @@ export default function LivreurLoginPage() {
         localStorage.setItem("token", data.access_token);
 
         setTimeout(() => {
-          router.push("/dashboard/livreur"); // Redirection spécifique livreur
+          router.push("/livreur");
         }, 300);
       }
     } catch (err: any) {
@@ -230,7 +230,7 @@ export default function LivreurLoginPage() {
   const handleGoogleLogin = async (credential: string) => {
     setGeneralError("")
     await googleLogin(credential, "LIVREUR")
-    router.push("/dashboard/livreur")
+    router.push("/livreur")
   }
 
   // Composant réutilisable pour afficher l'erreur sous le champ
