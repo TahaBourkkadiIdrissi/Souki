@@ -260,7 +260,7 @@ export default function CataloguePage() {
   return (
     <div className="min-h-screen bg-[#FBFDF9]">
       <div className="bg-[#F07C00] px-4 py-3 text-center text-sm font-semibold text-white">
-        Commandes acceptees jusqu'a 20h00 - Livraison demain pour ganatir la fraicheur
+        Commandes acceptees jusqu'a 20h00 - Livraison demain pour garnatir la fraicheur
       </div>
 
       <nav className="sticky top-0 z-40 border-b border-[#E7F0E8] bg-white/90 backdrop-blur">
