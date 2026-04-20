@@ -54,5 +54,14 @@ def _get_optional_float(name: str):
         return None
 
 
+DEFAULT_SOUKI_DEPOT_LAT = 34.0331
+DEFAULT_SOUKI_DEPOT_LNG = -5.0003
+
 SOUKI_DEPOT_LAT = _get_optional_float("SOUKI_DEPOT_LAT")
 SOUKI_DEPOT_LNG = _get_optional_float("SOUKI_DEPOT_LNG")
+
+if SOUKI_DEPOT_LAT is None:
+    SOUKI_DEPOT_LAT = DEFAULT_SOUKI_DEPOT_LAT
+
+if SOUKI_DEPOT_LNG is None:
+    SOUKI_DEPOT_LNG = DEFAULT_SOUKI_DEPOT_LNG

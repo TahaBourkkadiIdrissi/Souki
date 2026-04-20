@@ -1,9 +1,8 @@
 import os
-from dotenv import load_dotenv
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ENV_PATH = os.path.join(BASE_DIR, ".env")
-load_dotenv(ENV_PATH)
+from env_loader import load_app_env
+
+load_app_env()
 
 class Settings:
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "METTEZ_VOTRE_VRAIE_CLE_ICI")

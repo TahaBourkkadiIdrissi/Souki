@@ -17,8 +17,8 @@ class TourneeItemDTO(BaseModel):
     statut: str
     montant_total: float = 0.0
     mode_paiement: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
 
 class TourneeResponseDTO(BaseModel):
@@ -27,7 +27,7 @@ class TourneeResponseDTO(BaseModel):
     available_after: str = "07:00"
     sort_strategy: str
     tournee_started: bool = False
-    items: List[TourneeItemDTO] = []
+    items: List[TourneeItemDTO] = Field(default_factory=list)
 
 
 class DemarrerTourneeResponseDTO(BaseModel):

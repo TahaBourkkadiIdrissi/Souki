@@ -138,8 +138,8 @@ class LivreurService(ILivreurService):
             statut=str(row.get("statut") or ""),
             montant_total=float(row.get("montant_total") or 0.0),
             mode_paiement=self._clean_optional_text(row.get("mode_paiement")),
-            latitude=self._as_float(row.get("latitude")),
-            longitude=self._as_float(row.get("longitude")),
+            lat=self._as_float(row.get("lat", row.get("latitude"))),
+            lng=self._as_float(row.get("lng", row.get("longitude"))),
         )
 
     def _sort_items(self, items: list[TourneeItemDTO]) -> tuple[list[TourneeItemDTO], str]:
@@ -152,9 +152,7 @@ class LivreurService(ILivreurService):
         return self._sort_by_neighborhood(items), "NEIGHBORHOOD_CLUSTER"
 
     def _can_use_greedy_gps(self, items: list[TourneeItemDTO]) -> bool:
-        if SOUKI_DEPOT_LAT is None or SOUKI_DEPOT_LNG is None:
-            return False
-        return all(item.latitude is not None and item.longitude is not None for item in items)
+        return all(item.lat is not None and item.lng is not None for item in items)
 
     def _sort_by_neighborhood(self, items: list[TourneeItemDTO]) -> list[TourneeItemDTO]:
         grouped_items: dict[str, list[TourneeItemDTO]] = defaultdict(list)
@@ -187,8 +185,8 @@ class LivreurService(ILivreurService):
                     self._haversine_km(
                         current_lat,
                         current_lng,
-                        item.latitude,
-                        item.longitude,
+                        item.lat,
+                        item.lng,
                     ),
                     self._time_slot_sort_key(item.creneau_livraison),
                     item.commande_id,
@@ -196,8 +194,8 @@ class LivreurService(ILivreurService):
             )
             ordered_items.append(next_item)
             remaining_items.remove(next_item)
-            current_lat = next_item.latitude
-            current_lng = next_item.longitude
+            current_lat = next_item.lat
+            current_lng = next_item.lng
 
         return ordered_items
 

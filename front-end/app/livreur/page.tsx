@@ -1,8 +1,10 @@
 "use client"
 
-import { useEffect, useEffectEvent, useState } from "react"
+import { useEffect, useEffectEvent, useRef, useState } from "react"
 import Link from "next/link"
-import { Calendar, ClipboardList, DollarSign, Map, Star, Truck, User } from "lucide-react"
+import { Calendar, ClipboardList, DollarSign, Map as MapIcon, Star, Truck, User } from "lucide-react"
+import type { LineLayerSpecification } from "mapbox-gl"
+import Map, { Layer, Marker, NavigationControl, Source, type MapRef } from "react-map-gl/mapbox"
 
 import { DeliveryCard } from "@/components/souki/delivery-card"
 import { Spinner } from "@/components/ui/spinner"
@@ -17,6 +19,31 @@ import {
 import { cn } from "@/lib/utils"
 
 const CACHE_KEY = "souki_tournee_today"
+const MAPBOX_STYLE = "mapbox://styles/zmarou/cmo758hgx002m01qveoyp7e5c"
+const MAPBOX_TOKEN =
+  process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ||
+  process.env.NEXT_PUBLIC_MAPBOX_TOKEN ||
+  ""
+const MOROCCO_BOUNDS: [[number, number], [number, number]] = [[-17, 20], [-1, 36]]
+const FES_START_COORDINATE: [number, number] = [-5.0003, 34.0331]
+const DEFAULT_MAP_VIEW = {
+  longitude: FES_START_COORDINATE[0],
+  latitude: FES_START_COORDINATE[1],
+  zoom: 11,
+}
+const ROUTE_LAYER: Omit<LineLayerSpecification, "source"> = {
+  id: "tournee-route-line",
+  type: "line",
+  layout: {
+    "line-cap": "round",
+    "line-join": "round",
+  },
+  paint: {
+    "line-color": "#1E8A3C",
+    "line-width": 4,
+    "line-opacity": 0.88,
+  },
+}
 
 type TabType = "list" | "map" | "profile"
 type DeliveryStatus = "pending" | "enroute" | "delivered" | "absent"
@@ -25,6 +52,7 @@ type NoticeTone = "info" | "success" | "error"
 
 interface DeliveryViewItem {
   id: string
+  stepNumber: number
   orderNumber: string
   timeSlot: string
   address: string
@@ -36,11 +64,46 @@ interface DeliveryViewItem {
   paymentMethod: PaymentMethod
   status: DeliveryStatus
   rawStatus: string
+  lat: number | null
+  lng: number | null
 }
 
 interface PageNotice {
   tone: NoticeTone
   message: string
+}
+
+function normalizeCoordinate(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === "string") {
+    const trimmedValue = value.trim()
+    if (!trimmedValue) {
+      return null
+    }
+
+    const parsedValue = Number(trimmedValue)
+    return Number.isFinite(parsedValue) ? parsedValue : null
+  }
+
+  return null
+}
+
+function normalizeTourneeItem(item: TourneeItem): TourneeItem {
+  return {
+    ...item,
+    lat: normalizeCoordinate(item.lat ?? item.latitude),
+    lng: normalizeCoordinate(item.lng ?? item.longitude),
+  }
+}
+
+function normalizeTourneeResponse(response: TourneeResponse): TourneeResponse {
+  return {
+    ...response,
+    items: Array.isArray(response.items) ? response.items.map(normalizeTourneeItem) : [],
+  }
 }
 
 function readCachedTournee(): TourneeResponse | null {
@@ -54,7 +117,7 @@ function readCachedTournee(): TourneeResponse | null {
   }
 
   try {
-    return JSON.parse(rawValue) as TourneeResponse
+    return normalizeTourneeResponse(JSON.parse(rawValue) as TourneeResponse)
   } catch {
     window.localStorage.removeItem(CACHE_KEY)
     return null
@@ -65,7 +128,7 @@ function writeCachedTournee(data: TourneeResponse) {
   if (typeof window === "undefined") {
     return
   }
-  window.localStorage.setItem(CACHE_KEY, JSON.stringify(data))
+  window.localStorage.setItem(CACHE_KEY, JSON.stringify(normalizeTourneeResponse(data)))
 }
 
 function normalizeBackendStatus(status: string | null | undefined) {
@@ -113,9 +176,10 @@ function buildCallHref(phone: string | null | undefined) {
   return sanitizedPhone ? `tel:${sanitizedPhone}` : null
 }
 
-function mapTourneeItemToDeliveryView(item: TourneeItem): DeliveryViewItem {
+function mapTourneeItemToDeliveryView(item: TourneeItem, index: number): DeliveryViewItem {
   return {
     id: String(item.commande_id),
+    stepNumber: index + 1,
     orderNumber: String(item.commande_id),
     timeSlot: item.creneau_livraison || "Non precise",
     address: item.full_address,
@@ -127,7 +191,18 @@ function mapTourneeItemToDeliveryView(item: TourneeItem): DeliveryViewItem {
     paymentMethod: normalizePaymentMethod(item.mode_paiement),
     status: normalizeDeliveryStatus(item.statut),
     rawStatus: item.statut,
+    lat: item.lat,
+    lng: item.lng,
   }
+}
+
+function hasCoordinates(item: DeliveryViewItem): item is DeliveryViewItem & { lat: number; lng: number } {
+  return (
+    typeof item.lat === "number" &&
+    Number.isFinite(item.lat) &&
+    typeof item.lng === "number" &&
+    Number.isFinite(item.lng)
+  )
 }
 
 function extractHourBounds(timeSlot: string) {
@@ -212,6 +287,7 @@ function updateStartedStatuses(response: TourneeResponse): TourneeResponse {
 
 export default function LivreurPage() {
   const { token, isLoading: isAuthLoading } = useAuth()
+  const mapRef = useRef<MapRef | null>(null)
   const [activeTab, setActiveTab] = useState<TabType>("list")
   const [deliveryList, setDeliveryList] = useState<DeliveryViewItem[]>([])
   const [tourneeData, setTourneeData] = useState<TourneeResponse | null>(null)
@@ -225,11 +301,13 @@ export default function LivreurPage() {
   const [notice, setNotice] = useState<PageNotice | null>(null)
 
   const applyTourneeData = useEffectEvent((response: TourneeResponse, source: "api" | "cache") => {
-    setTourneeData(response)
-    setDeliveryList(response.items.map(mapTourneeItemToDeliveryView))
+    const normalizedResponse = normalizeTourneeResponse(response)
+
+    setTourneeData(normalizedResponse)
+    setDeliveryList(normalizedResponse.items.map(mapTourneeItemToDeliveryView))
     setTourneeStarted(
-      response.tournee_started ||
-        response.items.some((item) => normalizeBackendStatus(item.statut) === "EN_COURS_DE_LIVRAISON")
+      normalizedResponse.tournee_started ||
+        normalizedResponse.items.some((item) => normalizeBackendStatus(item.statut) === "EN_COURS_DE_LIVRAISON")
     )
     setLoadSource(source)
     setBeforeSeven(false)
@@ -354,6 +432,77 @@ export default function LivreurPage() {
       window.clearTimeout(timeoutId)
     }
   }, [isAuthLoading, token])
+
+  const mappableDeliveries = deliveryList.filter(hasCoordinates)
+  const missingCoordinatesCount = deliveryList.length - mappableDeliveries.length
+  const routeCoordinates =
+    mappableDeliveries.length === 0
+      ? []
+      : [
+          [FES_START_COORDINATE[0], FES_START_COORDINATE[1]] as [number, number],
+          ...mappableDeliveries.map((item) => [item.lng, item.lat] as [number, number]),
+        ]
+  const routeGeoJson = {
+    type: "FeatureCollection" as const,
+    features:
+      routeCoordinates.length > 1
+        ? [
+            {
+              type: "Feature" as const,
+              properties: {},
+              geometry: {
+                type: "LineString" as const,
+                coordinates: routeCoordinates,
+              },
+            },
+          ]
+        : [],
+  }
+  const mapViewportKey = mappableDeliveries.map((item) => `${item.id}:${item.lat}:${item.lng}`).join("|")
+  const isMapboxConfigured = MAPBOX_TOKEN.length > 0
+  const nextStops = deliveryList.filter((item) => item.status === "pending" || item.status === "enroute").slice(0, 3)
+
+  const fitMapToTournee = useEffectEvent(() => {
+    if (!mapRef.current || mappableDeliveries.length === 0) {
+      return
+    }
+
+    const longitudes = mappableDeliveries.map((item) => item.lng)
+    const latitudes = mappableDeliveries.map((item) => item.lat)
+    const west = Math.min(...longitudes)
+    const east = Math.max(...longitudes)
+    const south = Math.min(...latitudes)
+    const north = Math.max(...latitudes)
+
+    if (west === east && south === north) {
+      mapRef.current.easeTo({
+        center: [west, south],
+        zoom: 13,
+        duration: 900,
+      })
+      return
+    }
+
+    mapRef.current.fitBounds(
+      [
+        [west, south],
+        [east, north],
+      ],
+      {
+        padding: { top: 56, bottom: 56, left: 40, right: 40 },
+        duration: 900,
+      }
+    )
+  })
+
+  useEffect(() => {
+    if (activeTab !== "map" || mappableDeliveries.length === 0) {
+      return
+    }
+
+    const frameId = window.requestAnimationFrame(() => fitMapToTournee())
+    return () => window.cancelAnimationFrame(frameId)
+  }, [activeTab, mapViewportKey])
 
   const completedCount = deliveryList.filter((item) => item.status === "delivered" || item.status === "absent").length
   const totalCount = deliveryList.length
@@ -533,26 +682,69 @@ export default function LivreurPage() {
 
         {activeTab === "map" && (
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-            <div className="aspect-square bg-gray-100 flex items-center justify-center">
-              <div className="text-center p-8">
-                <Map className="w-16 h-16 text-[#8A8A8A] mx-auto mb-4" />
-                <p className="text-[#8A8A8A]">Carte en cours de chargement...</p>
-                <p className="text-sm text-[#8A8A8A] mt-2">
-                  Affichage des itineraires de livraison
-                </p>
+            {!isMapboxConfigured ? (
+              <div className="aspect-square bg-[#F5F5F0] flex items-center justify-center">
+                <div className="text-center p-8">
+                  <MapIcon className="w-16 h-16 text-[#8A8A8A] mx-auto mb-4" />
+                  <p className="font-semibold text-[#3D3D3D]">Token Mapbox manquant</p>
+                  <p className="text-sm text-[#8A8A8A] mt-2">
+                    Ajoutez `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` pour afficher la carte du livreur.
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : mappableDeliveries.length === 0 ? (
+              <div className="aspect-square bg-[#F5F5F0] flex items-center justify-center">
+                <div className="text-center p-8">
+                  <MapIcon className="w-16 h-16 text-[#8A8A8A] mx-auto mb-4" />
+                  <p className="font-semibold text-[#3D3D3D]">Aucune coordonnee GPS exploitable</p>
+                  <p className="text-sm text-[#8A8A8A] mt-2">
+                    Les livraisons doivent avoir `lat` et `lng` pour tracer la tournee sur la carte.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="aspect-square">
+                <Map
+                  ref={mapRef}
+                  reuseMaps
+                  initialViewState={DEFAULT_MAP_VIEW}
+                  mapboxAccessToken={MAPBOX_TOKEN}
+                  mapStyle={MAPBOX_STYLE}
+                  maxBounds={MOROCCO_BOUNDS}
+                  attributionControl={false}
+                  onLoad={() => fitMapToTournee()}
+                >
+                  <NavigationControl position="top-right" showCompass={false} />
+
+                  {routeCoordinates.length > 1 && (
+                    <Source id="tournee-route" type="geojson" data={routeGeoJson}>
+                      <Layer {...ROUTE_LAYER} />
+                    </Source>
+                  )}
+
+                  {mappableDeliveries.map((item) => (
+                    <Marker key={item.id} longitude={item.lng} latitude={item.lat} anchor="bottom">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-[#1E8A3C] text-sm font-bold text-white shadow-lg">
+                        {item.stepNumber}
+                      </div>
+                    </Marker>
+                  ))}
+                </Map>
+              </div>
+            )}
 
             <div className="p-4 border-t">
               <h3 className="font-semibold text-[#3D3D3D] mb-3">Prochaines etapes</h3>
+              {missingCoordinatesCount > 0 && (
+                <div className="mb-3 rounded-xl bg-[#FFF3E0] px-3 py-2 text-xs text-[#8A5A00]">
+                  {missingCoordinatesCount} livraison(s) sans coordonnees GPS ne sont pas affichees sur la carte.
+                </div>
+              )}
               <div className="space-y-2">
-                {deliveryList
-                  .filter((item) => item.status === "pending" || item.status === "enroute")
-                  .slice(0, 3)
-                  .map((item, index) => (
+                {nextStops.map((item) => (
                     <div key={item.id} className="flex items-center gap-3 p-2 bg-[#F0FAF1] rounded-lg">
                       <span className="w-6 h-6 bg-[#1E8A3C] text-white rounded-full flex items-center justify-center text-sm font-bold">
-                        {index + 1}
+                        {item.stepNumber}
                       </span>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-[#3D3D3D] truncate">{item.address}</p>
@@ -665,7 +857,7 @@ export default function LivreurPage() {
         <div className="flex items-center justify-around">
           {[
             { id: "list" as TabType, icon: ClipboardList, label: "Liste" },
-            { id: "map" as TabType, icon: Map, label: "Carte" },
+            { id: "map" as TabType, icon: MapIcon, label: "Carte" },
             { id: "profile" as TabType, icon: User, label: "Profil" },
           ].map((tab) => (
             <button

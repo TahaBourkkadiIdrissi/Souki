@@ -39,14 +39,14 @@ class LivreurDaoBD(ILivreurDao):
 
         latitude_column, longitude_column = self._resolve_coordinate_columns(session)
         latitude_selectable = (
-            address_alias.c[latitude_column].cast(Float).label("latitude")
+            address_alias.c[latitude_column].cast(Float).label("lat")
             if latitude_column and longitude_column
-            else literal(None).label("latitude")
+            else literal(None).label("lat")
         )
         longitude_selectable = (
-            address_alias.c[longitude_column].cast(Float).label("longitude")
+            address_alias.c[longitude_column].cast(Float).label("lng")
             if latitude_column and longitude_column
-            else literal(None).label("longitude")
+            else literal(None).label("lng")
         )
 
         normalized_statuses = [status.upper() for status in visible_statuses]

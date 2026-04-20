@@ -1,4 +1,5 @@
 import uvicorn
+import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
@@ -10,11 +11,8 @@ from controllers.auth_controller import auth_router
 from controllers.catalogue_controller import router_catalogue
 from controllers.checkout_controller import router_checkout
 from controllers.commande_controller import router_voice
-<<<<<<< HEAD
 from controllers.livreur_controller import router_livreur
-=======
 from controllers.panier_controller import router_panier
->>>>>>> main
 from controllers.profile_controller import profile_router
 from services.catalogue_bootstrap_service import CatalogueBootstrapService
 
@@ -24,9 +22,21 @@ CatalogueBootstrapService().sync_catalogue()
 
 app = FastAPI(title="Fes Delivery Professional API")
 
+
+def get_allowed_origins() -> list[str]:
+    configured_origins = os.getenv("FRONTEND_ORIGINS")
+    if configured_origins:
+        return [origin.strip() for origin in configured_origins.split(",") if origin.strip()]
+    return [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,4 +1,8 @@
-export const API_BASE_URL = "http://localhost:8000"
+const DEFAULT_API_BASE_URL = "http://localhost:8000"
+
+export const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_BASE_URL
+).replace(/\/$/, "")
 
 interface ApiOptions {
   method?: "GET" | "POST" | "PUT" | "DELETE"
@@ -31,8 +35,10 @@ export interface TourneeItem {
   statut: string
   montant_total: number
   mode_paiement: string | null
-  latitude: number | null
-  longitude: number | null
+  lat: number | null
+  lng: number | null
+  latitude?: number | null
+  longitude?: number | null
 }
 
 export interface TourneeResponse {
