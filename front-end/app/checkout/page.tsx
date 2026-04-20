@@ -21,6 +21,7 @@ import {
   MessageCircle
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { fetchCatalogueProducts, getCataloguePresentation } from "@/lib/catalogue"
 
 const BACKEND_URL = "http://localhost:8000" // METTEZ VOTRE VRAIE URL ICI
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&h=300&fit=crop"
@@ -52,6 +53,11 @@ function CheckoutContent() {
   const commandeId = searchParams.get('commande_id')
   const panierId = searchParams.get('panier_id')
   const cartParam = searchParams.get('cart')
+  const editCartHref = panierId
+    ? `/catalogue?panier_id=${panierId}`
+    : commandeId
+      ? `/catalogue?commande_id=${commandeId}`
+      : "/catalogue"
   
   // États
   const [voiceData, setVoiceData] = useState<any>(null)
@@ -68,6 +74,54 @@ function CheckoutContent() {
   const [address, setAddress] = useState("123 Rue Ibn Battouta, Fès-Médina")
   const [instructions, setInstructions] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [catalogueImages, setCatalogueImages] = useState<Record<number, string>>({})
+
+  const isGenericImage = (imageUrl: string) =>
+    imageUrl.includes("photo-1542838132-92c53300491e")
+
+  const resolveCartItemImage = (
+    rawImage: unknown,
+    productId: number | null,
+    productName: string
+  ) => {
+    // 1) Source la plus fiable: image catalogue par product_id
+    if (productId !== null && catalogueImages[productId]) {
+      return catalogueImages[productId]
+    }
+    // 2) Fallback métier: mapping catalogue par nom produit (avec alias)
+    if (productName) {
+      const mappedImage = getCataloguePresentation(productName).image
+      if (!isGenericImage(mappedImage)) {
+        return mappedImage
+      }
+    }
+    // 3) Dernier recours: image backend seulement si non vide et non générique
+    if (typeof rawImage === "string" && rawImage.trim().length > 0 && !isGenericImage(rawImage)) {
+      return rawImage
+    }
+    return DEFAULT_IMAGE
+  }
+
+  useEffect(() => {
+    let isMounted = true
+    fetchCatalogueProducts()
+      .then((products) => {
+        if (!isMounted) {
+          return
+        }
+        const imageMap = products.reduce<Record<number, string>>((acc, product) => {
+          acc[product.id] = product.image
+          return acc
+        }, {})
+        setCatalogueImages(imageMap)
+      })
+      .catch(() => {
+        // Fallback already handled in resolveCartItemImage.
+      })
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   // Récupération des données et INITIALISATION DU PANIER au bon moment
   useEffect(() => {
@@ -82,14 +136,22 @@ function CheckoutContent() {
           setVoiceData(data)
           
           if (data.lignes && data.lignes.length > 0) {
-            const realCart = data.lignes.map((l: any) => ({
-              id: String(l.product_id),
-              name: l.nom_produit || l.nom_fr || "Produit inconnu", 
-              price: parseFloat(l.prix_unitaire || l.prix_kg || 0),
-              quantity: parseFloat(l.quantite_effective || l.quantite_kg || 1),
-              unit: l.unite || "kg",
-              image: l.image || DEFAULT_IMAGE
-            }))
+            const realCart = data.lignes.map((l: any) => {
+              const productId = Number(l.product_id)
+              const productName = l.nom_produit || l.nom_fr || "Produit inconnu"
+              return {
+                id: String(l.product_id),
+                name: productName,
+                price: parseFloat(l.prix_unitaire || l.prix_kg || 0),
+                quantity: parseFloat(l.quantite_effective || l.quantite_kg || 1),
+                unit: l.unite || "kg",
+                image: resolveCartItemImage(
+                  l.image,
+                  Number.isFinite(productId) ? productId : null,
+                  productName
+                ),
+              }
+            })
             setCart(realCart)
           }
           setIsLoading(false)
@@ -109,14 +171,22 @@ function CheckoutContent() {
           setPanierData(data)
           
           if (data.lignes && data.lignes.length > 0) {
-            const realCart = data.lignes.map((l: any) => ({
-              id: String(l.product_id),
-              name: l.nom_produit || l.nom_fr || "Produit inconnu", 
-              price: parseFloat(l.prix_unitaire || l.prix_kg || 0),
-              quantity: parseFloat(l.quantite_kg || 1),
-              unit: l.unite || "kg",
-              image: l.image || DEFAULT_IMAGE
-            }))
+            const realCart = data.lignes.map((l: any) => {
+              const productId = Number(l.product_id)
+              const productName = l.nom_produit || l.nom_fr || "Produit inconnu"
+              return {
+                id: String(l.product_id),
+                name: productName,
+                price: parseFloat(l.prix_unitaire || l.prix_kg || 0),
+                quantity: parseFloat(l.quantite_kg || 1),
+                unit: l.unite || "kg",
+                image: resolveCartItemImage(
+                  l.image,
+                  Number.isFinite(productId) ? productId : null,
+                  productName
+                ),
+              }
+            })
             setCart(realCart)
           }
           setIsLoading(false)
@@ -136,7 +206,7 @@ function CheckoutContent() {
         { id: "4", name: "Carottes", price: 8.5, quantity: 2, unit: "kg", image: "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400&h=300&fit=crop" },
       ])
     }
-  }, [commandeId, panierId, cartParam])
+  }, [commandeId, panierId, cartParam, catalogueImages])
 
   const walletBalance = 125.50
   const merchantPrice = cart.reduce((sum, item) => sum + (item.price * 1.1) * item.quantity, 0)
@@ -230,11 +300,23 @@ function CheckoutContent() {
     <div className="min-h-screen bg-[#F5F5F0]">
       <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link href="/" className="flex items-center gap-2 text-[#3D3D3D] hover:text-[#1E8A3C]">
-              <ArrowLeft className="w-5 h-5" />
-              <span className="font-medium">Retour à l'accueil</span>
-            </Link>
+          <div className="flex items-center justify-between py-3">
+            <div className="flex flex-col items-start gap-2">
+              <Link
+                href="/"
+                className="group inline-flex items-center gap-2 rounded-xl bg-[#F0FAF1] px-4 py-2 text-sm font-semibold text-[#1E8A3C] shadow-sm ring-1 ring-[#D7EBD9] transition-all hover:-translate-y-0.5 hover:bg-[#E7F5E8] hover:shadow"
+              >
+                <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+                <span>Retour à l'accueil</span>
+              </Link>
+              <Link
+                href={editCartHref}
+                className="group inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#F07C00] shadow-sm ring-1 ring-[#F5D7B8] transition-all hover:-translate-y-0.5 hover:bg-[#FFF7EE] hover:shadow"
+              >
+                <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+                <span>Modifier dans le catalogue</span>
+              </Link>
+            </div>
             <Link href="/" className="flex items-center gap-2">
               <div className="w-10 h-10 rounded-xl shadow-sm overflow-hidden flex items-center justify-center bg-white p-0.5 pointer-events-none">
                 <img src="/logo3.png" alt="SOUKI" className="w-[175%] h-full max-w-none object-cover" style={{ objectPosition: "left center" }} />
