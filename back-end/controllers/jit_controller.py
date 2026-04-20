@@ -68,11 +68,7 @@ async def executer_job_jit(
     """
     try:
         session = LocalSession()
-        
-        # Récupérer l'email du fondateur depuis les variables d'environnement
-        email_fondateur = os.getenv("FONDATEUR_EMAIL", "admin@souki.ma")
-        
-        log = service.executer_job_jit(session, email_fondateur)
+        log = service.executer_job_jit(session)
         # ❌ ENLEVER session.commit() - Le Service le fait déjà!
         session.close()
         

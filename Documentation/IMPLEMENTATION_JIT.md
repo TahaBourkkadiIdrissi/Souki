@@ -30,7 +30,6 @@
 - `back-end/services/jit_service.py` : `JITService` implémentation
   - `agreger_commandes()` : Agrégation des volumes
   - `verrouiller_commandes()` : Verrouillage des commandes
-  - `envoyer_liste_achats()` : Notification/email
   - `executer_job_jit()` : Orchestration complète
 
 #### 5. **Controller Layer** - API REST
@@ -120,17 +119,14 @@ APScheduler CronTrigger: 20:00:00
       │  ├─ Arrondi: volume_final = ceil(volume + buffer)
       │  └─ Retourne: ResultatAgregationJIT
       │
-      ├─ envoyer_liste_achats()
-      │  ├─ Génère contenu HTML
-      │  └─ EmailService.send_jit_alert() → Envoie à fondateur
-      │
       ├─ verrouiller_commandes()
       │  ├─ UPDATE t_commandes SET statut = 'Verrouillée'
       │  └─ Retourne nombre modifié
       │
       └─ jit_dao.create_log()
          ├─ INSERT INTO t_jit_logs (...)
-         └─ Persiste résultats + détails JSON
+         ├─ Persiste résultats + details d'achats en JSON
+         └─ Retourne JITLogDTO
 ```
 
 ### 3. **Réponse Web (Endpoints)**

@@ -32,11 +32,8 @@ def job_agregation_jit():
         jit_dao = JITDaoBD()
         service = JITService(jit_dao)
         
-        # Récupérer l'email du fondateur
-        email_fondateur = os.getenv("FONDATEUR_EMAIL", "admin@souki.ma")
-        
         # Exécuter le job JIT
-        log = service.executer_job_jit(session, email_fondateur)
+        log = service.executer_job_jit(session)
         
         # Fermer la session
         session.close()

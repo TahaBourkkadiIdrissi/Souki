@@ -23,22 +23,11 @@ class IJITService(ABC):
         pass
 
     @abstractmethod
-    def envoyer_liste_achats(
-        self, session: Session, resultat: ResultatAgregationJIT, email_fondateur: str
-    ) -> bool:
-        """
-        Envoie la liste d'achats par email au fondateur.
-        Retourne True si succès, False sinon.
-        """
-        pass
-
-    @abstractmethod
-    def executer_job_jit(self, session: Session, email_fondateur: str) -> JITLogDTO:
+    def executer_job_jit(self, session: Session) -> JITLogDTO:
         """
         Exécute le job JIT complet :
         1. Agrège les commandes
         2. Verrouille les commandes
-        3. Envoie la liste d'achats
-        4. Crée un log
+        3. Crée un log avec la liste d'achats en base de données
         """
         pass

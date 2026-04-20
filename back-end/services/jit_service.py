@@ -13,7 +13,6 @@ from entities.client_entity import Client
 from interfaces.jit_service_interface import IJITService
 from interfaces.jit_dao_interface import IJITDao
 from dto.jit_dto import ResultatAgregationJIT, DetailProduitJIT, JITLogDTO
-from services.email_delivery_service import EmailDeliveryService
 
 
 class JITService(IJITService):
@@ -21,7 +20,6 @@ class JITService(IJITService):
 
     def __init__(self, jit_dao: IJITDao) -> None:
         self.jit_dao = jit_dao
-        self.email_service = EmailDeliveryService()
 
     def agreger_commandes(self, session: Session) -> ResultatAgregationJIT:
         """
@@ -166,84 +164,14 @@ class JITService(IJITService):
             print(f"Erreur lors du verrouillage des commandes: {e}")
             raise  # ✅ Relever l'exception pour que le Service la gère
 
-    def envoyer_liste_achats(
-        self, session: Session, resultat: ResultatAgregationJIT, email_fondateur: str
-    ) -> bool:
-        """
-        Envoie la liste d'achats par email au fondateur.
-        Retourne True si succès, False sinon.
-        """
-        try:
-            if not self.email_service.is_configured():
-                print("⚠ Attention: SMTP non configuré, impossible d'envoyer l'email")
-                return False
-            
-            # Construire le contenu de l'email
-            lignes_details = []
-            for detail in resultat.details_produits:
-                ligne = (
-                    f"  • {detail.nom_fr} ({detail.nom_darija})\n"
-                    f"    Volume commandé: {detail.quantite_brute_kg} kg\n"
-                    f"    Buffer 10%: {detail.buffer_perte_10_pct} kg\n"
-                    f"    Volume total (arrondi): {detail.volume_total_kg} kg\n"
-                    f"    Prix unitaire: {detail.prix_kg} DH/kg\n"
-                    f"    Sous-total: {detail.sous_total} DH\n"
-                )
-                lignes_details.append(ligne)
-            
-            contenu_details = "\n".join(lignes_details)
-            
-            message_alerte = (
-                f"⚠ {resultat.message}\n\nAnnulez la tournée de livraison."
-                if resultat.statut == "aucune_commande"
-                else ""
-            )
-            
-            sujet = (
-                "🚨 ALERTE: Aucune commande - Annulation de tournée"
-                if resultat.statut == "aucune_commande"
-                else "📋 Liste d'achats SOUKI - Marché de gros"
-            )
-            
-            contenu_email = f"""
-Bonjour Fondateur SOUKI,
 
-{message_alerte}
 
-📊 RÉSUMÉ D'AGRÉGATION JIT
-Nombre de commandes confirmées: {resultat.nombre_commandes}
-Nombre d'abonnements actifs: {resultat.nombre_abonnements}
-Volume total de fruits/légumes: {resultat.volume_total_kg} kg
-
-💰 Montant total estimé: {resultat.montant_total} DH
-
-📝 LISTE D'ACHATS (Arrondie caisse entière):
-{contenu_details}
-
-Cette liste a été générée automatiquement à 20h00 pour un achat au marché de gros à 5h00.
-
-Cordialement,
-Système SOUKI
-"""
-            
-            self.email_service.send_jit_alert(
-                recipient=email_fondateur,
-                sujet=sujet,
-                contenu=contenu_email,
-            )
-            
-            return True
-        except Exception as e:
-            print(f"Erreur lors de l'envoi de l'email JIT: {e}")
-            return False
-
-    def executer_job_jit(self, session: Session, email_fondateur: str) -> JITLogDTO:
+    def executer_job_jit(self, session: Session) -> JITLogDTO:
         """
         Exécute le job JIT complet :
         1. Agrège les commandes
         2. Verrouille les commandes
-        3. Envoie la liste d'achats
-        4. Crée un log
+        3. Crée un log avec la liste d'achats en base de données
         """
         try:
             print("🚀 Démarrage du job JIT d'agrégation des commandes...")
@@ -253,14 +181,7 @@ Système SOUKI
             print(f"   ✓ Agrégation complète: {resultat.nombre_commandes} commandes, "
                   f"{resultat.volume_total_kg} kg total")
             
-            # 2. Envoyer la notification/email
-            email_sent = self.envoyer_liste_achats(session, resultat, email_fondateur)
-            if email_sent:
-                print(f"   ✓ Email sent to {email_fondateur}")
-            else:
-                print(f"   ⚠ Email not sent (SMTP may not be configured)")
-            
-            # 3. Verrouiller les commandes (seulement si succès)
+            # 2. Verrouiller les commandes (seulement si succès)
             if resultat.statut == "succès":
                 nombre_verrouillees = self.verrouiller_commandes(session)
                 print(f"   ✓ {nombre_verrouillees} commandes verrouillées")

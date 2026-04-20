@@ -79,7 +79,6 @@ class JITLog(Base):
 - `JITService` : Implémente `IJITService`
   - `agreger_commandes()` : Agrège les commandes et calcule volumes
   - `verrouiller_commandes()` : Verrouille les commandes
-  - `envoyer_liste_achats()` : Envoie notification/email
   - `executer_job_jit()` : Orchestration complète
 
 #### 6. **Controller Layer** - API REST
@@ -119,23 +118,19 @@ APScheduler CronTrigger (heure=20, minute=0)
     │   │   ├── Applique buffer 10%
     │   │   ├── Arrondit à caisse entière (ceil)
     │   │   └── Retourne ResultatAgregationJIT
-    │   ├── envoyer_liste_achats()
-    │   │   ├── Génère contenu HTML de la liste
-    │   │   └── Envoie par email au fondateur
     │   ├── verrouiller_commandes()
     │   │   ├── Change statut → "Verrouillée"
     │   │   └── Empêche modifications clients
     │   └── jit_dao.create_log()
-    │       └── Persiste les résultats en BDD
+    │       ├── Persiste les résultats en BDD
+    │       └── Inclut liste d'achats en JSON
     └── Affiche: "✅ Job JIT terminé"
 ```
 
 ### 3️⃣ En Cas de 0 Commandes
 ```
 Statut = "aucune_commande"
-├── Email sujet: "🚨 ALERTE: Aucune commande - Annulation de tournée"
-├── Contenu: "Aucune commande confirmée — annulation de tournée ?"
-└── Log: message_alerte = "Aucune commande..."
+└── Log: message_alerte = "Aucune commande confirmée — annulation de tournée ?"
 ```
 
 ---
