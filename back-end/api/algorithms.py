@@ -1,6 +1,7 @@
 import re
 import json
 import base64
+import time
 import google.genai as genai
 from api.keys import GEMINI_API_KEY
 
@@ -27,37 +28,79 @@ Règles de quantités OBLIGATOIRES (la quantité doit TOUJOURS être un nombre d
 
 def call_gemini(prompt_parts: list) -> dict:
     """
-    Appelle l'API Gemini avec fallback sur plusieurs modèles.
-    Retourne un dict JSON parsé.
+    Appelle l'API Gemini avec fallback + retry.
+    NE CRASH JAMAIS.
     """
     client = genai.Client(api_key=GEMINI_API_KEY)
-    last_error = None
 
     for model_name in MODELS:
-        try:
-            response = client.models.generate_content(
-                model=model_name, contents=prompt_parts
-            )
-            raw = response.text.strip() # type: ignore
-            raw = re.sub(r'^```json\s*', '', raw)
-            raw = re.sub(r'^```\s*', '', raw)
-            raw = re.sub(r'\s*```$', '', raw)
-            return json.loads(raw)
-        except Exception as e:
-            last_error = e
-            if "429" not in str(e) and "quota" not in str(e).lower():
-                raise e
+        for attempt in range(3):  #  retry 3 fois
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt_parts
+                )
 
-    raise last_error # type: ignore
+                raw = response.text.strip()  # type: ignore
+
+                # Nettoyage Markdown
+                raw = re.sub(r'^```json\s*', '', raw)
+                raw = re.sub(r'^```\s*', '', raw)
+                raw = re.sub(r'\s*```$', '', raw)
+
+                return json.loads(raw)
+
+            except Exception as e:
+                error_str = str(e)
+                print(f"[Gemini ERROR] {model_name} (attempt {attempt+1}): {error_str}")
+
+                #  Serveur surchargé → retry
+                if "503" in error_str:
+                    time.sleep(2)
+                    continue
+
+                #  Quota → essayer autre modèle
+                if "429" in error_str or "quota" in error_str.lower():
+                    break
+
+                #  Permission → stop direct
+                if "403" in error_str:
+                    return {
+                        "transcription": "",
+                        "langue_detectee": "unknown",
+                        "items": [],
+                        "produits_non_disponibles": [],
+                        "error": "Access denied (check API key/project)"
+                    }
+
+                #  Autre erreur → return safe
+                return {
+                    "transcription": "",
+                    "langue_detectee": "unknown",
+                    "items": [],
+                    "produits_non_disponibles": [],
+                    "error": f"Internal error: {error_str}"
+                }
+
+    #  Si tous les modèles échouent
+    return {
+        "transcription": "",
+        "langue_detectee": "unknown",
+        "items": [],
+        "produits_non_disponibles": [],
+        "error": "Gemini unavailable (quota / overload)"
+    }
 
 
 def build_audio_parts(audio_b64: str, mime_type: str) -> list:
     """Construit les parts Gemini pour un audio base64."""
     from google.genai import types
+
     audio_part = types.Part.from_bytes(
         data=base64.b64decode(audio_b64),
         mime_type=mime_type
     )
+
     return [
         SYSTEM_PROMPT,
         audio_part,
