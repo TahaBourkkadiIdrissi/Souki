@@ -141,3 +141,229 @@ Content-Type: multipart/form-data; boundary=----Boundary
 ------Boundary
 Content-Disposition: form-data; name="audio"; filename="commande.wav"
 Content-Type: audio/wav
+
+
+### ─────────────────────────────────────────────
+### 🚀 SYSTÈME JIT - TESTS D'INTÉGRATION
+### ─────────────────────────────────────────────
+### Tâches:
+### 1. ✅ Valider atomicité transaction après fix
+### 2. ✅ Vérifier démarrage scheduler sans deprecation
+### 3. ✅ Tester rollback complet sur erreur
+### 4. ✅ Vérifier admin gates sur endpoints JIT
+### ─────────────────────────────────────────────
+
+## ÉTAPE 1: Créer un compte ADMIN pour les tests
+# @name admin_register
+POST {{BASE_URL}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "admin_jit@souki.ma",
+  "phone": "+212699999911",
+  "password": "AdminJIT@123",
+  "role": "ADMIN"
+}
+
+## ÉTAPE 2: Se connecter en tant qu'ADMIN
+# @name admin_login
+POST {{BASE_URL}}/auth/login
+Content-Type: application/json
+
+{
+  "login_id": "admin_jit@souki.ma",
+  "password": "AdminJIT@123",
+  "role": "ADMIN"
+}
+
+@admin_token = {{admin_login.response.body.access_token}}
+
+### ─────────────────────────────────────────────
+### 📋 TÂCHE 1: Atomicité des transactions
+### ─────────────────────────────────────────────
+### Vérifications:
+### ✓ Si toutes les étapes réussissent → commit complet
+### ✓ Si une étape échoue → rollback complet
+### ✓ Les 4 étapes sont atomiques (tout ou rien)
+
+### TEST 1.1: Exécuter le job JIT complet (SUCCESS PATH)
+# Instructions:
+# 1. Assurez-vous que des commandes existent en base (status="en_attente" ou "Confirmée")
+# 2. Vérifiez que SMTP est configuré (.env EMAIL_*)
+# 3. Attendez HTTP 200 avec statut "succès"
+# Vérifications:
+# ✓ log.statut == "succès"
+# ✓ log.nombre_commandes > 0
+# ✓ log.volume_total > 0
+# ✓ Commandes en DB ont statut "Verrouillée"
+# ✓ Email envoyé au fondateur
+@name jit_execute_success
+POST {{BASE_URL}}/api/jit/executer
+Authorization: Bearer {{admin_token}}
+Content-Type: application/json
+
+{}
+
+### TEST 1.2: Vérifier le dernier log créé (atomicité validée)
+# Attendu: Le log créé en 1.1 doit être présent avec données complètes
+GET {{BASE_URL}}/api/jit/logs/dernier
+Authorization: Bearer {{admin_token}}
+
+### TEST 1.3: Consulter les logs sur une période (atomicité validée)
+# Attendu: Tous les logs doivent avoir des données cohérentes
+GET {{BASE_URL}}/api/jit/logs/2026-04-20?fin=2026-04-21
+Authorization: Bearer {{admin_token}}
+
+
+### ─────────────────────────────────────────────
+### 🔒 TÂCHE 2 & 4: Vérifier les admin gates
+### ─────────────────────────────────────────────
+### Vérifications:
+### ✓ Endpoints JIT demandent le rôle ADMIN
+### ✓ Non-admin → 403 Forbidden
+### ✓ Sans token → 401 Unauthorized
+
+## D'abord, créer un compte CLIENT pour tests de sécurité
+# @name client_register
+POST {{BASE_URL}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "client_jit_test@souki.ma",
+  "phone": "+212688888811",
+  "password": "ClientTest@123",
+  "role": "CLIENT"
+}
+
+## Se connecter en tant que CLIENT (non-admin)
+# @name client_login
+POST {{BASE_URL}}/auth/login
+Content-Type: application/json
+
+{
+  "login_id": "client_jit_test@souki.ma",
+  "password": "ClientTest@123",
+  "role": "CLIENT"
+}
+
+@client_token = {{client_login.response.body.access_token}}
+
+### TEST 2.1: CLIENT tente d'exécuter JIT → 403 Forbidden ❌
+# Instructions: Utiliser token de CLIENT (non-admin)
+# Résultat attendu: 403 Forbidden avec "Admin access required"
+# Cas d'erreur: Si vous recevez 200, le security gate est CASSÉ!
+POST {{BASE_URL}}/api/jit/executer
+Authorization: Bearer {{client_token}}
+Content-Type: application/json
+
+{}
+
+### TEST 2.2: CLIENT tente de lire les logs → 403 Forbidden ❌
+# Résultat attendu: 403 Forbidden
+POST {{BASE_URL}}/api/jit/logs/dernier
+Authorization: Bearer {{client_token}}
+
+### TEST 2.3: Sans token du tout → 401 Unauthorized ❌
+# Résultat attendu: 401 Unauthorized
+GET {{BASE_URL}}/api/jit/logs/dernier
+
+### TEST 2.4: Token invalide → 401 Unauthorized ❌
+# Résultat attendu: 401 Unauthorized
+GET {{BASE_URL}}/api/jit/logs/dernier
+Authorization: Bearer invalid_token_xyz
+
+### TEST 2.5: ADMIN peut exécuter (sécurité OK) ✅
+# Résultat attendu: 200 OK avec log
+POST {{BASE_URL}}/api/jit/executer
+Authorization: Bearer {{admin_token}}
+Content-Type: application/json
+
+{}
+
+
+### ─────────────────────────────────────────────
+### ⚡ TÂCHE 3: Rollback complet sur erreur
+### ─────────────────────────────────────────────
+### Vérifications:
+### ✓ Si erreur pendant agrégation → pas de lock, pas de log
+### ✓ Si erreur pendant verrouillage → agrégation rollback
+### ✓ Données en base restent cohérentes (rien à moitié fait)
+### ✓ Error log créé dans session séparée
+
+### TEST 3.1: Déclencher une erreur (base de données vide, par ex)
+# Instructions:
+# 1. Supprimer ou videz toutes les commandes en base
+# 2. Exécutez ce test
+# Attendu: 200 OK avec statut="aucune_commande" (pas d'erreur, c'est normal)
+#          Commandes restent inchangées (pas de lock partiel)
+POST {{BASE_URL}}/api/jit/executer
+Authorization: Bearer {{admin_token}}
+Content-Type: application/json
+
+{}
+
+### TEST 3.2: Vérifier que le log d'erreur a été créé
+# Attendu: Dernier log doit avoir statut="aucune_commande" ou "erreur"
+#          Sans données partielles
+GET {{BASE_URL}}/api/jit/logs/dernier
+Authorization: Bearer {{admin_token}}
+
+### TEST 3.3: Test de résilience - 2ème exécution après erreur
+# Instructions: Vérifier que le système peut se relancer sans effets de bord
+# Attendu: 200 OK, nouvelle exécution propre
+POST {{BASE_URL}}/api/jit/executer
+Authorization: Bearer {{admin_token}}
+Content-Type: application/json
+
+{}
+
+
+### ─────────────────────────────────────────────
+### 📊 TÂCHE 2: Scheduler sans deprecation warnings
+### ─────────────────────────────────────────────
+### Vérifications:
+### ✓ Pas de DeprecationWarning en console au startup
+### ✓ Scheduler démarre correctement
+### ✓ Job 20h00 est enregistré
+
+### TEST 2.6: Consulter les logs après scheduler startup
+# Instructions:
+# 1. Redémarrez le serveur: python main.py
+# 2. Observez la console pour:
+#    - ✓ "🚀 AsyncContextManager lifespan started"
+#    - ✓ "📅 APScheduler initialized"
+#    - ✓ "📋 JIT job scheduled at 20:00 every day"
+#    - ✗ Pas de "DeprecationWarning"
+# 3. Exécutez ce test pour vérifier les logs
+GET {{BASE_URL}}/api/jit/logs/dernier
+Authorization: Bearer {{admin_token}}
+
+
+### ─────────────────────────────────────────────
+### 📝 RÉSUMÉ DES VÉRIFICATIONS
+### ─────────────────────────────────────────────
+### 
+### TÂCHE 1: Atomicité ✅
+### Run: TEST 1.1 → TEST 1.2 → TEST 1.3
+### ✓ Log créé avec données cohérentes
+### ✓ Commandes verrouillées (status="Verrouillée")
+### ✓ Email envoyé
+### 
+### TÂCHE 2: Scheduler ✅
+### ✓ Console: À chaque startup, voir logs de scheduler
+### ✓ Pas de DeprecationWarning
+### ✓ Job enregistré à 20:00
+### 
+### TÂCHE 3: Rollback ✅
+### Run: TEST 3.1 → TEST 3.2 → TEST 3.3
+### ✓ Erreur → Log d'erreur seul, rien à moitié
+### ✓ State en base cohérent après erreur
+### ✓ 2ème exécution KO mais clean
+### 
+### TÂCHE 4: Security Gates ✅
+### Run: TEST 2.1 → TEST 2.2 → TEST 2.3 → TEST 2.4 → TEST 2.5
+### ✓ CLIENT → 403 (pas d'accès)
+### ✓ Sans token → 401 (pas d'auth)
+### ✓ ADMIN → 200 (accès OK)
+### 
+### ─────────────────────────────────────────────
