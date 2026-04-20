@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import {
   AlertTriangle,
   ArrowRight,
@@ -10,11 +11,11 @@ import {
   Mic,
   ShoppingCart,
   Sparkles,
-  Trash2,
   X,
   Zap,
 } from "lucide-react"
 
+import { useAuth } from "@/hooks/useAuth"
 import { API_BASE_URL } from "@/lib/api"
 import {
   BasketSelection,
@@ -35,19 +36,19 @@ interface LigneCommandeDTO {
 }
 
 interface VoiceBasketResponseDTO {
-  status: string;
-  transcription?: string;
-  langue_detectee?: string;
-  produits_non_disponibles: string[];
-  lignes_panier: LigneCommandeDTO[];
-  total_dh: number;
-  nombre_articles: number;
-  commande_id?: number; // AJOUTÉ pour le passer au checkout
+  status: string
+  transcription?: string
+  langue_detectee?: string
+  produits_non_disponibles: string[]
+  lignes_panier: LigneCommandeDTO[]
+  total_dh: number
+  nombre_articles: number
+  commande_id?: number
 }
 
 interface AIModalsProps {
   isOpen: boolean
-  onClose: void
+  onClose: () => void
   mode: "voice" | "smart" | null
   products?: CatalogueProduct[]
   onApplySelections?: (selections: BasketSelection[]) => void
@@ -60,6 +61,9 @@ export function AIModals({
   products = [],
   onApplySelections,
 }: AIModalsProps) {
+  const router = useRouter()
+  const { token } = useAuth()
+
   const [isListening, setIsListening] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [result, setResult] = useState<VoiceBasketResponseDTO | null>(null)
@@ -73,14 +77,25 @@ export function AIModals({
 
   useEffect(() => {
     if (!isOpen) {
-      setIsListening(false)
-      setIsSending(false)
-      setResult(null)
-      setError(null)
-      setSmartSelections([])
-      stopListening()
+      resetState()
     }
   }, [isOpen])
+
+  const resetState = () => {
+    setIsListening(false)
+    setIsSending(false)
+    setResult(null)
+    setError(null)
+    setSmartSelections([])
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop()
+    }
+  }
+
+  const closeModal = () => {
+    resetState()
+    onClose()
+  }
 
   const stopListening = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
@@ -93,6 +108,11 @@ export function AIModals({
     setError(null)
     setResult(null)
 
+    if (!token) {
+      setError("Connectez-vous d'abord pour utiliser l'assistant vocal.")
+      return
+    }
+
     if (isListening) {
       stopListening()
       return
@@ -100,15 +120,21 @@ export function AIModals({
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" })
-      
+      const options =
+        typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/webm")
+          ? { mimeType: "audio/webm" }
+          : undefined
+      const mediaRecorder = new MediaRecorder(stream, options)
+
       audioChunksRef.current = []
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) audioChunksRef.current.push(event.data)
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data)
+        }
       }
 
       mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach(track => track.stop())
+        stream.getTracks().forEach((track) => track.stop())
         setIsSending(true)
 
         try {
@@ -116,19 +142,27 @@ export function AIModals({
           const formData = new FormData()
           formData.append("audio", audioBlob, "enregistrement.webm")
 
-          const response = await fetch(`${API_URL}/voice-basket`, {
+          const response = await fetch(`${API_BASE_URL}/api/voice-basket`, {
             method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
             body: formData,
           })
 
           if (!response.ok) {
-            throw new Error("Erreur serveur")
+            const payload = await response.json().catch(() => ({}))
+            throw new Error(payload.detail || "Erreur lors du traitement vocal.")
           }
 
-          const data: VoiceBasketResponseDTO = await response.json()
+          const data = (await response.json()) as VoiceBasketResponseDTO
           setResult(data)
-        } catch (err) {
-          setError("Impossible de contacter l'IA. Vérifiez que le backend est lancé.")
+        } catch (voiceError) {
+          setError(
+            voiceError instanceof Error
+              ? voiceError.message
+              : "Impossible de contacter l'assistant vocal."
+          )
         } finally {
           setIsSending(false)
         }
@@ -143,34 +177,62 @@ export function AIModals({
   }
 
   const handleSmartGeneration = () => {
-    setIsListening(true)
-    setTimeout(() => {
-      setIsListening(false)
-      onClose()
-      router.push("/checkout?mode=smart")
-    }, 2000)
+    const parsedBudget = Number(budget)
+    if (!Number.isFinite(parsedBudget) || parsedBudget <= 0) {
+      setError("Entrez un budget valide pour generer le panier.")
+      setSmartSelections([])
+      return
+    }
+
+    const selections = buildSmartBasket(products, parsedBudget, duration)
+    setSmartSelections(selections)
+    setError(null)
   }
 
-  if (!isOpen || !mode) return null
+  const handleApplySmartBasket = () => {
+    if (smartSelections.length === 0) {
+      setError("Generez d'abord un panier intelligent.")
+      return
+    }
+    onApplySelections?.(smartSelections)
+    closeModal()
+  }
+
+  const smartPreview = smartSelections
+    .map((selection) => {
+      const product = products.find((item) => item.id === selection.productId)
+      if (!product) {
+        return null
+      }
+      return {
+        product,
+        quantity: selection.quantity,
+        total: product.price * selection.quantity,
+      }
+    })
+    .filter(
+      (
+        item
+      ): item is { product: CatalogueProduct; quantity: number; total: number } => item !== null
+    )
+
+  if (!isOpen || !mode) {
+    return null
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeModal} />
 
-      <div className={cn(
-        "relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col",
-        mode === "voice" ? "bg-[#111116]" : "bg-white"
-      )}>
-        
-        {/* === VOICE MODAL === */}
+      <div
+        className={cn(
+          "relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 shadow-2xl animate-in fade-in zoom-in-95 duration-200",
+          mode === "voice" ? "bg-[#111116] text-white" : "bg-white text-[#264129]"
+        )}
+      >
         {mode === "voice" && (
-          <div className="flex flex-col h-full text-white overflow-y-auto">
-            
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-white/5 shrink-0">
+          <div className="flex max-h-[90vh] flex-col overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-white/10 p-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[#1E8A3C]/30 bg-gradient-to-br from-[#1E8A3C]/10 to-transparent">
                   <Sparkles className="h-5 w-5 text-[#4CB84A]" />
@@ -178,70 +240,75 @@ export function AIModals({
                 <div>
                   <span className="text-lg font-bold">IA-SOUKI Vocal</span>
                   <p className="text-xs text-white/60">
-                    {isSending ? "Analyse en cours..." : isListening ? "Je vous ecoute..." : "Pret a ecouter"}
+                    {isSending
+                      ? "Analyse en cours..."
+                      : isListening
+                        ? "Je vous ecoute..."
+                        : "Pret a ecouter"}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button className="rounded-full bg-white/5 p-2 text-white/40 transition-colors hover:text-white/80">
-                  <Trash2 className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={onClose}
-                  className="rounded-full bg-white/5 p-2 text-white/40 transition-colors hover:text-white/80"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+              <button
+                onClick={closeModal}
+                className="rounded-full bg-white/5 p-2 text-white/50 transition-colors hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
 
-            {/* Visualizer Area */}
-            <div className="py-12 border-b border-white/5 relative flex flex-col items-center justify-center shrink-0">
-              <div className={cn(
-                "relative w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-6 transition-all duration-700",
-                isSending ? "bg-gradient-to-tr from-[#F07C00] to-[#FF9421] shadow-[0_0_30px_#F07C00]" :
-                isListening ? "bg-gradient-to-tr from-[#1E8A3C] to-[#4CB84A] shadow-[0_0_30px_#1E8A3C]" : "bg-white/10"
-              )}>
-                {isSending ? <Loader2 className="w-6 h-6 text-white animate-spin" /> : <div className="w-4 h-4 rounded-full bg-white opacity-80" />}
+            <div className="border-b border-white/10 py-12 text-center">
+              <div
+                className={cn(
+                  "mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full transition-all duration-700",
+                  isSending
+                    ? "bg-gradient-to-tr from-[#F07C00] to-[#FF9421] shadow-[0_0_30px_#F07C00]"
+                    : isListening
+                      ? "bg-gradient-to-tr from-[#1E8A3C] to-[#4CB84A] shadow-[0_0_30px_#1E8A3C]"
+                      : "bg-white/10"
+                )}
+              >
+                {isSending ? (
+                  <Loader2 className="h-6 w-6 animate-spin text-white" />
+                ) : (
+                  <Mic className="h-6 w-6 text-white" />
+                )}
               </div>
-              
-              <div className="flex items-center gap-1 justify-center h-8">
-                {[...Array(15)].map((_, i) => (
-                  <div 
-                    key={i} 
+
+              <div className="flex h-8 items-center justify-center gap-1">
+                {Array.from({ length: 15 }).map((_, index) => (
+                  <div
+                    key={index}
                     className={cn(
                       "w-1.5 rounded-full bg-white/20 transition-all duration-300",
                       isListening ? "animate-pulse" : "h-2"
                     )}
-                    style={{ 
-                      height: isListening ? `${Math.max(8, Math.random() * 32)}px` : '8px',
-                      animationDelay: `${i * 0.1}s`
+                    style={{
+                      height: isListening ? `${Math.max(8, ((index % 5) + 1) * 6)}px` : "8px",
+                      animationDelay: `${index * 0.1}s`,
                     }}
                   />
                 ))}
               </div>
             </div>
-            
-            {/* Action Area */}
-            <div className="p-6 flex flex-col items-center text-center">
-              <div className="mb-6">
-                <div className="w-10 h-10 mx-auto bg-white/5 rounded-full flex items-center justify-center mb-4">
-                  <Mic className="w-5 h-5 text-white/60" />
-                </div>
-                <p className="text-sm font-medium text-white/80 mb-2">
-                  {isSending ? "IA-SOUKI analyse votre voix..." : isListening ? "Je vous écoute..." : "Appuyez sur le micro et parlez à IA-SOUKI"}
-                </p>
-                <p className="text-[10px] text-white/40">
-                  Détection automatique du silence • Darija & Français
-                </p>
-              </div>
-              
-              <button 
+
+            <div className="p-6 text-center">
+              <p className="text-sm font-medium text-white/85">
+                {isSending
+                  ? "IA-SOUKI analyse votre commande..."
+                  : isListening
+                    ? "Parlez maintenant puis recliquez pour arreter."
+                    : "Appuyez sur le micro et decrivez votre panier."}
+              </p>
+              <p className="mt-2 text-[11px] text-white/45">
+                Darija et francais pris en charge.
+              </p>
+
+              <button
                 onClick={handleVoiceInteraction}
                 disabled={isSending}
                 className={cn(
-                  "mt-8 flex w-full max-w-[220px] flex-col items-center justify-center rounded-3xl bg-white/5 px-6 py-5 transition-all duration-300 hover:bg-white/10",
+                  "mx-auto mt-8 flex w-full max-w-[220px] flex-col items-center justify-center rounded-3xl bg-white/5 px-6 py-5 transition-all duration-300 hover:bg-white/10",
                   isSending && "cursor-not-allowed opacity-50"
                 )}
               >
@@ -262,7 +329,7 @@ export function AIModals({
             </div>
 
             {error && (
-              <div className="mx-6 mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+              <div className="mx-6 mb-5 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                   <p>{error}</p>
@@ -271,11 +338,12 @@ export function AIModals({
             )}
 
             {result && (
-              <div className="mx-6 my-6 rounded-3xl border border-white/10 bg-white/5 p-4">
+              <div className="mx-6 mb-6 rounded-3xl border border-white/10 bg-white/5 p-4">
                 <div className="mb-3 flex items-center gap-2 text-[#4CB84A]">
                   <ShoppingCart className="h-4 w-4" />
                   <h4 className="text-sm font-bold">
-                    Panier detecte ({result.nombre_articles} article{result.nombre_articles > 1 ? "s" : ""})
+                    Panier detecte ({result.nombre_articles} article
+                    {result.nombre_articles > 1 ? "s" : ""})
                   </h4>
                 </div>
 
@@ -294,7 +362,7 @@ export function AIModals({
                       <div>
                         <p className="text-sm font-semibold text-white">{line.nom_produit}</p>
                         <p className="text-xs text-white/45">
-                          {formatVoiceQuantity(line.quantite_effective)} x{" "}
+                          {formatQuantity(line.quantite_effective, "kg")} x{" "}
                           {line.prix_unitaire.toFixed(2)} DH
                         </p>
                       </div>
@@ -318,12 +386,14 @@ export function AIModals({
                   </span>
                 </div>
 
-                {/* LE BOUTON QUI ENVOIE L'ID AU CHECKOUT */}
-                <button 
-                  onClick={() => { onClose(); router.push(`/checkout?commande_id=${result.commande_id}`) }}
-                  className="w-full mt-2 flex items-center justify-center gap-2 py-2.5 bg-[#1E8A3C] text-white rounded-xl font-bold text-sm hover:bg-[#176B2E] transition-colors"
+                <button
+                  onClick={() => {
+                    closeModal()
+                    router.push(`/checkout?commande_id=${result.commande_id}`)
+                  }}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#1E8A3C] py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#176B2E]"
                 >
-                  Ajouter ce panier
+                  Aller au checkout
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </div>
@@ -332,7 +402,7 @@ export function AIModals({
         )}
 
         {mode === "smart" && (
-          <div className="flex flex-col">
+          <div className="flex max-h-[90vh] flex-col overflow-y-auto">
             <div className="flex items-center justify-between border-b border-gray-100 p-6">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#F07C00] to-[#FF9421] text-white shadow-lg shadow-orange-500/20">
@@ -344,7 +414,7 @@ export function AIModals({
                 </div>
               </div>
               <button
-                onClick={onClose}
+                onClick={closeModal}
                 className="rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
               >
                 <X className="h-5 w-5" />

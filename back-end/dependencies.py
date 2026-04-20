@@ -3,15 +3,19 @@ from fastapi import Depends
 from dao.checkout_dao import CheckoutDaoBD
 from dao.commande_dao import CommandeVocaleDaoBD
 from dao.product_dao import ProductDaoBD
+from dao.panier_dao import PanierDaoBD
 from interfaces.catalogue_service_interface import ICatalogueService
 from interfaces.checkout_dao_interface import ICheckoutDao
 from interfaces.checkout_service_interface import ICheckoutService
 from interfaces.commande_dao_interface import ICommandeVocaleDao
 from interfaces.commande_service_interface import ICommandeVocaleService
+from interfaces.panier_dao_interface import IPanierDao
+from interfaces.panier_service_interface import IPanierService
 from interfaces.product_dao_interface import IProductDao
 from services.catalogue_service import CatalogueService
 from services.checkout_service import CheckoutService
 from services.commande_service import CommandeVocaleService
+from services.panier_service import PanierService
 
 
 def get_product_dao() -> IProductDao:
@@ -24,6 +28,10 @@ def get_commande_dao() -> ICommandeVocaleDao:
 
 def get_checkout_dao() -> ICheckoutDao:
     return CheckoutDaoBD()
+
+
+def get_panier_dao() -> IPanierDao:
+    return PanierDaoBD()
 
 
 def get_catalogue_service(
@@ -43,3 +51,9 @@ def get_checkout_service(
     checkout_dao: ICheckoutDao = Depends(get_checkout_dao)
 ) -> ICheckoutService:
     return CheckoutService(checkout_dao)
+
+
+def get_panier_service(
+    panier_dao: IPanierDao = Depends(get_panier_dao)
+) -> IPanierService:
+    return PanierService(panier_dao)
