@@ -5,7 +5,6 @@ from dao.product_dao import ProductDaoBD
 CATALOGUE_PRODUCTS = [
     {"id": 1, "nom_fr": "Pommes de terre", "nom_darija": "batata", "prix_kg": 7.0, "unite": "kg", "stock": 120.0},
     {"id": 2, "nom_fr": "Oignons rouge", "nom_darija": "bassla hamra", "prix_kg": 17.0, "unite": "kg", "stock": 90.0},
-    {"id": 3, "nom_fr": "Tomates", "nom_darija": "maticha", "prix_kg": 7.0, "unite": "kg", "stock": 140.0},
     {"id": 4, "nom_fr": "Carottes", "nom_darija": "khizou", "prix_kg": 10.0, "unite": "kg", "stock": 90.0},
     {"id": 5, "nom_fr": "Courgettes", "nom_darija": "qra3 khder", "prix_kg": 15.0, "unite": "kg", "stock": 80.0},
     {"id": 6, "nom_fr": "Piments", "nom_darija": "felfla harra", "prix_kg": 12.0, "unite": "kg", "stock": 60.0},
