@@ -15,6 +15,10 @@ from entities.transaction_wallet_entity import TransactionWallet
 from entities.abonnement_entity import Abonnement
 from entities.jit_log_entity import JITLog
 from entities.produit_b2b_entity import ProduitB2B
+from entities.role_entity import Role
+from entities.permission_entity import Permission
+from entities.user_role_entity import UserRole
+from entities.role_permission_entity import RolePermission
 
 __all__ = [
     "User",
@@ -35,4 +39,8 @@ __all__ = [
     "Abonnement",
     "JITLog",
     "ProduitB2B",
+    "Role",
+    "Permission",
+    "UserRole",
+    "RolePermission",
 ]
