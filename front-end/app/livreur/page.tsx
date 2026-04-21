@@ -2,7 +2,22 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from "react"
 import Link from "next/link"
-import { Calendar, ClipboardList, DollarSign, Map as MapIcon, Star, Truck, User } from "lucide-react"
+import { useRouter } from "next/navigation"
+import {
+  Calendar,
+  CheckCircle2,
+  ClipboardList,
+  Clock3,
+  DollarSign,
+  Map as MapIcon,
+  MapPin,
+  Navigation,
+  Package,
+  Phone,
+  Star,
+  Truck,
+  User,
+} from "lucide-react"
 import type { LineLayerSpecification } from "mapbox-gl"
 import Map, { Layer, Marker, NavigationControl, Source, type MapRef } from "react-map-gl/mapbox"
 
@@ -56,6 +71,7 @@ interface DeliveryViewItem {
   orderNumber: string
   timeSlot: string
   address: string
+  neighborhood: string | null
   clientName: string
   clientPhone: string
   callHref: string | null
@@ -183,6 +199,7 @@ function mapTourneeItemToDeliveryView(item: TourneeItem, index: number): Deliver
     orderNumber: String(item.commande_id),
     timeSlot: item.creneau_livraison || "Non precise",
     address: item.full_address,
+    neighborhood: item.neighborhood,
     clientName: item.client_phone || item.client_label,
     clientPhone: item.client_phone || "Telephone indisponible",
     callHref: buildCallHref(item.client_phone),
@@ -203,6 +220,40 @@ function hasCoordinates(item: DeliveryViewItem): item is DeliveryViewItem & { la
     typeof item.lng === "number" &&
     Number.isFinite(item.lng)
   )
+}
+
+function isActiveDelivery(item: DeliveryViewItem) {
+  return item.status === "pending" || item.status === "enroute"
+}
+
+function formatPaymentMethodLabel(paymentMethod: PaymentMethod) {
+  if (paymentMethod === "wallet") {
+    return "Wallet"
+  }
+
+  if (paymentMethod === "cmi") {
+    return "CMI"
+  }
+
+  return "Especes"
+}
+
+function formatAmount(amount: number) {
+  return `${new Intl.NumberFormat("fr-MA", { maximumFractionDigits: 0 }).format(amount)} DH`
+}
+
+function getDeliveryNeighborhood(delivery: DeliveryViewItem) {
+  const normalizedNeighborhood = delivery.neighborhood?.trim()
+  if (normalizedNeighborhood) {
+    return normalizedNeighborhood
+  }
+
+  const firstAddressSegment = delivery.address.split(",")[0]?.trim()
+  return firstAddressSegment || "Quartier non precise"
+}
+
+function buildNavigationHref(lat: number, lng: number) {
+  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
 }
 
 function extractHourBounds(timeSlot: string) {
@@ -286,7 +337,9 @@ function updateStartedStatuses(response: TourneeResponse): TourneeResponse {
 }
 
 export default function LivreurPage() {
-  const { token, isLoading: isAuthLoading } = useAuth()
+  const router = useRouter()
+  const { token, isLoading: isAuthLoading, isAuthenticated, can } = useAuth()
+  const hasLivreurAccess = can("livreur.dashboard.access")
   const mapRef = useRef<MapRef | null>(null)
   const [activeTab, setActiveTab] = useState<TabType>("list")
   const [deliveryList, setDeliveryList] = useState<DeliveryViewItem[]>([])
@@ -344,7 +397,17 @@ export default function LivreurPage() {
       return
     }
 
-    if (!token) {
+    if (!isAuthenticated || !hasLivreurAccess) {
+      router.replace("/login/livreur?redirect=/livreur")
+    }
+  }, [hasLivreurAccess, isAuthenticated, isAuthLoading, router])
+
+  useEffect(() => {
+    if (isAuthLoading) {
+      return
+    }
+
+    if (!token || !hasLivreurAccess) {
       setIsTourneeLoading(false)
       setTourneeData(null)
       setDeliveryList([])
@@ -431,17 +494,22 @@ export default function LivreurPage() {
       controller.abort()
       window.clearTimeout(timeoutId)
     }
-  }, [isAuthLoading, token])
+  }, [hasLivreurAccess, isAuthLoading, token])
 
   const mappableDeliveries = deliveryList.filter(hasCoordinates)
-  const missingCoordinatesCount = deliveryList.length - mappableDeliveries.length
-  const routeCoordinates =
-    mappableDeliveries.length === 0
-      ? []
-      : [
-          [FES_START_COORDINATE[0], FES_START_COORDINATE[1]] as [number, number],
-          ...mappableDeliveries.map((item) => [item.lng, item.lat] as [number, number]),
-        ]
+  const activeDeliveries = deliveryList.filter(isActiveDelivery)
+  const nextDelivery = activeDeliveries[0] ?? null
+  const futureDeliveries = activeDeliveries.slice(1)
+  const nextDeliveryWithCoordinates = nextDelivery && hasCoordinates(nextDelivery) ? nextDelivery : null
+  const nextDeliveryIndex = nextDelivery ? deliveryList.findIndex((item) => item.id === nextDelivery.id) : -1
+  const previousMappableDelivery =
+    nextDeliveryIndex > 0 ? deliveryList.slice(0, nextDeliveryIndex).reverse().find(hasCoordinates) ?? null : null
+  const routeStartCoordinates = previousMappableDelivery
+    ? ([previousMappableDelivery.lng, previousMappableDelivery.lat] as [number, number])
+    : ([FES_START_COORDINATE[0], FES_START_COORDINATE[1]] as [number, number])
+  const routeCoordinates = nextDeliveryWithCoordinates
+    ? [routeStartCoordinates, [nextDeliveryWithCoordinates.lng, nextDeliveryWithCoordinates.lat] as [number, number]]
+    : []
   const routeGeoJson = {
     type: "FeatureCollection" as const,
     features:
@@ -458,12 +526,36 @@ export default function LivreurPage() {
           ]
         : [],
   }
-  const mapViewportKey = mappableDeliveries.map((item) => `${item.id}:${item.lat}:${item.lng}`).join("|")
+  const activeMissingCoordinatesCount = activeDeliveries.filter((item) => !hasCoordinates(item)).length
+  const nextNavigationHref = nextDeliveryWithCoordinates
+    ? buildNavigationHref(nextDeliveryWithCoordinates.lat, nextDeliveryWithCoordinates.lng)
+    : null
+  const mapViewportKey = nextDeliveryWithCoordinates
+    ? `${nextDeliveryWithCoordinates.id}:${nextDeliveryWithCoordinates.lat}:${nextDeliveryWithCoordinates.lng}:${routeStartCoordinates[0]}:${routeStartCoordinates[1]}`
+    : mappableDeliveries.map((item) => `${item.id}:${item.lat}:${item.lng}`).join("|")
   const isMapboxConfigured = MAPBOX_TOKEN.length > 0
-  const nextStops = deliveryList.filter((item) => item.status === "pending" || item.status === "enroute").slice(0, 3)
 
-  const fitMapToTournee = useEffectEvent(() => {
-    if (!mapRef.current || mappableDeliveries.length === 0) {
+  const focusMapOnDelivery = useEffectEvent(() => {
+    if (!mapRef.current) {
+      return
+    }
+
+    if (nextDeliveryWithCoordinates) {
+      mapRef.current.easeTo({
+        center: [nextDeliveryWithCoordinates.lng, nextDeliveryWithCoordinates.lat],
+        zoom: 14.5,
+        padding: { top: 72, bottom: 320, left: 32, right: 32 },
+        duration: 900,
+      })
+      return
+    }
+
+    if (mappableDeliveries.length === 0) {
+      mapRef.current.easeTo({
+        center: [DEFAULT_MAP_VIEW.longitude, DEFAULT_MAP_VIEW.latitude],
+        zoom: DEFAULT_MAP_VIEW.zoom,
+        duration: 900,
+      })
       return
     }
 
@@ -477,7 +569,8 @@ export default function LivreurPage() {
     if (west === east && south === north) {
       mapRef.current.easeTo({
         center: [west, south],
-        zoom: 13,
+        zoom: 13.5,
+        padding: { top: 72, bottom: 240, left: 32, right: 32 },
         duration: 900,
       })
       return
@@ -489,18 +582,18 @@ export default function LivreurPage() {
         [east, north],
       ],
       {
-        padding: { top: 56, bottom: 56, left: 40, right: 40 },
+        padding: { top: 72, bottom: 240, left: 32, right: 32 },
         duration: 900,
       }
     )
   })
 
   useEffect(() => {
-    if (activeTab !== "map" || mappableDeliveries.length === 0) {
+    if (activeTab !== "map") {
       return
     }
 
-    const frameId = window.requestAnimationFrame(() => fitMapToTournee())
+    const frameId = window.requestAnimationFrame(() => focusMapOnDelivery())
     return () => window.cancelAnimationFrame(frameId)
   }, [activeTab, mapViewportKey])
 
@@ -609,14 +702,14 @@ export default function LivreurPage() {
         </button>
       </header>
 
-      <main className="pb-20 px-4 py-4">
-        {loadSource === "cache" && !beforeSeven && (
+      <main className={cn("pb-20", activeTab === "map" ? "px-0 py-0" : "px-4 py-4")}>
+        {activeTab !== "map" && loadSource === "cache" && !beforeSeven && (
           <div className="mb-4 p-4 rounded-2xl bg-[#FFF3E0] text-[#8A5A00] text-sm shadow-sm">
             Mode hors ligne actif. La liste affiche la derniere tournee sauvegardee sur cet appareil.
           </div>
         )}
 
-        {notice && !beforeSeven && (
+        {activeTab !== "map" && notice && !beforeSeven && (
           <div
             className={cn(
               "mb-4 p-4 rounded-2xl text-sm shadow-sm",
@@ -681,82 +774,269 @@ export default function LivreurPage() {
         )}
 
         {activeTab === "map" && (
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-            {!isMapboxConfigured ? (
-              <div className="aspect-square bg-[#F5F5F0] flex items-center justify-center">
-                <div className="text-center p-8">
-                  <MapIcon className="w-16 h-16 text-[#8A8A8A] mx-auto mb-4" />
-                  <p className="font-semibold text-[#3D3D3D]">Token Mapbox manquant</p>
-                  <p className="text-sm text-[#8A8A8A] mt-2">
-                    Ajoutez `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` pour afficher la carte du livreur.
-                  </p>
+          <div className="relative h-[calc(100dvh-15rem)] min-h-[32rem] overflow-hidden bg-[#E4ECE5]">
+            <div className="absolute inset-0">
+              {!isMapboxConfigured ? (
+                <div className="flex h-full items-center justify-center px-6">
+                  <div className="max-w-xs rounded-[2rem] bg-white/92 p-7 text-center shadow-lg backdrop-blur">
+                    <MapIcon className="mx-auto mb-4 h-14 w-14 text-[#8A8A8A]" />
+                    <p className="font-semibold text-[#3D3D3D]">Token Mapbox manquant</p>
+                    <p className="mt-2 text-sm leading-6 text-[#6B7280]">
+                      Ajoutez `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` pour afficher la carte du livreur.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ) : mappableDeliveries.length === 0 ? (
-              <div className="aspect-square bg-[#F5F5F0] flex items-center justify-center">
-                <div className="text-center p-8">
-                  <MapIcon className="w-16 h-16 text-[#8A8A8A] mx-auto mb-4" />
-                  <p className="font-semibold text-[#3D3D3D]">Aucune coordonnee GPS exploitable</p>
-                  <p className="text-sm text-[#8A8A8A] mt-2">
-                    Les livraisons doivent avoir `lat` et `lng` pour tracer la tournee sur la carte.
-                  </p>
+              ) : isTourneeLoading ? (
+                <div className="flex h-full items-center justify-center px-6">
+                  <div className="rounded-[2rem] bg-white/88 px-6 py-5 text-center shadow-lg backdrop-blur">
+                    <Spinner className="mx-auto size-6 text-[#1E8A3C]" />
+                    <p className="mt-3 font-medium text-[#3D3D3D]">Chargement de votre tournee...</p>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="aspect-square">
-                <Map
-                  ref={mapRef}
-                  reuseMaps
-                  initialViewState={DEFAULT_MAP_VIEW}
-                  mapboxAccessToken={MAPBOX_TOKEN}
-                  mapStyle={MAPBOX_STYLE}
-                  maxBounds={MOROCCO_BOUNDS}
-                  attributionControl={false}
-                  onLoad={() => fitMapToTournee()}
-                >
-                  <NavigationControl position="top-right" showCompass={false} />
+              ) : beforeSeven ? (
+                <div className="flex h-full items-center justify-center px-6">
+                  <div className="max-w-xs rounded-[2rem] bg-white/92 p-7 text-center shadow-lg backdrop-blur">
+                    <Clock3 className="mx-auto mb-4 h-14 w-14 text-[#1E8A3C]" />
+                    <p className="text-xl font-semibold text-[#3D3D3D]">Bonjour, prenez un cafe</p>
+                    <p className="mt-2 text-sm leading-6 text-[#6B7280]">
+                      Votre tournee s&apos;affichera ici a 7h00.
+                    </p>
+                  </div>
+                </div>
+              ) : !token ? (
+                <div className="flex h-full items-center justify-center px-6">
+                  <div className="max-w-xs rounded-[2rem] bg-white/92 p-7 text-center shadow-lg backdrop-blur">
+                    <Truck className="mx-auto mb-4 h-14 w-14 text-[#1E8A3C]" />
+                    <p className="font-semibold text-[#3D3D3D]">Votre session livreur est requise.</p>
+                    <Link
+                      href="/login/livreur"
+                      className="mt-4 inline-flex rounded-2xl bg-[#F07C00] px-4 py-2.5 font-medium text-white"
+                    >
+                      Se connecter
+                    </Link>
+                  </div>
+                </div>
+              ) : deliveryList.length === 0 ? (
+                <div className="flex h-full items-center justify-center px-6">
+                  <div className="max-w-xs rounded-[2rem] bg-white/92 p-7 text-center shadow-lg backdrop-blur">
+                    <MapIcon className="mx-auto mb-4 h-14 w-14 text-[#8A8A8A]" />
+                    <p className="font-semibold text-[#3D3D3D]">Aucune livraison assignee</p>
+                    <p className="mt-2 text-sm leading-6 text-[#6B7280]">
+                      Revenez un peu plus tard pour verifier votre tournee du jour.
+                    </p>
+                  </div>
+                </div>
+              ) : mappableDeliveries.length === 0 ? (
+                <div className="flex h-full items-center justify-center px-6">
+                  <div className="max-w-xs rounded-[2rem] bg-white/92 p-7 text-center shadow-lg backdrop-blur">
+                    <MapIcon className="mx-auto mb-4 h-14 w-14 text-[#8A8A8A]" />
+                    <p className="font-semibold text-[#3D3D3D]">Aucune coordonnee GPS exploitable</p>
+                    <p className="mt-2 text-sm leading-6 text-[#6B7280]">
+                      Les livraisons doivent avoir `lat` et `lng` pour etre positionnees sur la carte.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="absolute inset-0">
+                    <Map
+                      ref={mapRef}
+                      reuseMaps
+                      initialViewState={DEFAULT_MAP_VIEW}
+                      mapboxAccessToken={MAPBOX_TOKEN}
+                      mapStyle={MAPBOX_STYLE}
+                      maxBounds={MOROCCO_BOUNDS}
+                      attributionControl={false}
+                      onLoad={() => focusMapOnDelivery()}
+                    >
+                      <NavigationControl position="top-right" showCompass={false} />
 
-                  {routeCoordinates.length > 1 && (
-                    <Source id="tournee-route" type="geojson" data={routeGeoJson}>
-                      <Layer {...ROUTE_LAYER} />
-                    </Source>
-                  )}
+                      {routeCoordinates.length > 1 && (
+                        <Source id="tournee-route" type="geojson" data={routeGeoJson}>
+                          <Layer {...ROUTE_LAYER} />
+                        </Source>
+                      )}
 
-                  {mappableDeliveries.map((item) => (
-                    <Marker key={item.id} longitude={item.lng} latitude={item.lat} anchor="bottom">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-[#1E8A3C] text-sm font-bold text-white shadow-lg">
-                        {item.stepNumber}
-                      </div>
-                    </Marker>
-                  ))}
-                </Map>
-              </div>
-            )}
+                      {(nextDelivery ? futureDeliveries.filter(hasCoordinates) : mappableDeliveries).map((item) => (
+                        <Marker key={item.id} longitude={item.lng} latitude={item.lat} anchor="center">
+                          <div className="h-3.5 w-3.5 rounded-full bg-[#9AA69D] ring-4 ring-white/90 shadow-sm" />
+                        </Marker>
+                      ))}
 
-            <div className="p-4 border-t">
-              <h3 className="font-semibold text-[#3D3D3D] mb-3">Prochaines etapes</h3>
-              {missingCoordinatesCount > 0 && (
-                <div className="mb-3 rounded-xl bg-[#FFF3E0] px-3 py-2 text-xs text-[#8A5A00]">
-                  {missingCoordinatesCount} livraison(s) sans coordonnees GPS ne sont pas affichees sur la carte.
+                      {nextDeliveryWithCoordinates && (
+                        <Marker longitude={nextDeliveryWithCoordinates.lng} latitude={nextDeliveryWithCoordinates.lat} anchor="bottom">
+                          <div className="flex flex-col items-center">
+                            <div className="flex h-14 w-14 items-center justify-center rounded-[1.35rem] border-4 border-white bg-[#1E8A3C] text-lg font-black text-white shadow-[0_12px_30px_rgba(30,138,60,0.38)]">
+                              {nextDeliveryWithCoordinates.stepNumber}
+                            </div>
+                            <div className="-mt-2 h-4 w-4 rotate-45 rounded-[4px] bg-[#1E8A3C] ring-4 ring-white" />
+                          </div>
+                        </Marker>
+                      )}
+                    </Map>
+                  </div>
+
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-white/35" />
+                </>
+              )}
+            </div>
+
+            <div className="pointer-events-none absolute inset-x-3 top-3 z-20 space-y-2">
+              {loadSource === "cache" && !beforeSeven && (
+                <div className="rounded-2xl bg-[#FFF3E0]/95 px-4 py-3 text-sm text-[#8A5A00] shadow-sm backdrop-blur">
+                  Mode hors ligne actif. La carte affiche la derniere tournee sauvegardee.
                 </div>
               )}
-              <div className="space-y-2">
-                {nextStops.map((item) => (
-                    <div key={item.id} className="flex items-center gap-3 p-2 bg-[#F0FAF1] rounded-lg">
-                      <span className="w-6 h-6 bg-[#1E8A3C] text-white rounded-full flex items-center justify-center text-sm font-bold">
-                        {item.stepNumber}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-[#3D3D3D] truncate">{item.address}</p>
-                        <p className="text-xs text-[#8A8A8A]">{item.timeSlot}</p>
+
+              {notice && !beforeSeven && (
+                <div
+                  className={cn(
+                    "rounded-2xl px-4 py-3 text-sm shadow-sm backdrop-blur",
+                    notice.tone === "success" && "bg-[#F0FAF1]/95 text-[#1E8A3C]",
+                    notice.tone === "info" && "bg-[#FFF3E0]/95 text-[#8A5A00]",
+                    notice.tone === "error" && "bg-red-50/95 text-red-600"
+                  )}
+                >
+                  {notice.message}
+                </div>
+              )}
+            </div>
+
+            {isMapboxConfigured && !beforeSeven && !isTourneeLoading && token && deliveryList.length > 0 && (
+              <div className="absolute inset-x-0 bottom-[4.75rem] z-20 px-3">
+                <div className="rounded-t-3xl bg-white/96 shadow-[0_-14px_40px_rgba(17,24,39,0.18)] backdrop-blur">
+                  <div className="mx-auto mt-3 h-1.5 w-12 rounded-full bg-[#D1D5DB]" />
+
+                  {!nextDelivery ? (
+                    <div className="px-5 pb-6 pt-4">
+                      <div className="rounded-[1.75rem] bg-[#F0FAF1] p-5 text-center">
+                        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#1E8A3C] text-white">
+                          <CheckCircle2 className="h-7 w-7" />
+                        </div>
+                        <h3 className="mt-4 text-2xl font-bold text-[#17301E]">Tournee terminee !</h3>
+                        <p className="mt-2 text-sm leading-6 text-[#5B6B60]">
+                          Toutes les commandes de la journee ont ete traitees. Vous pouvez consulter votre progression ou revenir plus tard.
+                        </p>
+                        <div className="mt-4 grid grid-cols-2 gap-3 text-left">
+                          <div className="rounded-2xl bg-white px-4 py-3">
+                            <p className="text-xs font-medium uppercase tracking-[0.16em] text-[#8A8A8A]">Livrees</p>
+                            <p className="mt-1 text-xl font-bold text-[#17301E]">{completedCount}</p>
+                          </div>
+                          <div className="rounded-2xl bg-white px-4 py-3">
+                            <p className="text-xs font-medium uppercase tracking-[0.16em] text-[#8A8A8A]">Revenus</p>
+                            <p className="mt-1 text-xl font-bold text-[#17301E]">{todayEarnings} DH</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  ))}
-                {deliveryList.length === 0 && (
-                  <p className="text-sm text-[#8A8A8A]">Aucune etape a afficher pour le moment.</p>
-                )}
+                  ) : (
+                    <div className="px-5 pb-6 pt-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#1E8A3C]">
+                            Prochaine livraison
+                          </p>
+                          <h3 className="mt-2 truncate text-2xl font-bold text-[#17301E]">
+                            {getDeliveryNeighborhood(nextDelivery)}
+                          </h3>
+                          <p className="mt-2 text-sm leading-6 text-[#5B6B60]">{nextDelivery.address}</p>
+                        </div>
+
+                        <div className="shrink-0 rounded-[1.4rem] bg-[#F0FAF1] px-4 py-3 text-center">
+                          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#6B7280]">Stop</p>
+                          <p className="mt-1 text-2xl font-black text-[#1E8A3C]">{nextDelivery.stepNumber}</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-2 gap-3">
+                        <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
+                          <div className="flex items-center gap-2 text-[#6B7280]">
+                            <Package className="h-4 w-4" />
+                            <span className="text-xs font-medium uppercase tracking-[0.16em]">Colis</span>
+                          </div>
+                          <p className="mt-2 text-lg font-bold text-[#17301E]">{nextDelivery.packageCount}</p>
+                        </div>
+
+                        <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
+                          <div className="flex items-center gap-2 text-[#6B7280]">
+                            <DollarSign className="h-4 w-4" />
+                            <span className="text-xs font-medium uppercase tracking-[0.16em]">Montant</span>
+                          </div>
+                          <p className="mt-2 text-lg font-bold text-[#17301E]">{formatAmount(nextDelivery.amount)}</p>
+                        </div>
+
+                        <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
+                          <div className="flex items-center gap-2 text-[#6B7280]">
+                            <MapPin className="h-4 w-4" />
+                            <span className="text-xs font-medium uppercase tracking-[0.16em]">Paiement</span>
+                          </div>
+                          <p className="mt-2 text-base font-semibold text-[#17301E]">
+                            {formatPaymentMethodLabel(nextDelivery.paymentMethod)}
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
+                          <div className="flex items-center gap-2 text-[#6B7280]">
+                            <Clock3 className="h-4 w-4" />
+                            <span className="text-xs font-medium uppercase tracking-[0.16em]">Creneau</span>
+                          </div>
+                          <p className="mt-2 text-base font-semibold text-[#17301E]">{nextDelivery.timeSlot}</p>
+                        </div>
+                      </div>
+
+                      {activeMissingCoordinatesCount > 0 && (
+                        <div className="mt-4 rounded-2xl bg-[#FFF3E0] px-4 py-3 text-sm text-[#8A5A00]">
+                          {activeMissingCoordinatesCount} livraison(s) restante(s) n&apos;ont pas de coordonnees GPS exploitables.
+                        </div>
+                      )}
+
+                      {!nextDeliveryWithCoordinates && (
+                        <div className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">
+                          La prochaine livraison n&apos;a pas de coordonnees GPS. La navigation est temporairement indisponible.
+                        </div>
+                      )}
+
+                      <div className="mt-5 grid grid-cols-2 gap-3">
+                        <a
+                          href={nextNavigationHref ?? undefined}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-disabled={!nextNavigationHref}
+                          className={cn(
+                            "flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#17301E] px-4 text-base font-semibold text-white shadow-sm transition-transform active:scale-[0.99]",
+                            !nextNavigationHref && "pointer-events-none bg-gray-200 text-gray-500 shadow-none"
+                          )}
+                        >
+                          <Navigation className="h-5 w-5" />
+                          Naviguer
+                        </a>
+
+                        <a
+                          href={nextDelivery.callHref ?? undefined}
+                          aria-disabled={!nextDelivery.callHref}
+                          className={cn(
+                            "flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#F3F4F6] px-4 text-base font-semibold text-[#17301E] transition-transform active:scale-[0.99]",
+                            !nextDelivery.callHref && "pointer-events-none bg-gray-200 text-gray-500"
+                          )}
+                        >
+                          <Phone className="h-5 w-5" />
+                          Appeler
+                        </a>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleStatusChange(nextDelivery.id, "delivered")}
+                        className="mt-3 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#1E8A3C] px-4 text-base font-semibold text-white shadow-sm transition-transform active:scale-[0.99]"
+                      >
+                        <CheckCircle2 className="h-5 w-5" />
+                        Valider la livraison
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 

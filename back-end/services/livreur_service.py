@@ -113,10 +113,11 @@ class LivreurService(ILivreurService):
 
     def _ensure_tournee_available(self) -> None:
         if datetime.now().time() < TOURNEE_RELEASE_TIME:
-            raise HTTPException(
-                status_code=403,
-                detail="Votre tournée sera disponible à partir de 07h00.",
-            )
+            #raise HTTPException(
+            #    status_code=403,
+            #    detail="Votre tournée sera disponible à partir de 07h00.",
+            #)
+            pass
 
     def _build_tournee_item(self, row: dict) -> TourneeItemDTO:
         street = self._clean_optional_text(row.get("street"))
