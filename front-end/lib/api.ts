@@ -1,13 +1,64 @@
-export const API_BASE_URL = "http://localhost:8000"
+const DEFAULT_API_BASE_URL = "http://localhost:8000"
+
+export const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_BASE_URL
+).replace(/\/$/, "")
 
 interface ApiOptions {
   method?: "GET" | "POST" | "PUT" | "DELETE"
   headers?: Record<string, string>
   body?: unknown
   token?: string
+  signal?: AbortSignal
 }
 
-export async function apiCall(endpoint: string, options: ApiOptions = {}) {
+export class ApiError extends Error {
+  status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = "ApiError"
+    this.status = status
+  }
+}
+
+export interface TourneeItem {
+  commande_id: number
+  client_phone: string | null
+  client_label: string
+  street: string | null
+  neighborhood: string | null
+  details: string | null
+  full_address: string
+  colis_count: number
+  creneau_livraison: string | null
+  statut: string
+  montant_total: number
+  mode_paiement: string | null
+  lat: number | null
+  lng: number | null
+  latitude?: number | null
+  longitude?: number | null
+}
+
+export interface TourneeResponse {
+  status: string
+  date_jour: string
+  available_after: string
+  sort_strategy: string
+  tournee_started: boolean
+  items: TourneeItem[]
+}
+
+export interface DemarrerTourneeResponse {
+  status: string
+  updated_count: number
+  previous_status: string
+  new_status: string
+  message: string
+}
+
+export async function apiCall<T = any>(endpoint: string, options: ApiOptions = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -21,6 +72,7 @@ export async function apiCall(endpoint: string, options: ApiOptions = {}) {
   const fetchOptions: RequestInit = {
     method: options.method || "GET",
     headers,
+    signal: options.signal,
   }
 
   if (options.body !== undefined) {
@@ -28,12 +80,19 @@ export async function apiCall(endpoint: string, options: ApiOptions = {}) {
   }
 
   const response = await fetch(url, fetchOptions)
+  const contentType = response.headers.get("content-type") || ""
+  const isJsonResponse = contentType.includes("application/json")
+
   if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.detail || `API error: ${response.status}`)
+    const error = isJsonResponse ? await response.json().catch(() => null) : null
+    throw new ApiError(response.status, error?.detail || `API error: ${response.status}`)
   }
 
-  return response.json()
+  if (!isJsonResponse) {
+    return null as T
+  }
+
+  return response.json() as Promise<T>
 }
 
 export async function validateUserToken(token: string) {
@@ -44,5 +103,16 @@ export async function loginUser(loginId: string, password: string, role = "CLIEN
   return apiCall("/auth/login", {
     method: "POST",
     body: { login_id: loginId, password, role },
+  })
+}
+
+export async function getLivreurTournee(token: string, signal?: AbortSignal) {
+  return apiCall<TourneeResponse>("/api/livreur/tournee", { token, signal })
+}
+
+export async function demarrerLivreurTournee(token: string) {
+  return apiCall<DemarrerTourneeResponse>("/api/livreur/demarrer-tournee", {
+    method: "POST",
+    token,
   })
 }

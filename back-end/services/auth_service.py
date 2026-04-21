@@ -14,6 +14,8 @@ from entities.parent_entity import Parent
 from entities.user_entity import User
 from entities.verification_code_entity import VerificationCode
 from entities.wallet_entity import Wallet
+from rbac_config import LOGIN_TARGET_PERMISSIONS
+from services.authorization_service import AuthorizationPrincipal, AuthorizationService
 from services.email_delivery_service import EmailDeliveryService
 from security import create_access_token, hash_password, verify_password
 
@@ -33,21 +35,21 @@ class AuthService:
             if data.email:
                 existing_email = _dao.find_by_email(db, data.email)
                 if existing_email and existing_email.is_verified:
-                    raise HTTPException(status_code=400, detail="Cet email est déjà utilisé.")
+                    raise HTTPException(status_code=400, detail="Cet email est deja utilise.")
                 if existing_email and not existing_email.is_verified:
                     raise HTTPException(
                         status_code=400,
-                        detail="Un compte non vérifié existe déjà pour cet email. Utilisez le renvoi du code OTP."
+                        detail="Un compte non verifie existe deja pour cet email. Utilisez le renvoi du code OTP."
                     )
 
             if data.phone:
                 existing_phone = _dao.find_by_identifier(db, data.phone)
                 if existing_phone and existing_phone.is_verified:
-                    raise HTTPException(status_code=400, detail="Ce numéro de téléphone est déjà utilisé.")
+                    raise HTTPException(status_code=400, detail="Ce numero de telephone est deja utilise.")
                 if existing_phone and not existing_phone.is_verified:
                     raise HTTPException(
                         status_code=400,
-                        detail="Un compte non vérifié existe déjà pour ce téléphone. Utilisez le renvoi du code OTP."
+                        detail="Un compte non verifie existe deja pour ce telephone. Utilisez le renvoi du code OTP."
                     )
 
             role = "CLIENT" if data.role.upper() == "ADMIN" else data.role.upper()
@@ -65,7 +67,11 @@ class AuthService:
             )
             user = _dao.create(db, new_user)
             if not user:
-                raise HTTPException(status_code=500, detail="Erreur interne lors de la création du compte.")
+                raise HTTPException(status_code=500, detail="Erreur interne lors de la creation du compte.")
+
+            self._ensure_role_profile(db, user)
+            self._ensure_rbac_role_assignment(db, user, role)
+            db.commit()
 
             otp_code = self._issue_otp(db, user, verification_channel, reset_rate_limit=True)
             self._send_otp(user, verification_channel, otp_code)
@@ -81,7 +87,7 @@ class AuthService:
                 "verification_target": self._mask_target(user, verification_channel),
                 "expires_in_seconds": OTP_EXPIRATION_MINUTES * 60,
                 "resend_available_in_seconds": 60,
-                "message": f"Un code OTP a été envoyé via {verification_channel}.",
+                "message": f"Un code OTP a ete envoye via {verification_channel}.",
             }
         finally:
             db.close()
@@ -89,21 +95,46 @@ class AuthService:
     def login(self, data):
         db = LocalSession()
         try:
-            user = _dao.find_by_identifier(db, data.login_id)
-            if user and user.role.upper() != data.role.upper():
+            target_role = (data.role or "CLIENT").upper()
+            if target_role == "ADMIN":
                 raise HTTPException(
                     status_code=403,
-                    detail=f"Accès refusé. Ce compte appartient à un profil {user.role}, vous ne pouvez pas vous connecter sur l'espace {data.role}."
+                    detail="Utilisez l'espace admin dedie pour vous connecter."
                 )
 
+            user = _dao.find_by_identifier(db, data.login_id)
             if user and not user.is_verified and not self._has_google_provider(user.auth_provider):
                 raise HTTPException(
                     status_code=403,
-                    detail="Compte non vérifié. Veuillez confirmer le code OTP envoyé avant de vous connecter."
+                    detail="Compte non verifie. Veuillez confirmer le code OTP envoye avant de vous connecter."
                 )
 
             if user and user.password and verify_password(data.password, user.password):
-                return create_access_token({"sub": str(user.id), "role": user.role})
+                principal = self._build_principal(db, user)
+                self._assert_target_access(principal, target_role)
+                self._ensure_profile_for_role(db, user, target_role)
+                db.commit()
+                return self._issue_access_token(user, principal)
+
+            return None
+        finally:
+            db.close()
+
+    def admin_login(self, data):
+        db = LocalSession()
+        try:
+            user = _dao.find_by_identifier(db, data.login_id)
+            if user and not user.is_verified and not self._has_google_provider(user.auth_provider):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Compte non verifie. Veuillez confirmer le code OTP envoye avant de vous connecter."
+                )
+
+            if user and user.password and verify_password(data.password, user.password):
+                principal = self._build_principal(db, user)
+                if not principal.has_permission("admin.panel.access"):
+                    raise HTTPException(status_code=403, detail="Acces admin refuse.")
+                return self._issue_access_token(user, principal)
 
             return None
         finally:
@@ -119,13 +150,13 @@ class AuthService:
             verification_channel = channel or self._resolve_channel(user)
             challenge = self._get_active_challenge(db, user.id, verification_channel)
             if not challenge:
-                raise HTTPException(status_code=404, detail="Aucun code OTP actif n'a été trouvé.")
+                raise HTTPException(status_code=404, detail="Aucun code OTP actif n'a ete trouve.")
 
             now = datetime.utcnow()
             if challenge.verified_at:
-                raise HTTPException(status_code=400, detail="Ce code a déjà été utilisé.")
+                raise HTTPException(status_code=400, detail="Ce code a deja ete utilise.")
             if challenge.expires_at < now:
-                raise HTTPException(status_code=400, detail="Code expiré. Demandez un nouveau code.")
+                raise HTTPException(status_code=400, detail="Code expire. Demandez un nouveau code.")
             if challenge.attempt_count >= OTP_MAX_ATTEMPTS:
                 raise HTTPException(status_code=429, detail="Trop de tentatives. Demandez un nouveau code.")
 
@@ -142,16 +173,27 @@ class AuthService:
             else:
                 user.is_phone_verified = True
 
-            user.is_verified = bool(user.is_email_verified or user.is_phone_verified or self._has_google_provider(user.auth_provider))
+            user.is_verified = bool(
+                user.is_email_verified
+                or user.is_phone_verified
+                or self._has_google_provider(user.auth_provider)
+            )
             self._ensure_wallet(db, user)
+            self._ensure_rbac_role_assignment(db, user)
             db.commit()
             db.refresh(user)
 
+            principal = self._build_principal(db, user)
+
             return {
-                "message": "Vérification réussie. Votre compte est maintenant actif.",
-                "access_token": create_access_token({"sub": str(user.id), "role": user.role}),
+                "message": "Verification reussie. Votre compte est maintenant actif.",
+                "access_token": self._issue_access_token(user, principal),
                 "token_type": "bearer",
                 "is_verified": user.is_verified,
+                "role": principal.primary_role,
+                "roles": sorted(principal.roles),
+                "permissions": sorted(principal.permissions),
+                "default_dashboard": principal.default_dashboard,
                 "verification_channel": verification_channel,
                 "verification_target": self._mask_target(user, verification_channel),
                 "expires_in_seconds": None,
@@ -176,11 +218,14 @@ class AuthService:
             now = datetime.utcnow()
             if existing_challenge:
                 window_ends_at = existing_challenge.window_started_at + timedelta(hours=OTP_RESEND_WINDOW_HOURS)
-                if existing_challenge.window_started_at <= now < window_ends_at and existing_challenge.resend_count >= OTP_RESEND_LIMIT:
+                if (
+                    existing_challenge.window_started_at <= now < window_ends_at
+                    and existing_challenge.resend_count >= OTP_RESEND_LIMIT
+                ):
                     retry_after = max(1, int((window_ends_at - now).total_seconds()))
                     raise HTTPException(
                         status_code=429,
-                        detail=f"Trop d'envois. Réessayez dans {retry_after} secondes."
+                        detail=f"Trop d'envois. Reessayez dans {retry_after} secondes."
                     )
 
             otp_code = self._issue_otp(db, user, verification_channel, reset_rate_limit=False)
@@ -191,7 +236,7 @@ class AuthService:
             expires_in = max(1, int((challenge.expires_at - datetime.utcnow()).total_seconds()))
 
             return {
-                "message": f"Un nouveau code OTP a été envoyé via {verification_channel}.",
+                "message": f"Un nouveau code OTP a ete envoye via {verification_channel}.",
                 "is_verified": user.is_verified,
                 "verification_channel": verification_channel,
                 "verification_target": self._mask_target(user, verification_channel),
@@ -225,21 +270,21 @@ class AuthService:
                     )
                     db.add(user)
                     db.flush()
+                    self._ensure_rbac_role_assignment(db, user, normalized_role)
                 else:
-                    if user.role.upper() != normalized_role:
-                        raise HTTPException(
-                            status_code=403,
-                            detail=f"Acces refuse. Ce compte appartient a un profil {user.role}, vous ne pouvez pas vous connecter sur l'espace {normalized_role}."
-                        )
                     user.is_verified = True
                     user.is_email_verified = True
                     user.auth_provider = self._merge_auth_provider(user.auth_provider, "google")
 
-                self._ensure_role_profile(db, user)
                 self._ensure_wallet(db, user)
                 db.commit()
                 db.refresh(user)
-                return create_access_token({"sub": str(user.id), "role": user.role})
+
+                principal = self._build_principal(db, user)
+                self._assert_target_access(principal, normalized_role)
+                self._ensure_profile_for_role(db, user, normalized_role)
+                db.commit()
+                return self._issue_access_token(user, principal)
             finally:
                 db.close()
         except ValueError:
@@ -248,7 +293,11 @@ class AuthService:
     def get_by_id(self, user_id: int):
         db = LocalSession()
         try:
-            return _dao.read(db, user_id)
+            user = _dao.read(db, user_id)
+            if not user:
+                return None
+            principal = self._build_principal(db, user)
+            return self._export_current_user(principal)
         finally:
             db.close()
 
@@ -258,7 +307,10 @@ class AuthService:
         challenge = self._get_active_challenge(db, user.id, channel)
 
         if challenge:
-            same_window = challenge.window_started_at and now < challenge.window_started_at + timedelta(hours=OTP_RESEND_WINDOW_HOURS)
+            same_window = (
+                challenge.window_started_at
+                and now < challenge.window_started_at + timedelta(hours=OTP_RESEND_WINDOW_HOURS)
+            )
             if reset_rate_limit or not same_window:
                 challenge.resend_count = 1
                 challenge.window_started_at = now
@@ -298,7 +350,7 @@ class AuthService:
             return "email"
         if user.phone:
             return "phone"
-        raise HTTPException(status_code=400, detail="Aucun moyen de contact à vérifier.")
+        raise HTTPException(status_code=400, detail="Aucun moyen de contact a verifier.")
 
     def _mask_target(self, user: User, channel: str) -> Optional[str]:
         value = user.email if channel == "email" else user.phone
@@ -355,27 +407,76 @@ class AuthService:
         db.add(Wallet(user_id=user.id, solde=0))
 
     def _ensure_client_profile(self, db, user: User):
-        if user.role != "CLIENT":
-            return
         if user.client_profile:
             return
         db.add(Client(user_id=user.id))
 
     def _ensure_parent_profile(self, db, user: User):
-        if user.role != "PARENT":
-            return
         if user.parent_profile:
             return
         db.add(Parent(user_id=user.id))
 
     def _ensure_livreur_profile(self, db, user: User):
-        if user.role != "LIVREUR":
-            return
         if user.livreur_profile:
             return
         db.add(Livreur(user_id=user.id))
 
+    def _ensure_profile_for_role(self, db, user: User, role_code: str):
+        normalized_role = (role_code or user.role or "CLIENT").upper()
+        if normalized_role == "CLIENT":
+            self._ensure_client_profile(db, user)
+            return
+        if normalized_role == "PARENT":
+            self._ensure_parent_profile(db, user)
+            return
+        if normalized_role == "LIVREUR":
+            self._ensure_livreur_profile(db, user)
+
     def _ensure_role_profile(self, db, user: User):
-        self._ensure_client_profile(db, user)
-        self._ensure_parent_profile(db, user)
-        self._ensure_livreur_profile(db, user)
+        self._ensure_profile_for_role(db, user, user.role or "CLIENT")
+
+    def _build_principal(self, db, user: User) -> AuthorizationPrincipal:
+        return AuthorizationService(db).build_principal_from_user(user)
+
+    def _ensure_rbac_role_assignment(self, db, user: User, role_code: Optional[str] = None):
+        AuthorizationService(db).ensure_user_role(
+            user_id=int(user.id),  # type: ignore[arg-type]
+            role_code=(role_code or user.role or "CLIENT").upper(),
+        )
+
+    def _assert_target_access(self, principal: AuthorizationPrincipal, target_role: str):
+        required_permission = LOGIN_TARGET_PERMISSIONS.get(target_role.upper())
+        if not required_permission:
+            raise HTTPException(status_code=400, detail="Espace de connexion invalide.")
+        if principal.has_permission(required_permission):
+            return
+
+        profile_label = principal.primary_role or principal.legacy_role or "inconnu"
+        raise HTTPException(
+            status_code=403,
+            detail=f"Acces refuse. Ce compte appartient au profil {profile_label}, vous ne pouvez pas vous connecter sur l'espace {target_role}."
+        )
+
+    def _issue_access_token(self, user: User, principal: AuthorizationPrincipal) -> str:
+        return create_access_token(
+            {
+                "sub": str(user.id),
+                "role": principal.primary_role,
+                "legacy_role": principal.legacy_role,
+                "default_dashboard": principal.default_dashboard,
+            }
+        )
+
+    def _export_current_user(self, principal: AuthorizationPrincipal) -> dict:
+        return {
+            "id": principal.user_id,
+            "email": principal.email,
+            "phone": principal.phone,
+            "role": principal.primary_role,
+            "legacy_role": principal.legacy_role,
+            "roles": sorted(principal.roles),
+            "permissions": sorted(principal.permissions),
+            "is_verified": principal.is_verified,
+            "is_active": principal.is_active,
+            "default_dashboard": principal.default_dashboard,
+        }

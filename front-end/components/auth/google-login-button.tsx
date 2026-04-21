@@ -90,6 +90,8 @@ function loadGoogleScript(): Promise<void> {
   return googleScriptPromise
 }
 
+let googleInitialized = false
+
 export function GoogleLoginButton({
   onCredential,
   onError,
@@ -97,7 +99,17 @@ export function GoogleLoginButton({
   className = "",
 }: GoogleLoginButtonProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const onCredentialRef = useRef(onCredential)
+  const onErrorRef = useRef(onError)
   const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    onCredentialRef.current = onCredential
+  }, [onCredential])
+
+  useEffect(() => {
+    onErrorRef.current = onError
+  }, [onError])
 
   useEffect(() => {
     let isMounted = true
@@ -108,7 +120,7 @@ export function GoogleLoginButton({
       }
 
       if (!GOOGLE_CLIENT_ID) {
-        onError("Google Client ID introuvable. Configure NEXT_PUBLIC_GOOGLE_CLIENT_ID.")
+        onErrorRef.current("Google Client ID introuvable. Configure NEXT_PUBLIC_GOOGLE_CLIENT_ID.")
         setIsLoading(false)
         return
       }
@@ -123,26 +135,29 @@ export function GoogleLoginButton({
 
         containerRef.current.innerHTML = ""
 
-        googleId.initialize({
-          client_id: GOOGLE_CLIENT_ID,
-          ux_mode: "popup",
-          auto_select: false,
-          cancel_on_tap_outside: true,
-          callback: async ({ credential }) => {
-            if (!credential) {
-              onError("La connexion Google a ete annulee.")
-              return
-            }
+        if (!googleInitialized) {
+          googleId.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            ux_mode: "popup",
+            auto_select: false,
+            cancel_on_tap_outside: true,
+            callback: async ({ credential }) => {
+              if (!credential) {
+                onErrorRef.current("La connexion Google a ete annulee.")
+                return
+              }
 
-            try {
-              await onCredential(credential)
-            } catch (error) {
-              const message =
-                error instanceof Error ? error.message : "La connexion Google a echoue."
-              onError(message)
-            }
-          },
-        })
+              try {
+                await onCredentialRef.current(credential)
+              } catch (error) {
+                const message =
+                  error instanceof Error ? error.message : "La connexion Google a echoue."
+                onErrorRef.current(message)
+              }
+            },
+          })
+          googleInitialized = true
+        }
 
         googleId.renderButton(containerRef.current, {
           type: "standard",
@@ -159,7 +174,7 @@ export function GoogleLoginButton({
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "La connexion Google a echoue."
-        onError(message)
+        onErrorRef.current(message)
         setIsLoading(false)
       }
     }
@@ -169,7 +184,7 @@ export function GoogleLoginButton({
     return () => {
       isMounted = false
     }
-  }, [onCredential, onError])
+  }, [])
 
   return (
     <div

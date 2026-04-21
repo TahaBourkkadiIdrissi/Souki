@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import { User } from "@/contexts/auth-context"
-import { Menu, LogOut, User as UserIcon, Heart } from "lucide-react"
+import { Menu, LogOut, User as UserIcon, Heart, Shield } from "lucide-react"
 
 export function ProfileDropdown({ user }: { user: User }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -34,6 +34,15 @@ export function ProfileDropdown({ user }: { user: User }) {
     setIsOpen(false)
   }
 
+  const canAccessAdmin = user.permissions.includes("admin.panel.access")
+  const canAccessLivreur = user.permissions.includes("livreur.dashboard.access")
+  const canAccessParent = user.permissions.includes("parent.dashboard.access")
+  const dashboardTarget =
+    canAccessAdmin ? "/admin" : canAccessLivreur ? "/livreur" : canAccessParent ? "/parent" : null
+  const dashboardLabel =
+    canAccessAdmin ? "Back-office" : canAccessLivreur ? "Espace livreur" : canAccessParent ? "Espace parent" : null
+  const roleLabel = user.roles.length > 0 ? user.roles.join(" · ") : user.role
+
   // Initiales de l'utilisateur pour l'avatar
   const initials = user.email 
     ? user.email.substring(0, 1).toUpperCase() 
@@ -57,12 +66,21 @@ export function ProfileDropdown({ user }: { user: User }) {
         <div className="absolute right-0 mt-3 w-64 bg-white/95 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100 overflow-hidden z-50 animate-fade-in origin-top-right">
           {/* Header avec infos utilisateur */}
           <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-br from-gray-50/50 to-white">
-            <p className="font-bold text-[#3D3D3D] text-sm uppercase tracking-wider">{user.role}</p>
+            <p className="font-bold text-[#3D3D3D] text-sm uppercase tracking-wider">{roleLabel}</p>
             <p className="text-sm text-[#8A8A8A] truncate mt-0.5">{user.email || user.phone}</p>
           </div>
 
           {/* Menu items */}
           <div className="p-2">
+            {dashboardTarget && dashboardLabel && (
+              <button
+                onClick={() => { router.push(dashboardTarget); setIsOpen(false) }}
+                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-[#F0FAF1] flex items-center gap-3 text-sm font-medium text-[#3D3D3D] transition-colors"
+              >
+                <Shield size={18} className="text-[#8A8A8A]" />
+                {dashboardLabel}
+              </button>
+            )}
             <button
               onClick={handleProfileClick}
               className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-[#F0FAF1] flex items-center gap-3 text-sm font-medium text-[#3D3D3D] transition-colors"

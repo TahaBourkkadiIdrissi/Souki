@@ -1,7 +1,8 @@
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
+from env_loader import load_app_env
+
+load_app_env()
 
 # ── Clé Google Gemini ──────────────────────────────────────────────────────────
 GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")

@@ -8,7 +8,12 @@ export interface User {
   email?: string
   phone?: string
   role: string
+  legacy_role?: string | null
+  roles: string[]
+  permissions: string[]
   is_verified: boolean
+  is_active: boolean
+  default_dashboard: string
 }
 
 interface AuthContextType {
@@ -17,12 +22,35 @@ interface AuthContextType {
   isLoading: boolean
   isAuthenticated: boolean
   login: (loginId: string, password: string, role?: string) => Promise<User>
+  adminLogin: (loginId: string, password: string) => Promise<User>
   googleLogin: (googleToken: string, role?: string) => Promise<User>
   logout: () => void
   validateToken: () => Promise<boolean>
+  hasRole: (role: string) => boolean
+  can: (permission: string) => boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+function normalizeUser(payload: any): User {
+  const roles = Array.isArray(payload?.roles) ? payload.roles.map((value: string) => String(value).toUpperCase()) : []
+  const permissions = Array.isArray(payload?.permissions)
+    ? payload.permissions.map((value: string) => String(value))
+    : []
+
+  return {
+    id: Number(payload?.id ?? 0),
+    email: payload?.email ?? undefined,
+    phone: payload?.phone ?? undefined,
+    role: String(payload?.role || payload?.legacy_role || roles[0] || "CLIENT").toUpperCase(),
+    legacy_role: payload?.legacy_role ? String(payload.legacy_role).toUpperCase() : null,
+    roles,
+    permissions,
+    is_verified: Boolean(payload?.is_verified),
+    is_active: payload?.is_active !== false,
+    default_dashboard: String(payload?.default_dashboard || "/"),
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -46,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null
       }
 
-      const userData = await response.json()
+      const userData = normalizeUser(await response.json())
       setUser(userData)
       return userData
     } catch (error) {
@@ -120,16 +148,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return Boolean(await syncAuthState(token))
   }
 
-  const login = async (loginId: string, password: string, role = "CLIENT") => {
+  const authenticate = async (endpoint: string, payload: Record<string, unknown>) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          login_id: loginId,
-          password,
-          role,
-        }),
+        body: JSON.stringify(payload),
         mode: "cors",
         credentials: "omit",
       })
@@ -148,52 +172,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return nextUser
     } catch (error) {
-      console.error("Login error:", error)
+      console.error("Authentication error:", error)
       await syncAuthState(null)
       throw error
     }
   }
 
+  const login = async (loginId: string, password: string, role = "CLIENT") => {
+    return authenticate("/auth/login", {
+      login_id: loginId,
+      password,
+      role,
+    })
+  }
+
+  const adminLogin = async (loginId: string, password: string) => {
+    return authenticate("/auth/admin/login", {
+      login_id: loginId,
+      password,
+    })
+  }
+
   const googleLogin = async (googleToken: string, role = "CLIENT") => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/google`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token: googleToken,
-          role,
-        }),
-        mode: "cors",
-        credentials: "omit",
-      })
-
-      if (!response.ok) {
-        const errData = await response.json()
-        throw new Error(errData.detail || "Erreur de connexion avec Google")
-      }
-
-      const data = await response.json()
-      const newToken = data.access_token
-
-      const nextUser = await syncAuthState(newToken)
-      if (!nextUser) {
-        throw new Error("Validation du token echouee")
-      }
-      return nextUser
-    } catch (error) {
-      console.error("Google login error:", error)
-      await syncAuthState(null)
-      throw error
-    }
+    return authenticate("/auth/google", {
+      token: googleToken,
+      role,
+    })
   }
 
   const logout = () => {
     void syncAuthState(null)
   }
 
+  const hasRole = (role: string) => Boolean(user?.roles.includes(role.toUpperCase()))
+  const can = (permission: string) => Boolean(user?.permissions.includes(permission))
+
   return (
     <AuthContext.Provider
-      value={{ user, token, isLoading, isAuthenticated, login, googleLogin, logout, validateToken }}
+      value={{
+        user,
+        token,
+        isLoading,
+        isAuthenticated,
+        login,
+        adminLogin,
+        googleLogin,
+        logout,
+        validateToken,
+        hasRole,
+        can,
+      }}
     >
       {children}
     </AuthContext.Provider>
