@@ -1,9 +1,11 @@
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
-from dto.commande_dto import VoiceBasketResponseDTO, TextBasketRequest, CommandeCheckoutDTO
-from interfaces.commande_service_interface import ICommandeVocaleService
-from dependencies import get_voice_service
-from controllers.auth_controller import get_current_user
 import base64
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+
+from auth_dependencies import require_auth, require_permission
+from dependencies import get_voice_service
+from dto.commande_dto import CommandeCheckoutDTO, TextBasketRequest, VoiceBasketResponseDTO
+from interfaces.commande_service_interface import ICommandeVocaleService
 
 router_voice = APIRouter(prefix="/api", tags=["Voice AI"])
 
@@ -11,17 +13,17 @@ router_voice = APIRouter(prefix="/api", tags=["Voice AI"])
 @router_voice.post("/text-basket", response_model=VoiceBasketResponseDTO)
 def process_text_basket(
     body: TextBasketRequest,
-    current_user=Depends(get_current_user),
+    principal=Depends(require_permission("client.dashboard.access", "parent.dashboard.access", match="any")),
     service: ICommandeVocaleService = Depends(get_voice_service)
 ):
     with service:
-        return service.traiter_texte(int(current_user["sub"]), body.texte)
+        return service.traiter_texte(principal.user_id, body.texte)
 
 
 @router_voice.post("/voice-basket", response_model=VoiceBasketResponseDTO)
 def process_voice_basket(
     audio: UploadFile = File(...),
-    current_user=Depends(get_current_user),
+    principal=Depends(require_permission("client.dashboard.access", "parent.dashboard.access", match="any")),
     service: ICommandeVocaleService = Depends(get_voice_service)
 ):
     if not audio or not audio.filename:
@@ -43,15 +45,16 @@ def process_voice_basket(
         mime = "audio/webm"
 
     with service:
-        return service.traiter_audio(int(current_user["sub"]), audio_b64, mime)
+        return service.traiter_audio(principal.user_id, audio_b64, mime)
+
 
 @router_voice.get("/commandes/{commande_id}", response_model=CommandeCheckoutDTO)
 def get_commande_checkout(
-    commande_id: int, 
+    commande_id: int,
+    principal=Depends(require_auth),
     service: ICommandeVocaleService = Depends(get_voice_service)
 ):
-    # Le "with" appelle __enter__ du service (qui ouvre la session DB)
-    # et garantit __exit__ à la fin (qui ferme la session, même en cas d'erreur)
+    _ = principal
     with service:
         detail = service.get_commande_checkout(commande_id)
         if not detail:

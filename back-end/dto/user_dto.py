@@ -1,7 +1,7 @@
 import re
-from typing import Optional
+from typing import List, Optional
 
-from pydantic import BaseModel, EmailStr, validator
+from pydantic import BaseModel, EmailStr, Field, validator
 
 
 class UserRegister(BaseModel):
@@ -46,6 +46,11 @@ class LoginRequest(BaseModel):
     login_id: str
     password: str
     role: str
+
+
+class AdminLoginRequest(BaseModel):
+    login_id: str
+    password: str
 
 
 class GoogleLoginRequest(BaseModel):
@@ -108,7 +113,24 @@ class OTPVerificationResponse(BaseModel):
     access_token: Optional[str] = None
     token_type: Optional[str] = None
     is_verified: bool
+    role: Optional[str] = None
+    roles: List[str] = Field(default_factory=list)
+    permissions: List[str] = Field(default_factory=list)
+    default_dashboard: str = "/"
     verification_channel: Optional[str] = None
     verification_target: Optional[str] = None
     expires_in_seconds: Optional[int] = None
     resend_available_in_seconds: Optional[int] = None
+
+
+class CurrentUserResponse(BaseModel):
+    id: int
+    email: Optional[str]
+    phone: Optional[str]
+    role: str
+    legacy_role: Optional[str] = None
+    roles: List[str] = Field(default_factory=list)
+    permissions: List[str] = Field(default_factory=list)
+    is_verified: bool
+    is_active: bool = True
+    default_dashboard: str = "/"
