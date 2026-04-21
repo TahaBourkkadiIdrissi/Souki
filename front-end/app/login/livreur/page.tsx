@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import { GoogleLoginButton } from "@/components/auth/google-login-button"
 import { PasswordStrength } from "@/components/souki/password-strength"
@@ -28,7 +28,9 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 export default function LivreurLoginPage() {
   const router = useRouter()
-  const { googleLogin } = useAuth()
+  const searchParams = useSearchParams()
+  const { login, googleLogin } = useAuth()
+  const redirectTarget = searchParams.get("redirect") || "/livreur"
   const [mode, setMode] = useState<AuthMode>("login")
   
   // UI States
@@ -197,27 +199,9 @@ export default function LivreurLoginPage() {
 
       } else {
         // --- NOUVELLE LOGIQUE DE CONNEXION SÉCURISÉE ---
-        const response = await fetch(`${API_URL}/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            login_id: loginId,
-            password: password,
-            role: "LIVREUR" // <-- Exige spécifiquement le rôle Livreur
-          }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.detail || "Identifiants incorrects ou accès refusé.");
-        }
-
-        // Si tu utilises contextLogin, n'oublie pas de l'adapter aussi si besoin
-        localStorage.setItem("token", data.access_token);
-
+        const nextUser = await login(loginId, password, "LIVREUR");
         setTimeout(() => {
-          router.push("/dashboard/livreur"); // Redirection spécifique livreur
+          router.push(redirectTarget !== "/" ? redirectTarget : nextUser.default_dashboard || "/livreur");
         }, 300);
       }
     } catch (err: any) {
@@ -229,8 +213,8 @@ export default function LivreurLoginPage() {
 
   const handleGoogleLogin = async (credential: string) => {
     setGeneralError("")
-    await googleLogin(credential, "LIVREUR")
-    router.push("/dashboard/livreur")
+    const nextUser = await googleLogin(credential, "LIVREUR")
+    router.push(redirectTarget !== "/" ? redirectTarget : nextUser.default_dashboard || "/livreur")
   }
 
   // Composant réutilisable pour afficher l'erreur sous le champ

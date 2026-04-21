@@ -20,10 +20,10 @@ import {
   PartyPopper,
   MessageCircle
 } from "lucide-react"
+import { API_BASE_URL } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { fetchCatalogueProducts, getCataloguePresentation } from "@/lib/catalogue"
 
-const BACKEND_URL = "http://localhost:8000" // METTEZ VOTRE VRAIE URL ICI
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&h=300&fit=crop"
 
 interface CartItem {
@@ -127,7 +127,7 @@ function CheckoutContent() {
   useEffect(() => {
     if (commandeId) {
       // Flux voix: récupérer CommandeCheckoutDTO
-      fetch(`${BACKEND_URL}/api/commandes/${commandeId}`)
+      fetch(`${API_BASE_URL}/api/commandes/${commandeId}`)
         .then(res => {
           if (!res.ok) throw new Error("Commande non trouvée")
           return res.json()
@@ -162,7 +162,7 @@ function CheckoutContent() {
         })
     } else if (panierId) {
       // Flux manuel: récupérer PanierDetailsDTO
-      fetch(`${BACKEND_URL}/api/paniers/${panierId}`)
+      fetch(`${API_BASE_URL}/api/paniers/${panierId}`)
         .then(res => {
           if (!res.ok) throw new Error("Panier non trouvé")
           return res.json()
@@ -250,7 +250,7 @@ function CheckoutContent() {
 
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
 
-      const res = await fetch(`${BACKEND_URL}/api/checkout`, {
+      const res = await fetch(`${API_BASE_URL}/api/checkout`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",

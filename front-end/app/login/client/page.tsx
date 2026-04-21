@@ -173,8 +173,8 @@ export default function LoginPage() {
 
       } else {
         // --- NOUVELLE LOGIQUE DE CONNEXION SÉCURISÉE ---
-        await login(loginId, password, "CLIENT");
-        router.push(redirectTarget);
+        const nextUser = await login(loginId, password, "CLIENT");
+        router.push(redirectTarget !== "/" ? redirectTarget : nextUser.default_dashboard || "/");
       }
     } catch (err: any) {
       setError(err.message || "Une erreur inattendue est survenue.");
@@ -185,8 +185,8 @@ export default function LoginPage() {
 
   const handleGoogleLogin = async (credential: string) => {
     setError("")
-    await googleLogin(credential, "CLIENT")
-    router.push(redirectTarget)
+    const nextUser = await googleLogin(credential, "CLIENT")
+    router.push(redirectTarget !== "/" ? redirectTarget : nextUser.default_dashboard || "/")
   }
 
   const ErrorMessage = ({ message }: { message?: string }) => {

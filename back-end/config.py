@@ -42,3 +42,26 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 7 jours
 
 # Dans config.py
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+
+
+def _get_optional_float(name: str):
+    value = os.getenv(name)
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
+DEFAULT_SOUKI_DEPOT_LAT = 34.0331
+DEFAULT_SOUKI_DEPOT_LNG = -5.0003
+
+SOUKI_DEPOT_LAT = _get_optional_float("SOUKI_DEPOT_LAT")
+SOUKI_DEPOT_LNG = _get_optional_float("SOUKI_DEPOT_LNG")
+
+if SOUKI_DEPOT_LAT is None:
+    SOUKI_DEPOT_LAT = DEFAULT_SOUKI_DEPOT_LAT
+
+if SOUKI_DEPOT_LNG is None:
+    SOUKI_DEPOT_LNG = DEFAULT_SOUKI_DEPOT_LNG

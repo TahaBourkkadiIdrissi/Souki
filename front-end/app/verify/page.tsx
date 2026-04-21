@@ -86,7 +86,7 @@ function OTPVerificationForm({
       }
 
       setMessage(data.message || "Code valide avec succes.")
-      window.setTimeout(() => router.push("/"), 500)
+      window.setTimeout(() => router.push(data.default_dashboard || "/"), 500)
     } catch (err: any) {
       setError(err.message || "La verification a echoue.")
     } finally {

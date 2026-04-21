@@ -25,3 +25,4 @@ class User(Base):
     livreur_profile = relationship("Livreur", back_populates="user", uselist=False)
     wallet          = relationship("Wallet", back_populates="user", uselist=False)
     paniers         = relationship("Panier", back_populates="user")
+    user_roles      = relationship("UserRole", back_populates="user", foreign_keys="UserRole.user_id")

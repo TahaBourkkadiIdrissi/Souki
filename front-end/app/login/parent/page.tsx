@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import { GoogleLoginButton } from "@/components/auth/google-login-button"
 import { PasswordStrength } from "@/components/souki/password-strength"
@@ -29,7 +29,9 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 export default function ParentLoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { login: contextLogin, googleLogin } = useAuth()
+  const redirectTarget = searchParams.get("redirect") || "/"
   const [mode, setMode] = useState<AuthMode>("login")
   
   // UI States
@@ -201,9 +203,9 @@ export default function ParentLoginPage() {
 
       } else {
         // Mode Login
-        await contextLogin(loginId, password, "PARENT");
+        const nextUser = await contextLogin(loginId, password, "PARENT");
         setTimeout(() => {
-          router.push("/dashboard"); // À adapter vers le dashboard parent
+          router.push(redirectTarget !== "/" ? redirectTarget : nextUser.default_dashboard || "/parent");
         }, 300);
       }
     } catch (err: any) {
@@ -215,8 +217,8 @@ export default function ParentLoginPage() {
 
   const handleGoogleLogin = async (credential: string) => {
     setGeneralError("")
-    await googleLogin(credential, "PARENT")
-    router.push("/dashboard")
+    const nextUser = await googleLogin(credential, "PARENT")
+    router.push(redirectTarget !== "/" ? redirectTarget : nextUser.default_dashboard || "/parent")
   }
 
   const ErrorMessage = ({ message }: { message?: string }) => {
