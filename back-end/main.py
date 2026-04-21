@@ -21,6 +21,8 @@ from services.catalogue_bootstrap_service import CatalogueBootstrapService
 from services.scheduler_service import start_scheduler, stop_scheduler
 from services.rbac_bootstrap_service import RBACBootstrapService
 
+
+
 # Initialisation DB
 Base.metadata.create_all(bind=engine)
 RBACBootstrapService().sync_rbac()
