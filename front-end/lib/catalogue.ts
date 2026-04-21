@@ -152,9 +152,69 @@ const productPresentation: Record<
   },
 }
 
+const normalizeProductName = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+
+const productPresentationAliases: Record<string, string> = {
+  "pomme de terre": "Pommes de terre",
+  "pommes de terre": "Pommes de terre",
+  "pdt": "Pommes de terre",
+  "oignon rouge": "Oignons rouge",
+  "oignons rouges": "Oignons rouge",
+  "tomate": "Tomates",
+  "tomates marocaines": "Tomates",
+  "courgette": "Courgettes",
+  "concombre": "Concombres",
+  "poivron": "Poivrons",
+  "poivrons": "Poivrons",
+  "haricot vert": "Haricots verts",
+  "laitues": "Laitue",
+  epinard: "Epinards",
+  ail: "Ail",
+  betterave: "Betteraves",
+  radi: "Radis",
+  navet: "Navets",
+  celeri: "Celeri",
+  céleri: "Celeri",
+  brocoli: "Brocoli",
+  choufleur: "Chou-fleur",
+  "chou fleur": "Chou-fleur",
+  "petits pois": "Petit pois",
+  "petit pois": "Petit pois",
+  menthe: "Menthe fraiche",
+  "menthe fraiche": "Menthe fraiche",
+}
+
+const normalizedPresentationEntries = new Map(
+  Object.entries(productPresentation).map(([key, value]) => [normalizeProductName(key), value])
+)
+
 export function getCataloguePresentation(name: string) {
+  const directMatch = productPresentation[name]
+  if (directMatch) {
+    return directMatch
+  }
+
+  const normalizedName = normalizeProductName(name)
+  const alias = productPresentationAliases[normalizedName]
+  if (alias && productPresentation[alias]) {
+    return productPresentation[alias]
+  }
+
+  const normalizedMatch = normalizedPresentationEntries.get(normalizedName)
+  if (normalizedMatch) {
+    return normalizedMatch
+  }
+
   return (
-    productPresentation[name] || {
+    {
       category: "legumes" as const,
       image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&h=600&fit=crop",
     }
@@ -317,6 +377,38 @@ export interface ManualBasketResponse {
   frais_livraison: number
 }
 
+export interface PanierDetailsResponse {
+  panier_id: number
+  lignes: Array<{
+    product_id: number
+    nom_produit: string
+    quantite_kg: number
+    prix_unitaire: number
+    sous_total: number
+    unite: string
+    image?: string
+  }>
+  total_legumes: number
+  sous_total: number
+  frais_livraison: number
+  montant_total: number
+}
+
+export interface CommandeCheckoutResponse {
+  commande_id: number
+  transcription?: string
+  lignes: Array<{
+    product_id: number
+    nom_produit: string
+    quantite_effective: number
+    prix_unitaire: number
+    sous_total: number
+    unite: string
+    image?: string
+  }>
+  total_dh: number
+}
+
 export async function submitManualBasket(cart: CartItem[]): Promise<ManualBasketResponse> {
   const items = cart.map((item) => ({
     product_id: typeof item.id === "string" ? parseInt(item.id) : item.id,
@@ -336,4 +428,12 @@ export async function submitManualBasket(cart: CartItem[]): Promise<ManualBasket
     },
     body: payload,  // ← PAS de JSON.stringify! apiCall le fera
   }) as Promise<ManualBasketResponse>
+}
+
+export async function fetchPanierDetails(panierId: number): Promise<PanierDetailsResponse> {
+  return apiCall(`/api/paniers/${panierId}`) as Promise<PanierDetailsResponse>
+}
+
+export async function fetchCommandeCheckout(commandeId: number): Promise<CommandeCheckoutResponse> {
+  return apiCall(`/api/commandes/${commandeId}`) as Promise<CommandeCheckoutResponse>
 }

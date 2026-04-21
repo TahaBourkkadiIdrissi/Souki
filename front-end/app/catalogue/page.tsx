@@ -27,7 +27,9 @@ import {
   CatalogueProduct,
   CartItem,
   DELIVERY_FEE,
+  fetchCommandeCheckout,
   fetchCatalogueProducts,
+  fetchPanierDetails,
   formatQuantity,
   loadStoredCart,
   mergeSelectionsIntoCart,
@@ -122,6 +124,70 @@ export default function CataloguePage() {
       setActiveModal(assistantMode)
     }
   }, [isAuthenticated, isLoading, searchParams])
+
+  useEffect(() => {
+    const panierIdParam = searchParams.get("panier_id")
+    const commandeIdParam = searchParams.get("commande_id")
+
+    if (!isAuthenticated || products.length === 0 || (!panierIdParam && !commandeIdParam)) {
+      return
+    }
+
+    const syncExistingOrderToCart = async () => {
+      try {
+        let remoteLines:
+          | Array<{
+              product_id: number
+              quantite_kg?: number
+              quantite_effective?: number
+            }>
+          | null = null
+
+        if (panierIdParam) {
+          const panierId = Number(panierIdParam)
+          if (!Number.isFinite(panierId)) {
+            return
+          }
+          const panierDetails = await fetchPanierDetails(panierId)
+          remoteLines = panierDetails.lignes
+        } else if (commandeIdParam) {
+          const commandeId = Number(commandeIdParam)
+          if (!Number.isFinite(commandeId)) {
+            return
+          }
+          const commandeDetails = await fetchCommandeCheckout(commandeId)
+          remoteLines = commandeDetails.lignes
+        }
+
+        if (!remoteLines || remoteLines.length === 0) {
+          return
+        }
+
+        const rebuiltCart = remoteLines.reduce<CartItem[]>((acc, line) => {
+          const product = products.find((item) => item.id === line.product_id)
+          if (!product) {
+            return acc
+          }
+          const quantity = Number(line.quantite_kg ?? line.quantite_effective ?? 0)
+          if (!Number.isFinite(quantity) || quantity <= 0) {
+            return acc
+          }
+          return upsertCartItem(acc, product, quantity)
+        }, [])
+
+        if (rebuiltCart.length > 0) {
+          setCart(rebuiltCart)
+          setShowCart(true)
+        }
+      } catch (error) {
+        console.error("Impossible de recharger la commande à modifier:", error)
+      } finally {
+        router.replace("/catalogue")
+      }
+    }
+
+    void syncExistingOrderToCart()
+  }, [isAuthenticated, products, searchParams, router])
 
   useEffect(() => {
     const addProductName = searchParams.get("add_product")
@@ -260,7 +326,7 @@ export default function CataloguePage() {
   return (
     <div className="min-h-screen bg-[#FBFDF9]">
       <div className="bg-[#F07C00] px-4 py-3 text-center text-sm font-semibold text-white">
-        Commandes acceptees jusqu'a 20h00 - Livraison demain pour ganatir la fraicheur
+        Commandes acceptees jusqu'a 20h00 - Livraison demain pour garnatir la fraicheur
       </div>
 
       <nav className="sticky top-0 z-40 border-b border-[#E7F0E8] bg-white/90 backdrop-blur">

@@ -9,6 +9,8 @@ import {
   ChevronDown,
   Loader2,
   Mic,
+  Minus,
+  Plus,
   ShoppingCart,
   Sparkles,
   X,
@@ -71,6 +73,7 @@ export function AIModals({
   const [budget, setBudget] = useState("150")
   const [duration, setDuration] = useState("1 semaine")
   const [smartSelections, setSmartSelections] = useState<BasketSelection[]>([])
+  const [editedBasket, setEditedBasket] = useState<LigneCommandeDTO[]>([])
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
@@ -81,12 +84,19 @@ export function AIModals({
     }
   }, [isOpen])
 
+  useEffect(() => {
+    if (result) {
+      setEditedBasket([...result.lignes_panier])
+    }
+  }, [result])
+
   const resetState = () => {
     setIsListening(false)
     setIsSending(false)
     setResult(null)
     setError(null)
     setSmartSelections([])
+    setEditedBasket([])
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop()
     }
@@ -96,6 +106,36 @@ export function AIModals({
     resetState()
     onClose()
   }
+
+  const handleRemoveItem = (productId: number) => {
+    setEditedBasket((prev) => prev.filter((item) => item.product_id !== productId))
+  }
+
+  const handleUpdateQuantity = (productId: number, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      handleRemoveItem(productId)
+      return
+    }
+    setEditedBasket((prev) =>
+      prev.map((item) =>
+        item.product_id === productId
+          ? {
+              ...item,
+              quantite_effective: newQuantity,
+              sous_total: item.prix_unitaire * newQuantity,
+            }
+          : item
+      )
+    )
+  }
+
+  const calculateEditedTotal = () => {
+    return editedBasket.reduce((sum, item) => sum + item.sous_total, 0)
+  }
+
+  const calculateEditedArticles = () => {
+    return editedBasket.length
+  } // <-- J'AI AJOUTÉ CETTE ACCOLADE MANQUANTE
 
   const stopListening = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
@@ -342,47 +382,112 @@ export function AIModals({
                 <div className="mb-3 flex items-center gap-2 text-[#4CB84A]">
                   <ShoppingCart className="h-4 w-4" />
                   <h4 className="text-sm font-bold">
-                    Panier detecte ({result.nombre_articles} article
-                    {result.nombre_articles > 1 ? "s" : ""})
+                    Panier detecte ({calculateEditedArticles()} article
+                    {calculateEditedArticles() !== 1 ? "s" : ""})
                   </h4>
                 </div>
 
                 {result.transcription && (
                   <p className="mb-3 rounded-xl bg-white/5 p-3 text-xs italic text-white/55">
-                    "{result.transcription}"
+                    &quot;{result.transcription}&quot;
                   </p>
                 )}
 
-                <div className="space-y-2">
-                  {result.lignes_panier.map((line) => (
-                    <div
-                      key={`${line.product_id}-${line.nom_produit}`}
-                      className="flex items-center justify-between rounded-2xl bg-white/5 p-3"
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-white">{line.nom_produit}</p>
-                        <p className="text-xs text-white/45">
-                          {formatQuantity(line.quantite_effective, "kg")} x{" "}
-                          {line.prix_unitaire.toFixed(2)} DH
-                        </p>
-                      </div>
-                      <span className="text-sm font-bold text-[#4CB84A]">
-                        {line.sous_total.toFixed(2)} DH
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                {editedBasket.length === 0 ? (
+                  <div className="rounded-2xl bg-red-500/10 p-4 text-center text-sm text-red-300">
+                    Aucun article dans le panier. Ajoutez des produits avant de continuer.
+                  </div>
+                ) : (
+                  <div className="space-y-2 mb-3">
+                    {editedBasket.map((line) => {
+                      const unit = line.quantite_effective >= 1 ? "kg" : "kg"
+                      return (
+                        <div
+                          key={`${line.product_id}-${line.nom_produit}`}
+                          className="rounded-2xl bg-white/5 p-3 transition-all hover:bg-white/8"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-white truncate">
+                                {line.nom_produit}
+                              </p>
+                              <p className="text-xs text-white/45 mt-1">
+                                {line.prix_unitaire.toFixed(2)} DH / {unit}
+                              </p>
+                            </div>
+
+                            <button
+                              onClick={() => handleRemoveItem(line.product_id)}
+                              className="shrink-0 rounded-full p-1.5 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
+                              title="Supprimer le produit"
+                            >
+                              <Minus className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          <div className="mt-2 flex items-center gap-2">
+                            <button
+                              onClick={() =>
+                                handleUpdateQuantity(
+                                  line.product_id,
+                                  Math.max(0.25, line.quantite_effective - 0.25)
+                                )
+                              }
+                              className="rounded-lg bg-white/10 p-1 hover:bg-white/20 transition-colors"
+                            >
+                              <Minus className="h-3 w-3 text-white" />
+                            </button>
+
+                            <input
+                              type="number"
+                              min="0.25"
+                              step="0.25"
+                              value={line.quantite_effective.toFixed(2)}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value)
+                                if (!isNaN(val) && val > 0) {
+                                  handleUpdateQuantity(line.product_id, val)
+                                }
+                              }}
+                              className="w-14 rounded-lg bg-white/10 px-2 py-1 text-center text-xs text-white outline-none focus:bg-white/20 transition-colors"
+                            />
+
+                            <button
+                              onClick={() =>
+                                handleUpdateQuantity(
+                                  line.product_id,
+                                  line.quantite_effective + 0.25
+                                )
+                              }
+                              className="rounded-lg bg-white/10 p-1 hover:bg-white/20 transition-colors"
+                            >
+                              <Plus className="h-3 w-3 text-white" />
+                            </button>
+
+                            <span className="text-xs text-white/60 ml-2">
+                              {line.quantite_effective.toFixed(2)} {unit}
+                            </span>
+
+                            <span className="ml-auto text-sm font-bold text-[#4CB84A]">
+                              {line.sous_total.toFixed(2)} DH
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
 
                 {result.produits_non_disponibles.length > 0 && (
-                  <p className="mt-3 text-xs text-orange-300">
-                    Non trouves: {result.produits_non_disponibles.join(", ")}
+                  <p className="mt-3 text-xs text-orange-300 rounded-xl bg-orange-500/10 p-2">
+                    ⚠️ Non trouves: {result.produits_non_disponibles.join(", ")}
                   </p>
                 )}
 
                 <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4">
                   <span className="font-semibold text-white/75">Total</span>
                   <span className="text-xl font-black text-[#4CB84A]">
-                    {result.total_dh.toFixed(2)} DH
+                    {calculateEditedTotal().toFixed(2)} DH
                   </span>
                 </div>
 
@@ -391,7 +496,8 @@ export function AIModals({
                     closeModal()
                     router.push(`/checkout?commande_id=${result.commande_id}`)
                   }}
-                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#1E8A3C] py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#176B2E]"
+                  disabled={editedBasket.length === 0}
+                  className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-[#1E8A3C] py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#176B2E] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Aller au checkout
                   <ArrowRight className="h-4 w-4" />

@@ -109,6 +109,7 @@ dist
 
 # Python virtual environment
 back-end/.venv/
+back-end/sql/
 
 # vitepress build output
 **/.vitepress/dist
