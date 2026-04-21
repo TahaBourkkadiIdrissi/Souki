@@ -40,3 +40,19 @@ class EmailDeliveryService:
             server.starttls()
             server.login(self.smtp_username, self.smtp_password)
             server.send_message(message)
+
+    def send_jit_alert(self, recipient: str, sujet: str, contenu: str):
+        """Envoie la liste d'achats JIT ou une alerte au fondateur"""
+        if not self.is_configured():
+            raise RuntimeError("SMTP Gmail non configuré")
+
+        message = EmailMessage()
+        message["Subject"] = sujet
+        message["From"] = self.smtp_from
+        message["To"] = recipient
+        message.set_content(contenu)
+
+        with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=20) as server:
+            server.starttls()
+            server.login(self.smtp_username, self.smtp_password)
+            server.send_message(message)
