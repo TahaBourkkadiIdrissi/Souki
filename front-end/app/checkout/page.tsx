@@ -75,6 +75,7 @@ function CheckoutContent() {
   const [instructions, setInstructions] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [catalogueImages, setCatalogueImages] = useState<Record<number, string>>({})
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
 
   const isGenericImage = (imageUrl: string) =>
     imageUrl.includes("photo-1542838132-92c53300491e")
@@ -127,7 +128,9 @@ function CheckoutContent() {
   useEffect(() => {
     if (commandeId) {
       // Flux voix: récupérer CommandeCheckoutDTO
-      fetch(`${API_BASE_URL}/api/commandes/${commandeId}`)
+      fetch(`${API_BASE_URL}/api/commandes/${commandeId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
         .then(res => {
           if (!res.ok) throw new Error("Commande non trouvée")
           return res.json()
@@ -162,7 +165,9 @@ function CheckoutContent() {
         })
     } else if (panierId) {
       // Flux manuel: récupérer PanierDetailsDTO
-      fetch(`${API_BASE_URL}/api/paniers/${panierId}`)
+      fetch(`${API_BASE_URL}/api/paniers/${panierId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
         .then(res => {
           if (!res.ok) throw new Error("Panier non trouvé")
           return res.json()
@@ -206,7 +211,7 @@ function CheckoutContent() {
         { id: "4", name: "Carottes", price: 8.5, quantity: 2, unit: "kg", image: "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400&h=300&fit=crop" },
       ])
     }
-  }, [commandeId, panierId, cartParam, catalogueImages])
+  }, [commandeId, panierId, cartParam, catalogueImages, token])
 
   const walletBalance = 125.50
   const merchantPrice = cart.reduce((sum, item) => sum + (item.price * 1.1) * item.quantity, 0)

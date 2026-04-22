@@ -5,9 +5,11 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   CheckCircle2,
-  ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Clock3,
   DollarSign,
+  Gauge,
   type LucideIcon,
   Map as MapIcon,
   MapPin,
@@ -46,23 +48,46 @@ const DEFAULT_MAP_VIEW = {
   latitude: FES_START_COORDINATE[1],
   zoom: 11,
 }
-const ROUTE_LAYER: Omit<LineLayerSpecification, "source"> = {
-  id: "tournee-route-line",
+const GPS_WATCH_OPTIONS: PositionOptions = {
+  enableHighAccuracy: true,
+  maximumAge: 5000,
+  timeout: 15000,
+}
+const ROUTE_REFRESH_DISTANCE_METERS = 40
+const ROUTE_REFRESH_INTERVAL_MS = 15000
+const ROUTE_OVERVIEW_PADDING = { top: 140, bottom: 190, left: 28, right: 28 }
+const DRIVE_MODE_PADDING = { top: 100, bottom: 190, left: 20, right: 20 }
+const ROUTE_CASING_LAYER: Omit<LineLayerSpecification, "source"> = {
+  id: "tournee-route-casing",
   type: "line",
   layout: {
     "line-cap": "round",
     "line-join": "round",
   },
   paint: {
-    "line-color": "#F07C00",
-    "line-width": 5,
-    "line-opacity": 0.9,
+    "line-color": "#FFFFFF",
+    "line-width": 10,
+    "line-opacity": 0.7,
+  },
+}
+const ROUTE_LAYER: Omit<LineLayerSpecification, "source"> = {
+  id: "tournee-route-main",
+  type: "line",
+  layout: {
+    "line-cap": "round",
+    "line-join": "round",
+  },
+  paint: {
+    "line-color": "#1A73E8",
+    "line-width": 6,
+    "line-opacity": 0.96,
   },
 }
 
 type DeliveryStatus = "pending" | "enroute" | "delivered" | "absent"
 type PaymentMethod = "cod" | "wallet" | "cmi"
 type NoticeTone = "info" | "success" | "error"
+type SheetMode = "peek" | "expanded"
 
 interface DeliveryViewItem {
   id: string
@@ -88,6 +113,48 @@ interface DeliveryViewItem {
 interface PageNotice {
   tone: NoticeTone
   message: string
+}
+
+interface DriverLocation {
+  latitude: number
+  longitude: number
+  accuracy: number | null
+  speedKmh: number | null
+  heading: number | null
+  timestamp: number
+}
+
+interface RouteSummary {
+  distanceMeters: number
+  durationSeconds: number
+}
+
+interface LineFeatureCollection {
+  type: "FeatureCollection"
+  features: Array<{
+    type: "Feature"
+    properties: Record<string, string | number | boolean | null>
+    geometry: {
+      type: "LineString"
+      coordinates: [number, number][]
+    }
+  }>
+}
+
+interface MapboxDirectionsResponse {
+  routes?: Array<{
+    distance: number
+    duration: number
+    geometry: {
+      type: "LineString"
+      coordinates: [number, number][]
+    }
+  }>
+}
+
+const EMPTY_ROUTE_GEOJSON: LineFeatureCollection = {
+  type: "FeatureCollection",
+  features: [],
 }
 
 function normalizeCoordinate(value: unknown) {
@@ -267,14 +334,6 @@ function buildPaymentSummary(delivery: DeliveryViewItem) {
   return `${formatAmount(delivery.amount)} - ${formatPaymentMethodLabel(delivery.paymentMethod)}`
 }
 
-function buildWazeNavigationHref(lat: number, lng: number) {
-  return `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`
-}
-
-function buildGoogleMapsNavigationHref(lat: number, lng: number) {
-  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
-}
-
 function extractHourBounds(timeSlot: string) {
   const matches = timeSlot.match(/\d{1,2}/g)
   if (!matches || matches.length === 0) {
@@ -355,6 +414,97 @@ function updateStartedStatuses(response: TourneeResponse): TourneeResponse {
   }
 }
 
+function toRadians(value: number) {
+  return (value * Math.PI) / 180
+}
+
+function toDegrees(value: number) {
+  return (value * 180) / Math.PI
+}
+
+function computeDistanceMeters(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const earthRadiusMeters = 6371000
+  const deltaLat = toRadians(lat2 - lat1)
+  const deltaLng = toRadians(lng2 - lng1)
+  const startLat = toRadians(lat1)
+  const endLat = toRadians(lat2)
+  const haversineValue =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(startLat) * Math.cos(endLat) * Math.sin(deltaLng / 2) ** 2
+
+  return 2 * earthRadiusMeters * Math.atan2(Math.sqrt(haversineValue), Math.sqrt(1 - haversineValue))
+}
+
+function computeBearing(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const startLat = toRadians(lat1)
+  const endLat = toRadians(lat2)
+  const deltaLng = toRadians(lng2 - lng1)
+  const y = Math.sin(deltaLng) * Math.cos(endLat)
+  const x =
+    Math.cos(startLat) * Math.sin(endLat) -
+    Math.sin(startLat) * Math.cos(endLat) * Math.cos(deltaLng)
+
+  return (toDegrees(Math.atan2(y, x)) + 360) % 360
+}
+
+function createLineFeatureCollection(
+  coordinates: [number, number][],
+  kind: "directions" | "fallback" = "directions"
+): LineFeatureCollection {
+  if (coordinates.length < 2) {
+    return EMPTY_ROUTE_GEOJSON
+  }
+
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: { kind },
+        geometry: {
+          type: "LineString",
+          coordinates,
+        },
+      },
+    ],
+  }
+}
+
+function formatDurationFromSeconds(value: number) {
+  const roundedMinutes = Math.max(1, Math.round(value / 60))
+  const hours = Math.floor(roundedMinutes / 60)
+  const minutes = roundedMinutes % 60
+
+  if (hours === 0) {
+    return `${minutes} min`
+  }
+
+  return `${hours}h${minutes.toString().padStart(2, "0")}`
+}
+
+function formatDistanceLabel(distanceMeters: number) {
+  if (distanceMeters < 1000) {
+    return `${Math.round(distanceMeters)} m`
+  }
+
+  const distanceKm = distanceMeters / 1000
+  return `${distanceKm >= 10 ? distanceKm.toFixed(0) : distanceKm.toFixed(1)} km`
+}
+
+function buildDirectionsUrl(origin: [number, number], destination: [number, number]) {
+  const coordinates = `${origin[0]},${origin[1]};${destination[0]},${destination[1]}`
+  const params = new URLSearchParams({
+    alternatives: "false",
+    geometries: "geojson",
+    overview: "full",
+    steps: "false",
+    language: "fr",
+    access_token: MAPBOX_TOKEN,
+  })
+
+  return `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?${params.toString()}`
+}
+
 function CenterStateCard({
   icon: Icon,
   title,
@@ -392,6 +542,13 @@ export default function LivreurPage() {
   const { token, isLoading: isAuthLoading, isAuthenticated, can } = useAuth()
   const hasLivreurAccess = can("livreur.dashboard.access")
   const mapRef = useRef<MapRef | null>(null)
+  const lastDriverLocationRef = useRef<DriverLocation | null>(null)
+  const lastDirectionsRequestRef = useRef<{
+    origin: [number, number]
+    destination: [number, number]
+    timestamp: number
+  } | null>(null)
+
   const [deliveryList, setDeliveryList] = useState<DeliveryViewItem[]>([])
   const [tourneeData, setTourneeData] = useState<TourneeResponse | null>(null)
   const [isOnDuty, setIsOnDuty] = useState(true)
@@ -402,6 +559,14 @@ export default function LivreurPage() {
   const [tourneeStarted, setTourneeStarted] = useState(false)
   const [loadSource, setLoadSource] = useState<"api" | "cache" | null>(null)
   const [notice, setNotice] = useState<PageNotice | null>(null)
+  const [driverLocation, setDriverLocation] = useState<DriverLocation | null>(null)
+  const [gpsError, setGpsError] = useState<string | null>(null)
+  const [isNavigating, setIsNavigating] = useState(false)
+  const [sheetMode, setSheetMode] = useState<SheetMode>("peek")
+  const [routeGeoJson, setRouteGeoJson] = useState<LineFeatureCollection>(EMPTY_ROUTE_GEOJSON)
+  const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null)
+  const [isRouteLoading, setIsRouteLoading] = useState(false)
+  const [routeError, setRouteError] = useState<string | null>(null)
 
   const applyTourneeData = useEffectEvent((response: TourneeResponse, source: "api" | "cache") => {
     const normalizedResponse = normalizeTourneeResponse(response)
@@ -439,6 +604,92 @@ export default function LivreurPage() {
     return () => {
       window.removeEventListener("online", syncOnlineStatus)
       window.removeEventListener("offline", syncOnlineStatus)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return
+    }
+
+    if (!("geolocation" in window.navigator)) {
+      setGpsError("Le GPS du navigateur n'est pas disponible sur cet appareil.")
+      return
+    }
+
+    let isCancelled = false
+    const watchId = window.navigator.geolocation.watchPosition(
+      (position) => {
+        if (isCancelled) {
+          return
+        }
+
+        const previousLocation = lastDriverLocationRef.current
+        const deviceHeading =
+          typeof position.coords.heading === "number" &&
+          Number.isFinite(position.coords.heading) &&
+          position.coords.heading >= 0
+            ? position.coords.heading
+            : null
+        const computedHeading =
+          previousLocation &&
+          computeDistanceMeters(
+            previousLocation.latitude,
+            previousLocation.longitude,
+            position.coords.latitude,
+            position.coords.longitude
+          ) > 5
+            ? computeBearing(
+                previousLocation.latitude,
+                previousLocation.longitude,
+                position.coords.latitude,
+                position.coords.longitude
+              )
+            : previousLocation?.heading ?? null
+        const nextLocation: DriverLocation = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy:
+            typeof position.coords.accuracy === "number" && Number.isFinite(position.coords.accuracy)
+              ? position.coords.accuracy
+              : null,
+          speedKmh:
+            typeof position.coords.speed === "number" &&
+            Number.isFinite(position.coords.speed) &&
+            position.coords.speed >= 0
+              ? position.coords.speed * 3.6
+              : previousLocation?.speedKmh ?? null,
+          heading: deviceHeading ?? computedHeading,
+          timestamp: position.timestamp,
+        }
+
+        lastDriverLocationRef.current = nextLocation
+        setDriverLocation(nextLocation)
+        setGpsError(null)
+      },
+      (error) => {
+        if (isCancelled) {
+          return
+        }
+
+        if (error.code === error.PERMISSION_DENIED) {
+          setGpsError("Autorisez la geolocalisation pour activer le guidage live du livreur.")
+          return
+        }
+
+        if (error.code === error.TIMEOUT) {
+          setGpsError("Le GPS prend plus de temps que prevu. Nous continuons d'essayer.")
+          return
+        }
+
+        setGpsError("Le suivi GPS temps reel est temporairement indisponible.")
+      },
+      GPS_WATCH_OPTIONS
+    )
+
+    return () => {
+      isCancelled = true
+      window.navigator.geolocation.clearWatch(watchId)
     }
   }, [])
 
@@ -554,60 +805,262 @@ export default function LivreurPage() {
   const nextDeliveryIndex = nextDelivery ? deliveryList.findIndex((item) => item.id === nextDelivery.id) : -1
   const previousMappableDelivery =
     nextDeliveryIndex > 0 ? deliveryList.slice(0, nextDeliveryIndex).reverse().find(hasCoordinates) ?? null : null
-  const routeStartCoordinates = previousMappableDelivery
+  const fallbackRouteStartCoordinates = previousMappableDelivery
     ? ([previousMappableDelivery.lng, previousMappableDelivery.lat] as [number, number])
     : ([FES_START_COORDINATE[0], FES_START_COORDINATE[1]] as [number, number])
-  const routeCoordinates = nextDeliveryWithCoordinates
-    ? [routeStartCoordinates, [nextDeliveryWithCoordinates.lng, nextDeliveryWithCoordinates.lat] as [number, number]]
-    : []
-  const routeGeoJson = {
-    type: "FeatureCollection" as const,
-    features:
-      routeCoordinates.length > 1
-        ? [
-            {
-              type: "Feature" as const,
-              properties: {},
-              geometry: {
-                type: "LineString" as const,
-                coordinates: routeCoordinates,
-              },
-            },
-          ]
-        : [],
-  }
+  const routeOriginCoordinates = driverLocation
+    ? ([driverLocation.longitude, driverLocation.latitude] as [number, number])
+    : fallbackRouteStartCoordinates
   const activeMissingCoordinatesCount = activeDeliveries.filter((item) => !hasCoordinates(item)).length
-  const nextWazeHref = nextDeliveryWithCoordinates
-    ? buildWazeNavigationHref(nextDeliveryWithCoordinates.lat, nextDeliveryWithCoordinates.lng)
-    : null
-  const nextGoogleMapsHref = nextDeliveryWithCoordinates
-    ? buildGoogleMapsNavigationHref(nextDeliveryWithCoordinates.lat, nextDeliveryWithCoordinates.lng)
-    : null
-  const mapViewportKey = nextDeliveryWithCoordinates
-    ? `${nextDeliveryWithCoordinates.id}:${nextDeliveryWithCoordinates.lat}:${nextDeliveryWithCoordinates.lng}:${routeStartCoordinates[0]}:${routeStartCoordinates[1]}`
-    : mappableDeliveries.map((item) => `${item.id}:${item.lat}:${item.lng}`).join("|")
   const isMapboxConfigured = MAPBOX_TOKEN.length > 0
+  const routeOriginLongitude = routeOriginCoordinates[0]
+  const routeOriginLatitude = routeOriginCoordinates[1]
 
-  const focusMapOnDelivery = useEffectEvent(() => {
+  useEffect(() => {
+    if (!nextDelivery) {
+      setIsNavigating(false)
+      setSheetMode("peek")
+    }
+  }, [nextDelivery])
+
+  useEffect(() => {
+    if (isNavigating) {
+      setSheetMode("peek")
+    }
+  }, [isNavigating])
+
+  useEffect(() => {
+    if (!nextDeliveryWithCoordinates) {
+      setRouteGeoJson(EMPTY_ROUTE_GEOJSON)
+      setRouteSummary(null)
+      setRouteError(null)
+      setIsRouteLoading(false)
+      lastDirectionsRequestRef.current = null
+      return
+    }
+
+    const destinationCoordinates: [number, number] = [nextDeliveryWithCoordinates.lng, nextDeliveryWithCoordinates.lat]
+
+    if (!isMapboxConfigured) {
+      setRouteGeoJson(EMPTY_ROUTE_GEOJSON)
+      setRouteSummary(null)
+      setRouteError("Le token Mapbox est requis pour calculer un itineraire.")
+      setIsRouteLoading(false)
+      lastDirectionsRequestRef.current = null
+      return
+    }
+
+    if (isOffline) {
+      setRouteGeoJson(createLineFeatureCollection([routeOriginCoordinates, destinationCoordinates], "fallback"))
+      setRouteSummary(null)
+      setRouteError("Trace simplifiee active. L'itineraire detaille Mapbox est indisponible hors ligne.")
+      setIsRouteLoading(false)
+      return
+    }
+
+    const lastRequest = lastDirectionsRequestRef.current
+    if (lastRequest) {
+      const originDrift = computeDistanceMeters(
+        lastRequest.origin[1],
+        lastRequest.origin[0],
+        routeOriginLatitude,
+        routeOriginLongitude
+      )
+      const destinationDrift = computeDistanceMeters(
+        lastRequest.destination[1],
+        lastRequest.destination[0],
+        destinationCoordinates[1],
+        destinationCoordinates[0]
+      )
+      const requestAge = Date.now() - lastRequest.timestamp
+
+      if (
+        originDrift < ROUTE_REFRESH_DISTANCE_METERS &&
+        destinationDrift < 5 &&
+        requestAge < ROUTE_REFRESH_INTERVAL_MS
+      ) {
+        return
+      }
+    }
+
+    let isCancelled = false
+    const controller = new AbortController()
+
+    const loadDirectionsRoute = async () => {
+      setIsRouteLoading(true)
+      setRouteError(null)
+
+      try {
+        const response = await fetch(buildDirectionsUrl(routeOriginCoordinates, destinationCoordinates), {
+          signal: controller.signal,
+        })
+        if (!response.ok) {
+          throw new Error(`Directions Mapbox indisponibles (${response.status}).`)
+        }
+
+        const payload = (await response.json()) as MapboxDirectionsResponse
+        const bestRoute = payload.routes?.[0]
+        if (!bestRoute || !Array.isArray(bestRoute.geometry?.coordinates)) {
+          throw new Error("Aucun itineraire exploitable n'a ete retourne par Mapbox.")
+        }
+
+        if (isCancelled) {
+          return
+        }
+
+        setRouteGeoJson(createLineFeatureCollection(bestRoute.geometry.coordinates))
+        setRouteSummary({
+          distanceMeters: bestRoute.distance,
+          durationSeconds: bestRoute.duration,
+        })
+        setRouteError(null)
+        lastDirectionsRequestRef.current = {
+          origin: routeOriginCoordinates,
+          destination: destinationCoordinates,
+          timestamp: Date.now(),
+        }
+      } catch (error) {
+        if (isCancelled || (error instanceof DOMException && error.name === "AbortError")) {
+          return
+        }
+
+        setRouteGeoJson(createLineFeatureCollection([routeOriginCoordinates, destinationCoordinates], "fallback"))
+        setRouteSummary(null)
+        setRouteError(
+          error instanceof Error
+            ? `${error.message} La carte affiche un trace simplifie entre le livreur et la destination.`
+            : "Impossible de calculer l'itineraire detaille."
+        )
+      } finally {
+        if (!isCancelled) {
+          setIsRouteLoading(false)
+        }
+      }
+    }
+
+    void loadDirectionsRoute()
+
+    return () => {
+      isCancelled = true
+      controller.abort()
+    }
+  }, [
+    driverLocation?.latitude,
+    driverLocation?.longitude,
+    isMapboxConfigured,
+    isOffline,
+    nextDeliveryWithCoordinates?.id,
+    nextDeliveryWithCoordinates?.lat,
+    nextDeliveryWithCoordinates?.lng,
+    routeOriginLatitude,
+    routeOriginLongitude,
+  ])
+
+  const syncMapCamera = useEffectEvent(() => {
     if (!mapRef.current) {
       return
     }
 
+    const mapInstance = mapRef.current
+
+    if (isNavigating) {
+      if (driverLocation) {
+        const nextBearing =
+          driverLocation.speedKmh && driverLocation.speedKmh > 4 && typeof driverLocation.heading === "number"
+            ? driverLocation.heading
+            : mapInstance.getBearing()
+
+        mapInstance.easeTo({
+          center: [driverLocation.longitude, driverLocation.latitude],
+          zoom: 16.8,
+          pitch: 60,
+          bearing: nextBearing,
+          padding: DRIVE_MODE_PADDING,
+          duration: 700,
+          essential: true,
+        })
+        return
+      }
+
+      if (nextDeliveryWithCoordinates) {
+        mapInstance.easeTo({
+          center: [nextDeliveryWithCoordinates.lng, nextDeliveryWithCoordinates.lat],
+          zoom: 15.2,
+          pitch: 45,
+          bearing: mapInstance.getBearing(),
+          padding: DRIVE_MODE_PADDING,
+          duration: 700,
+          essential: true,
+        })
+        return
+      }
+    }
+
+    if (driverLocation && nextDeliveryWithCoordinates) {
+      const west = Math.min(driverLocation.longitude, nextDeliveryWithCoordinates.lng)
+      const east = Math.max(driverLocation.longitude, nextDeliveryWithCoordinates.lng)
+      const south = Math.min(driverLocation.latitude, nextDeliveryWithCoordinates.lat)
+      const north = Math.max(driverLocation.latitude, nextDeliveryWithCoordinates.lat)
+
+      if (west === east && south === north) {
+        mapInstance.easeTo({
+          center: [west, south],
+          zoom: 15,
+          pitch: 20,
+          bearing: 0,
+          padding: ROUTE_OVERVIEW_PADDING,
+          duration: 900,
+          essential: true,
+        })
+        return
+      }
+
+      mapInstance.fitBounds(
+        [
+          [west, south],
+          [east, north],
+        ],
+        {
+          padding: ROUTE_OVERVIEW_PADDING,
+          duration: 900,
+          essential: true,
+        }
+      )
+      return
+    }
+
     if (nextDeliveryWithCoordinates) {
-      mapRef.current.easeTo({
+      mapInstance.easeTo({
         center: [nextDeliveryWithCoordinates.lng, nextDeliveryWithCoordinates.lat],
         zoom: 15,
-        padding: { top: 150, bottom: 360, left: 40, right: 40 },
+        pitch: 10,
+        bearing: 0,
+        padding: ROUTE_OVERVIEW_PADDING,
         duration: 900,
+        essential: true,
+      })
+      return
+    }
+
+    if (driverLocation) {
+      mapInstance.easeTo({
+        center: [driverLocation.longitude, driverLocation.latitude],
+        zoom: 14.5,
+        pitch: 15,
+        bearing: 0,
+        padding: ROUTE_OVERVIEW_PADDING,
+        duration: 900,
+        essential: true,
       })
       return
     }
 
     if (mappableDeliveries.length === 0) {
-      mapRef.current.easeTo({
+      mapInstance.easeTo({
         center: [DEFAULT_MAP_VIEW.longitude, DEFAULT_MAP_VIEW.latitude],
         zoom: DEFAULT_MAP_VIEW.zoom,
         duration: 900,
+        essential: true,
       })
       return
     }
@@ -620,31 +1073,46 @@ export default function LivreurPage() {
     const north = Math.max(...latitudes)
 
     if (west === east && south === north) {
-      mapRef.current.easeTo({
+      mapInstance.easeTo({
         center: [west, south],
         zoom: 14,
-        padding: { top: 150, bottom: 300, left: 40, right: 40 },
+        pitch: 10,
+        bearing: 0,
+        padding: ROUTE_OVERVIEW_PADDING,
         duration: 900,
+        essential: true,
       })
       return
     }
 
-    mapRef.current.fitBounds(
+    mapInstance.fitBounds(
       [
         [west, south],
         [east, north],
       ],
       {
-        padding: { top: 150, bottom: 300, left: 40, right: 40 },
+        padding: ROUTE_OVERVIEW_PADDING,
         duration: 900,
+        essential: true,
       }
     )
   })
 
+  const roundedHeadingKey =
+    typeof driverLocation?.heading === "number" ? Math.round(driverLocation.heading / 8) * 8 : "none"
+  const mapCameraKey = [
+    isNavigating ? "drive" : "overview",
+    nextDeliveryWithCoordinates?.id ?? "no-destination",
+    driverLocation?.latitude ?? "no-lat",
+    driverLocation?.longitude ?? "no-lng",
+    roundedHeadingKey,
+    routeGeoJson.features.length,
+  ].join(":")
+
   useEffect(() => {
-    const frameId = window.requestAnimationFrame(() => focusMapOnDelivery())
+    const frameId = window.requestAnimationFrame(() => syncMapCamera())
     return () => window.cancelAnimationFrame(frameId)
-  }, [mapViewportKey])
+  }, [mapCameraKey])
 
   const completedCount = deliveryList.filter((item) => item.status === "delivered" || item.status === "absent").length
   const totalCount = deliveryList.length
@@ -654,7 +1122,11 @@ export default function LivreurPage() {
   const tourneeWindow = formatTourneeWindow(deliveryList)
   const tourneeTitle = `Tournee du ${formatTourneeDate(tourneeData?.date_jour)}${tourneeWindow ? ` - ${tourneeWindow}` : ""}`
   const progressRatio = totalCount === 0 ? 0 : completedCount / totalCount
+  const currentRouteDistanceLabel = routeSummary ? formatDistanceLabel(routeSummary.distanceMeters) : "Trace en attente"
+  const currentRouteDurationLabel = routeSummary ? formatDurationFromSeconds(routeSummary.durationSeconds) : remainingTime
   const futureMarkers = nextDelivery ? futureDeliveries.filter(hasCoordinates) : mappableDeliveries
+  const sheetHeightValue = sheetMode === "expanded" ? "min(58dvh, 34rem)" : "max(20dvh, 12rem)"
+  const isSheetExpanded = sheetMode === "expanded"
   const showMap =
     isMapboxConfigured && !isTourneeLoading && !beforeSeven && Boolean(token) && mappableDeliveries.length > 0
   const showBottomSheet = !isTourneeLoading && !beforeSeven && Boolean(token) && deliveryList.length > 0
@@ -667,7 +1139,7 @@ export default function LivreurPage() {
 
   const handleStartTournee = async () => {
     if (!token || deliveryList.length === 0 || isStartingTournee) {
-      return
+      return false
     }
 
     setIsStartingTournee(true)
@@ -694,34 +1166,64 @@ export default function LivreurPage() {
       }
 
       setNotice({ tone: "success", message: response.message })
+      return shouldMarkStarted
     } catch (error) {
       setNotice({
         tone: "error",
         message: error instanceof Error ? error.message : "Impossible de demarrer la tournee.",
       })
+      return false
     } finally {
       setIsStartingTournee(false)
     }
   }
 
-  const floatingStatusLabel = beforeSeven
-    ? "Disponible a 7h00"
-    : isTourneeLoading
-      ? "Synchronisation"
-      : deliveryList.length === 0
-        ? "Aucune affectation"
-        : !tourneeStarted
-          ? "Pret a demarrer"
-          : nextDelivery
-            ? "En livraison"
-            : "Tournee terminee"
-  const floatingStatusClass = beforeSeven
-    ? "bg-[#FFF3E0] text-[#8A5A00]"
-    : !tourneeStarted && deliveryList.length > 0
+  const handleStartDriveMode = async () => {
+    if (!nextDelivery) {
+      return
+    }
+
+    if (!tourneeStarted) {
+      const hasStarted = await handleStartTournee()
+      if (!hasStarted) {
+        return
+      }
+    }
+
+    setIsNavigating(true)
+  }
+
+  const handleCompleteCurrentDelivery = () => {
+    if (!nextDelivery) {
+      return
+    }
+
+    handleStatusChange(nextDelivery.id, "delivered")
+    setIsNavigating(false)
+  }
+
+  const floatingStatusLabel = isNavigating
+    ? "Drive mode"
+    : beforeSeven
+      ? "Disponible a 7h00"
+      : isTourneeLoading
+        ? "Synchronisation"
+        : deliveryList.length === 0
+          ? "Aucune affectation"
+          : !tourneeStarted
+            ? "Pret a demarrer"
+            : nextDelivery
+              ? "En livraison"
+              : "Tournee terminee"
+  const floatingStatusClass = isNavigating
+    ? "bg-[#EAF2FF] text-[#1A73E8]"
+    : beforeSeven
       ? "bg-[#FFF3E0] text-[#8A5A00]"
-      : nextDelivery
-        ? "bg-[#F0FAF1] text-[#1E8A3C]"
-        : "bg-[#EEF5FF] text-[#285C9A]"
+      : !tourneeStarted && deliveryList.length > 0
+        ? "bg-[#FFF3E0] text-[#8A5A00]"
+        : nextDelivery
+          ? "bg-[#F0FAF1] text-[#1E8A3C]"
+          : "bg-[#EEF5FF] text-[#285C9A]"
 
   const renderCenterState = () => {
     if (isTourneeLoading) {
@@ -795,14 +1297,18 @@ export default function LivreurPage() {
 
     return null
   }
+
   const centerState = renderCenterState()
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-[#D9E6DD]">
+    <div
+      className="relative mx-auto h-screen w-full max-w-md overflow-hidden bg-[#D9E6DD] md:rounded-[2rem] md:shadow-[0_20px_70px_rgba(15,23,42,0.18)]"
+      style={{ ["--driver-bottom-sheet-height" as string]: sheetHeightValue }}
+    >
       <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.75),_rgba(217,230,221,0.6)_35%,_rgba(185,208,190,0.9)_100%)]" />
 
       {showMap && (
-        <div className="absolute inset-0 z-0">
+        <div className="absolute inset-x-0 top-0 bottom-[var(--driver-bottom-sheet-height)] z-0">
           <Map
             ref={mapRef}
             reuseMaps
@@ -811,12 +1317,14 @@ export default function LivreurPage() {
             mapStyle={MAPBOX_STYLE}
             maxBounds={MOROCCO_BOUNDS}
             attributionControl={false}
-            onLoad={() => focusMapOnDelivery()}
+            dragPan={!isNavigating}
+            onLoad={() => syncMapCamera()}
           >
             <NavigationControl position="top-right" showCompass={false} />
 
-            {routeCoordinates.length > 1 && (
+            {routeGeoJson.features.length > 0 && (
               <Source id="tournee-route" type="geojson" data={routeGeoJson}>
+                <Layer {...ROUTE_CASING_LAYER} />
                 <Layer {...ROUTE_LAYER} />
               </Source>
             )}
@@ -828,11 +1336,7 @@ export default function LivreurPage() {
             ))}
 
             {nextDeliveryWithCoordinates && (
-              <Marker
-                longitude={nextDeliveryWithCoordinates.lng}
-                latitude={nextDeliveryWithCoordinates.lat}
-                anchor="bottom"
-              >
+              <Marker longitude={nextDeliveryWithCoordinates.lng} latitude={nextDeliveryWithCoordinates.lat} anchor="bottom">
                 <div className="relative flex flex-col items-center">
                   <div className="absolute top-1/2 h-16 w-16 -translate-y-1/2 rounded-full bg-[#F07C00]/30 animate-ping" />
                   <div className="absolute top-1/2 h-20 w-20 -translate-y-1/2 rounded-full bg-[#F07C00]/12" />
@@ -843,11 +1347,28 @@ export default function LivreurPage() {
                 </div>
               </Marker>
             )}
+
+            {driverLocation && (
+              <Marker longitude={driverLocation.longitude} latitude={driverLocation.latitude} anchor="center">
+                <div className="relative flex h-16 w-16 items-center justify-center">
+                  <div className="absolute h-14 w-14 rounded-full bg-[#1A73E8]/20 animate-ping" />
+                  <div className="absolute h-10 w-10 rounded-full bg-[#1A73E8]/15" />
+                  <div className="relative flex h-8 w-8 items-center justify-center rounded-full border-4 border-white bg-[#1A73E8] shadow-[0_12px_24px_rgba(26,115,232,0.35)]">
+                    <div
+                      className="h-0 w-0 border-b-[10px] border-l-[6px] border-r-[6px] border-b-white border-l-transparent border-r-transparent"
+                      style={{
+                        transform: `rotate(${driverLocation.heading ?? 0}deg)`,
+                      }}
+                    />
+                  </div>
+                </div>
+              </Marker>
+            )}
           </Map>
         </div>
       )}
 
-      <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-b from-[#10251A]/40 via-transparent via-45% to-[#10251A]/20" />
+      <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-b from-[#10251A]/38 via-transparent via-45% to-[#10251A]/20" />
 
       <header className="pointer-events-none absolute inset-x-0 top-0 z-30 px-4 pt-4">
         <div className="mx-auto max-w-4xl">
@@ -867,6 +1388,12 @@ export default function LivreurPage() {
                     {isOffline ? <WifiOff className="h-3.5 w-3.5" /> : <SignalHigh className="h-3.5 w-3.5" />}
                     {isOffline ? "Hors ligne" : loadSource === "cache" ? "Cache" : "Live"}
                   </span>
+                  {driverLocation && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#EAF2FF] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1A73E8]">
+                      <Gauge className="h-3.5 w-3.5" />
+                      {driverLocation.speedKmh ? `${Math.round(driverLocation.speedKmh)} km/h` : "GPS actif"}
+                    </span>
+                  )}
                 </div>
 
                 <p className="mt-2 truncate text-base font-semibold text-[#17301E]">{tourneeTitle}</p>
@@ -874,12 +1401,15 @@ export default function LivreurPage() {
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <HeaderMetric label="Restantes" value={String(remainingCount)} />
                   <HeaderMetric label="Livrees" value={`${completedCount}/${totalCount}`} />
-                  <HeaderMetric label="Gains" value={formatAmount(todayEarnings)} />
+                  <HeaderMetric
+                    label={routeSummary ? "Distance" : "Gains"}
+                    value={routeSummary ? currentRouteDistanceLabel : formatAmount(todayEarnings)}
+                  />
                 </div>
 
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#E2E8E3]">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-[#1E8A3C] to-[#F07C00] transition-all duration-500"
+                    className="h-full rounded-full bg-gradient-to-r from-[#1E8A3C] to-[#1A73E8] transition-all duration-500"
                     style={{ width: `${progressRatio * 100}%` }}
                   />
                 </div>
@@ -920,6 +1450,18 @@ export default function LivreurPage() {
               {notice.message}
             </div>
           )}
+
+          {gpsError && !beforeSeven && token && deliveryList.length > 0 && (
+            <div className="rounded-2xl bg-[#EAF2FF]/95 px-4 py-3 text-sm text-[#285C9A] shadow-sm backdrop-blur">
+              {gpsError}
+            </div>
+          )}
+
+          {routeError && !beforeSeven && nextDeliveryWithCoordinates && (
+            <div className="rounded-2xl bg-[#EEF5FF]/95 px-4 py-3 text-sm text-[#285C9A] shadow-sm backdrop-blur">
+              {routeError}
+            </div>
+          )}
         </div>
       </div>
 
@@ -930,22 +1472,26 @@ export default function LivreurPage() {
       )}
 
       {showBottomSheet && (
-        <div className="absolute inset-x-0 bottom-0 z-40">
-          <div className="mx-auto max-w-4xl px-3 pb-3">
-            <div className="pointer-events-auto max-h-[62vh] overflow-y-auto rounded-t-[2rem] border border-white/70 bg-white/96 shadow-[0_-16px_56px_rgba(15,23,42,0.22)] backdrop-blur-xl">
-              <div className="mx-auto mt-3 h-1.5 w-14 rounded-full bg-[#D1D5DB]" />
+        <div className="absolute inset-x-0 bottom-0 z-50 h-[var(--driver-bottom-sheet-height)]">
+          <div className="h-full px-2 pb-2">
+            <div className="pointer-events-auto flex h-full flex-col overflow-hidden rounded-t-[2rem] border border-white/70 bg-white/96 shadow-[0_-18px_56px_rgba(15,23,42,0.24)] backdrop-blur-xl">
+              <button
+                type="button"
+                onClick={() => setSheetMode((currentMode) => (currentMode === "peek" ? "expanded" : "peek"))}
+                className="flex items-center justify-center gap-1 px-4 pb-2 pt-3 text-[#6B7280]"
+              >
+                <span className="h-1.5 w-14 rounded-full bg-[#D1D5DB]" />
+                {isSheetExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+              </button>
 
               {!nextDelivery ? (
-                <div className="px-5 pb-6 pt-4">
-                  <div className="rounded-[1.75rem] bg-[#F0FAF1] p-5 text-center">
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#1E8A3C] text-white">
+                <div className="flex flex-1 items-center px-4 pb-4 pt-3">
+                  <div className="w-full rounded-[1.5rem] bg-[#F0FAF1] p-4 text-center">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#1E8A3C] text-white">
                       <CheckCircle2 className="h-7 w-7" />
                     </div>
-                    <h3 className="mt-4 text-2xl font-bold text-[#17301E]">Tournee terminee</h3>
-                    <p className="mt-2 text-sm leading-6 text-[#5B6B60]">
-                      Toutes les commandes ont ete traitees. La carte reste disponible pour revoir le parcours du jour.
-                    </p>
-                    <div className="mt-4 grid grid-cols-2 gap-3 text-left">
+                    <h3 className="mt-3 text-xl font-bold text-[#17301E]">Tournee terminee</h3>
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-left">
                       <div className="rounded-2xl bg-white px-4 py-3">
                         <p className="text-xs font-medium uppercase tracking-[0.16em] text-[#8A8A8A]">Livrees</p>
                         <p className="mt-1 text-xl font-bold text-[#17301E]">{completedCount}</p>
@@ -958,137 +1504,178 @@ export default function LivreurPage() {
                   </div>
                 </div>
               ) : (
-                <div className="px-5 pb-6 pt-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#1E8A3C]">
-                        Focus livraison
-                      </p>
-                      <h3 className="mt-2 truncate text-2xl font-bold text-[#17301E]">{nextDelivery.clientName}</h3>
-                      <p className="mt-2 text-sm font-medium text-[#3F5246]">{buildPreciseAddress(nextDelivery)}</p>
-                      <p className="mt-1 text-sm leading-6 text-[#5B6B60]">{nextDelivery.address}</p>
+                <div className="flex h-full min-h-0 flex-col px-4 pb-4">
+                  <div className="rounded-[1.6rem] bg-[linear-gradient(145deg,rgba(240,250,241,0.98),rgba(255,255,255,0.92))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="inline-flex rounded-full bg-[#F0FAF1] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#1E8A3C]">
+                            {isNavigating ? "En travail" : "Pret pour la course"}
+                          </span>
+                          <span className="inline-flex rounded-full bg-[#EEF5FF] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#285C9A]">
+                            {currentRouteDistanceLabel}
+                          </span>
+                        </div>
+                        <h3 className="mt-2 truncate text-lg font-bold text-[#17301E]">{nextDelivery.clientName}</h3>
+                        <p className="mt-1 truncate text-sm font-medium text-[#3F5246]">{buildPreciseAddress(nextDelivery)}</p>
+                        <p className="mt-1 truncate text-xs text-[#5B6B60]">{buildPaymentSummary(nextDelivery)}</p>
+                      </div>
+
+                      <div className="shrink-0 rounded-[1.25rem] bg-white px-3 py-2 text-center shadow-sm">
+                        <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#6B7280]">Stop</p>
+                        <p className="mt-1 text-xl font-black text-[#1E8A3C]">{nextDelivery.stepNumber}</p>
+                      </div>
                     </div>
 
-                    <div className="shrink-0 rounded-[1.4rem] bg-[#F0FAF1] px-4 py-3 text-center">
-                      <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#6B7280]">Stop</p>
-                      <p className="mt-1 text-2xl font-black text-[#1E8A3C]">{nextDelivery.stepNumber}</p>
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      <div className="rounded-2xl bg-white px-3 py-2.5 shadow-sm">
+                        <div className="flex items-center gap-1.5 text-[#6B7280]">
+                          <Package className="h-3.5 w-3.5" />
+                          <span className="text-[10px] font-medium uppercase tracking-[0.14em]">Colis</span>
+                        </div>
+                        <p className="mt-1.5 truncate text-sm font-bold text-[#17301E]">{nextDelivery.packageCount}</p>
+                      </div>
+
+                      <div className="rounded-2xl bg-white px-3 py-2.5 shadow-sm">
+                        <div className="flex items-center gap-1.5 text-[#6B7280]">
+                          <Route className="h-3.5 w-3.5" />
+                          <span className="text-[10px] font-medium uppercase tracking-[0.14em]">Route</span>
+                        </div>
+                        <p className="mt-1.5 truncate text-sm font-bold text-[#17301E]">
+                          {isRouteLoading ? "..." : currentRouteDistanceLabel}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl bg-white px-3 py-2.5 shadow-sm">
+                        <div className="flex items-center gap-1.5 text-[#6B7280]">
+                          <Gauge className="h-3.5 w-3.5" />
+                          <span className="text-[10px] font-medium uppercase tracking-[0.14em]">ETA</span>
+                        </div>
+                        <p className="mt-1.5 truncate text-sm font-bold text-[#17301E]">
+                          {isRouteLoading ? "..." : currentRouteDurationLabel}
+                        </p>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
-                      <div className="flex items-center gap-2 text-[#6B7280]">
-                        <Package className="h-4 w-4" />
-                        <span className="text-xs font-medium uppercase tracking-[0.16em]">Colis</span>
-                      </div>
-                      <p className="mt-2 text-base font-bold text-[#17301E]">{buildPackageSummary(nextDelivery)}</p>
-                    </div>
+                  {isSheetExpanded && (
+                    <div className="delivery-sheet-scroll mt-3 min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-1">
+                      <div className="space-y-3 pb-3">
+                        <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
+                          <div className="flex items-center gap-2 text-[#6B7280]">
+                            <MapPin className="h-4 w-4" />
+                            <span className="text-xs font-medium uppercase tracking-[0.16em]">Adresse complete</span>
+                          </div>
+                          <p className="mt-2 text-sm font-semibold text-[#17301E]">{nextDelivery.address}</p>
+                        </div>
 
-                    <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
-                      <div className="flex items-center gap-2 text-[#6B7280]">
-                        <DollarSign className="h-4 w-4" />
-                        <span className="text-xs font-medium uppercase tracking-[0.16em]">Encaissement</span>
-                      </div>
-                      <p className="mt-2 text-base font-bold text-[#17301E]">{buildPaymentSummary(nextDelivery)}</p>
-                    </div>
+                        <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
+                          <div className="flex items-center gap-2 text-[#6B7280]">
+                            <DollarSign className="h-4 w-4" />
+                            <span className="text-xs font-medium uppercase tracking-[0.16em]">Paiement</span>
+                          </div>
+                          <p className="mt-2 text-sm font-semibold text-[#17301E]">{buildPaymentSummary(nextDelivery)}</p>
+                        </div>
 
-                    <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
-                      <div className="flex items-center gap-2 text-[#6B7280]">
-                        <Phone className="h-4 w-4" />
-                        <span className="text-xs font-medium uppercase tracking-[0.16em]">Contact</span>
-                      </div>
-                      <p className="mt-2 text-base font-semibold text-[#17301E]">{nextDelivery.clientPhone}</p>
-                    </div>
+                        <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
+                          <div className="flex items-center gap-2 text-[#6B7280]">
+                            <Package className="h-4 w-4" />
+                            <span className="text-xs font-medium uppercase tracking-[0.16em]">Details colis</span>
+                          </div>
+                          <p className="mt-2 text-sm font-semibold text-[#17301E]">{buildPackageSummary(nextDelivery)}</p>
+                        </div>
 
-                    <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
-                      <div className="flex items-center gap-2 text-[#6B7280]">
-                        <Clock3 className="h-4 w-4" />
-                        <span className="text-xs font-medium uppercase tracking-[0.16em]">Creneau</span>
-                      </div>
-                      <p className="mt-2 text-base font-semibold text-[#17301E]">{nextDelivery.timeSlot}</p>
-                    </div>
-                  </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
+                            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-[#6B7280]">GPS</p>
+                            <p className="mt-2 text-sm font-bold text-[#17301E]">
+                              {driverLocation?.accuracy ? `${Math.round(driverLocation.accuracy)} m` : "En attente"}
+                            </p>
+                          </div>
+                          <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
+                            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-[#6B7280]">Vitesse</p>
+                            <p className="mt-2 text-sm font-bold text-[#17301E]">
+                              {driverLocation?.speedKmh ? `${Math.round(driverLocation.speedKmh)} km/h` : "N/A"}
+                            </p>
+                          </div>
+                        </div>
 
-                  {!tourneeStarted && (
-                    <button
-                      type="button"
-                      onClick={handleStartTournee}
-                      disabled={isStartingTournee || deliveryList.length === 0}
-                      className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#17301E] px-4 text-base font-semibold text-white shadow-sm transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isStartingTournee ? <Spinner className="size-5" /> : <Truck className="h-5 w-5" />}
-                      {tourneeStarted ? "Tournee demarree" : "Demarrer la tournee"}
-                    </button>
+                        {activeMissingCoordinatesCount > 0 && (
+                          <div className="rounded-2xl bg-[#FFF3E0] px-4 py-3 text-sm text-[#8A5A00]">
+                            {activeMissingCoordinatesCount} livraison(s) restante(s) n'ont pas de coordonnees GPS exploitables.
+                          </div>
+                        )}
+
+                        {!nextDeliveryWithCoordinates && (
+                          <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">
+                            La prochaine livraison n'a pas de coordonnees GPS. Le guidage embarque est indisponible.
+                          </div>
+                        )}
+
+                        <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3 text-sm text-[#5B6B60]">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <Truck className="h-4 w-4 text-[#1E8A3C]" />
+                              <span>{remainingCount} etape(s) restante(s)</span>
+                            </div>
+                            <span>{routeSummary ? currentRouteDurationLabel : `ETA ${remainingTime}`}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   )}
 
-                  {activeMissingCoordinatesCount > 0 && (
-                    <div className="mt-4 rounded-2xl bg-[#FFF3E0] px-4 py-3 text-sm text-[#8A5A00]">
-                      {activeMissingCoordinatesCount} livraison(s) restante(s) n'ont pas de coordonnees GPS exploitables.
-                    </div>
-                  )}
-
-                  {!nextDeliveryWithCoordinates && (
-                    <div className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">
-                      La prochaine livraison n'a pas de coordonnees GPS. La navigation est temporairement indisponible.
-                    </div>
-                  )}
-
-                  <div className="mt-5 grid grid-cols-2 gap-3">
+                  <div className={cn("grid grid-cols-[3.25rem_minmax(0,1fr)] gap-3", isSheetExpanded ? "pt-3" : "mt-auto pt-3")}>
                     <a
                       href={nextDelivery.callHref ?? undefined}
                       aria-disabled={!nextDelivery.callHref}
                       className={cn(
-                        "flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#F3F4F6] px-4 text-base font-semibold text-[#17301E] transition-transform active:scale-[0.99]",
+                        "flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#F3F4F6] px-3 text-sm font-semibold text-[#17301E] transition-transform active:scale-[0.99]",
                         !nextDelivery.callHref && "pointer-events-none bg-gray-200 text-gray-500"
                       )}
                     >
                       <Phone className="h-5 w-5" />
-                      Appeler
                     </a>
 
-                    <a
-                      href={nextWazeHref ?? undefined}
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-disabled={!nextWazeHref}
+                    <button
+                      type="button"
+                      onClick={isNavigating ? handleCompleteCurrentDelivery : handleStartDriveMode}
+                      disabled={isStartingTournee || !nextDelivery}
                       className={cn(
-                        "flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#17301E] px-4 text-base font-semibold text-white shadow-sm transition-transform active:scale-[0.99]",
-                        !nextWazeHref && "pointer-events-none bg-gray-200 text-gray-500 shadow-none"
+                        "flex h-12 w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60",
+                        isNavigating ? "bg-[#1E8A3C]" : "bg-[#17301E]"
                       )}
                     >
-                      <Navigation className="h-5 w-5" />
-                      Naviguer
-                    </a>
+                      {isStartingTournee ? (
+                        <Spinner className="size-5" />
+                      ) : isNavigating ? (
+                        <CheckCircle2 className="h-5 w-5" />
+                      ) : (
+                        <Navigation className="h-5 w-5" />
+                      )}
+                      <span className="truncate">{isNavigating ? "Marquer comme livre" : "Demarrer la course"}</span>
+                    </button>
                   </div>
 
-                  {nextGoogleMapsHref && (
-                    <a
-                      href={nextGoogleMapsHref}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-[#285C9A]"
+                  {!isSheetExpanded && (
+                    <button
+                      type="button"
+                      onClick={() => setSheetMode("expanded")}
+                      className="mt-2 w-full text-xs font-medium text-[#285C9A]"
                     >
-                      Ouvrir aussi dans Google Maps
-                      <ChevronRight className="h-4 w-4" />
-                    </a>
+                      Voir les details de la course
+                    </button>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={() => handleStatusChange(nextDelivery.id, "delivered")}
-                    className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#1E8A3C] px-4 text-base font-semibold text-white shadow-[0_12px_28px_rgba(30,138,60,0.26)] transition-transform active:scale-[0.99]"
-                  >
-                    <CheckCircle2 className="h-5 w-5" />
-                    Valider la livraison
-                  </button>
-
-                  <div className="mt-4 flex items-center justify-between rounded-2xl bg-[#F7F9F7] px-4 py-3 text-sm text-[#5B6B60]">
-                    <div className="flex items-center gap-2">
-                      <Route className="h-4 w-4 text-[#1E8A3C]" />
-                      <span>{remainingCount} etape(s) restante(s)</span>
-                    </div>
-                    <span>ETA {remainingTime}</span>
-                  </div>
+                  {isNavigating && (
+                    <button
+                      type="button"
+                      onClick={() => setIsNavigating(false)}
+                      className="mt-2 w-full text-xs font-medium text-[#285C9A]"
+                    >
+                      Revenir a la vue d'ensemble
+                    </button>
+                  )}
                 </div>
               )}
             </div>

@@ -431,9 +431,15 @@ export async function submitManualBasket(cart: CartItem[]): Promise<ManualBasket
 }
 
 export async function fetchPanierDetails(panierId: number): Promise<PanierDetailsResponse> {
-  return apiCall(`/api/paniers/${panierId}`) as Promise<PanierDetailsResponse>
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+  return apiCall(`/api/paniers/${panierId}`, {
+    ...(token ? { token } : {}),
+  }) as Promise<PanierDetailsResponse>
 }
 
 export async function fetchCommandeCheckout(commandeId: number): Promise<CommandeCheckoutResponse> {
-  return apiCall(`/api/commandes/${commandeId}`) as Promise<CommandeCheckoutResponse>
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+  return apiCall(`/api/commandes/${commandeId}`, {
+    ...(token ? { token } : {}),
+  }) as Promise<CommandeCheckoutResponse>
 }
