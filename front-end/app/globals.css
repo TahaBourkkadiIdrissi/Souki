@@ -181,6 +181,24 @@
   animation: slow-zoom 20s linear infinite alternate;
 }
 
+.delivery-sheet-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(26, 115, 232, 0.45) transparent;
+}
+
+.delivery-sheet-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.delivery-sheet-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.delivery-sheet-scroll::-webkit-scrollbar-thumb {
+  background: rgba(26, 115, 232, 0.45);
+  border-radius: 9999px;
+}
+
 .glass-morphism {
   @apply bg-white/20 backdrop-blur-xl border border-white/30 shadow-[0_8px_32px_0_rgba(0,0,0,0.1)];
 }
