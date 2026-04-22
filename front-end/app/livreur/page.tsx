@@ -1,27 +1,27 @@
 "use client"
 
-import { useEffect, useEffectEvent, useRef, useState } from "react"
+import { type ReactNode, useEffect, useEffectEvent, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
-  Calendar,
   CheckCircle2,
-  ClipboardList,
+  ChevronRight,
   Clock3,
   DollarSign,
+  type LucideIcon,
   Map as MapIcon,
   MapPin,
   Navigation,
   Package,
   Phone,
-  Star,
+  Route,
+  SignalHigh,
   Truck,
-  User,
+  WifiOff,
 } from "lucide-react"
 import type { LineLayerSpecification } from "mapbox-gl"
 import Map, { Layer, Marker, NavigationControl, Source, type MapRef } from "react-map-gl/mapbox"
 
-import { DeliveryCard } from "@/components/souki/delivery-card"
 import { Spinner } from "@/components/ui/spinner"
 import { useAuth } from "@/hooks/useAuth"
 import {
@@ -54,13 +54,12 @@ const ROUTE_LAYER: Omit<LineLayerSpecification, "source"> = {
     "line-join": "round",
   },
   paint: {
-    "line-color": "#1E8A3C",
-    "line-width": 4,
-    "line-opacity": 0.88,
+    "line-color": "#F07C00",
+    "line-width": 5,
+    "line-opacity": 0.9,
   },
 }
 
-type TabType = "list" | "map" | "profile"
 type DeliveryStatus = "pending" | "enroute" | "delivered" | "absent"
 type PaymentMethod = "cod" | "wallet" | "cmi"
 type NoticeTone = "info" | "success" | "error"
@@ -71,7 +70,9 @@ interface DeliveryViewItem {
   orderNumber: string
   timeSlot: string
   address: string
+  street: string | null
   neighborhood: string | null
+  details: string | null
   clientName: string
   clientPhone: string
   callHref: string | null
@@ -144,6 +145,7 @@ function writeCachedTournee(data: TourneeResponse) {
   if (typeof window === "undefined") {
     return
   }
+
   window.localStorage.setItem(CACHE_KEY, JSON.stringify(normalizeTourneeResponse(data)))
 }
 
@@ -199,8 +201,10 @@ function mapTourneeItemToDeliveryView(item: TourneeItem, index: number): Deliver
     orderNumber: String(item.commande_id),
     timeSlot: item.creneau_livraison || "Non precise",
     address: item.full_address,
+    street: item.street,
     neighborhood: item.neighborhood,
-    clientName: item.client_phone || item.client_label,
+    details: item.details,
+    clientName: item.client_label,
     clientPhone: item.client_phone || "Telephone indisponible",
     callHref: buildCallHref(item.client_phone),
     packageCount: item.colis_count,
@@ -242,17 +246,32 @@ function formatAmount(amount: number) {
   return `${new Intl.NumberFormat("fr-MA", { maximumFractionDigits: 0 }).format(amount)} DH`
 }
 
-function getDeliveryNeighborhood(delivery: DeliveryViewItem) {
-  const normalizedNeighborhood = delivery.neighborhood?.trim()
-  if (normalizedNeighborhood) {
-    return normalizedNeighborhood
+function buildPreciseAddress(delivery: DeliveryViewItem) {
+  const addressParts = [delivery.neighborhood?.trim(), delivery.street?.trim()].filter(Boolean)
+  if (addressParts.length > 0) {
+    return addressParts.join(", ")
   }
 
   const firstAddressSegment = delivery.address.split(",")[0]?.trim()
-  return firstAddressSegment || "Quartier non precise"
+  return firstAddressSegment || "Adresse non precise"
 }
 
-function buildNavigationHref(lat: number, lng: number) {
+function buildPackageSummary(delivery: DeliveryViewItem) {
+  const baseSummary = `${delivery.packageCount} colis`
+  const normalizedDetails = delivery.details?.trim()
+
+  return normalizedDetails ? `${baseSummary} - ${normalizedDetails}` : baseSummary
+}
+
+function buildPaymentSummary(delivery: DeliveryViewItem) {
+  return `${formatAmount(delivery.amount)} - ${formatPaymentMethodLabel(delivery.paymentMethod)}`
+}
+
+function buildWazeNavigationHref(lat: number, lng: number) {
+  return `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`
+}
+
+function buildGoogleMapsNavigationHref(lat: number, lng: number) {
   return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
 }
 
@@ -336,12 +355,43 @@ function updateStartedStatuses(response: TourneeResponse): TourneeResponse {
   }
 }
 
+function CenterStateCard({
+  icon: Icon,
+  title,
+  description,
+  action,
+}: {
+  icon: LucideIcon
+  title: string
+  description: string
+  action?: ReactNode
+}) {
+  return (
+    <div className="pointer-events-auto w-full max-w-sm rounded-[2rem] border border-white/60 bg-white/92 p-7 text-center shadow-[0_28px_80px_rgba(15,23,42,0.2)] backdrop-blur-xl">
+      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#F0FAF1] text-[#1E8A3C]">
+        <Icon className="h-8 w-8" />
+      </div>
+      <h2 className="mt-5 text-2xl font-bold text-[#17301E]">{title}</h2>
+      <p className="mt-3 text-sm leading-6 text-[#5B6B60]">{description}</p>
+      {action ? <div className="mt-5">{action}</div> : null}
+    </div>
+  )
+}
+
+function HeaderMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-[#F7FAF7]/85 px-3 py-2">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6D7A72]">{label}</p>
+      <p className="mt-1 text-sm font-bold text-[#17301E]">{value}</p>
+    </div>
+  )
+}
+
 export default function LivreurPage() {
   const router = useRouter()
   const { token, isLoading: isAuthLoading, isAuthenticated, can } = useAuth()
   const hasLivreurAccess = can("livreur.dashboard.access")
   const mapRef = useRef<MapRef | null>(null)
-  const [activeTab, setActiveTab] = useState<TabType>("list")
   const [deliveryList, setDeliveryList] = useState<DeliveryViewItem[]>([])
   const [tourneeData, setTourneeData] = useState<TourneeResponse | null>(null)
   const [isOnDuty, setIsOnDuty] = useState(true)
@@ -527,8 +577,11 @@ export default function LivreurPage() {
         : [],
   }
   const activeMissingCoordinatesCount = activeDeliveries.filter((item) => !hasCoordinates(item)).length
-  const nextNavigationHref = nextDeliveryWithCoordinates
-    ? buildNavigationHref(nextDeliveryWithCoordinates.lat, nextDeliveryWithCoordinates.lng)
+  const nextWazeHref = nextDeliveryWithCoordinates
+    ? buildWazeNavigationHref(nextDeliveryWithCoordinates.lat, nextDeliveryWithCoordinates.lng)
+    : null
+  const nextGoogleMapsHref = nextDeliveryWithCoordinates
+    ? buildGoogleMapsNavigationHref(nextDeliveryWithCoordinates.lat, nextDeliveryWithCoordinates.lng)
     : null
   const mapViewportKey = nextDeliveryWithCoordinates
     ? `${nextDeliveryWithCoordinates.id}:${nextDeliveryWithCoordinates.lat}:${nextDeliveryWithCoordinates.lng}:${routeStartCoordinates[0]}:${routeStartCoordinates[1]}`
@@ -543,8 +596,8 @@ export default function LivreurPage() {
     if (nextDeliveryWithCoordinates) {
       mapRef.current.easeTo({
         center: [nextDeliveryWithCoordinates.lng, nextDeliveryWithCoordinates.lat],
-        zoom: 14.5,
-        padding: { top: 72, bottom: 320, left: 32, right: 32 },
+        zoom: 15,
+        padding: { top: 150, bottom: 360, left: 40, right: 40 },
         duration: 900,
       })
       return
@@ -569,8 +622,8 @@ export default function LivreurPage() {
     if (west === east && south === north) {
       mapRef.current.easeTo({
         center: [west, south],
-        zoom: 13.5,
-        padding: { top: 72, bottom: 240, left: 32, right: 32 },
+        zoom: 14,
+        padding: { top: 150, bottom: 300, left: 40, right: 40 },
         duration: 900,
       })
       return
@@ -582,28 +635,29 @@ export default function LivreurPage() {
         [east, north],
       ],
       {
-        padding: { top: 72, bottom: 240, left: 32, right: 32 },
+        padding: { top: 150, bottom: 300, left: 40, right: 40 },
         duration: 900,
       }
     )
   })
 
   useEffect(() => {
-    if (activeTab !== "map") {
-      return
-    }
-
     const frameId = window.requestAnimationFrame(() => focusMapOnDelivery())
     return () => window.cancelAnimationFrame(frameId)
-  }, [activeTab, mapViewportKey])
+  }, [mapViewportKey])
 
   const completedCount = deliveryList.filter((item) => item.status === "delivered" || item.status === "absent").length
   const totalCount = deliveryList.length
+  const remainingCount = activeDeliveries.length
   const remainingTime = computeRemainingTime(deliveryList)
   const todayEarnings = deliveryList.filter((item) => item.status === "delivered").length * 10
-  const monthEarnings = 1240
   const tourneeWindow = formatTourneeWindow(deliveryList)
   const tourneeTitle = `Tournee du ${formatTourneeDate(tourneeData?.date_jour)}${tourneeWindow ? ` - ${tourneeWindow}` : ""}`
+  const progressRatio = totalCount === 0 ? 0 : completedCount / totalCount
+  const futureMarkers = nextDelivery ? futureDeliveries.filter(hasCoordinates) : mappableDeliveries
+  const showMap =
+    isMapboxConfigured && !isTourneeLoading && !beforeSeven && Boolean(token) && mappableDeliveries.length > 0
+  const showBottomSheet = !isTourneeLoading && !beforeSeven && Boolean(token) && deliveryList.length > 0
 
   const handleStatusChange = (id: string, newStatus: "enroute" | "delivered" | "absent") => {
     setDeliveryList((previousList) =>
@@ -650,510 +704,397 @@ export default function LivreurPage() {
     }
   }
 
+  const floatingStatusLabel = beforeSeven
+    ? "Disponible a 7h00"
+    : isTourneeLoading
+      ? "Synchronisation"
+      : deliveryList.length === 0
+        ? "Aucune affectation"
+        : !tourneeStarted
+          ? "Pret a demarrer"
+          : nextDelivery
+            ? "En livraison"
+            : "Tournee terminee"
+  const floatingStatusClass = beforeSeven
+    ? "bg-[#FFF3E0] text-[#8A5A00]"
+    : !tourneeStarted && deliveryList.length > 0
+      ? "bg-[#FFF3E0] text-[#8A5A00]"
+      : nextDelivery
+        ? "bg-[#F0FAF1] text-[#1E8A3C]"
+        : "bg-[#EEF5FF] text-[#285C9A]"
+
+  const renderCenterState = () => {
+    if (isTourneeLoading) {
+      return (
+        <CenterStateCard
+          icon={Truck}
+          title="Chargement de votre tournee"
+          description="Nous recuperons la tournee du jour, les etapes et les coordonnees GPS."
+          action={<Spinner className="mx-auto size-6 text-[#1E8A3C]" />}
+        />
+      )
+    }
+
+    if (beforeSeven) {
+      return (
+        <CenterStateCard
+          icon={Clock3}
+          title="La tournee arrive bientot"
+          description="Votre tournee s'affichera ici a partir de 7h00."
+        />
+      )
+    }
+
+    if (!token) {
+      return (
+        <CenterStateCard
+          icon={Truck}
+          title="Session livreur requise"
+          description="Connectez-vous pour consulter votre tournee et piloter vos prochaines livraisons."
+          action={
+            <Link
+              href="/login/livreur"
+              className="inline-flex rounded-2xl bg-[#F07C00] px-5 py-3 font-semibold text-white"
+            >
+              Se connecter
+            </Link>
+          }
+        />
+      )
+    }
+
+    if (deliveryList.length === 0) {
+      return (
+        <CenterStateCard
+          icon={MapIcon}
+          title="Aucune livraison assignee"
+          description="Revenez un peu plus tard pour verifier votre tournee du jour."
+        />
+      )
+    }
+
+    if (!isMapboxConfigured) {
+      return (
+        <CenterStateCard
+          icon={MapIcon}
+          title="Carte indisponible"
+          description="Ajoutez NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN pour activer la navigation cartographique."
+        />
+      )
+    }
+
+    if (mappableDeliveries.length === 0) {
+      return (
+        <CenterStateCard
+          icon={MapPin}
+          title="Coordonnees GPS manquantes"
+          description="Les commandes doivent fournir lat et lng pour la navigation terrain."
+        />
+      )
+    }
+
+    return null
+  }
+  const centerState = renderCenterState()
+
   return (
-    <div className="min-h-screen bg-[#F5F5F0] max-w-md mx-auto relative">
-      <header className="sticky top-0 z-40 bg-white border-b border-gray-100 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl shadow-sm overflow-hidden flex items-center justify-center bg-white p-0.5 pointer-events-none">
-              <img src="/logo3.png" alt="SOUKI" className="w-[175%] h-full max-w-none object-cover" style={{ objectPosition: "left center" }} />
-            </div>
-            <div>
-              <span className="font-bold text-[#1E8A3C]">SOUKI</span>
-              <span className="text-sm text-[#8A8A8A] ml-1">Driver</span>
-            </div>
-          </div>
-          <button
-            onClick={() => setIsOnDuty(!isOnDuty)}
-            className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
-              isOnDuty ? "bg-[#4CB84A]/10 text-[#4CB84A]" : "bg-red-100 text-red-600"
-            )}
+    <div className="relative h-screen w-full overflow-hidden bg-[#D9E6DD]">
+      <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.75),_rgba(217,230,221,0.6)_35%,_rgba(185,208,190,0.9)_100%)]" />
+
+      {showMap && (
+        <div className="absolute inset-0 z-0">
+          <Map
+            ref={mapRef}
+            reuseMaps
+            initialViewState={DEFAULT_MAP_VIEW}
+            mapboxAccessToken={MAPBOX_TOKEN}
+            mapStyle={MAPBOX_STYLE}
+            maxBounds={MOROCCO_BOUNDS}
+            attributionControl={false}
+            onLoad={() => focusMapOnDelivery()}
           >
-            <span className={cn("w-2 h-2 rounded-full", isOnDuty ? "bg-[#4CB84A]" : "bg-red-500")} />
-            {isOnDuty ? "En service" : "Hors service"}
-          </button>
-        </div>
+            <NavigationControl position="top-right" showCompass={false} />
 
-        <div className="mt-3">
-          <p className="text-lg font-semibold text-[#3D3D3D]">{tourneeTitle}</p>
-        </div>
+            {routeCoordinates.length > 1 && (
+              <Source id="tournee-route" type="geojson" data={routeGeoJson}>
+                <Layer {...ROUTE_LAYER} />
+              </Source>
+            )}
 
-        <div className="mt-4">
-          <div className="flex items-center justify-between text-sm mb-2">
-            <span className="font-medium text-[#1E8A3C]">{completedCount}/{totalCount} livraisons</span>
-            <span className="text-[#8A8A8A]">Temps restant : {remainingTime}</span>
+            {futureMarkers.map((item) => (
+              <Marker key={item.id} longitude={item.lng} latitude={item.lat} anchor="center">
+                <div className="h-3 w-3 rounded-full bg-[#8B9991]/90 ring-4 ring-white/85 shadow-sm" />
+              </Marker>
+            ))}
+
+            {nextDeliveryWithCoordinates && (
+              <Marker
+                longitude={nextDeliveryWithCoordinates.lng}
+                latitude={nextDeliveryWithCoordinates.lat}
+                anchor="bottom"
+              >
+                <div className="relative flex flex-col items-center">
+                  <div className="absolute top-1/2 h-16 w-16 -translate-y-1/2 rounded-full bg-[#F07C00]/30 animate-ping" />
+                  <div className="absolute top-1/2 h-20 w-20 -translate-y-1/2 rounded-full bg-[#F07C00]/12" />
+                  <div className="relative flex h-14 w-14 items-center justify-center rounded-full border-4 border-white bg-[#F07C00] text-lg font-black text-white shadow-[0_18px_34px_rgba(240,124,0,0.4)]">
+                    {nextDeliveryWithCoordinates.stepNumber}
+                  </div>
+                  <div className="-mt-2 h-4 w-4 rotate-45 rounded-[4px] bg-[#F07C00] ring-4 ring-white" />
+                </div>
+              </Marker>
+            )}
+          </Map>
+        </div>
+      )}
+
+      <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-b from-[#10251A]/40 via-transparent via-45% to-[#10251A]/20" />
+
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-30 px-4 pt-4">
+        <div className="mx-auto max-w-4xl">
+          <div className="pointer-events-auto rounded-[2rem] border border-white/60 bg-white/84 p-3 shadow-[0_24px_60px_rgba(15,23,42,0.18)] backdrop-blur-xl">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]",
+                      floatingStatusClass
+                    )}
+                  >
+                    {floatingStatusLabel}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#F4F7F4] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#5F6E65]">
+                    {isOffline ? <WifiOff className="h-3.5 w-3.5" /> : <SignalHigh className="h-3.5 w-3.5" />}
+                    {isOffline ? "Hors ligne" : loadSource === "cache" ? "Cache" : "Live"}
+                  </span>
+                </div>
+
+                <p className="mt-2 truncate text-base font-semibold text-[#17301E]">{tourneeTitle}</p>
+
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  <HeaderMetric label="Restantes" value={String(remainingCount)} />
+                  <HeaderMetric label="Livrees" value={`${completedCount}/${totalCount}`} />
+                  <HeaderMetric label="Gains" value={formatAmount(todayEarnings)} />
+                </div>
+
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#E2E8E3]">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-[#1E8A3C] to-[#F07C00] transition-all duration-500"
+                    style={{ width: `${progressRatio * 100}%` }}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsOnDuty((currentValue) => !currentValue)}
+                className={cn(
+                  "shrink-0 rounded-full px-3 py-2 text-sm font-semibold shadow-sm transition-colors",
+                  isOnDuty ? "bg-[#1E8A3C] text-white" : "bg-red-50 text-red-600"
+                )}
+              >
+                {isOnDuty ? "En service" : "Pause"}
+              </button>
+            </div>
           </div>
-          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-[#4CB84A] rounded-full transition-all"
-              style={{ width: totalCount === 0 ? "0%" : `${(completedCount / totalCount) * 100}%` }}
-            />
-          </div>
         </div>
-
-        <button
-          onClick={handleStartTournee}
-          disabled={isStartingTournee || deliveryList.length === 0 || tourneeStarted}
-          className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-[#1E8A3C] text-white font-semibold shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {isStartingTournee ? <Spinner className="size-5" /> : <Truck className="w-5 h-5" />}
-          <span>{tourneeStarted ? "Tournee demarree" : "Demarrer la tournee"}</span>
-        </button>
       </header>
 
-      <main className={cn("pb-20", activeTab === "map" ? "px-0 py-0" : "px-4 py-4")}>
-        {activeTab !== "map" && loadSource === "cache" && !beforeSeven && (
-          <div className="mb-4 p-4 rounded-2xl bg-[#FFF3E0] text-[#8A5A00] text-sm shadow-sm">
-            Mode hors ligne actif. La liste affiche la derniere tournee sauvegardee sur cet appareil.
-          </div>
-        )}
+      <div className="pointer-events-none absolute inset-x-0 top-[9.75rem] z-30 px-4">
+        <div className="mx-auto max-w-4xl space-y-2">
+          {loadSource === "cache" && !beforeSeven && (
+            <div className="rounded-2xl bg-[#FFF3E0]/95 px-4 py-3 text-sm text-[#8A5A00] shadow-sm backdrop-blur">
+              Mode hors ligne actif. La derniere tournee sauvegardee est affichee.
+            </div>
+          )}
 
-        {activeTab !== "map" && notice && !beforeSeven && (
-          <div
-            className={cn(
-              "mb-4 p-4 rounded-2xl text-sm shadow-sm",
-              notice.tone === "success" && "bg-[#F0FAF1] text-[#1E8A3C]",
-              notice.tone === "info" && "bg-[#FFF3E0] text-[#8A5A00]",
-              notice.tone === "error" && "bg-red-50 text-red-600"
-            )}
-          >
-            {notice.message}
-          </div>
-        )}
+          {notice && !beforeSeven && (
+            <div
+              className={cn(
+                "rounded-2xl px-4 py-3 text-sm shadow-sm backdrop-blur",
+                notice.tone === "success" && "bg-[#F0FAF1]/95 text-[#1E8A3C]",
+                notice.tone === "info" && "bg-[#FFF3E0]/95 text-[#8A5A00]",
+                notice.tone === "error" && "bg-red-50/95 text-red-600"
+              )}
+            >
+              {notice.message}
+            </div>
+          )}
+        </div>
+      </div>
 
-        {activeTab === "list" && (
-          <>
-            {isTourneeLoading ? (
-              <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center gap-3 text-center">
-                <Spinner className="size-6 text-[#1E8A3C]" />
-                <p className="font-medium text-[#3D3D3D]">Chargement de votre tournee...</p>
-              </div>
-            ) : beforeSeven ? (
-              <div className="bg-white rounded-2xl shadow-sm p-6 text-center">
-                <p className="text-xl font-semibold text-[#3D3D3D]">Bonjour, prenez un cafe ☕</p>
-                <p className="text-[#8A8A8A] mt-2">
-                  Votre tournee s&apos;affichera ici a 7h00.
-                </p>
-              </div>
-            ) : !token ? (
-              <div className="bg-white rounded-2xl shadow-sm p-6 text-center">
-                <p className="text-[#3D3D3D] font-semibold">Votre session livreur est requise.</p>
-                <Link href="/login/livreur" className="inline-flex mt-4 px-4 py-2 rounded-xl bg-[#F07C00] text-white font-medium">
-                  Se connecter
-                </Link>
-              </div>
-            ) : deliveryList.length === 0 ? (
-              <div className="bg-white rounded-2xl shadow-sm p-6 text-center">
-                <p className="text-[#3D3D3D] font-semibold">Aucune livraison assignee pour le moment.</p>
-                <p className="text-[#8A8A8A] mt-2">Revenez un peu plus tard pour verifier votre tournee du jour.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {deliveryList.map((delivery, index) => (
-                  <DeliveryCard
-                    key={delivery.id}
-                    id={delivery.id}
-                    sequenceNumber={index + 1}
-                    orderNumber={delivery.orderNumber}
-                    timeSlot={delivery.timeSlot}
-                    address={delivery.address}
-                    clientName={delivery.clientName}
-                    clientPhone={delivery.clientPhone}
-                    callHref={delivery.callHref}
-                    packageCount={delivery.packageCount}
-                    amount={delivery.amount}
-                    paymentMethod={delivery.paymentMethod}
-                    status={delivery.status}
-                    onStatusChange={handleStatusChange}
-                  />
-                ))}
-              </div>
-            )}
-          </>
-        )}
+      {centerState && (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-4 pt-28">
+          {centerState}
+        </div>
+      )}
 
-        {activeTab === "map" && (
-          <div className="relative h-[calc(100dvh-15rem)] min-h-[32rem] overflow-hidden bg-[#E4ECE5]">
-            <div className="absolute inset-0">
-              {!isMapboxConfigured ? (
-                <div className="flex h-full items-center justify-center px-6">
-                  <div className="max-w-xs rounded-[2rem] bg-white/92 p-7 text-center shadow-lg backdrop-blur">
-                    <MapIcon className="mx-auto mb-4 h-14 w-14 text-[#8A8A8A]" />
-                    <p className="font-semibold text-[#3D3D3D]">Token Mapbox manquant</p>
-                    <p className="mt-2 text-sm leading-6 text-[#6B7280]">
-                      Ajoutez `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` pour afficher la carte du livreur.
+      {showBottomSheet && (
+        <div className="absolute inset-x-0 bottom-0 z-40">
+          <div className="mx-auto max-w-4xl px-3 pb-3">
+            <div className="pointer-events-auto max-h-[62vh] overflow-y-auto rounded-t-[2rem] border border-white/70 bg-white/96 shadow-[0_-16px_56px_rgba(15,23,42,0.22)] backdrop-blur-xl">
+              <div className="mx-auto mt-3 h-1.5 w-14 rounded-full bg-[#D1D5DB]" />
+
+              {!nextDelivery ? (
+                <div className="px-5 pb-6 pt-4">
+                  <div className="rounded-[1.75rem] bg-[#F0FAF1] p-5 text-center">
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#1E8A3C] text-white">
+                      <CheckCircle2 className="h-7 w-7" />
+                    </div>
+                    <h3 className="mt-4 text-2xl font-bold text-[#17301E]">Tournee terminee</h3>
+                    <p className="mt-2 text-sm leading-6 text-[#5B6B60]">
+                      Toutes les commandes ont ete traitees. La carte reste disponible pour revoir le parcours du jour.
                     </p>
-                  </div>
-                </div>
-              ) : isTourneeLoading ? (
-                <div className="flex h-full items-center justify-center px-6">
-                  <div className="rounded-[2rem] bg-white/88 px-6 py-5 text-center shadow-lg backdrop-blur">
-                    <Spinner className="mx-auto size-6 text-[#1E8A3C]" />
-                    <p className="mt-3 font-medium text-[#3D3D3D]">Chargement de votre tournee...</p>
-                  </div>
-                </div>
-              ) : beforeSeven ? (
-                <div className="flex h-full items-center justify-center px-6">
-                  <div className="max-w-xs rounded-[2rem] bg-white/92 p-7 text-center shadow-lg backdrop-blur">
-                    <Clock3 className="mx-auto mb-4 h-14 w-14 text-[#1E8A3C]" />
-                    <p className="text-xl font-semibold text-[#3D3D3D]">Bonjour, prenez un cafe</p>
-                    <p className="mt-2 text-sm leading-6 text-[#6B7280]">
-                      Votre tournee s&apos;affichera ici a 7h00.
-                    </p>
-                  </div>
-                </div>
-              ) : !token ? (
-                <div className="flex h-full items-center justify-center px-6">
-                  <div className="max-w-xs rounded-[2rem] bg-white/92 p-7 text-center shadow-lg backdrop-blur">
-                    <Truck className="mx-auto mb-4 h-14 w-14 text-[#1E8A3C]" />
-                    <p className="font-semibold text-[#3D3D3D]">Votre session livreur est requise.</p>
-                    <Link
-                      href="/login/livreur"
-                      className="mt-4 inline-flex rounded-2xl bg-[#F07C00] px-4 py-2.5 font-medium text-white"
-                    >
-                      Se connecter
-                    </Link>
-                  </div>
-                </div>
-              ) : deliveryList.length === 0 ? (
-                <div className="flex h-full items-center justify-center px-6">
-                  <div className="max-w-xs rounded-[2rem] bg-white/92 p-7 text-center shadow-lg backdrop-blur">
-                    <MapIcon className="mx-auto mb-4 h-14 w-14 text-[#8A8A8A]" />
-                    <p className="font-semibold text-[#3D3D3D]">Aucune livraison assignee</p>
-                    <p className="mt-2 text-sm leading-6 text-[#6B7280]">
-                      Revenez un peu plus tard pour verifier votre tournee du jour.
-                    </p>
-                  </div>
-                </div>
-              ) : mappableDeliveries.length === 0 ? (
-                <div className="flex h-full items-center justify-center px-6">
-                  <div className="max-w-xs rounded-[2rem] bg-white/92 p-7 text-center shadow-lg backdrop-blur">
-                    <MapIcon className="mx-auto mb-4 h-14 w-14 text-[#8A8A8A]" />
-                    <p className="font-semibold text-[#3D3D3D]">Aucune coordonnee GPS exploitable</p>
-                    <p className="mt-2 text-sm leading-6 text-[#6B7280]">
-                      Les livraisons doivent avoir `lat` et `lng` pour etre positionnees sur la carte.
-                    </p>
+                    <div className="mt-4 grid grid-cols-2 gap-3 text-left">
+                      <div className="rounded-2xl bg-white px-4 py-3">
+                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-[#8A8A8A]">Livrees</p>
+                        <p className="mt-1 text-xl font-bold text-[#17301E]">{completedCount}</p>
+                      </div>
+                      <div className="rounded-2xl bg-white px-4 py-3">
+                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-[#8A8A8A]">Gains</p>
+                        <p className="mt-1 text-xl font-bold text-[#17301E]">{formatAmount(todayEarnings)}</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : (
-                <>
-                  <div className="absolute inset-0">
-                    <Map
-                      ref={mapRef}
-                      reuseMaps
-                      initialViewState={DEFAULT_MAP_VIEW}
-                      mapboxAccessToken={MAPBOX_TOKEN}
-                      mapStyle={MAPBOX_STYLE}
-                      maxBounds={MOROCCO_BOUNDS}
-                      attributionControl={false}
-                      onLoad={() => focusMapOnDelivery()}
-                    >
-                      <NavigationControl position="top-right" showCompass={false} />
+                <div className="px-5 pb-6 pt-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#1E8A3C]">
+                        Focus livraison
+                      </p>
+                      <h3 className="mt-2 truncate text-2xl font-bold text-[#17301E]">{nextDelivery.clientName}</h3>
+                      <p className="mt-2 text-sm font-medium text-[#3F5246]">{buildPreciseAddress(nextDelivery)}</p>
+                      <p className="mt-1 text-sm leading-6 text-[#5B6B60]">{nextDelivery.address}</p>
+                    </div>
 
-                      {routeCoordinates.length > 1 && (
-                        <Source id="tournee-route" type="geojson" data={routeGeoJson}>
-                          <Layer {...ROUTE_LAYER} />
-                        </Source>
-                      )}
-
-                      {(nextDelivery ? futureDeliveries.filter(hasCoordinates) : mappableDeliveries).map((item) => (
-                        <Marker key={item.id} longitude={item.lng} latitude={item.lat} anchor="center">
-                          <div className="h-3.5 w-3.5 rounded-full bg-[#9AA69D] ring-4 ring-white/90 shadow-sm" />
-                        </Marker>
-                      ))}
-
-                      {nextDeliveryWithCoordinates && (
-                        <Marker longitude={nextDeliveryWithCoordinates.lng} latitude={nextDeliveryWithCoordinates.lat} anchor="bottom">
-                          <div className="flex flex-col items-center">
-                            <div className="flex h-14 w-14 items-center justify-center rounded-[1.35rem] border-4 border-white bg-[#1E8A3C] text-lg font-black text-white shadow-[0_12px_30px_rgba(30,138,60,0.38)]">
-                              {nextDeliveryWithCoordinates.stepNumber}
-                            </div>
-                            <div className="-mt-2 h-4 w-4 rotate-45 rounded-[4px] bg-[#1E8A3C] ring-4 ring-white" />
-                          </div>
-                        </Marker>
-                      )}
-                    </Map>
+                    <div className="shrink-0 rounded-[1.4rem] bg-[#F0FAF1] px-4 py-3 text-center">
+                      <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#6B7280]">Stop</p>
+                      <p className="mt-1 text-2xl font-black text-[#1E8A3C]">{nextDelivery.stepNumber}</p>
+                    </div>
                   </div>
 
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-white/35" />
-                </>
-              )}
-            </div>
-
-            <div className="pointer-events-none absolute inset-x-3 top-3 z-20 space-y-2">
-              {loadSource === "cache" && !beforeSeven && (
-                <div className="rounded-2xl bg-[#FFF3E0]/95 px-4 py-3 text-sm text-[#8A5A00] shadow-sm backdrop-blur">
-                  Mode hors ligne actif. La carte affiche la derniere tournee sauvegardee.
-                </div>
-              )}
-
-              {notice && !beforeSeven && (
-                <div
-                  className={cn(
-                    "rounded-2xl px-4 py-3 text-sm shadow-sm backdrop-blur",
-                    notice.tone === "success" && "bg-[#F0FAF1]/95 text-[#1E8A3C]",
-                    notice.tone === "info" && "bg-[#FFF3E0]/95 text-[#8A5A00]",
-                    notice.tone === "error" && "bg-red-50/95 text-red-600"
-                  )}
-                >
-                  {notice.message}
-                </div>
-              )}
-            </div>
-
-            {isMapboxConfigured && !beforeSeven && !isTourneeLoading && token && deliveryList.length > 0 && (
-              <div className="absolute inset-x-0 bottom-[4.75rem] z-20 px-3">
-                <div className="rounded-t-3xl bg-white/96 shadow-[0_-14px_40px_rgba(17,24,39,0.18)] backdrop-blur">
-                  <div className="mx-auto mt-3 h-1.5 w-12 rounded-full bg-[#D1D5DB]" />
-
-                  {!nextDelivery ? (
-                    <div className="px-5 pb-6 pt-4">
-                      <div className="rounded-[1.75rem] bg-[#F0FAF1] p-5 text-center">
-                        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#1E8A3C] text-white">
-                          <CheckCircle2 className="h-7 w-7" />
-                        </div>
-                        <h3 className="mt-4 text-2xl font-bold text-[#17301E]">Tournee terminee !</h3>
-                        <p className="mt-2 text-sm leading-6 text-[#5B6B60]">
-                          Toutes les commandes de la journee ont ete traitees. Vous pouvez consulter votre progression ou revenir plus tard.
-                        </p>
-                        <div className="mt-4 grid grid-cols-2 gap-3 text-left">
-                          <div className="rounded-2xl bg-white px-4 py-3">
-                            <p className="text-xs font-medium uppercase tracking-[0.16em] text-[#8A8A8A]">Livrees</p>
-                            <p className="mt-1 text-xl font-bold text-[#17301E]">{completedCount}</p>
-                          </div>
-                          <div className="rounded-2xl bg-white px-4 py-3">
-                            <p className="text-xs font-medium uppercase tracking-[0.16em] text-[#8A8A8A]">Revenus</p>
-                            <p className="mt-1 text-xl font-bold text-[#17301E]">{todayEarnings} DH</p>
-                          </div>
-                        </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
+                      <div className="flex items-center gap-2 text-[#6B7280]">
+                        <Package className="h-4 w-4" />
+                        <span className="text-xs font-medium uppercase tracking-[0.16em]">Colis</span>
                       </div>
+                      <p className="mt-2 text-base font-bold text-[#17301E]">{buildPackageSummary(nextDelivery)}</p>
                     </div>
-                  ) : (
-                    <div className="px-5 pb-6 pt-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#1E8A3C]">
-                            Prochaine livraison
-                          </p>
-                          <h3 className="mt-2 truncate text-2xl font-bold text-[#17301E]">
-                            {getDeliveryNeighborhood(nextDelivery)}
-                          </h3>
-                          <p className="mt-2 text-sm leading-6 text-[#5B6B60]">{nextDelivery.address}</p>
-                        </div>
 
-                        <div className="shrink-0 rounded-[1.4rem] bg-[#F0FAF1] px-4 py-3 text-center">
-                          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#6B7280]">Stop</p>
-                          <p className="mt-1 text-2xl font-black text-[#1E8A3C]">{nextDelivery.stepNumber}</p>
-                        </div>
+                    <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
+                      <div className="flex items-center gap-2 text-[#6B7280]">
+                        <DollarSign className="h-4 w-4" />
+                        <span className="text-xs font-medium uppercase tracking-[0.16em]">Encaissement</span>
                       </div>
+                      <p className="mt-2 text-base font-bold text-[#17301E]">{buildPaymentSummary(nextDelivery)}</p>
+                    </div>
 
-                      <div className="mt-4 grid grid-cols-2 gap-3">
-                        <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
-                          <div className="flex items-center gap-2 text-[#6B7280]">
-                            <Package className="h-4 w-4" />
-                            <span className="text-xs font-medium uppercase tracking-[0.16em]">Colis</span>
-                          </div>
-                          <p className="mt-2 text-lg font-bold text-[#17301E]">{nextDelivery.packageCount}</p>
-                        </div>
-
-                        <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
-                          <div className="flex items-center gap-2 text-[#6B7280]">
-                            <DollarSign className="h-4 w-4" />
-                            <span className="text-xs font-medium uppercase tracking-[0.16em]">Montant</span>
-                          </div>
-                          <p className="mt-2 text-lg font-bold text-[#17301E]">{formatAmount(nextDelivery.amount)}</p>
-                        </div>
-
-                        <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
-                          <div className="flex items-center gap-2 text-[#6B7280]">
-                            <MapPin className="h-4 w-4" />
-                            <span className="text-xs font-medium uppercase tracking-[0.16em]">Paiement</span>
-                          </div>
-                          <p className="mt-2 text-base font-semibold text-[#17301E]">
-                            {formatPaymentMethodLabel(nextDelivery.paymentMethod)}
-                          </p>
-                        </div>
-
-                        <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
-                          <div className="flex items-center gap-2 text-[#6B7280]">
-                            <Clock3 className="h-4 w-4" />
-                            <span className="text-xs font-medium uppercase tracking-[0.16em]">Creneau</span>
-                          </div>
-                          <p className="mt-2 text-base font-semibold text-[#17301E]">{nextDelivery.timeSlot}</p>
-                        </div>
+                    <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
+                      <div className="flex items-center gap-2 text-[#6B7280]">
+                        <Phone className="h-4 w-4" />
+                        <span className="text-xs font-medium uppercase tracking-[0.16em]">Contact</span>
                       </div>
+                      <p className="mt-2 text-base font-semibold text-[#17301E]">{nextDelivery.clientPhone}</p>
+                    </div>
 
-                      {activeMissingCoordinatesCount > 0 && (
-                        <div className="mt-4 rounded-2xl bg-[#FFF3E0] px-4 py-3 text-sm text-[#8A5A00]">
-                          {activeMissingCoordinatesCount} livraison(s) restante(s) n&apos;ont pas de coordonnees GPS exploitables.
-                        </div>
-                      )}
-
-                      {!nextDeliveryWithCoordinates && (
-                        <div className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">
-                          La prochaine livraison n&apos;a pas de coordonnees GPS. La navigation est temporairement indisponible.
-                        </div>
-                      )}
-
-                      <div className="mt-5 grid grid-cols-2 gap-3">
-                        <a
-                          href={nextNavigationHref ?? undefined}
-                          target="_blank"
-                          rel="noreferrer"
-                          aria-disabled={!nextNavigationHref}
-                          className={cn(
-                            "flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#17301E] px-4 text-base font-semibold text-white shadow-sm transition-transform active:scale-[0.99]",
-                            !nextNavigationHref && "pointer-events-none bg-gray-200 text-gray-500 shadow-none"
-                          )}
-                        >
-                          <Navigation className="h-5 w-5" />
-                          Naviguer
-                        </a>
-
-                        <a
-                          href={nextDelivery.callHref ?? undefined}
-                          aria-disabled={!nextDelivery.callHref}
-                          className={cn(
-                            "flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#F3F4F6] px-4 text-base font-semibold text-[#17301E] transition-transform active:scale-[0.99]",
-                            !nextDelivery.callHref && "pointer-events-none bg-gray-200 text-gray-500"
-                          )}
-                        >
-                          <Phone className="h-5 w-5" />
-                          Appeler
-                        </a>
+                    <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
+                      <div className="flex items-center gap-2 text-[#6B7280]">
+                        <Clock3 className="h-4 w-4" />
+                        <span className="text-xs font-medium uppercase tracking-[0.16em]">Creneau</span>
                       </div>
+                      <p className="mt-2 text-base font-semibold text-[#17301E]">{nextDelivery.timeSlot}</p>
+                    </div>
+                  </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleStatusChange(nextDelivery.id, "delivered")}
-                        className="mt-3 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#1E8A3C] px-4 text-base font-semibold text-white shadow-sm transition-transform active:scale-[0.99]"
-                      >
-                        <CheckCircle2 className="h-5 w-5" />
-                        Valider la livraison
-                      </button>
+                  {!tourneeStarted && (
+                    <button
+                      type="button"
+                      onClick={handleStartTournee}
+                      disabled={isStartingTournee || deliveryList.length === 0}
+                      className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#17301E] px-4 text-base font-semibold text-white shadow-sm transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isStartingTournee ? <Spinner className="size-5" /> : <Truck className="h-5 w-5" />}
+                      {tourneeStarted ? "Tournee demarree" : "Demarrer la tournee"}
+                    </button>
+                  )}
+
+                  {activeMissingCoordinatesCount > 0 && (
+                    <div className="mt-4 rounded-2xl bg-[#FFF3E0] px-4 py-3 text-sm text-[#8A5A00]">
+                      {activeMissingCoordinatesCount} livraison(s) restante(s) n'ont pas de coordonnees GPS exploitables.
                     </div>
                   )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
-        {activeTab === "profile" && (
-          <div className="space-y-4">
-            <div className="bg-white rounded-2xl shadow-sm p-6">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 bg-[#1E8A3C] rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                  M
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-[#3D3D3D]">Mohammed B.</h2>
-                  <p className="text-[#8A8A8A]">Zone Fes-Centre</p>
-                </div>
-              </div>
+                  {!nextDeliveryWithCoordinates && (
+                    <div className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">
+                      La prochaine livraison n'a pas de coordonnees GPS. La navigation est temporairement indisponible.
+                    </div>
+                  )}
 
-              <div className="flex items-center gap-2 mb-6">
-                <div className="flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star
-                      key={star}
-                      className={cn("w-5 h-5", star <= 4 ? "text-[#F5C400] fill-[#F5C400]" : "text-gray-200")}
-                    />
-                  ))}
-                </div>
-                <span className="font-bold text-[#3D3D3D]">4.8/5</span>
-                <span className="text-sm text-[#8A8A8A]">(156 evaluations)</span>
-              </div>
+                  <div className="mt-5 grid grid-cols-2 gap-3">
+                    <a
+                      href={nextDelivery.callHref ?? undefined}
+                      aria-disabled={!nextDelivery.callHref}
+                      className={cn(
+                        "flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#F3F4F6] px-4 text-base font-semibold text-[#17301E] transition-transform active:scale-[0.99]",
+                        !nextDelivery.callHref && "pointer-events-none bg-gray-200 text-gray-500"
+                      )}
+                    >
+                      <Phone className="h-5 w-5" />
+                      Appeler
+                    </a>
 
-              <div className="p-4 bg-[#F0FAF1] rounded-xl">
-                <p className="text-sm text-[#8A8A8A] mb-1">Statut contrat</p>
-                <p className="font-semibold text-[#1E8A3C]">Livreur Independant - Zone Fes-Centre</p>
-              </div>
-            </div>
+                    <a
+                      href={nextWazeHref ?? undefined}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-disabled={!nextWazeHref}
+                      className={cn(
+                        "flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#17301E] px-4 text-base font-semibold text-white shadow-sm transition-transform active:scale-[0.99]",
+                        !nextWazeHref && "pointer-events-none bg-gray-200 text-gray-500 shadow-none"
+                      )}
+                    >
+                      <Navigation className="h-5 w-5" />
+                      Naviguer
+                    </a>
+                  </div>
 
-            <div className="bg-white rounded-2xl shadow-sm p-6">
-              <h3 className="font-bold text-[#3D3D3D] mb-4 flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-[#F07C00]" />
-                Revenus
-              </h3>
+                  {nextGoogleMapsHref && (
+                    <a
+                      href={nextGoogleMapsHref}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-[#285C9A]"
+                    >
+                      Ouvrir aussi dans Google Maps
+                      <ChevronRight className="h-4 w-4" />
+                    </a>
+                  )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-[#F07C00]/10 rounded-xl">
-                  <p className="text-sm text-[#8A8A8A] mb-1">Aujourd&apos;hui</p>
-                  <p className="text-2xl font-bold text-[#F07C00]">{todayEarnings} DH</p>
-                  <p className="text-xs text-[#8A8A8A]">{completedCount} livraisons x 10 DH</p>
-                </div>
-                <div className="p-4 bg-[#4CB84A]/10 rounded-xl">
-                  <p className="text-sm text-[#8A8A8A] mb-1">Ce mois</p>
-                  <p className="text-2xl font-bold text-[#4CB84A]">{monthEarnings} DH</p>
-                  <p className="text-xs text-[#8A8A8A]">124 livraisons</p>
-                </div>
-              </div>
-            </div>
+                  <button
+                    type="button"
+                    onClick={() => handleStatusChange(nextDelivery.id, "delivered")}
+                    className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#1E8A3C] px-4 text-base font-semibold text-white shadow-[0_12px_28px_rgba(30,138,60,0.26)] transition-transform active:scale-[0.99]"
+                  >
+                    <CheckCircle2 className="h-5 w-5" />
+                    Valider la livraison
+                  </button>
 
-            <div className="bg-white rounded-2xl shadow-sm p-6">
-              <h3 className="font-bold text-[#3D3D3D] mb-4 flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-[#1E8A3C]" />
-                Statistiques
-              </h3>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[#8A8A8A]">Livraisons totales</span>
-                  <span className="font-semibold text-[#3D3D3D]">1,456</span>
+                  <div className="mt-4 flex items-center justify-between rounded-2xl bg-[#F7F9F7] px-4 py-3 text-sm text-[#5B6B60]">
+                    <div className="flex items-center gap-2">
+                      <Route className="h-4 w-4 text-[#1E8A3C]" />
+                      <span>{remainingCount} etape(s) restante(s)</span>
+                    </div>
+                    <span>ETA {remainingTime}</span>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#8A8A8A]">Taux de reussite</span>
-                  <span className="font-semibold text-[#4CB84A]">98.2%</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#8A8A8A]">Temps moyen/livraison</span>
-                  <span className="font-semibold text-[#3D3D3D]">12 min</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#8A8A8A]">Membre depuis</span>
-                  <span className="font-semibold text-[#3D3D3D]">Janvier 2026</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#8A8A8A]">Source de la tournee</span>
-                  <span className="font-semibold text-[#3D3D3D]">
-                    {loadSource === "cache" ? "Cache local" : loadSource === "api" ? "API live" : "Indisponible"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#8A8A8A]">Connexion</span>
-                  <span className={cn("font-semibold", isOffline ? "text-red-600" : "text-[#1E8A3C]")}>
-                    {isOffline ? "Hors ligne" : "En ligne"}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
-
-      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-100 px-4 py-2 z-50">
-        <div className="flex items-center justify-around">
-          {[
-            { id: "list" as TabType, icon: ClipboardList, label: "Liste" },
-            { id: "map" as TabType, icon: MapIcon, label: "Carte" },
-            { id: "profile" as TabType, icon: User, label: "Profil" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "flex flex-col items-center gap-1 py-2 px-4 rounded-xl transition-colors",
-                activeTab === tab.id ? "text-[#1E8A3C]" : "text-[#8A8A8A]"
               )}
-            >
-              <tab.icon className="w-6 h-6" />
-              <span className="text-xs font-medium">{tab.label}</span>
-            </button>
-          ))}
+            </div>
+          </div>
         </div>
-      </nav>
+      )}
     </div>
   )
 }
