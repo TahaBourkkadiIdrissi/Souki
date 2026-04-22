@@ -53,10 +53,16 @@ const GPS_WATCH_OPTIONS: PositionOptions = {
   maximumAge: 5000,
   timeout: 15000,
 }
+const GPS_BOOTSTRAP_OPTIONS: PositionOptions = {
+  enableHighAccuracy: true,
+  maximumAge: 0,
+  timeout: 12000,
+}
 const ROUTE_REFRESH_DISTANCE_METERS = 40
 const ROUTE_REFRESH_INTERVAL_MS = 15000
 const ROUTE_OVERVIEW_PADDING = { top: 140, bottom: 190, left: 28, right: 28 }
 const DRIVE_MODE_PADDING = { top: 100, bottom: 190, left: 20, right: 20 }
+const STARTED_DELIVERY_STATUS = "EN_COURS_DE_LIVRAISON"
 const ROUTE_CASING_LAYER: Omit<LineLayerSpecification, "source"> = {
   id: "tournee-route-casing",
   type: "line",
@@ -190,6 +196,118 @@ function normalizeTourneeResponse(response: TourneeResponse): TourneeResponse {
   }
 }
 
+function formatLocalDateKey(dateValue: Date) {
+  const year = dateValue.getFullYear()
+  const month = String(dateValue.getMonth() + 1).padStart(2, "0")
+  const day = String(dateValue.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function normalizeTourneeDateKey(dateValue?: string | null) {
+  if (!dateValue) {
+    return null
+  }
+
+  const trimmedValue = dateValue.trim()
+  if (!trimmedValue) {
+    return null
+  }
+
+  const directMatch = trimmedValue.match(/^(\d{4}-\d{2}-\d{2})/)
+  if (directMatch) {
+    return directMatch[1]
+  }
+
+  const parsedDate = new Date(trimmedValue)
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null
+  }
+
+  return formatLocalDateKey(parsedDate)
+}
+
+function isTourneeForCurrentDay(response: TourneeResponse) {
+  const responseDateKey = normalizeTourneeDateKey(response.date_jour)
+  if (!responseDateKey) {
+    return false
+  }
+
+  return responseDateKey === formatLocalDateKey(new Date())
+}
+
+function isTerminalDeliveryStatus(status: string) {
+  const normalizedStatus = normalizeDeliveryStatus(status)
+  return normalizedStatus === "delivered" || normalizedStatus === "absent"
+}
+
+function shouldPreferCachedStatus(apiStatus: string, cachedStatus: string) {
+  const normalizedApiStatus = normalizeDeliveryStatus(apiStatus)
+  const normalizedCachedStatus = normalizeDeliveryStatus(cachedStatus)
+
+  if (normalizedCachedStatus === "delivered" || normalizedCachedStatus === "absent") {
+    return normalizedApiStatus !== normalizedCachedStatus
+  }
+
+  return normalizedCachedStatus === "enroute" && normalizedApiStatus === "pending"
+}
+
+function mergeTourneeWithCache(apiResponse: TourneeResponse, cachedResponse: TourneeResponse | null) {
+  const normalizedApiResponse = normalizeTourneeResponse(apiResponse)
+  if (!cachedResponse) {
+    return normalizedApiResponse
+  }
+
+  const normalizedCachedResponse = normalizeTourneeResponse(cachedResponse)
+  const apiDateKey = normalizeTourneeDateKey(normalizedApiResponse.date_jour)
+  const cachedDateKey = normalizeTourneeDateKey(normalizedCachedResponse.date_jour)
+
+  if (!apiDateKey || !cachedDateKey || apiDateKey !== cachedDateKey) {
+    return normalizedApiResponse
+  }
+
+  if (
+    normalizedApiResponse.items.length === 0 &&
+    normalizedCachedResponse.items.length > 0 &&
+    normalizedCachedResponse.items.every((item) => isTerminalDeliveryStatus(item.statut))
+  ) {
+    return {
+      ...normalizedCachedResponse,
+      date_jour: normalizedApiResponse.date_jour,
+      sort_strategy: normalizedApiResponse.sort_strategy || normalizedCachedResponse.sort_strategy,
+      status: normalizedApiResponse.status || normalizedCachedResponse.status,
+      available_after: normalizedApiResponse.available_after || normalizedCachedResponse.available_after,
+      tournee_started: true,
+    }
+  }
+
+  const cachedItemsById = new Map(
+    normalizedCachedResponse.items.map((item) => [String(item.commande_id), item] as const)
+  )
+
+  const mergedItems = normalizedApiResponse.items.map((item) => {
+    const cachedItem = cachedItemsById.get(String(item.commande_id))
+    if (!cachedItem || !shouldPreferCachedStatus(item.statut, cachedItem.statut)) {
+      return item
+    }
+
+    return {
+      ...item,
+      statut: cachedItem.statut,
+    }
+  })
+
+  const hasCompletedSteps = mergedItems.some((item) => isTerminalDeliveryStatus(item.statut))
+
+  return {
+    ...normalizedApiResponse,
+    items: mergedItems,
+    tournee_started:
+      normalizedApiResponse.tournee_started ||
+      mergedItems.some((item) => normalizeBackendStatus(item.statut) === STARTED_DELIVERY_STATUS) ||
+      hasCompletedSteps,
+  }
+}
+
 function readCachedTournee(): TourneeResponse | null {
   if (typeof window === "undefined") {
     return null
@@ -201,7 +319,13 @@ function readCachedTournee(): TourneeResponse | null {
   }
 
   try {
-    return normalizeTourneeResponse(JSON.parse(rawValue) as TourneeResponse)
+    const parsedResponse = normalizeTourneeResponse(JSON.parse(rawValue) as TourneeResponse)
+    if (!isTourneeForCurrentDay(parsedResponse)) {
+      window.localStorage.removeItem(CACHE_KEY)
+      return null
+    }
+
+    return parsedResponse
   } catch {
     window.localStorage.removeItem(CACHE_KEY)
     return null
@@ -236,6 +360,22 @@ function normalizeDeliveryStatus(status: string): DeliveryStatus {
   }
 
   return "pending"
+}
+
+function mapDeliveryStatusToBackendStatus(status: DeliveryStatus) {
+  if (status === "enroute") {
+    return "EN_COURS_DE_LIVRAISON"
+  }
+
+  if (status === "delivered") {
+    return "LIVRE"
+  }
+
+  if (status === "absent") {
+    return "ABSENT"
+  }
+
+  return "A_LIVRER"
 }
 
 function normalizePaymentMethod(modePaiement: string | null | undefined): PaymentMethod {
@@ -341,28 +481,6 @@ function extractHourBounds(timeSlot: string) {
   }
 
   return matches.map((match) => Number.parseInt(match, 10)).filter((value) => !Number.isNaN(value))
-}
-
-function formatTourneeDate(dateValue?: string) {
-  const fallbackDate = new Date()
-  const parsedDate = dateValue ? new Date(dateValue) : fallbackDate
-
-  return new Intl.DateTimeFormat("fr-FR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(parsedDate)
-}
-
-function formatTourneeWindow(items: DeliveryViewItem[]) {
-  const allBounds = items.flatMap((item) => extractHourBounds(item.timeSlot))
-  if (allBounds.length === 0) {
-    return null
-  }
-
-  const minHour = Math.min(...allBounds)
-  const maxHour = Math.max(...allBounds)
-  return `${minHour}h00-${maxHour}h00`
 }
 
 function computeRemainingTime(items: DeliveryViewItem[]) {
@@ -543,6 +661,7 @@ export default function LivreurPage() {
   const hasLivreurAccess = can("livreur.dashboard.access")
   const mapRef = useRef<MapRef | null>(null)
   const lastDriverLocationRef = useRef<DriverLocation | null>(null)
+  const isLocationRequestPendingRef = useRef(false)
   const lastDirectionsRequestRef = useRef<{
     origin: [number, number]
     destination: [number, number]
@@ -561,8 +680,11 @@ export default function LivreurPage() {
   const [notice, setNotice] = useState<PageNotice | null>(null)
   const [driverLocation, setDriverLocation] = useState<DriverLocation | null>(null)
   const [gpsError, setGpsError] = useState<string | null>(null)
+  const [isRequestingLocation, setIsRequestingLocation] = useState(false)
   const [isNavigating, setIsNavigating] = useState(false)
   const [sheetMode, setSheetMode] = useState<SheetMode>("peek")
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false)
+  const [isDriverFocusEnabled, setIsDriverFocusEnabled] = useState(true)
   const [routeGeoJson, setRouteGeoJson] = useState<LineFeatureCollection>(EMPTY_ROUTE_GEOJSON)
   const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null)
   const [isRouteLoading, setIsRouteLoading] = useState(false)
@@ -570,13 +692,14 @@ export default function LivreurPage() {
 
   const applyTourneeData = useEffectEvent((response: TourneeResponse, source: "api" | "cache") => {
     const normalizedResponse = normalizeTourneeResponse(response)
+    const hasCompletedSteps = normalizedResponse.items.some((item) => isTerminalDeliveryStatus(item.statut))
+    const hasStartedSteps = normalizedResponse.items.some(
+      (item) => normalizeBackendStatus(item.statut) === STARTED_DELIVERY_STATUS
+    )
 
     setTourneeData(normalizedResponse)
     setDeliveryList(normalizedResponse.items.map(mapTourneeItemToDeliveryView))
-    setTourneeStarted(
-      normalizedResponse.tournee_started ||
-        normalizedResponse.items.some((item) => normalizeBackendStatus(item.statut) === "EN_COURS_DE_LIVRAISON")
-    )
+    setTourneeStarted(normalizedResponse.tournee_started || hasStartedSteps || hasCompletedSteps)
     setLoadSource(source)
     setBeforeSeven(false)
   })
@@ -591,6 +714,133 @@ export default function LivreurPage() {
     setNotice({ tone: "info", message: fallbackMessage })
     return true
   })
+
+  const applyDriverPosition = useEffectEvent((position: GeolocationPosition) => {
+    const previousLocation = lastDriverLocationRef.current
+    const deviceHeading =
+      typeof position.coords.heading === "number" &&
+      Number.isFinite(position.coords.heading) &&
+      position.coords.heading >= 0
+        ? position.coords.heading
+        : null
+    const computedHeading =
+      previousLocation &&
+      computeDistanceMeters(
+        previousLocation.latitude,
+        previousLocation.longitude,
+        position.coords.latitude,
+        position.coords.longitude
+      ) > 5
+        ? computeBearing(
+            previousLocation.latitude,
+            previousLocation.longitude,
+            position.coords.latitude,
+            position.coords.longitude
+          )
+        : previousLocation?.heading ?? null
+    const nextLocation: DriverLocation = {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      accuracy:
+        typeof position.coords.accuracy === "number" && Number.isFinite(position.coords.accuracy)
+          ? position.coords.accuracy
+          : null,
+      speedKmh:
+        typeof position.coords.speed === "number" &&
+        Number.isFinite(position.coords.speed) &&
+        position.coords.speed >= 0
+          ? position.coords.speed * 3.6
+          : previousLocation?.speedKmh ?? null,
+      heading: deviceHeading ?? computedHeading,
+      timestamp: position.timestamp,
+    }
+
+    lastDriverLocationRef.current = nextLocation
+    setDriverLocation(nextLocation)
+    setGpsError(null)
+    setIsRequestingLocation(false)
+  })
+
+  const requestCurrentLocation = useEffectEvent(
+    ({
+      showNoticeOnError = false,
+      recenterAfterSuccess = false,
+      showLoadingState = false,
+    }: {
+      showNoticeOnError?: boolean
+      recenterAfterSuccess?: boolean
+      showLoadingState?: boolean
+    } = {}) => {
+      if (typeof window === "undefined") {
+        return
+      }
+
+      if (!window.isSecureContext) {
+        const message = "La geolocalisation mobile exige une page HTTPS securisee."
+        setGpsError(message)
+        if (showNoticeOnError) {
+          setNotice({ tone: "error", message })
+        }
+        return
+      }
+
+      if (!("geolocation" in window.navigator)) {
+        const message = "Le GPS du navigateur n'est pas disponible sur cet appareil."
+        setGpsError(message)
+        if (showNoticeOnError) {
+          setNotice({ tone: "error", message })
+        }
+        return
+      }
+
+      if (isLocationRequestPendingRef.current) {
+        return
+      }
+
+      isLocationRequestPendingRef.current = true
+      if (showLoadingState) {
+        setIsRequestingLocation(true)
+      }
+      window.navigator.geolocation.getCurrentPosition(
+        (position) => {
+          isLocationRequestPendingRef.current = false
+          applyDriverPosition(position)
+
+          if (recenterAfterSuccess) {
+            window.requestAnimationFrame(() => {
+              handleRecenterToDriver()
+            })
+          }
+        },
+        (error) => {
+          isLocationRequestPendingRef.current = false
+          if (showLoadingState) {
+            setIsRequestingLocation(false)
+          }
+
+          if (error.code === error.PERMISSION_DENIED) {
+            if (showNoticeOnError) {
+              setNotice({
+                tone: "error",
+                message: "Activez la localisation du navigateur sur mobile pour suivre le trajet.",
+              })
+            }
+            return
+          }
+
+          const message =
+            error.code === error.TIMEOUT
+              ? "La position GPS tarde a arriver. Reessayez en exterieur ou pres d'une fenetre."
+              : "Impossible d'obtenir la position GPS actuelle sur cet appareil."
+          setGpsError(message)
+          if (showNoticeOnError) {
+            setNotice({ tone: "error", message })
+          }
+        },
+        GPS_BOOTSTRAP_OPTIONS
+      )
+    }
+  )
 
   useEffect(() => {
     const syncOnlineStatus = () => {
@@ -612,60 +862,32 @@ export default function LivreurPage() {
       return
     }
 
+    if (!window.isSecureContext) {
+      setGpsError("La geolocalisation mobile exige une page HTTPS securisee.")
+      return
+    }
+
     if (!("geolocation" in window.navigator)) {
       setGpsError("Le GPS du navigateur n'est pas disponible sur cet appareil.")
       return
     }
 
     let isCancelled = false
+    requestCurrentLocation()
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        requestCurrentLocation()
+      }
+    }
+
     const watchId = window.navigator.geolocation.watchPosition(
       (position) => {
         if (isCancelled) {
           return
         }
 
-        const previousLocation = lastDriverLocationRef.current
-        const deviceHeading =
-          typeof position.coords.heading === "number" &&
-          Number.isFinite(position.coords.heading) &&
-          position.coords.heading >= 0
-            ? position.coords.heading
-            : null
-        const computedHeading =
-          previousLocation &&
-          computeDistanceMeters(
-            previousLocation.latitude,
-            previousLocation.longitude,
-            position.coords.latitude,
-            position.coords.longitude
-          ) > 5
-            ? computeBearing(
-                previousLocation.latitude,
-                previousLocation.longitude,
-                position.coords.latitude,
-                position.coords.longitude
-              )
-            : previousLocation?.heading ?? null
-        const nextLocation: DriverLocation = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy:
-            typeof position.coords.accuracy === "number" && Number.isFinite(position.coords.accuracy)
-              ? position.coords.accuracy
-              : null,
-          speedKmh:
-            typeof position.coords.speed === "number" &&
-            Number.isFinite(position.coords.speed) &&
-            position.coords.speed >= 0
-              ? position.coords.speed * 3.6
-              : previousLocation?.speedKmh ?? null,
-          heading: deviceHeading ?? computedHeading,
-          timestamp: position.timestamp,
-        }
-
-        lastDriverLocationRef.current = nextLocation
-        setDriverLocation(nextLocation)
-        setGpsError(null)
+        applyDriverPosition(position)
       },
       (error) => {
         if (isCancelled) {
@@ -673,7 +895,7 @@ export default function LivreurPage() {
         }
 
         if (error.code === error.PERMISSION_DENIED) {
-          setGpsError("Autorisez la geolocalisation pour activer le guidage live du livreur.")
+          setGpsError(null)
           return
         }
 
@@ -687,11 +909,14 @@ export default function LivreurPage() {
       GPS_WATCH_OPTIONS
     )
 
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
     return () => {
       isCancelled = true
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
       window.navigator.geolocation.clearWatch(watchId)
     }
-  }, [])
+  }, [applyDriverPosition, requestCurrentLocation])
 
   useEffect(() => {
     if (isAuthLoading) {
@@ -745,8 +970,9 @@ export default function LivreurPage() {
           return
         }
 
-        writeCachedTournee(response)
-        applyTourneeData(response, "api")
+        const mergedResponse = mergeTourneeWithCache(response, readCachedTournee())
+        writeCachedTournee(mergedResponse)
+        applyTourneeData(mergedResponse, "api")
       } catch (error) {
         if (isCancelled) {
           return
@@ -963,6 +1189,10 @@ export default function LivreurPage() {
 
     const mapInstance = mapRef.current
 
+    if (!isDriverFocusEnabled) {
+      return
+    }
+
     if (isNavigating) {
       if (driverLocation) {
         const nextBearing =
@@ -975,7 +1205,7 @@ export default function LivreurPage() {
           zoom: 16.8,
           pitch: 60,
           bearing: nextBearing,
-          padding: DRIVE_MODE_PADDING,
+          padding: driveModePadding,
           duration: 700,
           essential: true,
         })
@@ -988,7 +1218,7 @@ export default function LivreurPage() {
           zoom: 15.2,
           pitch: 45,
           bearing: mapInstance.getBearing(),
-          padding: DRIVE_MODE_PADDING,
+          padding: driveModePadding,
           duration: 700,
           essential: true,
         })
@@ -1008,7 +1238,7 @@ export default function LivreurPage() {
           zoom: 15,
           pitch: 20,
           bearing: 0,
-          padding: ROUTE_OVERVIEW_PADDING,
+          padding: routeOverviewPadding,
           duration: 900,
           essential: true,
         })
@@ -1021,7 +1251,7 @@ export default function LivreurPage() {
           [east, north],
         ],
         {
-          padding: ROUTE_OVERVIEW_PADDING,
+          padding: routeOverviewPadding,
           duration: 900,
           essential: true,
         }
@@ -1035,7 +1265,7 @@ export default function LivreurPage() {
         zoom: 15,
         pitch: 10,
         bearing: 0,
-        padding: ROUTE_OVERVIEW_PADDING,
+        padding: routeOverviewPadding,
         duration: 900,
         essential: true,
       })
@@ -1048,7 +1278,7 @@ export default function LivreurPage() {
         zoom: 14.5,
         pitch: 15,
         bearing: 0,
-        padding: ROUTE_OVERVIEW_PADDING,
+        padding: routeOverviewPadding,
         duration: 900,
         essential: true,
       })
@@ -1078,7 +1308,7 @@ export default function LivreurPage() {
         zoom: 14,
         pitch: 10,
         bearing: 0,
-        padding: ROUTE_OVERVIEW_PADDING,
+        padding: routeOverviewPadding,
         duration: 900,
         essential: true,
       })
@@ -1091,7 +1321,7 @@ export default function LivreurPage() {
         [east, north],
       ],
       {
-        padding: ROUTE_OVERVIEW_PADDING,
+        padding: routeOverviewPadding,
         duration: 900,
         essential: true,
       }
@@ -1102,6 +1332,7 @@ export default function LivreurPage() {
     typeof driverLocation?.heading === "number" ? Math.round(driverLocation.heading / 8) * 8 : "none"
   const mapCameraKey = [
     isNavigating ? "drive" : "overview",
+    isHeaderCollapsed ? "header-collapsed" : "header-expanded",
     nextDeliveryWithCoordinates?.id ?? "no-destination",
     driverLocation?.latitude ?? "no-lat",
     driverLocation?.longitude ?? "no-lng",
@@ -1119,22 +1350,50 @@ export default function LivreurPage() {
   const remainingCount = activeDeliveries.length
   const remainingTime = computeRemainingTime(deliveryList)
   const todayEarnings = deliveryList.filter((item) => item.status === "delivered").length * 10
-  const tourneeWindow = formatTourneeWindow(deliveryList)
-  const tourneeTitle = `Tournee du ${formatTourneeDate(tourneeData?.date_jour)}${tourneeWindow ? ` - ${tourneeWindow}` : ""}`
   const progressRatio = totalCount === 0 ? 0 : completedCount / totalCount
   const currentRouteDistanceLabel = routeSummary ? formatDistanceLabel(routeSummary.distanceMeters) : "Trace en attente"
   const currentRouteDurationLabel = routeSummary ? formatDurationFromSeconds(routeSummary.durationSeconds) : remainingTime
   const futureMarkers = nextDelivery ? futureDeliveries.filter(hasCoordinates) : mappableDeliveries
   const sheetHeightValue = sheetMode === "expanded" ? "min(58dvh, 34rem)" : "max(20dvh, 12rem)"
   const isSheetExpanded = sheetMode === "expanded"
+  const routeOverviewPadding = isHeaderCollapsed ? { ...ROUTE_OVERVIEW_PADDING, top: 72 } : ROUTE_OVERVIEW_PADDING
+  const driveModePadding = isHeaderCollapsed ? { ...DRIVE_MODE_PADDING, top: 56 } : DRIVE_MODE_PADDING
+  const topOverlayOffset = isHeaderCollapsed ? "3.75rem" : "8.75rem"
   const showMap =
     isMapboxConfigured && !isTourneeLoading && !beforeSeven && Boolean(token) && mappableDeliveries.length > 0
   const showBottomSheet = !isTourneeLoading && !beforeSeven && Boolean(token) && deliveryList.length > 0
 
   const handleStatusChange = (id: string, newStatus: "enroute" | "delivered" | "absent") => {
+    const nextRawStatus = mapDeliveryStatusToBackendStatus(newStatus)
+    setTourneeStarted(true)
+
     setDeliveryList((previousList) =>
-      previousList.map((item) => (item.id === id ? { ...item, status: newStatus } : item))
+      previousList.map((item) =>
+        item.id === id ? { ...item, status: newStatus, rawStatus: nextRawStatus } : item
+      )
     )
+
+    setTourneeData((previousTournee) => {
+      if (!previousTournee) {
+        return previousTournee
+      }
+
+      const nextTournee = {
+        ...previousTournee,
+        tournee_started: true,
+        items: previousTournee.items.map((item) =>
+          String(item.commande_id) === id
+            ? {
+                ...item,
+                statut: nextRawStatus,
+              }
+            : item
+        ),
+      }
+
+      writeCachedTournee(nextTournee)
+      return nextTournee
+    })
   }
 
   const handleStartTournee = async () => {
@@ -1190,6 +1449,7 @@ export default function LivreurPage() {
       }
     }
 
+    setIsDriverFocusEnabled(true)
     setIsNavigating(true)
   }
 
@@ -1200,6 +1460,89 @@ export default function LivreurPage() {
 
     handleStatusChange(nextDelivery.id, "delivered")
     setIsNavigating(false)
+  }
+
+  const handleMarkCurrentDeliveryAbsent = () => {
+    if (!nextDelivery) {
+      return
+    }
+
+    handleStatusChange(nextDelivery.id, "absent")
+    setIsNavigating(false)
+    setNotice({ tone: "info", message: "Client marque absent. Passage a l'etape suivante." })
+  }
+
+  const handleRecenterToDriver = () => {
+    if (!mapRef.current) {
+      return
+    }
+
+    const activeDriverLocation = driverLocation ?? lastDriverLocationRef.current
+
+    if (!activeDriverLocation) {
+      requestCurrentLocation({ showNoticeOnError: true, recenterAfterSuccess: true, showLoadingState: true })
+      return
+    }
+
+    setIsDriverFocusEnabled(true)
+
+    const mapInstance = mapRef.current
+    if (isNavigating) {
+      mapInstance.easeTo({
+        center: [activeDriverLocation.longitude, activeDriverLocation.latitude],
+        zoom: 16.8,
+        pitch: 60,
+        bearing:
+          typeof activeDriverLocation.heading === "number" ? activeDriverLocation.heading : mapInstance.getBearing(),
+        padding: driveModePadding,
+        duration: 700,
+        essential: true,
+      })
+      return
+    }
+
+    if (nextDeliveryWithCoordinates) {
+      const west = Math.min(activeDriverLocation.longitude, nextDeliveryWithCoordinates.lng)
+      const east = Math.max(activeDriverLocation.longitude, nextDeliveryWithCoordinates.lng)
+      const south = Math.min(activeDriverLocation.latitude, nextDeliveryWithCoordinates.lat)
+      const north = Math.max(activeDriverLocation.latitude, nextDeliveryWithCoordinates.lat)
+
+      if (west === east && south === north) {
+        mapInstance.easeTo({
+          center: [west, south],
+          zoom: 15.2,
+          pitch: 30,
+          bearing: 0,
+          padding: routeOverviewPadding,
+          duration: 700,
+          essential: true,
+        })
+        return
+      }
+
+      mapInstance.fitBounds(
+        [
+          [west, south],
+          [east, north],
+        ],
+        {
+          padding: routeOverviewPadding,
+          duration: 700,
+          essential: true,
+        }
+      )
+      return
+    }
+
+    mapInstance.easeTo({
+      center: [activeDriverLocation.longitude, activeDriverLocation.latitude],
+      zoom: 15,
+      pitch: 20,
+      bearing: 0,
+      padding: routeOverviewPadding,
+      duration: 700,
+      essential: true,
+    })
   }
 
   const floatingStatusLabel = isNavigating
@@ -1319,6 +1662,7 @@ export default function LivreurPage() {
             attributionControl={false}
             dragPan={!isNavigating}
             onLoad={() => syncMapCamera()}
+            onDragStart={() => setIsDriverFocusEnabled(false)}
           >
             <NavigationControl position="top-right" showCompass={false} />
 
@@ -1368,69 +1712,113 @@ export default function LivreurPage() {
         </div>
       )}
 
+      {showMap && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-[calc(var(--driver-bottom-sheet-height)+1rem)] z-30 flex justify-end px-4">
+          <button
+            type="button"
+            onClick={handleRecenterToDriver}
+            disabled={isRequestingLocation}
+            className={cn(
+              "pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/70 px-3 py-2 text-xs font-semibold shadow-[0_14px_30px_rgba(15,23,42,0.18)] backdrop-blur-xl transition-colors disabled:cursor-not-allowed disabled:opacity-70",
+              driverLocation
+                ? "bg-[#17301E]/88 text-white"
+                : "bg-white/90 text-[#17301E]"
+            )}
+          >
+            {isRequestingLocation ? <Spinner className="size-4" /> : <Navigation className="h-4 w-4" />}
+            {isRequestingLocation ? "Localisation..." : isDriverFocusEnabled ? "Suivi auto" : "Me localiser"}
+          </button>
+        </div>
+      )}
+
       <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-b from-[#10251A]/38 via-transparent via-45% to-[#10251A]/20" />
 
       <header className="pointer-events-none absolute inset-x-0 top-0 z-30 px-4 pt-4">
         <div className="mx-auto max-w-4xl">
-          <div className="pointer-events-auto rounded-[2rem] border border-white/60 bg-white/84 p-3 shadow-[0_24px_60px_rgba(15,23,42,0.18)] backdrop-blur-xl">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span
-                    className={cn(
-                      "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]",
-                      floatingStatusClass
-                    )}
-                  >
-                    {floatingStatusLabel}
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#F4F7F4] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#5F6E65]">
-                    {isOffline ? <WifiOff className="h-3.5 w-3.5" /> : <SignalHigh className="h-3.5 w-3.5" />}
-                    {isOffline ? "Hors ligne" : loadSource === "cache" ? "Cache" : "Live"}
-                  </span>
-                  {driverLocation && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[#EAF2FF] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1A73E8]">
-                      <Gauge className="h-3.5 w-3.5" />
-                      {driverLocation.speedKmh ? `${Math.round(driverLocation.speedKmh)} km/h` : "GPS actif"}
-                    </span>
-                  )}
-                </div>
-
-                <p className="mt-2 truncate text-base font-semibold text-[#17301E]">{tourneeTitle}</p>
-
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  <HeaderMetric label="Restantes" value={String(remainingCount)} />
-                  <HeaderMetric label="Livrees" value={`${completedCount}/${totalCount}`} />
-                  <HeaderMetric
-                    label={routeSummary ? "Distance" : "Gains"}
-                    value={routeSummary ? currentRouteDistanceLabel : formatAmount(todayEarnings)}
-                  />
-                </div>
-
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#E2E8E3]">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-[#1E8A3C] to-[#1A73E8] transition-all duration-500"
-                    style={{ width: `${progressRatio * 100}%` }}
-                  />
-                </div>
-              </div>
-
+          {isHeaderCollapsed ? (
+            <div className="flex justify-end">
               <button
                 type="button"
-                onClick={() => setIsOnDuty((currentValue) => !currentValue)}
-                className={cn(
-                  "shrink-0 rounded-full px-3 py-2 text-sm font-semibold shadow-sm transition-colors",
-                  isOnDuty ? "bg-[#1E8A3C] text-white" : "bg-red-50 text-red-600"
-                )}
+                onClick={() => setIsHeaderCollapsed(false)}
+                className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-white/70 bg-white/88 px-3 py-2 text-xs font-semibold text-[#17301E] shadow-[0_16px_40px_rgba(15,23,42,0.18)] backdrop-blur-xl"
               >
-                {isOnDuty ? "En service" : "Pause"}
+                Afficher
+                <ChevronDown className="h-4 w-4" />
               </button>
             </div>
-          </div>
+          ) : (
+            <div className="pointer-events-auto rounded-[2rem] border border-white/60 bg-white/84 p-3 shadow-[0_24px_60px_rgba(15,23,42,0.18)] backdrop-blur-xl">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]",
+                        floatingStatusClass
+                      )}
+                    >
+                      {floatingStatusLabel}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#F4F7F4] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#5F6E65]">
+                      {isOffline ? <WifiOff className="h-3.5 w-3.5" /> : <SignalHigh className="h-3.5 w-3.5" />}
+                      {isOffline ? "Hors ligne" : loadSource === "cache" ? "Cache" : "Live"}
+                    </span>
+                    {driverLocation && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[#EAF2FF] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1A73E8]">
+                        <Gauge className="h-3.5 w-3.5" />
+                        {driverLocation.speedKmh ? `${Math.round(driverLocation.speedKmh)} km/h` : "GPS actif"}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <HeaderMetric label="Restantes" value={String(remainingCount)} />
+                    <HeaderMetric label="Livrees" value={`${completedCount}/${totalCount}`} />
+                    <HeaderMetric
+                      label={routeSummary ? "Distance" : "Gains"}
+                      value={routeSummary ? currentRouteDistanceLabel : formatAmount(todayEarnings)}
+                    />
+                  </div>
+
+                  <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-[#E2E8E3]">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-[#1E8A3C] to-[#1A73E8] transition-all duration-500"
+                      style={{ width: `${progressRatio * 100}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsHeaderCollapsed(true)}
+                    className="inline-flex items-center gap-1 rounded-full border border-[#D7E1DA] bg-white/80 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#4F6257] transition-colors hover:bg-white"
+                  >
+                    Masquer
+                    <ChevronUp className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsOnDuty((currentValue) => !currentValue)}
+                    className={cn(
+                      "rounded-full px-3 py-2 text-sm font-semibold shadow-sm transition-colors",
+                      isOnDuty ? "bg-[#1E8A3C] text-white" : "bg-red-50 text-red-600"
+                    )}
+                  >
+                    {isOnDuty ? "En service" : "Pause"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
-      <div className="pointer-events-none absolute inset-x-0 top-[9.75rem] z-30 px-4">
+      <div
+        className="pointer-events-none absolute inset-x-0 z-30 px-4 transition-[top] duration-300"
+        style={{ top: topOverlayOffset }}
+      >
         <div className="mx-auto max-w-4xl space-y-2">
           {loadSource === "cache" && !beforeSeven && (
             <div className="rounded-2xl bg-[#FFF3E0]/95 px-4 py-3 text-sm text-[#8A5A00] shadow-sm backdrop-blur">
@@ -1625,7 +2013,13 @@ export default function LivreurPage() {
                     </div>
                   )}
 
-                  <div className={cn("grid grid-cols-[3.25rem_minmax(0,1fr)] gap-3", isSheetExpanded ? "pt-3" : "mt-auto pt-3")}>
+                  <div
+                    className={cn(
+                      "grid gap-3",
+                      isNavigating ? "grid-cols-[3.25rem_5.5rem_minmax(0,1fr)]" : "grid-cols-[3.25rem_minmax(0,1fr)]",
+                      isSheetExpanded ? "pt-3" : "mt-auto pt-3"
+                    )}
+                  >
                     <a
                       href={nextDelivery.callHref ?? undefined}
                       aria-disabled={!nextDelivery.callHref}
@@ -1636,6 +2030,18 @@ export default function LivreurPage() {
                     >
                       <Phone className="h-5 w-5" />
                     </a>
+
+                    {isNavigating && (
+                      <button
+                        type="button"
+                        onClick={handleMarkCurrentDeliveryAbsent}
+                        disabled={isStartingTournee || !nextDelivery}
+                        title="Client introuvable"
+                        className="flex h-12 items-center justify-center rounded-2xl bg-red-500 px-3 text-xs font-semibold text-white shadow-[0_14px_30px_rgba(220,38,38,0.22)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Absent
+                      </button>
+                    )}
 
                     <button
                       type="button"
