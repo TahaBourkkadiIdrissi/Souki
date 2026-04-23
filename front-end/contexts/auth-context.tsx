@@ -31,6 +31,11 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+const NETWORK_RETRY_ATTEMPTS = 3
+const NETWORK_RETRY_DELAY_MS = 1200
+
+const isNetworkFetchError = (error: unknown) =>
+  error instanceof TypeError && error.message.toLowerCase().includes("fetch")
 
 function normalizeUser(payload: any): User {
   const roles = Array.isArray(payload?.roles) ? payload.roles.map((value: string) => String(value).toUpperCase()) : []
@@ -58,7 +63,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
-  const validateTokenWithBackend = async (tok: string): Promise<User | null> => {
+  const validateTokenWithBackend = async (
+    tok: string
+  ): Promise<{ user: User | null; networkError: boolean }> => {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/me`, {
         method: "GET",
@@ -71,15 +78,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
 
       if (!response.ok) {
-        return null
+        return { user: null, networkError: false }
       }
 
       const userData = normalizeUser(await response.json())
       setUser(userData)
-      return userData
+      return { user: userData, networkError: false }
     } catch (error) {
+      if (isNetworkFetchError(error)) {
+        console.warn("Backend temporairement indisponible pour la validation du token.")
+        return { user: null, networkError: true }
+      }
       console.error("Token validation error:", error)
-      return null
+      return { user: null, networkError: false }
     }
   }
 
@@ -95,10 +106,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("token", nextToken)
     setToken(nextToken)
 
-    const nextUser = await validateTokenWithBackend(nextToken)
+    const { user: nextUser, networkError } = await validateTokenWithBackend(nextToken)
     if (nextUser) {
       setIsAuthenticated(true)
       return nextUser
+    }
+
+    // Ne pas supprimer la session si le backend est simplement indisponible temporairement.
+    if (networkError) {
+      setIsAuthenticated(false)
+      return null
     }
 
     localStorage.removeItem("token")
@@ -109,12 +126,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    const wait = (ms: number) =>
+      new Promise((resolve) => {
+        window.setTimeout(resolve, ms)
+      })
+
+    const retryTokenSync = async (storedToken: string) => {
+      for (let attempt = 1; attempt <= NETWORK_RETRY_ATTEMPTS; attempt += 1) {
+        const nextUser = await syncAuthState(storedToken)
+        if (nextUser) {
+          return
+        }
+        if (attempt < NETWORK_RETRY_ATTEMPTS) {
+          await wait(NETWORK_RETRY_DELAY_MS)
+        }
+      }
+    }
+
     const initializeAuth = async () => {
       setIsLoading(true)
       const storedToken = localStorage.getItem("token")
 
       if (storedToken) {
-        await syncAuthState(storedToken)
+        await retryTokenSync(storedToken)
       } else {
         setIsAuthenticated(false)
       }
