@@ -1,6 +1,7 @@
 from typing import Optional
 
 from config import LocalSession
+from sqlalchemy.exc import IntegrityError
 from dto.panier_dto import (
     ManualBasketRequestDTO,
     ManualBasketResponseDTO,
@@ -144,13 +145,19 @@ class PanierService(IPanierService):
                 total_facture=montant_total,
             )
 
-            # Créer la commande brouillon liée à ce panier manuel
-            self.panier_dao.create_commande_draft(
-                session=session,
-                client_id=user_id,
-                panier_id=int(panier.id), # type: ignore
-                montant_total=montant_total
-            )
+            # Essaye de créer une commande brouillon liée au panier.
+            # Si la base refuse le statut "brouillon" (contrainte CHECK),
+            # on conserve quand même le panier pour permettre le checkout final.
+            try:
+                with session.begin_nested():
+                    self.panier_dao.create_commande_draft(
+                        session=session,
+                        client_id=user_id,
+                        panier_id=int(panier.id), # type: ignore
+                        montant_total=montant_total
+                    )
+            except IntegrityError:
+                pass
 
             # Créer les lignes du panier
             for i, item in enumerate(payload.items):
