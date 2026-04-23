@@ -108,7 +108,7 @@ class CheckoutService(ICheckoutService):
                 client_id=int(client.user_id), # type: ignore
                 panier_id=int(panier.id), # type: ignore
                 brouillon_vocal_id=payload.brouillon_vocal_id,
-                statut="en_attente",
+                statut="EN_ATTENTE",
                 creneau_livraison=payload.creneau_livraison,
                 mode_paiement=payload.mode_paiement,
                 montant_total=montant_total,
