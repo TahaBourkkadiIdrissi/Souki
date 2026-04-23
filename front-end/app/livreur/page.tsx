@@ -1,27 +1,29 @@
 "use client"
 
-import { useEffect, useEffectEvent, useRef, useState } from "react"
+import { type ReactNode, useEffect, useEffectEvent, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
-  Calendar,
   CheckCircle2,
-  ClipboardList,
+  ChevronDown,
+  ChevronUp,
   Clock3,
   DollarSign,
+  Gauge,
+  type LucideIcon,
   Map as MapIcon,
   MapPin,
   Navigation,
   Package,
   Phone,
-  Star,
+  Route,
+  SignalHigh,
   Truck,
-  User,
+  WifiOff,
 } from "lucide-react"
 import type { LineLayerSpecification } from "mapbox-gl"
 import Map, { Layer, Marker, NavigationControl, Source, type MapRef } from "react-map-gl/mapbox"
 
-import { DeliveryCard } from "@/components/souki/delivery-card"
 import { Spinner } from "@/components/ui/spinner"
 import { useAuth } from "@/hooks/useAuth"
 import {
@@ -46,24 +48,52 @@ const DEFAULT_MAP_VIEW = {
   latitude: FES_START_COORDINATE[1],
   zoom: 11,
 }
-const ROUTE_LAYER: Omit<LineLayerSpecification, "source"> = {
-  id: "tournee-route-line",
+const GPS_WATCH_OPTIONS: PositionOptions = {
+  enableHighAccuracy: true,
+  maximumAge: 5000,
+  timeout: 15000,
+}
+const GPS_BOOTSTRAP_OPTIONS: PositionOptions = {
+  enableHighAccuracy: true,
+  maximumAge: 0,
+  timeout: 12000,
+}
+const ROUTE_REFRESH_DISTANCE_METERS = 40
+const ROUTE_REFRESH_INTERVAL_MS = 15000
+const ROUTE_OVERVIEW_PADDING = { top: 140, bottom: 190, left: 28, right: 28 }
+const DRIVE_MODE_PADDING = { top: 100, bottom: 190, left: 20, right: 20 }
+const STARTED_DELIVERY_STATUS = "EN_COURS_DE_LIVRAISON"
+const ROUTE_CASING_LAYER: Omit<LineLayerSpecification, "source"> = {
+  id: "tournee-route-casing",
   type: "line",
   layout: {
     "line-cap": "round",
     "line-join": "round",
   },
   paint: {
-    "line-color": "#1E8A3C",
-    "line-width": 4,
-    "line-opacity": 0.88,
+    "line-color": "#FFFFFF",
+    "line-width": 10,
+    "line-opacity": 0.7,
+  },
+}
+const ROUTE_LAYER: Omit<LineLayerSpecification, "source"> = {
+  id: "tournee-route-main",
+  type: "line",
+  layout: {
+    "line-cap": "round",
+    "line-join": "round",
+  },
+  paint: {
+    "line-color": "#1A73E8",
+    "line-width": 6,
+    "line-opacity": 0.96,
   },
 }
 
-type TabType = "list" | "map" | "profile"
 type DeliveryStatus = "pending" | "enroute" | "delivered" | "absent"
 type PaymentMethod = "cod" | "wallet" | "cmi"
 type NoticeTone = "info" | "success" | "error"
+type SheetMode = "peek" | "expanded"
 
 interface DeliveryViewItem {
   id: string
@@ -71,7 +101,9 @@ interface DeliveryViewItem {
   orderNumber: string
   timeSlot: string
   address: string
+  street: string | null
   neighborhood: string | null
+  details: string | null
   clientName: string
   clientPhone: string
   callHref: string | null
@@ -87,6 +119,48 @@ interface DeliveryViewItem {
 interface PageNotice {
   tone: NoticeTone
   message: string
+}
+
+interface DriverLocation {
+  latitude: number
+  longitude: number
+  accuracy: number | null
+  speedKmh: number | null
+  heading: number | null
+  timestamp: number
+}
+
+interface RouteSummary {
+  distanceMeters: number
+  durationSeconds: number
+}
+
+interface LineFeatureCollection {
+  type: "FeatureCollection"
+  features: Array<{
+    type: "Feature"
+    properties: Record<string, string | number | boolean | null>
+    geometry: {
+      type: "LineString"
+      coordinates: [number, number][]
+    }
+  }>
+}
+
+interface MapboxDirectionsResponse {
+  routes?: Array<{
+    distance: number
+    duration: number
+    geometry: {
+      type: "LineString"
+      coordinates: [number, number][]
+    }
+  }>
+}
+
+const EMPTY_ROUTE_GEOJSON: LineFeatureCollection = {
+  type: "FeatureCollection",
+  features: [],
 }
 
 function normalizeCoordinate(value: unknown) {
@@ -122,6 +196,118 @@ function normalizeTourneeResponse(response: TourneeResponse): TourneeResponse {
   }
 }
 
+function formatLocalDateKey(dateValue: Date) {
+  const year = dateValue.getFullYear()
+  const month = String(dateValue.getMonth() + 1).padStart(2, "0")
+  const day = String(dateValue.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function normalizeTourneeDateKey(dateValue?: string | null) {
+  if (!dateValue) {
+    return null
+  }
+
+  const trimmedValue = dateValue.trim()
+  if (!trimmedValue) {
+    return null
+  }
+
+  const directMatch = trimmedValue.match(/^(\d{4}-\d{2}-\d{2})/)
+  if (directMatch) {
+    return directMatch[1]
+  }
+
+  const parsedDate = new Date(trimmedValue)
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null
+  }
+
+  return formatLocalDateKey(parsedDate)
+}
+
+function isTourneeForCurrentDay(response: TourneeResponse) {
+  const responseDateKey = normalizeTourneeDateKey(response.date_jour)
+  if (!responseDateKey) {
+    return false
+  }
+
+  return responseDateKey === formatLocalDateKey(new Date())
+}
+
+function isTerminalDeliveryStatus(status: string) {
+  const normalizedStatus = normalizeDeliveryStatus(status)
+  return normalizedStatus === "delivered" || normalizedStatus === "absent"
+}
+
+function shouldPreferCachedStatus(apiStatus: string, cachedStatus: string) {
+  const normalizedApiStatus = normalizeDeliveryStatus(apiStatus)
+  const normalizedCachedStatus = normalizeDeliveryStatus(cachedStatus)
+
+  if (normalizedCachedStatus === "delivered" || normalizedCachedStatus === "absent") {
+    return normalizedApiStatus !== normalizedCachedStatus
+  }
+
+  return normalizedCachedStatus === "enroute" && normalizedApiStatus === "pending"
+}
+
+function mergeTourneeWithCache(apiResponse: TourneeResponse, cachedResponse: TourneeResponse | null) {
+  const normalizedApiResponse = normalizeTourneeResponse(apiResponse)
+  if (!cachedResponse) {
+    return normalizedApiResponse
+  }
+
+  const normalizedCachedResponse = normalizeTourneeResponse(cachedResponse)
+  const apiDateKey = normalizeTourneeDateKey(normalizedApiResponse.date_jour)
+  const cachedDateKey = normalizeTourneeDateKey(normalizedCachedResponse.date_jour)
+
+  if (!apiDateKey || !cachedDateKey || apiDateKey !== cachedDateKey) {
+    return normalizedApiResponse
+  }
+
+  if (
+    normalizedApiResponse.items.length === 0 &&
+    normalizedCachedResponse.items.length > 0 &&
+    normalizedCachedResponse.items.every((item) => isTerminalDeliveryStatus(item.statut))
+  ) {
+    return {
+      ...normalizedCachedResponse,
+      date_jour: normalizedApiResponse.date_jour,
+      sort_strategy: normalizedApiResponse.sort_strategy || normalizedCachedResponse.sort_strategy,
+      status: normalizedApiResponse.status || normalizedCachedResponse.status,
+      available_after: normalizedApiResponse.available_after || normalizedCachedResponse.available_after,
+      tournee_started: true,
+    }
+  }
+
+  const cachedItemsById = new Map(
+    normalizedCachedResponse.items.map((item) => [String(item.commande_id), item] as const)
+  )
+
+  const mergedItems = normalizedApiResponse.items.map((item) => {
+    const cachedItem = cachedItemsById.get(String(item.commande_id))
+    if (!cachedItem || !shouldPreferCachedStatus(item.statut, cachedItem.statut)) {
+      return item
+    }
+
+    return {
+      ...item,
+      statut: cachedItem.statut,
+    }
+  })
+
+  const hasCompletedSteps = mergedItems.some((item) => isTerminalDeliveryStatus(item.statut))
+
+  return {
+    ...normalizedApiResponse,
+    items: mergedItems,
+    tournee_started:
+      normalizedApiResponse.tournee_started ||
+      mergedItems.some((item) => normalizeBackendStatus(item.statut) === STARTED_DELIVERY_STATUS) ||
+      hasCompletedSteps,
+  }
+}
+
 function readCachedTournee(): TourneeResponse | null {
   if (typeof window === "undefined") {
     return null
@@ -133,7 +319,13 @@ function readCachedTournee(): TourneeResponse | null {
   }
 
   try {
-    return normalizeTourneeResponse(JSON.parse(rawValue) as TourneeResponse)
+    const parsedResponse = normalizeTourneeResponse(JSON.parse(rawValue) as TourneeResponse)
+    if (!isTourneeForCurrentDay(parsedResponse)) {
+      window.localStorage.removeItem(CACHE_KEY)
+      return null
+    }
+
+    return parsedResponse
   } catch {
     window.localStorage.removeItem(CACHE_KEY)
     return null
@@ -144,6 +336,7 @@ function writeCachedTournee(data: TourneeResponse) {
   if (typeof window === "undefined") {
     return
   }
+
   window.localStorage.setItem(CACHE_KEY, JSON.stringify(normalizeTourneeResponse(data)))
 }
 
@@ -167,6 +360,22 @@ function normalizeDeliveryStatus(status: string): DeliveryStatus {
   }
 
   return "pending"
+}
+
+function mapDeliveryStatusToBackendStatus(status: DeliveryStatus) {
+  if (status === "enroute") {
+    return "EN_COURS_DE_LIVRAISON"
+  }
+
+  if (status === "delivered") {
+    return "LIVRE"
+  }
+
+  if (status === "absent") {
+    return "ABSENT"
+  }
+
+  return "A_LIVRER"
 }
 
 function normalizePaymentMethod(modePaiement: string | null | undefined): PaymentMethod {
@@ -199,8 +408,10 @@ function mapTourneeItemToDeliveryView(item: TourneeItem, index: number): Deliver
     orderNumber: String(item.commande_id),
     timeSlot: item.creneau_livraison || "Non precise",
     address: item.full_address,
+    street: item.street,
     neighborhood: item.neighborhood,
-    clientName: item.client_phone || item.client_label,
+    details: item.details,
+    clientName: item.client_label,
     clientPhone: item.client_phone || "Telephone indisponible",
     callHref: buildCallHref(item.client_phone),
     packageCount: item.colis_count,
@@ -242,18 +453,25 @@ function formatAmount(amount: number) {
   return `${new Intl.NumberFormat("fr-MA", { maximumFractionDigits: 0 }).format(amount)} DH`
 }
 
-function getDeliveryNeighborhood(delivery: DeliveryViewItem) {
-  const normalizedNeighborhood = delivery.neighborhood?.trim()
-  if (normalizedNeighborhood) {
-    return normalizedNeighborhood
+function buildPreciseAddress(delivery: DeliveryViewItem) {
+  const addressParts = [delivery.neighborhood?.trim(), delivery.street?.trim()].filter(Boolean)
+  if (addressParts.length > 0) {
+    return addressParts.join(", ")
   }
 
   const firstAddressSegment = delivery.address.split(",")[0]?.trim()
-  return firstAddressSegment || "Quartier non precise"
+  return firstAddressSegment || "Adresse non precise"
 }
 
-function buildNavigationHref(lat: number, lng: number) {
-  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
+function buildPackageSummary(delivery: DeliveryViewItem) {
+  const baseSummary = `${delivery.packageCount} colis`
+  const normalizedDetails = delivery.details?.trim()
+
+  return normalizedDetails ? `${baseSummary} - ${normalizedDetails}` : baseSummary
+}
+
+function buildPaymentSummary(delivery: DeliveryViewItem) {
+  return `${formatAmount(delivery.amount)} - ${formatPaymentMethodLabel(delivery.paymentMethod)}`
 }
 
 function extractHourBounds(timeSlot: string) {
@@ -263,28 +481,6 @@ function extractHourBounds(timeSlot: string) {
   }
 
   return matches.map((match) => Number.parseInt(match, 10)).filter((value) => !Number.isNaN(value))
-}
-
-function formatTourneeDate(dateValue?: string) {
-  const fallbackDate = new Date()
-  const parsedDate = dateValue ? new Date(dateValue) : fallbackDate
-
-  return new Intl.DateTimeFormat("fr-FR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(parsedDate)
-}
-
-function formatTourneeWindow(items: DeliveryViewItem[]) {
-  const allBounds = items.flatMap((item) => extractHourBounds(item.timeSlot))
-  if (allBounds.length === 0) {
-    return null
-  }
-
-  const minHour = Math.min(...allBounds)
-  const maxHour = Math.max(...allBounds)
-  return `${minHour}h00-${maxHour}h00`
 }
 
 function computeRemainingTime(items: DeliveryViewItem[]) {
@@ -336,12 +532,142 @@ function updateStartedStatuses(response: TourneeResponse): TourneeResponse {
   }
 }
 
+function toRadians(value: number) {
+  return (value * Math.PI) / 180
+}
+
+function toDegrees(value: number) {
+  return (value * 180) / Math.PI
+}
+
+function computeDistanceMeters(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const earthRadiusMeters = 6371000
+  const deltaLat = toRadians(lat2 - lat1)
+  const deltaLng = toRadians(lng2 - lng1)
+  const startLat = toRadians(lat1)
+  const endLat = toRadians(lat2)
+  const haversineValue =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(startLat) * Math.cos(endLat) * Math.sin(deltaLng / 2) ** 2
+
+  return 2 * earthRadiusMeters * Math.atan2(Math.sqrt(haversineValue), Math.sqrt(1 - haversineValue))
+}
+
+function computeBearing(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const startLat = toRadians(lat1)
+  const endLat = toRadians(lat2)
+  const deltaLng = toRadians(lng2 - lng1)
+  const y = Math.sin(deltaLng) * Math.cos(endLat)
+  const x =
+    Math.cos(startLat) * Math.sin(endLat) -
+    Math.sin(startLat) * Math.cos(endLat) * Math.cos(deltaLng)
+
+  return (toDegrees(Math.atan2(y, x)) + 360) % 360
+}
+
+function createLineFeatureCollection(
+  coordinates: [number, number][],
+  kind: "directions" | "fallback" = "directions"
+): LineFeatureCollection {
+  if (coordinates.length < 2) {
+    return EMPTY_ROUTE_GEOJSON
+  }
+
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: { kind },
+        geometry: {
+          type: "LineString",
+          coordinates,
+        },
+      },
+    ],
+  }
+}
+
+function formatDurationFromSeconds(value: number) {
+  const roundedMinutes = Math.max(1, Math.round(value / 60))
+  const hours = Math.floor(roundedMinutes / 60)
+  const minutes = roundedMinutes % 60
+
+  if (hours === 0) {
+    return `${minutes} min`
+  }
+
+  return `${hours}h${minutes.toString().padStart(2, "0")}`
+}
+
+function formatDistanceLabel(distanceMeters: number) {
+  if (distanceMeters < 1000) {
+    return `${Math.round(distanceMeters)} m`
+  }
+
+  const distanceKm = distanceMeters / 1000
+  return `${distanceKm >= 10 ? distanceKm.toFixed(0) : distanceKm.toFixed(1)} km`
+}
+
+function buildDirectionsUrl(origin: [number, number], destination: [number, number]) {
+  const coordinates = `${origin[0]},${origin[1]};${destination[0]},${destination[1]}`
+  const params = new URLSearchParams({
+    alternatives: "false",
+    geometries: "geojson",
+    overview: "full",
+    steps: "false",
+    language: "fr",
+    access_token: MAPBOX_TOKEN,
+  })
+
+  return `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?${params.toString()}`
+}
+
+function CenterStateCard({
+  icon: Icon,
+  title,
+  description,
+  action,
+}: {
+  icon: LucideIcon
+  title: string
+  description: string
+  action?: ReactNode
+}) {
+  return (
+    <div className="pointer-events-auto w-full max-w-sm rounded-[2rem] border border-white/60 bg-white/92 p-7 text-center shadow-[0_28px_80px_rgba(15,23,42,0.2)] backdrop-blur-xl">
+      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#F0FAF1] text-[#1E8A3C]">
+        <Icon className="h-8 w-8" />
+      </div>
+      <h2 className="mt-5 text-2xl font-bold text-[#17301E]">{title}</h2>
+      <p className="mt-3 text-sm leading-6 text-[#5B6B60]">{description}</p>
+      {action ? <div className="mt-5">{action}</div> : null}
+    </div>
+  )
+}
+
+function HeaderMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-[#F7FAF7]/85 px-3 py-2">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6D7A72]">{label}</p>
+      <p className="mt-1 text-sm font-bold text-[#17301E]">{value}</p>
+    </div>
+  )
+}
+
 export default function LivreurPage() {
   const router = useRouter()
   const { token, isLoading: isAuthLoading, isAuthenticated, can } = useAuth()
   const hasLivreurAccess = can("livreur.dashboard.access")
   const mapRef = useRef<MapRef | null>(null)
-  const [activeTab, setActiveTab] = useState<TabType>("list")
+  const lastDriverLocationRef = useRef<DriverLocation | null>(null)
+  const isLocationRequestPendingRef = useRef(false)
+  const lastDirectionsRequestRef = useRef<{
+    origin: [number, number]
+    destination: [number, number]
+    timestamp: number
+  } | null>(null)
+
   const [deliveryList, setDeliveryList] = useState<DeliveryViewItem[]>([])
   const [tourneeData, setTourneeData] = useState<TourneeResponse | null>(null)
   const [isOnDuty, setIsOnDuty] = useState(true)
@@ -352,16 +678,28 @@ export default function LivreurPage() {
   const [tourneeStarted, setTourneeStarted] = useState(false)
   const [loadSource, setLoadSource] = useState<"api" | "cache" | null>(null)
   const [notice, setNotice] = useState<PageNotice | null>(null)
+  const [driverLocation, setDriverLocation] = useState<DriverLocation | null>(null)
+  const [gpsError, setGpsError] = useState<string | null>(null)
+  const [isRequestingLocation, setIsRequestingLocation] = useState(false)
+  const [isNavigating, setIsNavigating] = useState(false)
+  const [sheetMode, setSheetMode] = useState<SheetMode>("peek")
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false)
+  const [isDriverFocusEnabled, setIsDriverFocusEnabled] = useState(true)
+  const [routeGeoJson, setRouteGeoJson] = useState<LineFeatureCollection>(EMPTY_ROUTE_GEOJSON)
+  const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null)
+  const [isRouteLoading, setIsRouteLoading] = useState(false)
+  const [routeError, setRouteError] = useState<string | null>(null)
 
   const applyTourneeData = useEffectEvent((response: TourneeResponse, source: "api" | "cache") => {
     const normalizedResponse = normalizeTourneeResponse(response)
+    const hasCompletedSteps = normalizedResponse.items.some((item) => isTerminalDeliveryStatus(item.statut))
+    const hasStartedSteps = normalizedResponse.items.some(
+      (item) => normalizeBackendStatus(item.statut) === STARTED_DELIVERY_STATUS
+    )
 
     setTourneeData(normalizedResponse)
     setDeliveryList(normalizedResponse.items.map(mapTourneeItemToDeliveryView))
-    setTourneeStarted(
-      normalizedResponse.tournee_started ||
-        normalizedResponse.items.some((item) => normalizeBackendStatus(item.statut) === "EN_COURS_DE_LIVRAISON")
-    )
+    setTourneeStarted(normalizedResponse.tournee_started || hasStartedSteps || hasCompletedSteps)
     setLoadSource(source)
     setBeforeSeven(false)
   })
@@ -377,6 +715,133 @@ export default function LivreurPage() {
     return true
   })
 
+  const applyDriverPosition = useEffectEvent((position: GeolocationPosition) => {
+    const previousLocation = lastDriverLocationRef.current
+    const deviceHeading =
+      typeof position.coords.heading === "number" &&
+      Number.isFinite(position.coords.heading) &&
+      position.coords.heading >= 0
+        ? position.coords.heading
+        : null
+    const computedHeading =
+      previousLocation &&
+      computeDistanceMeters(
+        previousLocation.latitude,
+        previousLocation.longitude,
+        position.coords.latitude,
+        position.coords.longitude
+      ) > 5
+        ? computeBearing(
+            previousLocation.latitude,
+            previousLocation.longitude,
+            position.coords.latitude,
+            position.coords.longitude
+          )
+        : previousLocation?.heading ?? null
+    const nextLocation: DriverLocation = {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      accuracy:
+        typeof position.coords.accuracy === "number" && Number.isFinite(position.coords.accuracy)
+          ? position.coords.accuracy
+          : null,
+      speedKmh:
+        typeof position.coords.speed === "number" &&
+        Number.isFinite(position.coords.speed) &&
+        position.coords.speed >= 0
+          ? position.coords.speed * 3.6
+          : previousLocation?.speedKmh ?? null,
+      heading: deviceHeading ?? computedHeading,
+      timestamp: position.timestamp,
+    }
+
+    lastDriverLocationRef.current = nextLocation
+    setDriverLocation(nextLocation)
+    setGpsError(null)
+    setIsRequestingLocation(false)
+  })
+
+  const requestCurrentLocation = useEffectEvent(
+    ({
+      showNoticeOnError = false,
+      recenterAfterSuccess = false,
+      showLoadingState = false,
+    }: {
+      showNoticeOnError?: boolean
+      recenterAfterSuccess?: boolean
+      showLoadingState?: boolean
+    } = {}) => {
+      if (typeof window === "undefined") {
+        return
+      }
+
+      if (!window.isSecureContext) {
+        const message = "La geolocalisation mobile exige une page HTTPS securisee."
+        setGpsError(message)
+        if (showNoticeOnError) {
+          setNotice({ tone: "error", message })
+        }
+        return
+      }
+
+      if (!("geolocation" in window.navigator)) {
+        const message = "Le GPS du navigateur n'est pas disponible sur cet appareil."
+        setGpsError(message)
+        if (showNoticeOnError) {
+          setNotice({ tone: "error", message })
+        }
+        return
+      }
+
+      if (isLocationRequestPendingRef.current) {
+        return
+      }
+
+      isLocationRequestPendingRef.current = true
+      if (showLoadingState) {
+        setIsRequestingLocation(true)
+      }
+      window.navigator.geolocation.getCurrentPosition(
+        (position) => {
+          isLocationRequestPendingRef.current = false
+          applyDriverPosition(position)
+
+          if (recenterAfterSuccess) {
+            window.requestAnimationFrame(() => {
+              handleRecenterToDriver()
+            })
+          }
+        },
+        (error) => {
+          isLocationRequestPendingRef.current = false
+          if (showLoadingState) {
+            setIsRequestingLocation(false)
+          }
+
+          if (error.code === error.PERMISSION_DENIED) {
+            if (showNoticeOnError) {
+              setNotice({
+                tone: "error",
+                message: "Activez la localisation du navigateur sur mobile pour suivre le trajet.",
+              })
+            }
+            return
+          }
+
+          const message =
+            error.code === error.TIMEOUT
+              ? "La position GPS tarde a arriver. Reessayez en exterieur ou pres d'une fenetre."
+              : "Impossible d'obtenir la position GPS actuelle sur cet appareil."
+          setGpsError(message)
+          if (showNoticeOnError) {
+            setNotice({ tone: "error", message })
+          }
+        },
+        GPS_BOOTSTRAP_OPTIONS
+      )
+    }
+  )
+
   useEffect(() => {
     const syncOnlineStatus = () => {
       setIsOffline(!window.navigator.onLine)
@@ -391,6 +856,67 @@ export default function LivreurPage() {
       window.removeEventListener("offline", syncOnlineStatus)
     }
   }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return
+    }
+
+    if (!window.isSecureContext) {
+      setGpsError("La geolocalisation mobile exige une page HTTPS securisee.")
+      return
+    }
+
+    if (!("geolocation" in window.navigator)) {
+      setGpsError("Le GPS du navigateur n'est pas disponible sur cet appareil.")
+      return
+    }
+
+    let isCancelled = false
+    requestCurrentLocation()
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        requestCurrentLocation()
+      }
+    }
+
+    const watchId = window.navigator.geolocation.watchPosition(
+      (position) => {
+        if (isCancelled) {
+          return
+        }
+
+        applyDriverPosition(position)
+      },
+      (error) => {
+        if (isCancelled) {
+          return
+        }
+
+        if (error.code === error.PERMISSION_DENIED) {
+          setGpsError(null)
+          return
+        }
+
+        if (error.code === error.TIMEOUT) {
+          setGpsError("Le GPS prend plus de temps que prevu. Nous continuons d'essayer.")
+          return
+        }
+
+        setGpsError("Le suivi GPS temps reel est temporairement indisponible.")
+      },
+      GPS_WATCH_OPTIONS
+    )
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    return () => {
+      isCancelled = true
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+      window.navigator.geolocation.clearWatch(watchId)
+    }
+  }, [applyDriverPosition, requestCurrentLocation])
 
   useEffect(() => {
     if (isAuthLoading) {
@@ -444,8 +970,9 @@ export default function LivreurPage() {
           return
         }
 
-        writeCachedTournee(response)
-        applyTourneeData(response, "api")
+        const mergedResponse = mergeTourneeWithCache(response, readCachedTournee())
+        writeCachedTournee(mergedResponse)
+        applyTourneeData(mergedResponse, "api")
       } catch (error) {
         if (isCancelled) {
           return
@@ -504,57 +1031,266 @@ export default function LivreurPage() {
   const nextDeliveryIndex = nextDelivery ? deliveryList.findIndex((item) => item.id === nextDelivery.id) : -1
   const previousMappableDelivery =
     nextDeliveryIndex > 0 ? deliveryList.slice(0, nextDeliveryIndex).reverse().find(hasCoordinates) ?? null : null
-  const routeStartCoordinates = previousMappableDelivery
+  const fallbackRouteStartCoordinates = previousMappableDelivery
     ? ([previousMappableDelivery.lng, previousMappableDelivery.lat] as [number, number])
     : ([FES_START_COORDINATE[0], FES_START_COORDINATE[1]] as [number, number])
-  const routeCoordinates = nextDeliveryWithCoordinates
-    ? [routeStartCoordinates, [nextDeliveryWithCoordinates.lng, nextDeliveryWithCoordinates.lat] as [number, number]]
-    : []
-  const routeGeoJson = {
-    type: "FeatureCollection" as const,
-    features:
-      routeCoordinates.length > 1
-        ? [
-            {
-              type: "Feature" as const,
-              properties: {},
-              geometry: {
-                type: "LineString" as const,
-                coordinates: routeCoordinates,
-              },
-            },
-          ]
-        : [],
-  }
+  const routeOriginCoordinates = driverLocation
+    ? ([driverLocation.longitude, driverLocation.latitude] as [number, number])
+    : fallbackRouteStartCoordinates
   const activeMissingCoordinatesCount = activeDeliveries.filter((item) => !hasCoordinates(item)).length
-  const nextNavigationHref = nextDeliveryWithCoordinates
-    ? buildNavigationHref(nextDeliveryWithCoordinates.lat, nextDeliveryWithCoordinates.lng)
-    : null
-  const mapViewportKey = nextDeliveryWithCoordinates
-    ? `${nextDeliveryWithCoordinates.id}:${nextDeliveryWithCoordinates.lat}:${nextDeliveryWithCoordinates.lng}:${routeStartCoordinates[0]}:${routeStartCoordinates[1]}`
-    : mappableDeliveries.map((item) => `${item.id}:${item.lat}:${item.lng}`).join("|")
   const isMapboxConfigured = MAPBOX_TOKEN.length > 0
+  const routeOriginLongitude = routeOriginCoordinates[0]
+  const routeOriginLatitude = routeOriginCoordinates[1]
 
-  const focusMapOnDelivery = useEffectEvent(() => {
+  useEffect(() => {
+    if (!nextDelivery) {
+      setIsNavigating(false)
+      setSheetMode("peek")
+    }
+  }, [nextDelivery])
+
+  useEffect(() => {
+    if (isNavigating) {
+      setSheetMode("peek")
+    }
+  }, [isNavigating])
+
+  useEffect(() => {
+    if (!nextDeliveryWithCoordinates) {
+      setRouteGeoJson(EMPTY_ROUTE_GEOJSON)
+      setRouteSummary(null)
+      setRouteError(null)
+      setIsRouteLoading(false)
+      lastDirectionsRequestRef.current = null
+      return
+    }
+
+    const destinationCoordinates: [number, number] = [nextDeliveryWithCoordinates.lng, nextDeliveryWithCoordinates.lat]
+
+    if (!isMapboxConfigured) {
+      setRouteGeoJson(EMPTY_ROUTE_GEOJSON)
+      setRouteSummary(null)
+      setRouteError("Le token Mapbox est requis pour calculer un itineraire.")
+      setIsRouteLoading(false)
+      lastDirectionsRequestRef.current = null
+      return
+    }
+
+    if (isOffline) {
+      setRouteGeoJson(createLineFeatureCollection([routeOriginCoordinates, destinationCoordinates], "fallback"))
+      setRouteSummary(null)
+      setRouteError("Trace simplifiee active. L'itineraire detaille Mapbox est indisponible hors ligne.")
+      setIsRouteLoading(false)
+      return
+    }
+
+    const lastRequest = lastDirectionsRequestRef.current
+    if (lastRequest) {
+      const originDrift = computeDistanceMeters(
+        lastRequest.origin[1],
+        lastRequest.origin[0],
+        routeOriginLatitude,
+        routeOriginLongitude
+      )
+      const destinationDrift = computeDistanceMeters(
+        lastRequest.destination[1],
+        lastRequest.destination[0],
+        destinationCoordinates[1],
+        destinationCoordinates[0]
+      )
+      const requestAge = Date.now() - lastRequest.timestamp
+
+      if (
+        originDrift < ROUTE_REFRESH_DISTANCE_METERS &&
+        destinationDrift < 5 &&
+        requestAge < ROUTE_REFRESH_INTERVAL_MS
+      ) {
+        return
+      }
+    }
+
+    let isCancelled = false
+    const controller = new AbortController()
+
+    const loadDirectionsRoute = async () => {
+      setIsRouteLoading(true)
+      setRouteError(null)
+
+      try {
+        const response = await fetch(buildDirectionsUrl(routeOriginCoordinates, destinationCoordinates), {
+          signal: controller.signal,
+        })
+        if (!response.ok) {
+          throw new Error(`Directions Mapbox indisponibles (${response.status}).`)
+        }
+
+        const payload = (await response.json()) as MapboxDirectionsResponse
+        const bestRoute = payload.routes?.[0]
+        if (!bestRoute || !Array.isArray(bestRoute.geometry?.coordinates)) {
+          throw new Error("Aucun itineraire exploitable n'a ete retourne par Mapbox.")
+        }
+
+        if (isCancelled) {
+          return
+        }
+
+        setRouteGeoJson(createLineFeatureCollection(bestRoute.geometry.coordinates))
+        setRouteSummary({
+          distanceMeters: bestRoute.distance,
+          durationSeconds: bestRoute.duration,
+        })
+        setRouteError(null)
+        lastDirectionsRequestRef.current = {
+          origin: routeOriginCoordinates,
+          destination: destinationCoordinates,
+          timestamp: Date.now(),
+        }
+      } catch (error) {
+        if (isCancelled || (error instanceof DOMException && error.name === "AbortError")) {
+          return
+        }
+
+        setRouteGeoJson(createLineFeatureCollection([routeOriginCoordinates, destinationCoordinates], "fallback"))
+        setRouteSummary(null)
+        setRouteError(
+          error instanceof Error
+            ? `${error.message} La carte affiche un trace simplifie entre le livreur et la destination.`
+            : "Impossible de calculer l'itineraire detaille."
+        )
+      } finally {
+        if (!isCancelled) {
+          setIsRouteLoading(false)
+        }
+      }
+    }
+
+    void loadDirectionsRoute()
+
+    return () => {
+      isCancelled = true
+      controller.abort()
+    }
+  }, [
+    driverLocation?.latitude,
+    driverLocation?.longitude,
+    isMapboxConfigured,
+    isOffline,
+    nextDeliveryWithCoordinates?.id,
+    nextDeliveryWithCoordinates?.lat,
+    nextDeliveryWithCoordinates?.lng,
+    routeOriginLatitude,
+    routeOriginLongitude,
+  ])
+
+  const syncMapCamera = useEffectEvent(() => {
     if (!mapRef.current) {
       return
     }
 
+    const mapInstance = mapRef.current
+
+    if (!isDriverFocusEnabled) {
+      return
+    }
+
+    if (isNavigating) {
+      if (driverLocation) {
+        const nextBearing =
+          driverLocation.speedKmh && driverLocation.speedKmh > 4 && typeof driverLocation.heading === "number"
+            ? driverLocation.heading
+            : mapInstance.getBearing()
+
+        mapInstance.easeTo({
+          center: [driverLocation.longitude, driverLocation.latitude],
+          zoom: 16.8,
+          pitch: 60,
+          bearing: nextBearing,
+          padding: driveModePadding,
+          duration: 700,
+          essential: true,
+        })
+        return
+      }
+
+      if (nextDeliveryWithCoordinates) {
+        mapInstance.easeTo({
+          center: [nextDeliveryWithCoordinates.lng, nextDeliveryWithCoordinates.lat],
+          zoom: 15.2,
+          pitch: 45,
+          bearing: mapInstance.getBearing(),
+          padding: driveModePadding,
+          duration: 700,
+          essential: true,
+        })
+        return
+      }
+    }
+
+    if (driverLocation && nextDeliveryWithCoordinates) {
+      const west = Math.min(driverLocation.longitude, nextDeliveryWithCoordinates.lng)
+      const east = Math.max(driverLocation.longitude, nextDeliveryWithCoordinates.lng)
+      const south = Math.min(driverLocation.latitude, nextDeliveryWithCoordinates.lat)
+      const north = Math.max(driverLocation.latitude, nextDeliveryWithCoordinates.lat)
+
+      if (west === east && south === north) {
+        mapInstance.easeTo({
+          center: [west, south],
+          zoom: 15,
+          pitch: 20,
+          bearing: 0,
+          padding: routeOverviewPadding,
+          duration: 900,
+          essential: true,
+        })
+        return
+      }
+
+      mapInstance.fitBounds(
+        [
+          [west, south],
+          [east, north],
+        ],
+        {
+          padding: routeOverviewPadding,
+          duration: 900,
+          essential: true,
+        }
+      )
+      return
+    }
+
     if (nextDeliveryWithCoordinates) {
-      mapRef.current.easeTo({
+      mapInstance.easeTo({
         center: [nextDeliveryWithCoordinates.lng, nextDeliveryWithCoordinates.lat],
-        zoom: 14.5,
-        padding: { top: 72, bottom: 320, left: 32, right: 32 },
+        zoom: 15,
+        pitch: 10,
+        bearing: 0,
+        padding: routeOverviewPadding,
         duration: 900,
+        essential: true,
+      })
+      return
+    }
+
+    if (driverLocation) {
+      mapInstance.easeTo({
+        center: [driverLocation.longitude, driverLocation.latitude],
+        zoom: 14.5,
+        pitch: 15,
+        bearing: 0,
+        padding: routeOverviewPadding,
+        duration: 900,
+        essential: true,
       })
       return
     }
 
     if (mappableDeliveries.length === 0) {
-      mapRef.current.easeTo({
+      mapInstance.easeTo({
         center: [DEFAULT_MAP_VIEW.longitude, DEFAULT_MAP_VIEW.latitude],
         zoom: DEFAULT_MAP_VIEW.zoom,
         duration: 900,
+        essential: true,
       })
       return
     }
@@ -567,53 +1303,102 @@ export default function LivreurPage() {
     const north = Math.max(...latitudes)
 
     if (west === east && south === north) {
-      mapRef.current.easeTo({
+      mapInstance.easeTo({
         center: [west, south],
-        zoom: 13.5,
-        padding: { top: 72, bottom: 240, left: 32, right: 32 },
+        zoom: 14,
+        pitch: 10,
+        bearing: 0,
+        padding: routeOverviewPadding,
         duration: 900,
+        essential: true,
       })
       return
     }
 
-    mapRef.current.fitBounds(
+    mapInstance.fitBounds(
       [
         [west, south],
         [east, north],
       ],
       {
-        padding: { top: 72, bottom: 240, left: 32, right: 32 },
+        padding: routeOverviewPadding,
         duration: 900,
+        essential: true,
       }
     )
   })
 
-  useEffect(() => {
-    if (activeTab !== "map") {
-      return
-    }
+  const roundedHeadingKey =
+    typeof driverLocation?.heading === "number" ? Math.round(driverLocation.heading / 8) * 8 : "none"
+  const mapCameraKey = [
+    isNavigating ? "drive" : "overview",
+    isHeaderCollapsed ? "header-collapsed" : "header-expanded",
+    nextDeliveryWithCoordinates?.id ?? "no-destination",
+    driverLocation?.latitude ?? "no-lat",
+    driverLocation?.longitude ?? "no-lng",
+    roundedHeadingKey,
+    routeGeoJson.features.length,
+  ].join(":")
 
-    const frameId = window.requestAnimationFrame(() => focusMapOnDelivery())
+  useEffect(() => {
+    const frameId = window.requestAnimationFrame(() => syncMapCamera())
     return () => window.cancelAnimationFrame(frameId)
-  }, [activeTab, mapViewportKey])
+  }, [mapCameraKey])
 
   const completedCount = deliveryList.filter((item) => item.status === "delivered" || item.status === "absent").length
   const totalCount = deliveryList.length
+  const remainingCount = activeDeliveries.length
   const remainingTime = computeRemainingTime(deliveryList)
   const todayEarnings = deliveryList.filter((item) => item.status === "delivered").length * 10
-  const monthEarnings = 1240
-  const tourneeWindow = formatTourneeWindow(deliveryList)
-  const tourneeTitle = `Tournee du ${formatTourneeDate(tourneeData?.date_jour)}${tourneeWindow ? ` - ${tourneeWindow}` : ""}`
+  const progressRatio = totalCount === 0 ? 0 : completedCount / totalCount
+  const currentRouteDistanceLabel = routeSummary ? formatDistanceLabel(routeSummary.distanceMeters) : "Trace en attente"
+  const currentRouteDurationLabel = routeSummary ? formatDurationFromSeconds(routeSummary.durationSeconds) : remainingTime
+  const futureMarkers = nextDelivery ? futureDeliveries.filter(hasCoordinates) : mappableDeliveries
+  const sheetHeightValue = sheetMode === "expanded" ? "min(58dvh, 34rem)" : "max(20dvh, 12rem)"
+  const isSheetExpanded = sheetMode === "expanded"
+  const routeOverviewPadding = isHeaderCollapsed ? { ...ROUTE_OVERVIEW_PADDING, top: 72 } : ROUTE_OVERVIEW_PADDING
+  const driveModePadding = isHeaderCollapsed ? { ...DRIVE_MODE_PADDING, top: 56 } : DRIVE_MODE_PADDING
+  const topOverlayOffset = isHeaderCollapsed ? "3.75rem" : "8.75rem"
+  const showMap =
+    isMapboxConfigured && !isTourneeLoading && !beforeSeven && Boolean(token) && mappableDeliveries.length > 0
+  const showBottomSheet = !isTourneeLoading && !beforeSeven && Boolean(token) && deliveryList.length > 0
 
   const handleStatusChange = (id: string, newStatus: "enroute" | "delivered" | "absent") => {
+    const nextRawStatus = mapDeliveryStatusToBackendStatus(newStatus)
+    setTourneeStarted(true)
+
     setDeliveryList((previousList) =>
-      previousList.map((item) => (item.id === id ? { ...item, status: newStatus } : item))
+      previousList.map((item) =>
+        item.id === id ? { ...item, status: newStatus, rawStatus: nextRawStatus } : item
+      )
     )
+
+    setTourneeData((previousTournee) => {
+      if (!previousTournee) {
+        return previousTournee
+      }
+
+      const nextTournee = {
+        ...previousTournee,
+        tournee_started: true,
+        items: previousTournee.items.map((item) =>
+          String(item.commande_id) === id
+            ? {
+                ...item,
+                statut: nextRawStatus,
+              }
+            : item
+        ),
+      }
+
+      writeCachedTournee(nextTournee)
+      return nextTournee
+    })
   }
 
   const handleStartTournee = async () => {
     if (!token || deliveryList.length === 0 || isStartingTournee) {
-      return
+      return false
     }
 
     setIsStartingTournee(true)
@@ -640,520 +1425,669 @@ export default function LivreurPage() {
       }
 
       setNotice({ tone: "success", message: response.message })
+      return shouldMarkStarted
     } catch (error) {
       setNotice({
         tone: "error",
         message: error instanceof Error ? error.message : "Impossible de demarrer la tournee.",
       })
+      return false
     } finally {
       setIsStartingTournee(false)
     }
   }
 
+  const handleStartDriveMode = async () => {
+    if (!nextDelivery) {
+      return
+    }
+
+    if (!tourneeStarted) {
+      const hasStarted = await handleStartTournee()
+      if (!hasStarted) {
+        return
+      }
+    }
+
+    setIsDriverFocusEnabled(true)
+    setIsNavigating(true)
+  }
+
+  const handleCompleteCurrentDelivery = () => {
+    if (!nextDelivery) {
+      return
+    }
+
+    handleStatusChange(nextDelivery.id, "delivered")
+    setIsNavigating(false)
+  }
+
+  const handleMarkCurrentDeliveryAbsent = () => {
+    if (!nextDelivery) {
+      return
+    }
+
+    handleStatusChange(nextDelivery.id, "absent")
+    setIsNavigating(false)
+    setNotice({ tone: "info", message: "Client marque absent. Passage a l'etape suivante." })
+  }
+
+  const handleRecenterToDriver = () => {
+    if (!mapRef.current) {
+      return
+    }
+
+    const activeDriverLocation = driverLocation ?? lastDriverLocationRef.current
+
+    if (!activeDriverLocation) {
+      requestCurrentLocation({ showNoticeOnError: true, recenterAfterSuccess: true, showLoadingState: true })
+      return
+    }
+
+    setIsDriverFocusEnabled(true)
+
+    const mapInstance = mapRef.current
+    if (isNavigating) {
+      mapInstance.easeTo({
+        center: [activeDriverLocation.longitude, activeDriverLocation.latitude],
+        zoom: 16.8,
+        pitch: 60,
+        bearing:
+          typeof activeDriverLocation.heading === "number" ? activeDriverLocation.heading : mapInstance.getBearing(),
+        padding: driveModePadding,
+        duration: 700,
+        essential: true,
+      })
+      return
+    }
+
+    if (nextDeliveryWithCoordinates) {
+      const west = Math.min(activeDriverLocation.longitude, nextDeliveryWithCoordinates.lng)
+      const east = Math.max(activeDriverLocation.longitude, nextDeliveryWithCoordinates.lng)
+      const south = Math.min(activeDriverLocation.latitude, nextDeliveryWithCoordinates.lat)
+      const north = Math.max(activeDriverLocation.latitude, nextDeliveryWithCoordinates.lat)
+
+      if (west === east && south === north) {
+        mapInstance.easeTo({
+          center: [west, south],
+          zoom: 15.2,
+          pitch: 30,
+          bearing: 0,
+          padding: routeOverviewPadding,
+          duration: 700,
+          essential: true,
+        })
+        return
+      }
+
+      mapInstance.fitBounds(
+        [
+          [west, south],
+          [east, north],
+        ],
+        {
+          padding: routeOverviewPadding,
+          duration: 700,
+          essential: true,
+        }
+      )
+      return
+    }
+
+    mapInstance.easeTo({
+      center: [activeDriverLocation.longitude, activeDriverLocation.latitude],
+      zoom: 15,
+      pitch: 20,
+      bearing: 0,
+      padding: routeOverviewPadding,
+      duration: 700,
+      essential: true,
+    })
+  }
+
+  const floatingStatusLabel = isNavigating
+    ? "Drive mode"
+    : beforeSeven
+      ? "Disponible a 7h00"
+      : isTourneeLoading
+        ? "Synchronisation"
+        : deliveryList.length === 0
+          ? "Aucune affectation"
+          : !tourneeStarted
+            ? "Pret a demarrer"
+            : nextDelivery
+              ? "En livraison"
+              : "Tournee terminee"
+  const floatingStatusClass = isNavigating
+    ? "bg-[#EAF2FF] text-[#1A73E8]"
+    : beforeSeven
+      ? "bg-[#FFF3E0] text-[#8A5A00]"
+      : !tourneeStarted && deliveryList.length > 0
+        ? "bg-[#FFF3E0] text-[#8A5A00]"
+        : nextDelivery
+          ? "bg-[#F0FAF1] text-[#1E8A3C]"
+          : "bg-[#EEF5FF] text-[#285C9A]"
+
+  const renderCenterState = () => {
+    if (isTourneeLoading) {
+      return (
+        <CenterStateCard
+          icon={Truck}
+          title="Chargement de votre tournee"
+          description="Nous recuperons la tournee du jour, les etapes et les coordonnees GPS."
+          action={<Spinner className="mx-auto size-6 text-[#1E8A3C]" />}
+        />
+      )
+    }
+
+    if (beforeSeven) {
+      return (
+        <CenterStateCard
+          icon={Clock3}
+          title="La tournee arrive bientot"
+          description="Votre tournee s'affichera ici a partir de 7h00."
+        />
+      )
+    }
+
+    if (!token) {
+      return (
+        <CenterStateCard
+          icon={Truck}
+          title="Session livreur requise"
+          description="Connectez-vous pour consulter votre tournee et piloter vos prochaines livraisons."
+          action={
+            <Link
+              href="/login/livreur"
+              className="inline-flex rounded-2xl bg-[#F07C00] px-5 py-3 font-semibold text-white"
+            >
+              Se connecter
+            </Link>
+          }
+        />
+      )
+    }
+
+    if (deliveryList.length === 0) {
+      return (
+        <CenterStateCard
+          icon={MapIcon}
+          title="Aucune livraison assignee"
+          description="Revenez un peu plus tard pour verifier votre tournee du jour."
+        />
+      )
+    }
+
+    if (!isMapboxConfigured) {
+      return (
+        <CenterStateCard
+          icon={MapIcon}
+          title="Carte indisponible"
+          description="Ajoutez NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN pour activer la navigation cartographique."
+        />
+      )
+    }
+
+    if (mappableDeliveries.length === 0) {
+      return (
+        <CenterStateCard
+          icon={MapPin}
+          title="Coordonnees GPS manquantes"
+          description="Les commandes doivent fournir lat et lng pour la navigation terrain."
+        />
+      )
+    }
+
+    return null
+  }
+
+  const centerState = renderCenterState()
+
   return (
-    <div className="min-h-screen bg-[#F5F5F0] max-w-md mx-auto relative">
-      <header className="sticky top-0 z-40 bg-white border-b border-gray-100 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl shadow-sm overflow-hidden flex items-center justify-center bg-white p-0.5 pointer-events-none">
-              <img src="/logo3.png" alt="SOUKI" className="w-[175%] h-full max-w-none object-cover" style={{ objectPosition: "left center" }} />
-            </div>
-            <div>
-              <span className="font-bold text-[#1E8A3C]">SOUKI</span>
-              <span className="text-sm text-[#8A8A8A] ml-1">Driver</span>
-            </div>
-          </div>
+    <div
+      className="relative mx-auto h-screen w-full max-w-md overflow-hidden bg-[#D9E6DD] md:rounded-[2rem] md:shadow-[0_20px_70px_rgba(15,23,42,0.18)]"
+      style={{ ["--driver-bottom-sheet-height" as string]: sheetHeightValue }}
+    >
+      <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.75),_rgba(217,230,221,0.6)_35%,_rgba(185,208,190,0.9)_100%)]" />
+
+      {showMap && (
+        <div className="absolute inset-x-0 top-0 bottom-[var(--driver-bottom-sheet-height)] z-0">
+          <Map
+            ref={mapRef}
+            reuseMaps
+            initialViewState={DEFAULT_MAP_VIEW}
+            mapboxAccessToken={MAPBOX_TOKEN}
+            mapStyle={MAPBOX_STYLE}
+            maxBounds={MOROCCO_BOUNDS}
+            attributionControl={false}
+            dragPan={!isNavigating}
+            onLoad={() => syncMapCamera()}
+            onDragStart={() => setIsDriverFocusEnabled(false)}
+          >
+            <NavigationControl position="top-right" showCompass={false} />
+
+            {routeGeoJson.features.length > 0 && (
+              <Source id="tournee-route" type="geojson" data={routeGeoJson}>
+                <Layer {...ROUTE_CASING_LAYER} />
+                <Layer {...ROUTE_LAYER} />
+              </Source>
+            )}
+
+            {futureMarkers.map((item) => (
+              <Marker key={item.id} longitude={item.lng} latitude={item.lat} anchor="center">
+                <div className="h-3 w-3 rounded-full bg-[#8B9991]/90 ring-4 ring-white/85 shadow-sm" />
+              </Marker>
+            ))}
+
+            {nextDeliveryWithCoordinates && (
+              <Marker longitude={nextDeliveryWithCoordinates.lng} latitude={nextDeliveryWithCoordinates.lat} anchor="bottom">
+                <div className="relative flex flex-col items-center">
+                  <div className="absolute top-1/2 h-16 w-16 -translate-y-1/2 rounded-full bg-[#F07C00]/30 animate-ping" />
+                  <div className="absolute top-1/2 h-20 w-20 -translate-y-1/2 rounded-full bg-[#F07C00]/12" />
+                  <div className="relative flex h-14 w-14 items-center justify-center rounded-full border-4 border-white bg-[#F07C00] text-lg font-black text-white shadow-[0_18px_34px_rgba(240,124,0,0.4)]">
+                    {nextDeliveryWithCoordinates.stepNumber}
+                  </div>
+                  <div className="-mt-2 h-4 w-4 rotate-45 rounded-[4px] bg-[#F07C00] ring-4 ring-white" />
+                </div>
+              </Marker>
+            )}
+
+            {driverLocation && (
+              <Marker longitude={driverLocation.longitude} latitude={driverLocation.latitude} anchor="center">
+                <div className="relative flex h-16 w-16 items-center justify-center">
+                  <div className="absolute h-14 w-14 rounded-full bg-[#1A73E8]/20 animate-ping" />
+                  <div className="absolute h-10 w-10 rounded-full bg-[#1A73E8]/15" />
+                  <div className="relative flex h-8 w-8 items-center justify-center rounded-full border-4 border-white bg-[#1A73E8] shadow-[0_12px_24px_rgba(26,115,232,0.35)]">
+                    <div
+                      className="h-0 w-0 border-b-[10px] border-l-[6px] border-r-[6px] border-b-white border-l-transparent border-r-transparent"
+                      style={{
+                        transform: `rotate(${driverLocation.heading ?? 0}deg)`,
+                      }}
+                    />
+                  </div>
+                </div>
+              </Marker>
+            )}
+          </Map>
+        </div>
+      )}
+
+      {showMap && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-[calc(var(--driver-bottom-sheet-height)+1rem)] z-30 flex justify-end px-4">
           <button
-            onClick={() => setIsOnDuty(!isOnDuty)}
+            type="button"
+            onClick={handleRecenterToDriver}
+            disabled={isRequestingLocation}
             className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
-              isOnDuty ? "bg-[#4CB84A]/10 text-[#4CB84A]" : "bg-red-100 text-red-600"
+              "pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/70 px-3 py-2 text-xs font-semibold shadow-[0_14px_30px_rgba(15,23,42,0.18)] backdrop-blur-xl transition-colors disabled:cursor-not-allowed disabled:opacity-70",
+              driverLocation
+                ? "bg-[#17301E]/88 text-white"
+                : "bg-white/90 text-[#17301E]"
             )}
           >
-            <span className={cn("w-2 h-2 rounded-full", isOnDuty ? "bg-[#4CB84A]" : "bg-red-500")} />
-            {isOnDuty ? "En service" : "Hors service"}
+            {isRequestingLocation ? <Spinner className="size-4" /> : <Navigation className="h-4 w-4" />}
+            {isRequestingLocation ? "Localisation..." : isDriverFocusEnabled ? "Suivi auto" : "Me localiser"}
           </button>
         </div>
+      )}
 
-        <div className="mt-3">
-          <p className="text-lg font-semibold text-[#3D3D3D]">{tourneeTitle}</p>
+      <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-b from-[#10251A]/38 via-transparent via-45% to-[#10251A]/20" />
+
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-30 px-4 pt-4">
+        <div className="mx-auto max-w-4xl">
+          {isHeaderCollapsed ? (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsHeaderCollapsed(false)}
+                className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-white/70 bg-white/88 px-3 py-2 text-xs font-semibold text-[#17301E] shadow-[0_16px_40px_rgba(15,23,42,0.18)] backdrop-blur-xl"
+              >
+                Afficher
+                <ChevronDown className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="pointer-events-auto rounded-[2rem] border border-white/60 bg-white/84 p-3 shadow-[0_24px_60px_rgba(15,23,42,0.18)] backdrop-blur-xl">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]",
+                        floatingStatusClass
+                      )}
+                    >
+                      {floatingStatusLabel}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#F4F7F4] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#5F6E65]">
+                      {isOffline ? <WifiOff className="h-3.5 w-3.5" /> : <SignalHigh className="h-3.5 w-3.5" />}
+                      {isOffline ? "Hors ligne" : loadSource === "cache" ? "Cache" : "Live"}
+                    </span>
+                    {driverLocation && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[#EAF2FF] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1A73E8]">
+                        <Gauge className="h-3.5 w-3.5" />
+                        {driverLocation.speedKmh ? `${Math.round(driverLocation.speedKmh)} km/h` : "GPS actif"}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <HeaderMetric label="Restantes" value={String(remainingCount)} />
+                    <HeaderMetric label="Livrees" value={`${completedCount}/${totalCount}`} />
+                    <HeaderMetric
+                      label={routeSummary ? "Distance" : "Gains"}
+                      value={routeSummary ? currentRouteDistanceLabel : formatAmount(todayEarnings)}
+                    />
+                  </div>
+
+                  <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-[#E2E8E3]">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-[#1E8A3C] to-[#1A73E8] transition-all duration-500"
+                      style={{ width: `${progressRatio * 100}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsHeaderCollapsed(true)}
+                    className="inline-flex items-center gap-1 rounded-full border border-[#D7E1DA] bg-white/80 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#4F6257] transition-colors hover:bg-white"
+                  >
+                    Masquer
+                    <ChevronUp className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsOnDuty((currentValue) => !currentValue)}
+                    className={cn(
+                      "rounded-full px-3 py-2 text-sm font-semibold shadow-sm transition-colors",
+                      isOnDuty ? "bg-[#1E8A3C] text-white" : "bg-red-50 text-red-600"
+                    )}
+                  >
+                    {isOnDuty ? "En service" : "Pause"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-
-        <div className="mt-4">
-          <div className="flex items-center justify-between text-sm mb-2">
-            <span className="font-medium text-[#1E8A3C]">{completedCount}/{totalCount} livraisons</span>
-            <span className="text-[#8A8A8A]">Temps restant : {remainingTime}</span>
-          </div>
-          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-[#4CB84A] rounded-full transition-all"
-              style={{ width: totalCount === 0 ? "0%" : `${(completedCount / totalCount) * 100}%` }}
-            />
-          </div>
-        </div>
-
-        <button
-          onClick={handleStartTournee}
-          disabled={isStartingTournee || deliveryList.length === 0 || tourneeStarted}
-          className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-[#1E8A3C] text-white font-semibold shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {isStartingTournee ? <Spinner className="size-5" /> : <Truck className="w-5 h-5" />}
-          <span>{tourneeStarted ? "Tournee demarree" : "Demarrer la tournee"}</span>
-        </button>
       </header>
 
-      <main className={cn("pb-20", activeTab === "map" ? "px-0 py-0" : "px-4 py-4")}>
-        {activeTab !== "map" && loadSource === "cache" && !beforeSeven && (
-          <div className="mb-4 p-4 rounded-2xl bg-[#FFF3E0] text-[#8A5A00] text-sm shadow-sm">
-            Mode hors ligne actif. La liste affiche la derniere tournee sauvegardee sur cet appareil.
-          </div>
-        )}
+      <div
+        className="pointer-events-none absolute inset-x-0 z-30 px-4 transition-[top] duration-300"
+        style={{ top: topOverlayOffset }}
+      >
+        <div className="mx-auto max-w-4xl space-y-2">
+          {loadSource === "cache" && !beforeSeven && (
+            <div className="rounded-2xl bg-[#FFF3E0]/95 px-4 py-3 text-sm text-[#8A5A00] shadow-sm backdrop-blur">
+              Mode hors ligne actif. La derniere tournee sauvegardee est affichee.
+            </div>
+          )}
 
-        {activeTab !== "map" && notice && !beforeSeven && (
-          <div
-            className={cn(
-              "mb-4 p-4 rounded-2xl text-sm shadow-sm",
-              notice.tone === "success" && "bg-[#F0FAF1] text-[#1E8A3C]",
-              notice.tone === "info" && "bg-[#FFF3E0] text-[#8A5A00]",
-              notice.tone === "error" && "bg-red-50 text-red-600"
-            )}
-          >
-            {notice.message}
-          </div>
-        )}
+          {notice && !beforeSeven && (
+            <div
+              className={cn(
+                "rounded-2xl px-4 py-3 text-sm shadow-sm backdrop-blur",
+                notice.tone === "success" && "bg-[#F0FAF1]/95 text-[#1E8A3C]",
+                notice.tone === "info" && "bg-[#FFF3E0]/95 text-[#8A5A00]",
+                notice.tone === "error" && "bg-red-50/95 text-red-600"
+              )}
+            >
+              {notice.message}
+            </div>
+          )}
 
-        {activeTab === "list" && (
-          <>
-            {isTourneeLoading ? (
-              <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col items-center justify-center gap-3 text-center">
-                <Spinner className="size-6 text-[#1E8A3C]" />
-                <p className="font-medium text-[#3D3D3D]">Chargement de votre tournee...</p>
-              </div>
-            ) : beforeSeven ? (
-              <div className="bg-white rounded-2xl shadow-sm p-6 text-center">
-                <p className="text-xl font-semibold text-[#3D3D3D]">Bonjour, prenez un cafe ☕</p>
-                <p className="text-[#8A8A8A] mt-2">
-                  Votre tournee s&apos;affichera ici a 7h00.
-                </p>
-              </div>
-            ) : !token ? (
-              <div className="bg-white rounded-2xl shadow-sm p-6 text-center">
-                <p className="text-[#3D3D3D] font-semibold">Votre session livreur est requise.</p>
-                <Link href="/login/livreur" className="inline-flex mt-4 px-4 py-2 rounded-xl bg-[#F07C00] text-white font-medium">
-                  Se connecter
-                </Link>
-              </div>
-            ) : deliveryList.length === 0 ? (
-              <div className="bg-white rounded-2xl shadow-sm p-6 text-center">
-                <p className="text-[#3D3D3D] font-semibold">Aucune livraison assignee pour le moment.</p>
-                <p className="text-[#8A8A8A] mt-2">Revenez un peu plus tard pour verifier votre tournee du jour.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {deliveryList.map((delivery, index) => (
-                  <DeliveryCard
-                    key={delivery.id}
-                    id={delivery.id}
-                    sequenceNumber={index + 1}
-                    orderNumber={delivery.orderNumber}
-                    timeSlot={delivery.timeSlot}
-                    address={delivery.address}
-                    clientName={delivery.clientName}
-                    clientPhone={delivery.clientPhone}
-                    callHref={delivery.callHref}
-                    packageCount={delivery.packageCount}
-                    amount={delivery.amount}
-                    paymentMethod={delivery.paymentMethod}
-                    status={delivery.status}
-                    onStatusChange={handleStatusChange}
-                  />
-                ))}
-              </div>
-            )}
-          </>
-        )}
+          {gpsError && !beforeSeven && token && deliveryList.length > 0 && (
+            <div className="rounded-2xl bg-[#EAF2FF]/95 px-4 py-3 text-sm text-[#285C9A] shadow-sm backdrop-blur">
+              {gpsError}
+            </div>
+          )}
 
-        {activeTab === "map" && (
-          <div className="relative h-[calc(100dvh-15rem)] min-h-[32rem] overflow-hidden bg-[#E4ECE5]">
-            <div className="absolute inset-0">
-              {!isMapboxConfigured ? (
-                <div className="flex h-full items-center justify-center px-6">
-                  <div className="max-w-xs rounded-[2rem] bg-white/92 p-7 text-center shadow-lg backdrop-blur">
-                    <MapIcon className="mx-auto mb-4 h-14 w-14 text-[#8A8A8A]" />
-                    <p className="font-semibold text-[#3D3D3D]">Token Mapbox manquant</p>
-                    <p className="mt-2 text-sm leading-6 text-[#6B7280]">
-                      Ajoutez `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` pour afficher la carte du livreur.
-                    </p>
-                  </div>
-                </div>
-              ) : isTourneeLoading ? (
-                <div className="flex h-full items-center justify-center px-6">
-                  <div className="rounded-[2rem] bg-white/88 px-6 py-5 text-center shadow-lg backdrop-blur">
-                    <Spinner className="mx-auto size-6 text-[#1E8A3C]" />
-                    <p className="mt-3 font-medium text-[#3D3D3D]">Chargement de votre tournee...</p>
-                  </div>
-                </div>
-              ) : beforeSeven ? (
-                <div className="flex h-full items-center justify-center px-6">
-                  <div className="max-w-xs rounded-[2rem] bg-white/92 p-7 text-center shadow-lg backdrop-blur">
-                    <Clock3 className="mx-auto mb-4 h-14 w-14 text-[#1E8A3C]" />
-                    <p className="text-xl font-semibold text-[#3D3D3D]">Bonjour, prenez un cafe</p>
-                    <p className="mt-2 text-sm leading-6 text-[#6B7280]">
-                      Votre tournee s&apos;affichera ici a 7h00.
-                    </p>
-                  </div>
-                </div>
-              ) : !token ? (
-                <div className="flex h-full items-center justify-center px-6">
-                  <div className="max-w-xs rounded-[2rem] bg-white/92 p-7 text-center shadow-lg backdrop-blur">
-                    <Truck className="mx-auto mb-4 h-14 w-14 text-[#1E8A3C]" />
-                    <p className="font-semibold text-[#3D3D3D]">Votre session livreur est requise.</p>
-                    <Link
-                      href="/login/livreur"
-                      className="mt-4 inline-flex rounded-2xl bg-[#F07C00] px-4 py-2.5 font-medium text-white"
-                    >
-                      Se connecter
-                    </Link>
-                  </div>
-                </div>
-              ) : deliveryList.length === 0 ? (
-                <div className="flex h-full items-center justify-center px-6">
-                  <div className="max-w-xs rounded-[2rem] bg-white/92 p-7 text-center shadow-lg backdrop-blur">
-                    <MapIcon className="mx-auto mb-4 h-14 w-14 text-[#8A8A8A]" />
-                    <p className="font-semibold text-[#3D3D3D]">Aucune livraison assignee</p>
-                    <p className="mt-2 text-sm leading-6 text-[#6B7280]">
-                      Revenez un peu plus tard pour verifier votre tournee du jour.
-                    </p>
-                  </div>
-                </div>
-              ) : mappableDeliveries.length === 0 ? (
-                <div className="flex h-full items-center justify-center px-6">
-                  <div className="max-w-xs rounded-[2rem] bg-white/92 p-7 text-center shadow-lg backdrop-blur">
-                    <MapIcon className="mx-auto mb-4 h-14 w-14 text-[#8A8A8A]" />
-                    <p className="font-semibold text-[#3D3D3D]">Aucune coordonnee GPS exploitable</p>
-                    <p className="mt-2 text-sm leading-6 text-[#6B7280]">
-                      Les livraisons doivent avoir `lat` et `lng` pour etre positionnees sur la carte.
-                    </p>
+          {routeError && !beforeSeven && nextDeliveryWithCoordinates && (
+            <div className="rounded-2xl bg-[#EEF5FF]/95 px-4 py-3 text-sm text-[#285C9A] shadow-sm backdrop-blur">
+              {routeError}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {centerState && (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-4 pt-28">
+          {centerState}
+        </div>
+      )}
+
+      {showBottomSheet && (
+        <div className="absolute inset-x-0 bottom-0 z-50 h-[var(--driver-bottom-sheet-height)]">
+          <div className="h-full px-2 pb-2">
+            <div className="pointer-events-auto flex h-full flex-col overflow-hidden rounded-t-[2rem] border border-white/70 bg-white/96 shadow-[0_-18px_56px_rgba(15,23,42,0.24)] backdrop-blur-xl">
+              <button
+                type="button"
+                onClick={() => setSheetMode((currentMode) => (currentMode === "peek" ? "expanded" : "peek"))}
+                className="flex items-center justify-center gap-1 px-4 pb-2 pt-3 text-[#6B7280]"
+              >
+                <span className="h-1.5 w-14 rounded-full bg-[#D1D5DB]" />
+                {isSheetExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+              </button>
+
+              {!nextDelivery ? (
+                <div className="flex flex-1 items-center px-4 pb-4 pt-3">
+                  <div className="w-full rounded-[1.5rem] bg-[#F0FAF1] p-4 text-center">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#1E8A3C] text-white">
+                      <CheckCircle2 className="h-7 w-7" />
+                    </div>
+                    <h3 className="mt-3 text-xl font-bold text-[#17301E]">Tournee terminee</h3>
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-left">
+                      <div className="rounded-2xl bg-white px-4 py-3">
+                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-[#8A8A8A]">Livrees</p>
+                        <p className="mt-1 text-xl font-bold text-[#17301E]">{completedCount}</p>
+                      </div>
+                      <div className="rounded-2xl bg-white px-4 py-3">
+                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-[#8A8A8A]">Gains</p>
+                        <p className="mt-1 text-xl font-bold text-[#17301E]">{formatAmount(todayEarnings)}</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : (
-                <>
-                  <div className="absolute inset-0">
-                    <Map
-                      ref={mapRef}
-                      reuseMaps
-                      initialViewState={DEFAULT_MAP_VIEW}
-                      mapboxAccessToken={MAPBOX_TOKEN}
-                      mapStyle={MAPBOX_STYLE}
-                      maxBounds={MOROCCO_BOUNDS}
-                      attributionControl={false}
-                      onLoad={() => focusMapOnDelivery()}
-                    >
-                      <NavigationControl position="top-right" showCompass={false} />
-
-                      {routeCoordinates.length > 1 && (
-                        <Source id="tournee-route" type="geojson" data={routeGeoJson}>
-                          <Layer {...ROUTE_LAYER} />
-                        </Source>
-                      )}
-
-                      {(nextDelivery ? futureDeliveries.filter(hasCoordinates) : mappableDeliveries).map((item) => (
-                        <Marker key={item.id} longitude={item.lng} latitude={item.lat} anchor="center">
-                          <div className="h-3.5 w-3.5 rounded-full bg-[#9AA69D] ring-4 ring-white/90 shadow-sm" />
-                        </Marker>
-                      ))}
-
-                      {nextDeliveryWithCoordinates && (
-                        <Marker longitude={nextDeliveryWithCoordinates.lng} latitude={nextDeliveryWithCoordinates.lat} anchor="bottom">
-                          <div className="flex flex-col items-center">
-                            <div className="flex h-14 w-14 items-center justify-center rounded-[1.35rem] border-4 border-white bg-[#1E8A3C] text-lg font-black text-white shadow-[0_12px_30px_rgba(30,138,60,0.38)]">
-                              {nextDeliveryWithCoordinates.stepNumber}
-                            </div>
-                            <div className="-mt-2 h-4 w-4 rotate-45 rounded-[4px] bg-[#1E8A3C] ring-4 ring-white" />
-                          </div>
-                        </Marker>
-                      )}
-                    </Map>
-                  </div>
-
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-white/35" />
-                </>
-              )}
-            </div>
-
-            <div className="pointer-events-none absolute inset-x-3 top-3 z-20 space-y-2">
-              {loadSource === "cache" && !beforeSeven && (
-                <div className="rounded-2xl bg-[#FFF3E0]/95 px-4 py-3 text-sm text-[#8A5A00] shadow-sm backdrop-blur">
-                  Mode hors ligne actif. La carte affiche la derniere tournee sauvegardee.
-                </div>
-              )}
-
-              {notice && !beforeSeven && (
-                <div
-                  className={cn(
-                    "rounded-2xl px-4 py-3 text-sm shadow-sm backdrop-blur",
-                    notice.tone === "success" && "bg-[#F0FAF1]/95 text-[#1E8A3C]",
-                    notice.tone === "info" && "bg-[#FFF3E0]/95 text-[#8A5A00]",
-                    notice.tone === "error" && "bg-red-50/95 text-red-600"
-                  )}
-                >
-                  {notice.message}
-                </div>
-              )}
-            </div>
-
-            {isMapboxConfigured && !beforeSeven && !isTourneeLoading && token && deliveryList.length > 0 && (
-              <div className="absolute inset-x-0 bottom-[4.75rem] z-20 px-3">
-                <div className="rounded-t-3xl bg-white/96 shadow-[0_-14px_40px_rgba(17,24,39,0.18)] backdrop-blur">
-                  <div className="mx-auto mt-3 h-1.5 w-12 rounded-full bg-[#D1D5DB]" />
-
-                  {!nextDelivery ? (
-                    <div className="px-5 pb-6 pt-4">
-                      <div className="rounded-[1.75rem] bg-[#F0FAF1] p-5 text-center">
-                        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#1E8A3C] text-white">
-                          <CheckCircle2 className="h-7 w-7" />
+                <div className="flex h-full min-h-0 flex-col px-4 pb-4">
+                  <div className="rounded-[1.6rem] bg-[linear-gradient(145deg,rgba(240,250,241,0.98),rgba(255,255,255,0.92))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="inline-flex rounded-full bg-[#F0FAF1] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#1E8A3C]">
+                            {isNavigating ? "En travail" : "Pret pour la course"}
+                          </span>
+                          <span className="inline-flex rounded-full bg-[#EEF5FF] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#285C9A]">
+                            {currentRouteDistanceLabel}
+                          </span>
                         </div>
-                        <h3 className="mt-4 text-2xl font-bold text-[#17301E]">Tournee terminee !</h3>
-                        <p className="mt-2 text-sm leading-6 text-[#5B6B60]">
-                          Toutes les commandes de la journee ont ete traitees. Vous pouvez consulter votre progression ou revenir plus tard.
-                        </p>
-                        <div className="mt-4 grid grid-cols-2 gap-3 text-left">
-                          <div className="rounded-2xl bg-white px-4 py-3">
-                            <p className="text-xs font-medium uppercase tracking-[0.16em] text-[#8A8A8A]">Livrees</p>
-                            <p className="mt-1 text-xl font-bold text-[#17301E]">{completedCount}</p>
-                          </div>
-                          <div className="rounded-2xl bg-white px-4 py-3">
-                            <p className="text-xs font-medium uppercase tracking-[0.16em] text-[#8A8A8A]">Revenus</p>
-                            <p className="mt-1 text-xl font-bold text-[#17301E]">{todayEarnings} DH</p>
-                          </div>
-                        </div>
+                        <h3 className="mt-2 truncate text-lg font-bold text-[#17301E]">{nextDelivery.clientName}</h3>
+                        <p className="mt-1 truncate text-sm font-medium text-[#3F5246]">{buildPreciseAddress(nextDelivery)}</p>
+                        <p className="mt-1 truncate text-xs text-[#5B6B60]">{buildPaymentSummary(nextDelivery)}</p>
+                      </div>
+
+                      <div className="shrink-0 rounded-[1.25rem] bg-white px-3 py-2 text-center shadow-sm">
+                        <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#6B7280]">Stop</p>
+                        <p className="mt-1 text-xl font-black text-[#1E8A3C]">{nextDelivery.stepNumber}</p>
                       </div>
                     </div>
-                  ) : (
-                    <div className="px-5 pb-6 pt-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#1E8A3C]">
-                            Prochaine livraison
-                          </p>
-                          <h3 className="mt-2 truncate text-2xl font-bold text-[#17301E]">
-                            {getDeliveryNeighborhood(nextDelivery)}
-                          </h3>
-                          <p className="mt-2 text-sm leading-6 text-[#5B6B60]">{nextDelivery.address}</p>
-                        </div>
 
-                        <div className="shrink-0 rounded-[1.4rem] bg-[#F0FAF1] px-4 py-3 text-center">
-                          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#6B7280]">Stop</p>
-                          <p className="mt-1 text-2xl font-black text-[#1E8A3C]">{nextDelivery.stepNumber}</p>
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      <div className="rounded-2xl bg-white px-3 py-2.5 shadow-sm">
+                        <div className="flex items-center gap-1.5 text-[#6B7280]">
+                          <Package className="h-3.5 w-3.5" />
+                          <span className="text-[10px] font-medium uppercase tracking-[0.14em]">Colis</span>
                         </div>
+                        <p className="mt-1.5 truncate text-sm font-bold text-[#17301E]">{nextDelivery.packageCount}</p>
                       </div>
 
-                      <div className="mt-4 grid grid-cols-2 gap-3">
+                      <div className="rounded-2xl bg-white px-3 py-2.5 shadow-sm">
+                        <div className="flex items-center gap-1.5 text-[#6B7280]">
+                          <Route className="h-3.5 w-3.5" />
+                          <span className="text-[10px] font-medium uppercase tracking-[0.14em]">Route</span>
+                        </div>
+                        <p className="mt-1.5 truncate text-sm font-bold text-[#17301E]">
+                          {isRouteLoading ? "..." : currentRouteDistanceLabel}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl bg-white px-3 py-2.5 shadow-sm">
+                        <div className="flex items-center gap-1.5 text-[#6B7280]">
+                          <Gauge className="h-3.5 w-3.5" />
+                          <span className="text-[10px] font-medium uppercase tracking-[0.14em]">ETA</span>
+                        </div>
+                        <p className="mt-1.5 truncate text-sm font-bold text-[#17301E]">
+                          {isRouteLoading ? "..." : currentRouteDurationLabel}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {isSheetExpanded && (
+                    <div className="delivery-sheet-scroll mt-3 min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-1">
+                      <div className="space-y-3 pb-3">
                         <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
                           <div className="flex items-center gap-2 text-[#6B7280]">
-                            <Package className="h-4 w-4" />
-                            <span className="text-xs font-medium uppercase tracking-[0.16em]">Colis</span>
+                            <MapPin className="h-4 w-4" />
+                            <span className="text-xs font-medium uppercase tracking-[0.16em]">Adresse complete</span>
                           </div>
-                          <p className="mt-2 text-lg font-bold text-[#17301E]">{nextDelivery.packageCount}</p>
+                          <p className="mt-2 text-sm font-semibold text-[#17301E]">{nextDelivery.address}</p>
                         </div>
 
                         <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
                           <div className="flex items-center gap-2 text-[#6B7280]">
                             <DollarSign className="h-4 w-4" />
-                            <span className="text-xs font-medium uppercase tracking-[0.16em]">Montant</span>
-                          </div>
-                          <p className="mt-2 text-lg font-bold text-[#17301E]">{formatAmount(nextDelivery.amount)}</p>
-                        </div>
-
-                        <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
-                          <div className="flex items-center gap-2 text-[#6B7280]">
-                            <MapPin className="h-4 w-4" />
                             <span className="text-xs font-medium uppercase tracking-[0.16em]">Paiement</span>
                           </div>
-                          <p className="mt-2 text-base font-semibold text-[#17301E]">
-                            {formatPaymentMethodLabel(nextDelivery.paymentMethod)}
-                          </p>
+                          <p className="mt-2 text-sm font-semibold text-[#17301E]">{buildPaymentSummary(nextDelivery)}</p>
                         </div>
 
                         <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
                           <div className="flex items-center gap-2 text-[#6B7280]">
-                            <Clock3 className="h-4 w-4" />
-                            <span className="text-xs font-medium uppercase tracking-[0.16em]">Creneau</span>
+                            <Package className="h-4 w-4" />
+                            <span className="text-xs font-medium uppercase tracking-[0.16em]">Details colis</span>
                           </div>
-                          <p className="mt-2 text-base font-semibold text-[#17301E]">{nextDelivery.timeSlot}</p>
+                          <p className="mt-2 text-sm font-semibold text-[#17301E]">{buildPackageSummary(nextDelivery)}</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
+                            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-[#6B7280]">GPS</p>
+                            <p className="mt-2 text-sm font-bold text-[#17301E]">
+                              {driverLocation?.accuracy ? `${Math.round(driverLocation.accuracy)} m` : "En attente"}
+                            </p>
+                          </div>
+                          <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
+                            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-[#6B7280]">Vitesse</p>
+                            <p className="mt-2 text-sm font-bold text-[#17301E]">
+                              {driverLocation?.speedKmh ? `${Math.round(driverLocation.speedKmh)} km/h` : "N/A"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {activeMissingCoordinatesCount > 0 && (
+                          <div className="rounded-2xl bg-[#FFF3E0] px-4 py-3 text-sm text-[#8A5A00]">
+                            {activeMissingCoordinatesCount} livraison(s) restante(s) n'ont pas de coordonnees GPS exploitables.
+                          </div>
+                        )}
+
+                        {!nextDeliveryWithCoordinates && (
+                          <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">
+                            La prochaine livraison n'a pas de coordonnees GPS. Le guidage embarque est indisponible.
+                          </div>
+                        )}
+
+                        <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3 text-sm text-[#5B6B60]">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <Truck className="h-4 w-4 text-[#1E8A3C]" />
+                              <span>{remainingCount} etape(s) restante(s)</span>
+                            </div>
+                            <span>{routeSummary ? currentRouteDurationLabel : `ETA ${remainingTime}`}</span>
+                          </div>
                         </div>
                       </div>
-
-                      {activeMissingCoordinatesCount > 0 && (
-                        <div className="mt-4 rounded-2xl bg-[#FFF3E0] px-4 py-3 text-sm text-[#8A5A00]">
-                          {activeMissingCoordinatesCount} livraison(s) restante(s) n&apos;ont pas de coordonnees GPS exploitables.
-                        </div>
-                      )}
-
-                      {!nextDeliveryWithCoordinates && (
-                        <div className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">
-                          La prochaine livraison n&apos;a pas de coordonnees GPS. La navigation est temporairement indisponible.
-                        </div>
-                      )}
-
-                      <div className="mt-5 grid grid-cols-2 gap-3">
-                        <a
-                          href={nextNavigationHref ?? undefined}
-                          target="_blank"
-                          rel="noreferrer"
-                          aria-disabled={!nextNavigationHref}
-                          className={cn(
-                            "flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#17301E] px-4 text-base font-semibold text-white shadow-sm transition-transform active:scale-[0.99]",
-                            !nextNavigationHref && "pointer-events-none bg-gray-200 text-gray-500 shadow-none"
-                          )}
-                        >
-                          <Navigation className="h-5 w-5" />
-                          Naviguer
-                        </a>
-
-                        <a
-                          href={nextDelivery.callHref ?? undefined}
-                          aria-disabled={!nextDelivery.callHref}
-                          className={cn(
-                            "flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#F3F4F6] px-4 text-base font-semibold text-[#17301E] transition-transform active:scale-[0.99]",
-                            !nextDelivery.callHref && "pointer-events-none bg-gray-200 text-gray-500"
-                          )}
-                        >
-                          <Phone className="h-5 w-5" />
-                          Appeler
-                        </a>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleStatusChange(nextDelivery.id, "delivered")}
-                        className="mt-3 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#1E8A3C] px-4 text-base font-semibold text-white shadow-sm transition-transform active:scale-[0.99]"
-                      >
-                        <CheckCircle2 className="h-5 w-5" />
-                        Valider la livraison
-                      </button>
                     </div>
                   )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
-        {activeTab === "profile" && (
-          <div className="space-y-4">
-            <div className="bg-white rounded-2xl shadow-sm p-6">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 bg-[#1E8A3C] rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                  M
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-[#3D3D3D]">Mohammed B.</h2>
-                  <p className="text-[#8A8A8A]">Zone Fes-Centre</p>
-                </div>
-              </div>
+                  <div
+                    className={cn(
+                      "grid gap-3",
+                      isNavigating ? "grid-cols-[3.25rem_5.5rem_minmax(0,1fr)]" : "grid-cols-[3.25rem_minmax(0,1fr)]",
+                      isSheetExpanded ? "pt-3" : "mt-auto pt-3"
+                    )}
+                  >
+                    <a
+                      href={nextDelivery.callHref ?? undefined}
+                      aria-disabled={!nextDelivery.callHref}
+                      className={cn(
+                        "flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#F3F4F6] px-3 text-sm font-semibold text-[#17301E] transition-transform active:scale-[0.99]",
+                        !nextDelivery.callHref && "pointer-events-none bg-gray-200 text-gray-500"
+                      )}
+                    >
+                      <Phone className="h-5 w-5" />
+                    </a>
 
-              <div className="flex items-center gap-2 mb-6">
-                <div className="flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star
-                      key={star}
-                      className={cn("w-5 h-5", star <= 4 ? "text-[#F5C400] fill-[#F5C400]" : "text-gray-200")}
-                    />
-                  ))}
-                </div>
-                <span className="font-bold text-[#3D3D3D]">4.8/5</span>
-                <span className="text-sm text-[#8A8A8A]">(156 evaluations)</span>
-              </div>
+                    {isNavigating && (
+                      <button
+                        type="button"
+                        onClick={handleMarkCurrentDeliveryAbsent}
+                        disabled={isStartingTournee || !nextDelivery}
+                        title="Client introuvable"
+                        className="flex h-12 items-center justify-center rounded-2xl bg-red-500 px-3 text-xs font-semibold text-white shadow-[0_14px_30px_rgba(220,38,38,0.22)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Absent
+                      </button>
+                    )}
 
-              <div className="p-4 bg-[#F0FAF1] rounded-xl">
-                <p className="text-sm text-[#8A8A8A] mb-1">Statut contrat</p>
-                <p className="font-semibold text-[#1E8A3C]">Livreur Independant - Zone Fes-Centre</p>
-              </div>
-            </div>
+                    <button
+                      type="button"
+                      onClick={isNavigating ? handleCompleteCurrentDelivery : handleStartDriveMode}
+                      disabled={isStartingTournee || !nextDelivery}
+                      className={cn(
+                        "flex h-12 w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60",
+                        isNavigating ? "bg-[#1E8A3C]" : "bg-[#17301E]"
+                      )}
+                    >
+                      {isStartingTournee ? (
+                        <Spinner className="size-5" />
+                      ) : isNavigating ? (
+                        <CheckCircle2 className="h-5 w-5" />
+                      ) : (
+                        <Navigation className="h-5 w-5" />
+                      )}
+                      <span className="truncate">{isNavigating ? "Marquer comme livre" : "Demarrer la course"}</span>
+                    </button>
+                  </div>
 
-            <div className="bg-white rounded-2xl shadow-sm p-6">
-              <h3 className="font-bold text-[#3D3D3D] mb-4 flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-[#F07C00]" />
-                Revenus
-              </h3>
+                  {!isSheetExpanded && (
+                    <button
+                      type="button"
+                      onClick={() => setSheetMode("expanded")}
+                      className="mt-2 w-full text-xs font-medium text-[#285C9A]"
+                    >
+                      Voir les details de la course
+                    </button>
+                  )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-[#F07C00]/10 rounded-xl">
-                  <p className="text-sm text-[#8A8A8A] mb-1">Aujourd&apos;hui</p>
-                  <p className="text-2xl font-bold text-[#F07C00]">{todayEarnings} DH</p>
-                  <p className="text-xs text-[#8A8A8A]">{completedCount} livraisons x 10 DH</p>
+                  {isNavigating && (
+                    <button
+                      type="button"
+                      onClick={() => setIsNavigating(false)}
+                      className="mt-2 w-full text-xs font-medium text-[#285C9A]"
+                    >
+                      Revenir a la vue d'ensemble
+                    </button>
+                  )}
                 </div>
-                <div className="p-4 bg-[#4CB84A]/10 rounded-xl">
-                  <p className="text-sm text-[#8A8A8A] mb-1">Ce mois</p>
-                  <p className="text-2xl font-bold text-[#4CB84A]">{monthEarnings} DH</p>
-                  <p className="text-xs text-[#8A8A8A]">124 livraisons</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-sm p-6">
-              <h3 className="font-bold text-[#3D3D3D] mb-4 flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-[#1E8A3C]" />
-                Statistiques
-              </h3>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[#8A8A8A]">Livraisons totales</span>
-                  <span className="font-semibold text-[#3D3D3D]">1,456</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#8A8A8A]">Taux de reussite</span>
-                  <span className="font-semibold text-[#4CB84A]">98.2%</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#8A8A8A]">Temps moyen/livraison</span>
-                  <span className="font-semibold text-[#3D3D3D]">12 min</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#8A8A8A]">Membre depuis</span>
-                  <span className="font-semibold text-[#3D3D3D]">Janvier 2026</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#8A8A8A]">Source de la tournee</span>
-                  <span className="font-semibold text-[#3D3D3D]">
-                    {loadSource === "cache" ? "Cache local" : loadSource === "api" ? "API live" : "Indisponible"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#8A8A8A]">Connexion</span>
-                  <span className={cn("font-semibold", isOffline ? "text-red-600" : "text-[#1E8A3C]")}>
-                    {isOffline ? "Hors ligne" : "En ligne"}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
-
-      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-100 px-4 py-2 z-50">
-        <div className="flex items-center justify-around">
-          {[
-            { id: "list" as TabType, icon: ClipboardList, label: "Liste" },
-            { id: "map" as TabType, icon: MapIcon, label: "Carte" },
-            { id: "profile" as TabType, icon: User, label: "Profil" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "flex flex-col items-center gap-1 py-2 px-4 rounded-xl transition-colors",
-                activeTab === tab.id ? "text-[#1E8A3C]" : "text-[#8A8A8A]"
               )}
-            >
-              <tab.icon className="w-6 h-6" />
-              <span className="text-xs font-medium">{tab.label}</span>
-            </button>
-          ))}
+            </div>
+          </div>
         </div>
-      </nav>
+      )}
     </div>
   )
 }
