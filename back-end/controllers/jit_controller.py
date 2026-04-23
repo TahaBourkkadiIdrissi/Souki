@@ -14,10 +14,9 @@ router_jit = APIRouter(prefix="/api/jit", tags=["JIT-Aggregation"])
 def get_admin_user(user=Depends(get_current_user)):
     """
     Dépendance pour vérifier que l'utilisateur est ADMIN.
-    Leève une exception 403 si ce n'est pas un admin.
+    Lève une exception 403 si ce n'est pas un admin.
     """
-    # user est le payload JWT: {"sub": user_id, "role": "ADMIN", ...}
-    if not user or user.get("role") != "ADMIN":
+    if not user or user.primary_role != "ADMIN":
         raise HTTPException(
             status_code=403,
             detail="Accès refusé. Seul l'administrateur peut accéder à ce endpoint."
