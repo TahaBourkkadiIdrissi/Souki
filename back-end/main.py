@@ -16,6 +16,7 @@ from controllers.commande_controller import router_voice
 from controllers.livreur_controller import router_livreur
 from controllers.panier_controller import router_panier
 from controllers.profile_controller import profile_router
+from controllers.settings_controller import settings_router
 from controllers.jit_controller import router_jit
 from services.catalogue_bootstrap_service import CatalogueBootstrapService
 from services.scheduler_service import start_scheduler, stop_scheduler
@@ -84,6 +85,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 app.include_router(auth_router)
 app.include_router(profile_router)
+app.include_router(settings_router)
 app.include_router(router_catalogue)
 app.include_router(router_voice)
 app.include_router(router_panier)

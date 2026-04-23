@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                       Int                         @id @default(autoincrement())
+  email                    String?                     @unique
+  telephone                String?                     @map("phone")
+  password                 String?
+  prenom                   String?
+  nom                      String?
+  profileImageUrl          String?                     @map("profile_image_url")
+  emailVerified            Boolean                     @default(false) @map("is_email_verified")
+  isDeleted                Boolean                     @default(false) @map("is_deleted")
+  createdAt                DateTime                    @default(now()) @map("created_at")
+  wallet                   Wallet?
+  address                  UserAddress?
+  notificationPreferences  UserNotificationPreferences?
+  sessions                 UserSession[]
+
+  @@map("t_users")
+}
+
+model Wallet {
+  id               Int                 @id @default(autoincrement())
+  userId           Int                 @unique @map("user_id")
+  soldeCentimes    Int                 @default(0) @map("solde_centimes")
+  walletIdentifier String?             @unique @map("wallet_identifier")
+  walletPassword   String?             @map("wallet_password")
+  isActivated      Boolean             @default(false) @map("is_activated")
+  activatedAt      DateTime?           @map("activated_at")
+  user             User                @relation(fields: [userId], references: [id])
+  transactions     WalletTransaction[]
+
+  @@map("t_wallets")
+}
+
+model WalletTransaction {
+  id             Int      @id @default(autoincrement())
+  walletId       Int      @map("wallet_id")
+  type           String
+  libelle        String?
+  montantCentimes Int     @map("montant_centimes")
+  date           DateTime @default(now())
+  wallet         Wallet   @relation(fields: [walletId], references: [id])
+
+  @@map("t_transactions_wallet")
+}
+
+model UserAddress {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @unique @map("user_id")
+  adresse    String?
+  ville      String?
+  codePostal String?  @map("code_postal")
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@map("t_user_addresses")
+}
+
+model UserNotificationPreferences {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @unique @map("user_id")
+  email        Boolean  @default(true)
+  push         Boolean  @default(true)
+  sms          Boolean  @default(false)
+  promotions   Boolean  @default(true)
+  orderUpdates Boolean  @default(true) @map("order_updates")
+  newsletter   Boolean  @default(false)
+  livraison    Boolean  @default(true)
+  user         User     @relation(fields: [userId], references: [id])
+
+  @@map("t_user_notification_preferences")
+}
+
+model UserSession {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id")
+  tokenHash  String   @unique @map("token_hash")
+  deviceName String?  @map("device_name")
+  browser    String?
+  location   String?
+  ip         String?
+  isActive   Boolean  @default(true) @map("is_active")
+  lastActive DateTime @default(now()) @map("last_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@map("t_user_sessions")
+}

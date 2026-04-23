@@ -19,6 +19,9 @@ from entities.role_entity import Role
 from entities.permission_entity import Permission
 from entities.user_role_entity import UserRole
 from entities.role_permission_entity import RolePermission
+from entities.user_address_entity import UserAddress
+from entities.user_notification_preferences_entity import UserNotificationPreferences
+from entities.user_session_entity import UserSession
 
 __all__ = [
     "User",
@@ -43,4 +46,7 @@ __all__ = [
     "Permission",
     "UserRole",
     "RolePermission",
+    "UserAddress",
+    "UserNotificationPreferences",
+    "UserSession",
 ]

@@ -5,7 +5,9 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 
 from config import ALGORITHM, LocalSession, SECRET_KEY
+from entities.user_entity import User
 from services.authorization_service import AuthorizationService
+from services.user_session_service import UserSessionService
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
@@ -18,9 +20,18 @@ def require_auth(token: str = Depends(oauth2_scheme)):
     except (JWTError, KeyError, TypeError, ValueError):
         raise HTTPException(status_code=401, detail="Session expiree ou token invalide")
 
+    session_record = UserSessionService().validate_token_session(token)
+    if not session_record:
+        raise HTTPException(status_code=401, detail="Session expiree ou invalidee")
+
     db = LocalSession()
     try:
-        return AuthorizationService(db).build_principal(user_id)
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user or user.is_deleted:
+            raise HTTPException(status_code=401, detail="Compte indisponible")
+        principal = AuthorizationService(db).build_principal(user_id)
+        setattr(principal, "session_id", session_record.id)
+        return principal
     finally:
         db.close()
 

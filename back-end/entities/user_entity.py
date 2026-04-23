@@ -12,6 +12,10 @@ class User(Base):
     password   = Column(String(128), nullable=True)   # nullable → login Google possible
     role       = Column(String(20),  default="CLIENT") # CLIENT | PARENT | LIVREUR | ADMIN
     is_verified= Column(Boolean,     default=False)
+    prenom     = Column(String(100), nullable=True)
+    nom        = Column(String(100), nullable=True)
+    profile_image_url = Column(String(512), nullable=True)
+    is_deleted = Column(Boolean, default=False)
     parent_id  = Column(Integer, ForeignKey('t_users.id'), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     auth_provider = Column(String(50), default="local") # Valeurs possibles : "local", "google"
@@ -26,3 +30,6 @@ class User(Base):
     wallet          = relationship("Wallet", back_populates="user", uselist=False)
     paniers         = relationship("Panier", back_populates="user")
     user_roles      = relationship("UserRole", back_populates="user", foreign_keys="UserRole.user_id")
+    settings_address = relationship("UserAddress", back_populates="user", uselist=False)
+    notification_preferences = relationship("UserNotificationPreferences", back_populates="user", uselist=False)
+    sessions = relationship("UserSession", back_populates="user")
