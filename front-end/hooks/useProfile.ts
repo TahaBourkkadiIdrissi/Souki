@@ -18,23 +18,23 @@ export interface ProfileData {
 }
 
 export function useProfile() {
-  const api = useApi()
+  const { callApi, loading, error, setError } = useApi()
 
-  const getProfile = useCallback(() => api.callApi<ProfileData>("/api/user/profile"), [api])
+  const getProfile = useCallback(() => callApi<ProfileData>("/api/user/profile"), [callApi])
   const updateProfile = useCallback(
     (payload: Pick<ProfileData, "prenom" | "nom" | "email" | "telephone">) =>
-      api.callApi<{ success: boolean; email_changed: boolean }>("/api/user/profile", "PUT", payload),
-    [api]
+      callApi<{ success: boolean; email_changed: boolean }>("/api/user/profile", "PUT", payload),
+    [callApi]
   )
   const updateAddress = useCallback(
-    (payload: ProfileData["address"]) => api.callApi<{ success: boolean }>("/api/user/address", "PUT", payload),
-    [api]
+    (payload: ProfileData["address"]) => callApi<{ success: boolean }>("/api/user/address", "PUT", payload),
+    [callApi]
   )
   const uploadPhoto = useCallback(async (file: File) => {
     const fd = new FormData()
     fd.append("file", file)
-    return api.callApi<{ photo_url: string }>("/api/user/profile/photo", "POST", fd, true)
-  }, [api])
+    return callApi<{ photo_url: string }>("/api/user/profile/photo", "POST", fd, true)
+  }, [callApi])
 
-  return { ...api, getProfile, updateProfile, updateAddress, uploadPhoto }
+  return { callApi, loading, error, setError, getProfile, updateProfile, updateAddress, uploadPhoto }
 }

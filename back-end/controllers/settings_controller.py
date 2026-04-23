@@ -24,6 +24,13 @@ def get_profile(principal=Depends(require_auth)):
     return _service.get_profile(principal.user_id)
 
 
+@settings_router.get("/bootstrap")
+def get_settings_bootstrap(token: str = Depends(oauth2_scheme), principal=Depends(require_auth)):
+    current = UserSessionService().validate_token_session(token)
+    current_session_id = current.id if current else None
+    return _service.get_settings_bootstrap(principal.user_id, current_session_id)
+
+
 @settings_router.put("/profile")
 def update_profile(data: PersonalInfoUpdateDTO, principal=Depends(require_auth)):
     return _service.update_personal_info(principal.user_id, data)
@@ -52,6 +59,11 @@ def upload_profile_photo(
     if not supabase_url or not supabase_key:
         raise HTTPException(status_code=500, detail="Configuration supabase manquante")
 
+    try:
+        from supabase import create_client
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Client Supabase indisponible") from exc
+
     ext = "jpg"
     if file.content_type == "image/png":
         ext = "png"
@@ -62,19 +74,6 @@ def upload_profile_photo(
     sb = create_client(supabase_url, supabase_key)
     sb.storage.from_(bucket).upload(filename, content, {"content-type": file.content_type, "upsert": "true"})
     public_url = sb.storage.from_(bucket).get_public_url(filename)
-
-    from config import LocalSession
-    from entities.user_entity import User
-
-    db = LocalSession()
-    try:
-        user = db.query(User).filter(User.id == principal.user_id).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="Utilisateur introuvable")
-        user.profile_image_url = public_url
-        db.commit()
-    finally:
-        db.close()
 
     return {"photo_url": public_url}
 

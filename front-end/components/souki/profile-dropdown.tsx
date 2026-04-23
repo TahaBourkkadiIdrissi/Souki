@@ -30,7 +30,7 @@ export function ProfileDropdown({ user }: { user: User }) {
   }
 
   const handleProfileClick = () => {
-    router.push("/profile")
+    router.push("/parametres")
     setIsOpen(false)
   }
 
@@ -86,7 +86,7 @@ export function ProfileDropdown({ user }: { user: User }) {
               className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-[#F0FAF1] flex items-center gap-3 text-sm font-medium text-[#3D3D3D] transition-colors"
             >
               <UserIcon size={18} className="text-[#8A8A8A]" />
-              Mon Profil
+              Parametres
             </button>
             <button
               onClick={() => { setIsOpen(false); router.push("/commandes"); }}

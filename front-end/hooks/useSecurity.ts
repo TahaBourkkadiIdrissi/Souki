@@ -14,21 +14,21 @@ export interface ActiveSession {
 }
 
 export function useSecurity() {
-  const api = useApi()
+  const { callApi, loading, error, setError } = useApi()
   const changePassword = useCallback(
     (payload: { current_password: string; new_password: string; confirm_password: string }) =>
-      api.callApi<{ success: boolean }>("/api/user/security/change-password", "POST", payload),
-    [api]
+      callApi<{ success: boolean }>("/api/user/security/change-password", "POST", payload),
+    [callApi]
   )
-  const getSessions = useCallback(() => api.callApi<ActiveSession[]>("/api/user/sessions"), [api])
+  const getSessions = useCallback(() => callApi<ActiveSession[]>("/api/user/sessions"), [callApi])
   const disconnectSession = useCallback(
-    (sessionId: number) => api.callApi<{ success: boolean }>(`/api/user/sessions/${sessionId}`, "DELETE"),
-    [api]
+    (sessionId: number) => callApi<{ success: boolean }>(`/api/user/sessions/${sessionId}`, "DELETE"),
+    [callApi]
   )
-  const disconnectAll = useCallback(() => api.callApi<{ success: boolean }>("/api/user/sessions", "DELETE"), [api])
+  const disconnectAll = useCallback(() => callApi<{ success: boolean }>("/api/user/sessions", "DELETE"), [callApi])
   const deleteAccount = useCallback(
-    (confirmation: string) => api.callApi<{ success: boolean }>("/api/user/account", "DELETE", { confirmation }),
-    [api]
+    (confirmation: string) => callApi<{ success: boolean }>("/api/user/account", "DELETE", { confirmation }),
+    [callApi]
   )
-  return { ...api, changePassword, getSessions, disconnectSession, disconnectAll, deleteAccount }
+  return { callApi, loading, error, setError, changePassword, getSessions, disconnectSession, disconnectAll, deleteAccount }
 }

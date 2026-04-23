@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { API_BASE_URL } from "@/lib/api"
 import { useAuth } from "@/hooks/useAuth"
 
@@ -17,11 +17,12 @@ export function useApi() {
       setError(null)
       try {
         const headers: Record<string, string> = {}
+        const authToken = token || (typeof window !== "undefined" ? localStorage.getItem("token") : null)
         if (!isFormData) {
           headers["Content-Type"] = "application/json"
         }
-        if (token) {
-          headers.Authorization = `Bearer ${token}`
+        if (authToken) {
+          headers.Authorization = `Bearer ${authToken}`
         }
         const res = await fetch(`${API_BASE_URL}${path}`, {
           method,
@@ -45,5 +46,8 @@ export function useApi() {
     [token]
   )
 
-  return { callApi, loading, error, setError }
+  return useMemo(
+    () => ({ callApi, loading, error, setError }),
+    [callApi, loading, error]
+  )
 }

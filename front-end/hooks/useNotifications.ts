@@ -14,11 +14,11 @@ export interface NotificationPrefs {
 }
 
 export function useNotifications() {
-  const api = useApi()
-  const getNotifications = useCallback(() => api.callApi<NotificationPrefs>("/api/user/notifications"), [api])
+  const { callApi, loading, error, setError } = useApi()
+  const getNotifications = useCallback(() => callApi<NotificationPrefs>("/api/user/notifications"), [callApi])
   const updateNotifications = useCallback(
-    (payload: NotificationPrefs) => api.callApi<{ success: boolean }>("/api/user/notifications", "PUT", payload),
-    [api]
+    (payload: NotificationPrefs) => callApi<{ success: boolean }>("/api/user/notifications", "PUT", payload),
+    [callApi]
   )
-  return { ...api, getNotifications, updateNotifications }
+  return { callApi, loading, error, setError, getNotifications, updateNotifications }
 }

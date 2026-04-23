@@ -27,7 +27,7 @@ def require_auth(token: str = Depends(oauth2_scheme)):
     db = LocalSession()
     try:
         user = db.query(User).filter(User.id == user_id).first()
-        if not user or user.is_deleted:
+        if not user or not user.is_active:
             raise HTTPException(status_code=401, detail="Compte indisponible")
         principal = AuthorizationService(db).build_principal(user_id)
         setattr(principal, "session_id", session_record.id)

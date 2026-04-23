@@ -19,12 +19,12 @@ export interface WalletState {
 }
 
 export function useWallet() {
-  const api = useApi()
-  const getWallet = useCallback(() => api.callApi<WalletState>("/api/user/wallet"), [api])
+  const { callApi, loading, error, setError } = useApi()
+  const getWallet = useCallback(() => callApi<WalletState>("/api/user/wallet"), [callApi])
   const activateWallet = useCallback(
     (payload: { password: string; confirm_password: string }) =>
-      api.callApi<{ wallet_identifier: string }>("/api/user/wallet/activate", "POST", payload),
-    [api]
+      callApi<{ wallet_identifier: string }>("/api/user/wallet/activate", "POST", payload),
+    [callApi]
   )
-  return { ...api, getWallet, activateWallet }
+  return { callApi, loading, error, setError, getWallet, activateWallet }
 }

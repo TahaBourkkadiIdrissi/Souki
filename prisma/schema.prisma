@@ -12,12 +12,16 @@ model User {
   email                    String?                     @unique
   telephone                String?                     @map("phone")
   password                 String?
-  prenom                   String?
-  nom                      String?
-  profileImageUrl          String?                     @map("profile_image_url")
-  emailVerified            Boolean                     @default(false) @map("is_email_verified")
-  isDeleted                Boolean                     @default(false) @map("is_deleted")
+  role                     String?
+  isVerified               Boolean?                    @map("is_verified")
+  parentId                 Int?                        @map("parent_id")
   createdAt                DateTime                    @default(now()) @map("created_at")
+  authProvider             String                      @default("local") @map("auth_provider")
+  emailVerified            Boolean?                    @default(false) @map("is_email_verified")
+  phoneVerified            Boolean?                    @default(false) @map("is_phone_verified")
+  isActive                 Boolean                     @default(true) @map("is_active")
+  lastLoginAt              DateTime?                   @map("last_login_at")
+  updatedAt                DateTime                    @default(now()) @map("updated_at")
   wallet                   Wallet?
   address                  UserAddress?
   notificationPreferences  UserNotificationPreferences?
@@ -27,27 +31,22 @@ model User {
 }
 
 model Wallet {
-  id               Int                 @id @default(autoincrement())
-  userId           Int                 @unique @map("user_id")
-  soldeCentimes    Int                 @default(0) @map("solde_centimes")
-  walletIdentifier String?             @unique @map("wallet_identifier")
-  walletPassword   String?             @map("wallet_password")
-  isActivated      Boolean             @default(false) @map("is_activated")
-  activatedAt      DateTime?           @map("activated_at")
-  user             User                @relation(fields: [userId], references: [id])
-  transactions     WalletTransaction[]
+  id           Int                 @id @default(autoincrement())
+  userId       Int                 @unique @map("user_id")
+  solde        Float?              @default(0) @map("solde")
+  user         User                @relation(fields: [userId], references: [id])
+  transactions WalletTransaction[]
 
   @@map("t_wallets")
 }
 
 model WalletTransaction {
-  id             Int      @id @default(autoincrement())
-  walletId       Int      @map("wallet_id")
-  type           String
-  libelle        String?
-  montantCentimes Int     @map("montant_centimes")
-  date           DateTime @default(now())
-  wallet         Wallet   @relation(fields: [walletId], references: [id])
+  id       Int      @id @default(autoincrement())
+  walletId Int      @map("wallet_id")
+  type     String
+  montant  Float?   @default(0) @map("montant")
+  date     DateTime @default(now())
+  wallet   Wallet   @relation(fields: [walletId], references: [id])
 
   @@map("t_transactions_wallet")
 }

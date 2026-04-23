@@ -1,9 +1,6 @@
-import random
-import string
-from datetime import datetime
-
 import bcrypt
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 
 from config import LocalSession
 from dto.settings_dto import (
@@ -23,20 +20,56 @@ from security import verify_password
 
 
 class SettingsService:
+    def get_settings_bootstrap(self, user_id: int, current_session_id: int | None):
+        return {
+            "profile": self.get_profile(user_id),
+            "notifications": self.get_notifications(user_id),
+            "sessions": self.get_sessions(user_id, current_session_id),
+            "wallet": self.get_wallet(user_id),
+        }
+
+    @staticmethod
+    def _derive_name_parts(user: User) -> tuple[str, str]:
+        source = (user.email or user.phone or "").split("@", 1)[0].replace(".", " ").replace("_", " ").strip()
+        if not source:
+            return "", ""
+
+        parts = [part for part in source.split() if part]
+        if not parts:
+            return "", ""
+        if len(parts) == 1:
+            return parts[0].title(), ""
+        return parts[0].title(), " ".join(parts[1:]).title()
+
+    @staticmethod
+    def _wallet_identifier(user_id: int, wallet_id: int | None) -> str:
+        return f"SKW-{user_id:06d}-{(wallet_id or 0):06d}"
+
+    @staticmethod
+    def _mask_wallet_identifier(identifier: str) -> str:
+        if len(identifier) <= 8:
+            return identifier
+        return f"{identifier[:4]}-********{identifier[-4:]}"
+
+    @staticmethod
+    def _to_centimes(amount: float | None) -> int:
+        return int(round((amount or 0) * 100))
+
     def get_profile(self, user_id: int):
         db = LocalSession()
         try:
-            user = db.query(User).filter(User.id == user_id, User.is_deleted.is_(False)).first()
+            user = db.query(User).filter(User.id == user_id, User.is_active.is_(True)).first()
             if not user:
                 raise HTTPException(status_code=404, detail="Utilisateur introuvable")
 
             address = user.settings_address
+            prenom, nom = self._derive_name_parts(user)
             return {
-                "prenom": user.prenom or "",
-                "nom": user.nom or "",
+                "prenom": prenom,
+                "nom": nom,
                 "email": user.email or "",
                 "telephone": user.phone or "",
-                "photo_url": user.profile_image_url,
+                "photo_url": None,
                 "email_verified": bool(user.is_email_verified),
                 "address": {
                     "adresse": address.adresse if address else "",
@@ -50,24 +83,32 @@ class SettingsService:
     def update_personal_info(self, user_id: int, data: PersonalInfoUpdateDTO):
         db = LocalSession()
         try:
-            user = db.query(User).filter(User.id == user_id, User.is_deleted.is_(False)).first()
+            user = db.query(User).filter(User.id == user_id, User.is_active.is_(True)).first()
             if not user:
                 raise HTTPException(status_code=404, detail="Utilisateur introuvable")
 
-            existing = db.query(User).filter(User.email == data.email, User.id != user_id).first()
-            if existing:
-                raise HTTPException(status_code=400, detail="Cet email est deja utilise.")
+            if data.email:
+                existing = db.query(User).filter(User.email == data.email, User.id != user_id).first()
+                if existing:
+                    raise HTTPException(status_code=400, detail="Cet email est deja utilise.")
+
+            if data.telephone:
+                existing_phone = db.query(User).filter(User.phone == data.telephone, User.id != user_id).first()
+                if existing_phone:
+                    raise HTTPException(status_code=400, detail="Ce numero de telephone est deja utilise.")
 
             email_changed = (user.email or "").lower() != data.email.lower()
-            user.prenom = data.prenom
-            user.nom = data.nom
             user.email = data.email
             user.phone = data.telephone
             if email_changed:
                 user.is_email_verified = False
+                user.is_verified = bool(user.is_phone_verified)
 
             db.commit()
-            return {"success": True, "email_changed": email_changed}
+            return {"success": True, "email_changed": email_changed, "name_fields_supported": False}
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(status_code=400, detail="Informations deja utilisees.")
         finally:
             db.close()
 
@@ -134,7 +175,7 @@ class SettingsService:
             raise HTTPException(status_code=400, detail="Les mots de passe ne correspondent pas")
         db = LocalSession()
         try:
-            user = db.query(User).filter(User.id == user_id, User.is_deleted.is_(False)).first()
+            user = db.query(User).filter(User.id == user_id, User.is_active.is_(True)).first()
             if not user or not user.password:
                 raise HTTPException(status_code=400, detail="Mot de passe actuel incorrect")
             if not verify_password(data.current_password, user.password):
@@ -200,7 +241,7 @@ class SettingsService:
             user = db.query(User).filter(User.id == user_id).first()
             if not user:
                 raise HTTPException(status_code=404, detail="Utilisateur introuvable")
-            user.is_deleted = True
+            user.is_active = False
             db.query(UserSession).filter(UserSession.user_id == user_id, UserSession.is_active.is_(True)).update(
                 {UserSession.is_active: False}, synchronize_session=False
             )
@@ -214,10 +255,12 @@ class SettingsService:
         try:
             wallet = db.query(Wallet).filter(Wallet.user_id == user_id).first()
             if not wallet:
-                wallet = Wallet(user_id=user_id, solde_centimes=0, is_activated=False)
-                db.add(wallet)
-                db.commit()
-                db.refresh(wallet)
+                return {
+                    "is_activated": False,
+                    "solde_centimes": 0,
+                    "wallet_identifier": self._mask_wallet_identifier(self._wallet_identifier(user_id, None)),
+                    "transactions": [],
+                }
 
             txs = (
                 db.query(TransactionWallet)
@@ -226,18 +269,17 @@ class SettingsService:
                 .limit(5)
                 .all()
             )
-            identifier = wallet.wallet_identifier or "SKW-************"
-            masked = f"{identifier[:4]}-********{identifier[-4:]}" if wallet.wallet_identifier else identifier
+            identifier = self._wallet_identifier(user_id, wallet.id)
             return {
-                "is_activated": wallet.is_activated,
-                "solde_centimes": wallet.solde_centimes or 0,
-                "wallet_identifier": masked,
+                "is_activated": True,
+                "solde_centimes": self._to_centimes(wallet.solde),
+                "wallet_identifier": self._mask_wallet_identifier(identifier),
                 "transactions": [
                     {
                         "id": tx.id,
                         "type": tx.type,
-                        "libelle": tx.libelle or "Transaction",
-                        "montant_centimes": tx.montant_centimes,
+                        "libelle": (tx.type or "transaction").replace("_", " ").title(),
+                        "montant_centimes": self._to_centimes(tx.montant),
                         "date": tx.date.isoformat() if tx.date else None,
                     }
                     for tx in txs
@@ -253,19 +295,11 @@ class SettingsService:
         try:
             wallet = db.query(Wallet).filter(Wallet.user_id == user_id).first()
             if not wallet:
-                wallet = Wallet(user_id=user_id, solde_centimes=0)
+                wallet = Wallet(user_id=user_id, solde=0)
                 db.add(wallet)
-            if wallet.is_activated:
-                raise HTTPException(status_code=400, detail="Wallet deja active")
+                db.flush()
 
-            rand = "".join(random.choices(string.ascii_uppercase + string.digits, k=12))
-            wallet_identifier = f"SKW-{rand}"
-            wallet.wallet_identifier = wallet_identifier
-            wallet.wallet_password = bcrypt.hashpw(
-                data.password.encode("utf-8"), bcrypt.gensalt(rounds=12)
-            ).decode("utf-8")
-            wallet.is_activated = True
-            wallet.activated_at = datetime.utcnow()
+            wallet_identifier = self._wallet_identifier(user_id, wallet.id)
             db.commit()
             return {"wallet_identifier": wallet_identifier}
         finally:

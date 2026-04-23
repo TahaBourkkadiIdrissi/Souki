@@ -33,9 +33,15 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 const NETWORK_RETRY_ATTEMPTS = 3
 const NETWORK_RETRY_DELAY_MS = 1200
+const NETWORK_TIMEOUT_MS = 5000
 
 const isNetworkFetchError = (error: unknown) =>
   error instanceof TypeError && error.message.toLowerCase().includes("fetch")
+
+const wait = (ms: number) =>
+  new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
 
 function normalizeUser(payload: any): User {
   const roles = Array.isArray(payload?.roles) ? payload.roles.map((value: string) => String(value).toUpperCase()) : []
@@ -66,7 +72,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const validateTokenWithBackend = async (
     tok: string
   ): Promise<{ user: User | null; networkError: boolean }> => {
+    let timeoutId: number | undefined
     try {
+      const controller = new AbortController()
+      timeoutId = window.setTimeout(() => controller.abort(), NETWORK_TIMEOUT_MS)
       const response = await fetch(`${API_BASE_URL}/auth/me`, {
         method: "GET",
         headers: {
@@ -75,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         mode: "cors",
         credentials: "omit",
+        signal: controller.signal,
       })
 
       if (!response.ok) {
@@ -85,12 +95,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(userData)
       return { user: userData, networkError: false }
     } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        console.warn("Backend trop lent pour la validation du token.")
+        return { user: null, networkError: true }
+      }
       if (isNetworkFetchError(error)) {
         console.warn("Backend temporairement indisponible pour la validation du token.")
         return { user: null, networkError: true }
       }
       console.error("Token validation error:", error)
       return { user: null, networkError: false }
+    } finally {
+      if (timeoutId) {
+        window.clearTimeout(timeoutId)
+      }
     }
   }
 
@@ -126,11 +144,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    const wait = (ms: number) =>
-      new Promise((resolve) => {
-        window.setTimeout(resolve, ms)
-      })
-
     const retryTokenSync = async (storedToken: string) => {
       for (let attempt = 1; attempt <= NETWORK_RETRY_ATTEMPTS; attempt += 1) {
         const nextUser = await syncAuthState(storedToken)
@@ -184,13 +197,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const authenticate = async (endpoint: string, payload: Record<string, unknown>) => {
     try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        mode: "cors",
-        credentials: "omit",
-      })
+      let response: Response | null = null
+
+      for (let attempt = 1; attempt <= NETWORK_RETRY_ATTEMPTS; attempt += 1) {
+        let timeoutId: number | undefined
+        try {
+          const controller = new AbortController()
+          timeoutId = window.setTimeout(() => controller.abort(), NETWORK_TIMEOUT_MS)
+          response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            mode: "cors",
+            credentials: "omit",
+            signal: controller.signal,
+          })
+          break
+        } catch (error) {
+          const isTimeout = error instanceof DOMException && error.name === "AbortError"
+          if ((isTimeout || isNetworkFetchError(error)) && attempt < NETWORK_RETRY_ATTEMPTS) {
+            await wait(NETWORK_RETRY_DELAY_MS)
+            continue
+          }
+
+          if (isTimeout || isNetworkFetchError(error)) {
+            throw new Error("Le serveur backend ne repond pas encore. Attends 2 a 3 secondes puis reessaie.")
+          }
+
+          throw error
+        } finally {
+          if (timeoutId) {
+            window.clearTimeout(timeoutId)
+          }
+        }
+      }
+
+      if (!response) {
+        throw new Error("Le serveur backend est indisponible.")
+      }
 
       if (!response.ok) {
         const errData = await response.json()

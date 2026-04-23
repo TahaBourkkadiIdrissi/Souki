@@ -16,6 +16,25 @@ import { useAuth } from "@/hooks/useAuth"
 
 type Section = "compte" | "notifications" | "securite" | "paiement"
 
+type SettingsBootstrapResponse = {
+  profile: {
+    prenom: string
+    nom: string
+    email: string
+    telephone: string
+    photo_url?: string | null
+    email_verified: boolean
+    address: {
+      adresse: string
+      ville: string
+      code_postal: string
+    }
+  }
+  notifications: NotificationPrefs
+  sessions: Array<any>
+  wallet: any
+}
+
 const moroccanCities = ["Fes", "Casablanca", "Rabat", "Marrakech", "Agadir", "Tanger", "Meknes", "Oujda", "Kenitra", "Tetouan"]
 const initialNotif: NotificationPrefs = { email: true, push: true, sms: false, promotions: true, orderUpdates: true, newsletter: false, livraison: true }
 
@@ -41,12 +60,14 @@ const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
 
 export default function ParametresPage() {
   const router = useRouter()
-  const { logout } = useAuth()
+  const { logout, isLoading: isAuthLoading, isAuthenticated, token } = useAuth()
   const profileApi = useProfile()
   const notifApi = useNotifications()
   const securityApi = useSecurity()
   const walletApi = useWallet()
+  const { callApi } = profileApi
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const bootstrapRequestRef = useRef(false)
   const [activeSection, setActiveSection] = useState<Section>("compte")
   const [darkMode, setDarkMode] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -67,23 +88,60 @@ export default function ParametresPage() {
   const [walletState, setWalletState] = useState<any>(null)
   const [walletCreate, setWalletCreate] = useState({ password: "", confirm_password: "" })
   const [photoUploading, setPhotoUploading] = useState(false)
+  const [pageLoading, setPageLoading] = useState(true)
 
   const showSaved = () => { setSaved(true); setTimeout(() => setSaved(false), 2000) }
 
   useEffect(() => {
     const load = async () => {
+      if (isAuthLoading) {
+        return
+      }
+
+      if (!isAuthenticated && !token) {
+        bootstrapRequestRef.current = false
+        setPageLoading(false)
+        router.push("/login/client?redirect=/parametres")
+        return
+      }
+
+      if (bootstrapRequestRef.current) {
+        return
+      }
+
+      bootstrapRequestRef.current = true
+
+      setPageLoading(true)
       try {
-        const [p, n, s, w] = await Promise.all([profileApi.getProfile(), notifApi.getNotifications(), securityApi.getSessions(), walletApi.getWallet()])
+        const data = await callApi<SettingsBootstrapResponse>("/api/user/bootstrap")
+        const p = data.profile
+        const n = data.notifications
+        const s = data.sessions
+        const w = data.wallet
         setPersonal({ prenom: p.prenom, nom: p.nom, email: p.email, telephone: p.telephone })
         setEmailVerified(Boolean(p.email_verified))
         setAddress({ adresse: p.address.adresse, ville: p.address.ville || moroccanCities[0], code_postal: p.address.code_postal })
         setNotifications(n)
         setSessions(s)
         setWalletState(w)
-      } catch {}
+      } catch (e) {
+        setErrors((prev) => ({
+          ...prev,
+          page: e instanceof Error ? e.message : "Impossible de charger vos parametres",
+        }))
+        bootstrapRequestRef.current = false
+      } finally {
+        setPageLoading(false)
+      }
     }
     void load()
-  }, [])
+  }, [
+    isAuthLoading,
+    isAuthenticated,
+    token,
+    router,
+    callApi,
+  ])
 
   const sidebarName = `${personal.prenom} ${personal.nom}`.trim() || "Utilisateur"
   const initialLetter = (personal.nom?.[0] || personal.prenom?.[0] || "U").toUpperCase()
@@ -142,11 +200,23 @@ export default function ParametresPage() {
     { key: "newsletter", label: "Newsletter SOUKI", desc: "Actualites et conseils hebdomadaires", icon: Globe },
   ] as const, [])
 
+  if (pageLoading || isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center">
+        <div className="flex items-center gap-3 text-[#1E8A3C] font-semibold">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          Chargement des parametres...
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-[#F5F5F0]">
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100/50 shadow-[0_4px_30px_rgba(0,0,0,0.03)]"><div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8"><div className="flex items-center justify-between h-20"><div className="flex items-center gap-4"><Link href="/" className="p-2 text-[#3D3D3D] hover:text-[#1E8A3C] hover:bg-[#F0FAF1] rounded-xl transition-colors"><ArrowLeft className="w-5 h-5" /></Link><Link href="/" className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl shadow-sm overflow-hidden flex items-center justify-center bg-white p-0.5 pointer-events-none"><img src="/logo3.png" alt="SOUKI" className="w-[175%] h-full max-w-none object-cover" style={{ objectPosition: "left center" }} /></div><div className="flex flex-col justify-center"><span className="text-xl font-bold text-[#1E8A3C] leading-none tracking-tight">SOUKI</span><span className="text-[11px] font-medium text-[#8A8A8A] mt-0.5 uppercase tracking-wider">Fresh Market</span></div></Link></div><div><h1 className="text-lg font-bold text-[#3D3D3D]">Parametres</h1><p className="text-xs text-[#8A8A8A]">Gerez votre compte et vos preferences</p></div></div></div></header>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {saved && <div className="fixed top-24 right-6 z-50 flex items-center gap-2 bg-[#1E8A3C] text-white px-4 py-3 rounded-xl shadow-lg animate-in slide-in-from-right-5 duration-300"><Check className="w-4 h-4" />Modifications enregistrees !</div>}
+        {errors.page && <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{errors.page}</div>}
         <div className="flex flex-col lg:flex-row gap-8">
           <aside className="lg:w-64 flex-shrink-0">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-4"><div className="flex items-center gap-4"><div className="relative"><div className="w-14 h-14 rounded-xl bg-[#F0FAF1] flex items-center justify-center font-bold text-[#1E8A3C]">{photoUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : initialLetter}</div><button onClick={onClickCamera} className="absolute -bottom-1 -right-1 w-6 h-6 bg-[#1E8A3C] rounded-full flex items-center justify-center text-white shadow-sm hover:bg-[#176B2E] transition-colors"><Camera className="w-3 h-3" /></button><input ref={fileInputRef} onChange={onUploadPhoto} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" /></div><div><p className="font-bold text-[#3D3D3D]">{sidebarName}</p><p className="text-sm text-[#8A8A8A]">{personal.email}</p>{emailVerified && <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-[#F0FAF1] text-[#1E8A3C] rounded-full text-xs font-medium"><Check className="w-3 h-3" /> Verifie</span>}{errors.photo && <p className="text-xs text-red-500">{errors.photo}</p>}</div></div></div>
