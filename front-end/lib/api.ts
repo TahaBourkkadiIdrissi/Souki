@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE_URL = "http://localhost:8000"
+const DEFAULT_API_BASE_URL = "/backend"
 
 export const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_BASE_URL
@@ -33,8 +33,13 @@ export interface TourneeItem {
   colis_count: number
   creneau_livraison: string | null
   statut: string
+  status_version: number
+  enroute_at?: string | null
+  delivered_at?: string | null
+  absent_at?: string | null
   montant_total: number
   mode_paiement: string | null
+  payment_validated?: boolean | null
   lat: number | null
   lng: number | null
   latitude?: number | null
@@ -55,6 +60,40 @@ export interface DemarrerTourneeResponse {
   updated_count: number
   previous_status: string
   new_status: string
+  message: string
+}
+
+export interface DeliveryEventRequest {
+  target_status: "EN_ROUTE" | "LIVRE" | "ABSENT"
+  client_event_id: string
+  device_timestamp: string
+  expected_version?: number
+}
+
+export interface DeliveryEventResponse {
+  status: string
+  event_id: string
+  client_event_id: string
+  commande_id: number
+  previous_status: string
+  new_status: string
+  status_version: number
+  enroute_at?: string | null
+  delivered_at?: string | null
+  absent_at?: string | null
+  device_timestamp: string
+  server_timestamp: string
+  idempotent: boolean
+  message: string
+}
+
+export interface CodValidationResponse {
+  status: string
+  commande_id: number
+  payment_validated: boolean
+  mode_paiement?: string | null
+  montant_total: number
+  idempotent: boolean
   message: string
 }
 
@@ -112,6 +151,25 @@ export async function getLivreurTournee(token: string, signal?: AbortSignal) {
 
 export async function demarrerLivreurTournee(token: string) {
   return apiCall<DemarrerTourneeResponse>("/api/livreur/demarrer-tournee", {
+    method: "POST",
+    token,
+  })
+}
+
+export async function envoyerEvenementLivraison(
+  token: string,
+  commandeId: string | number,
+  body: DeliveryEventRequest
+) {
+  return apiCall<DeliveryEventResponse>(`/api/livreur/livraisons/${commandeId}/events`, {
+    method: "POST",
+    token,
+    body,
+  })
+}
+
+export async function validerPaiementCodLivreur(token: string, commandeId: string | number) {
+  return apiCall<CodValidationResponse>(`/api/livreur/livraisons/${commandeId}/cod/validate`, {
     method: "POST",
     token,
   })
