@@ -58,6 +58,46 @@ export interface DemarrerTourneeResponse {
   message: string
 }
 
+export interface DetailProduitJIT {
+  product_id: number
+  nom_fr: string
+  nom_darija: string
+  quantite_brute_kg: number
+  buffer_perte_10_pct: number
+  volume_total_kg: number
+  prix_kg: number
+  sous_total: number
+  unite: string
+}
+
+export interface ResultatAgregationJIT {
+  nombre_commandes: number
+  nombre_abonnements: number
+  volume_total_kg: number
+  details_produits: DetailProduitJIT[]
+  montant_total: number
+  statut: string
+  message?: string
+}
+
+export interface JITLogDTO {
+  id?: number
+  date_execution?: string
+  volume_total: number
+  nombre_commandes: number
+  nombre_abonnements: number
+  statut: string
+  details_volumes?: { produits: DetailProduitJIT[] }
+  message_alerte?: string
+}
+
+export interface JITDeverrouillerResponse {
+  nombre_commandes?: number
+  nombre_deverrouillees?: number
+  statut?: string
+  message?: string
+}
+
 export async function apiCall<T = any>(endpoint: string, options: ApiOptions = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`
   const headers: Record<string, string> = {
@@ -115,4 +155,29 @@ export async function demarrerLivreurTournee(token: string) {
     method: "POST",
     token,
   })
+}
+
+export async function jitAgreger(token: string) {
+  return apiCall<ResultatAgregationJIT>("/api/jit/agreguer", {
+    method: "POST",
+    token,
+  })
+}
+
+export async function jitExecuter(token: string) {
+  return apiCall<JITLogDTO>("/api/jit/executer", {
+    method: "POST",
+    token,
+  })
+}
+
+export async function jitDeverrouiller(token: string) {
+  return apiCall<JITDeverrouillerResponse>("/api/jit/deverrouiller", {
+    method: "POST",
+    token,
+  })
+}
+
+export async function jitDernierLog(token: string) {
+  return apiCall<JITLogDTO>("/api/jit/logs/dernier", { token })
 }
