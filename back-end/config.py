@@ -12,9 +12,13 @@ PASSWORD = os.getenv("password")
 HOST     = os.getenv("host")
 PORT     = os.getenv("port")
 DBNAME   = os.getenv("dbname")
+DB_CONNECT_TIMEOUT = int(os.getenv("DB_CONNECT_TIMEOUT", "5"))
 
 # Construct the SQLAlchemy connection string
-DATABASE_URL = f"postgresql+psycopg2://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}?sslmode=require"
+DATABASE_URL = (
+    f"postgresql+psycopg2://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}"
+    f"?sslmode=require&connect_timeout={DB_CONNECT_TIMEOUT}"
+)
 
 # Créer le moteur avec un pool de connexions
 # pool_size=10 → max 10 connexions simultanées
@@ -25,6 +29,7 @@ engine = create_engine(
     pool_size=10,
     max_overflow=5,
     pool_timeout=30,
+    pool_pre_ping=True,
 )
 
 # Session locale — à utiliser dans chaque route / service
