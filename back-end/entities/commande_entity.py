@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, func
 from sqlalchemy.orm import relationship
 from config import Base
 
@@ -14,10 +14,16 @@ class Commande(Base):
     statut             = Column(String(50))
     date_commande      = Column(DateTime, server_default=func.now())
     creneau_livraison  = Column(String(100))
+    enroute_at         = Column(DateTime(timezone=True), nullable=True)
+    delivered_at       = Column(DateTime(timezone=True), nullable=True)
+    absent_at          = Column(DateTime(timezone=True), nullable=True)
+    status_version     = Column(Integer, nullable=False, default=1, server_default="1")
+    payment_validated  = Column(Boolean, nullable=True, default=False, server_default="false")
     mode_paiement      = Column(String(50))
     montant_total      = Column(Float)
 
-    client   = relationship("Client", back_populates="commandes")
-    panier   = relationship("Panier", back_populates="commande")
-    livreur  = relationship("Livreur", back_populates="commandes")
-    paiement = relationship("Paiement", back_populates="commande", uselist=False)
+    client          = relationship("Client", back_populates="commandes")
+    panier          = relationship("Panier", back_populates="commande")
+    livreur         = relationship("Livreur", back_populates="commandes")
+    paiement        = relationship("Paiement", back_populates="commande", uselist=False)
+    delivery_events = relationship("DeliveryEvent", back_populates="commande")

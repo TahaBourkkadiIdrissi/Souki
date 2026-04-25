@@ -45,20 +45,30 @@ def initialize_application() -> None:
         ) from exc
 
     avatar_storage_service.bootstrap_avatar_storage()
+from services.catalogue_bootstrap_service import CatalogueBootstrapService
+from services.delivery_schema_sync_service import DeliverySchemaSyncService
+from services.rbac_bootstrap_service import RBACBootstrapService
+from services.scheduler_service import start_scheduler, stop_scheduler
+
+
+Base.metadata.create_all(bind=engine)
+DeliverySchemaSyncService.sync()
+RBACBootstrapService().sync_rbac()
+CatalogueBootstrapService().sync_catalogue()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("\nDemarrage de l'application SOUKI...")
-    initialize_application()
+    """Manage application startup and shutdown."""
+    print("\n[STARTUP] Demarrage de l'application SOUKI...")
     start_scheduler()
-    print("Application SOUKI lancee avec succes\n")
+    print("[STARTUP] Application SOUKI lancee avec succes\n")
 
     yield
 
-    print("\nArret de l'application SOUKI...")
+    print("\n[SHUTDOWN] Arret de l'application SOUKI...")
     stop_scheduler()
-    print("Application SOUKI arretee\n")
+    print("[SHUTDOWN] Application SOUKI arretee\n")
 
 
 app = FastAPI(title="Fes Delivery Professional API", lifespan=lifespan)
@@ -68,6 +78,7 @@ def get_allowed_origins() -> list[str]:
     configured_origins = os.getenv("FRONTEND_ORIGINS")
     if configured_origins:
         return [origin.strip() for origin in configured_origins.split(",") if origin.strip()]
+
     return [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
@@ -96,7 +107,10 @@ app.add_middleware(
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     error_messages = [err.get("msg") for err in exc.errors()]
-    return JSONResponse(status_code=422, content={"detail": " | ".join(error_messages)})
+    return JSONResponse(
+        status_code=422,
+        content={"detail": " | ".join(error_messages)},
+    )
 
 
 app.include_router(auth_router)
@@ -109,6 +123,7 @@ app.include_router(router_checkout)
 app.include_router(router_jit)
 app.include_router(router_livreur)
 app.include_router(admin_router)
+
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

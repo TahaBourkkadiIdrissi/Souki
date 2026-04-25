@@ -31,6 +31,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+const AUTH_REQUEST_TIMEOUT_MS = 10000
 const NETWORK_RETRY_ATTEMPTS = 3
 const NETWORK_RETRY_DELAY_MS = 1200
 const NETWORK_TIMEOUT_MS = 5000
@@ -38,10 +39,57 @@ const NETWORK_TIMEOUT_MS = 5000
 const isNetworkFetchError = (error: unknown) =>
   error instanceof TypeError && error.message.toLowerCase().includes("fetch")
 
+<<<<<<< HEAD
 const wait = (ms: number) =>
   new Promise((resolve) => {
     window.setTimeout(resolve, ms)
   })
+=======
+const isRequestTimeoutError = (error: unknown) =>
+  error instanceof DOMException && error.name === "AbortError"
+
+function buildApiUnavailableMessage() {
+  return `Impossible de joindre l'API (${API_BASE_URL}). Verifiez que le back-end est demarre et accessible depuis le front.`
+}
+
+function buildRequestTimeoutMessage() {
+  return `L'API met trop de temps a repondre (${API_BASE_URL}). Verifiez que le back-end et la base de donnees sont bien disponibles.`
+}
+
+async function readErrorDetail(response: Response) {
+  const contentType = response.headers.get("content-type") || ""
+  if (!contentType.includes("application/json")) {
+    try {
+      const rawText = await response.text()
+      const compactText = rawText.replace(/\s+/g, " ").trim()
+      return compactText ? compactText.slice(0, 180) : null
+    } catch {
+      return null
+    }
+  }
+
+  try {
+    const payload = await response.json()
+    return payload?.detail ? String(payload.detail) : null
+  } catch {
+    return null
+  }
+}
+
+async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit) {
+  const controller = new AbortController()
+  const timeoutHandle = window.setTimeout(() => controller.abort(), AUTH_REQUEST_TIMEOUT_MS)
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    })
+  } finally {
+    window.clearTimeout(timeoutHandle)
+  }
+}
+>>>>>>> main
 
 function normalizeUser(payload: any): User {
   const roles = Array.isArray(payload?.roles) ? payload.roles.map((value: string) => String(value).toUpperCase()) : []
@@ -74,9 +122,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ): Promise<{ user: User | null; networkError: boolean }> => {
     let timeoutId: number | undefined
     try {
+<<<<<<< HEAD
       const controller = new AbortController()
       timeoutId = window.setTimeout(() => controller.abort(), NETWORK_TIMEOUT_MS)
       const response = await fetch(`${API_BASE_URL}/auth/me`, {
+=======
+      const response = await fetchWithTimeout(`${API_BASE_URL}/auth/me`, {
+>>>>>>> main
         method: "GET",
         headers: {
           Authorization: `Bearer ${tok}`,
@@ -95,15 +147,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(userData)
       return { user: userData, networkError: false }
     } catch (error) {
+<<<<<<< HEAD
       if (error instanceof DOMException && error.name === "AbortError") {
         console.warn("Backend trop lent pour la validation du token.")
         return { user: null, networkError: true }
       }
       if (isNetworkFetchError(error)) {
         console.warn("Backend temporairement indisponible pour la validation du token.")
+=======
+      if (isRequestTimeoutError(error)) {
+        console.warn(buildRequestTimeoutMessage())
+>>>>>>> main
         return { user: null, networkError: true }
       }
-      console.error("Token validation error:", error)
+      if (isNetworkFetchError(error)) {
+        console.warn(buildApiUnavailableMessage())
+        return { user: null, networkError: true }
+      }
+      console.warn(
+        "Token validation error:",
+        error instanceof Error ? error.message : String(error)
+      )
       return { user: null, networkError: false }
     } finally {
       if (timeoutId) {
@@ -197,6 +261,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const authenticate = async (endpoint: string, payload: Record<string, unknown>) => {
     try {
+<<<<<<< HEAD
       let response: Response | null = null
 
       for (let attempt = 1; attempt <= NETWORK_RETRY_ATTEMPTS; attempt += 1) {
@@ -235,10 +300,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!response) {
         throw new Error("Le serveur backend est indisponible.")
       }
+=======
+      const response = await fetchWithTimeout(`${API_BASE_URL}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        mode: "cors",
+        credentials: "omit",
+      })
+>>>>>>> main
 
       if (!response.ok) {
-        const errData = await response.json()
-        throw new Error(errData.detail || "Erreur de connexion")
+        const errorDetail = await readErrorDetail(response)
+        throw new Error(
+          errorDetail || `Erreur de connexion (${response.status} ${response.statusText || "HTTP"})`
+        )
       }
 
       const data = await response.json()
@@ -250,8 +326,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return nextUser
     } catch (error) {
-      console.error("Authentication error:", error)
+      console.warn(
+        "Authentication error:",
+        error instanceof Error ? error.message : String(error)
+      )
       await syncAuthState(null)
+      if (isRequestTimeoutError(error)) {
+        throw new Error(buildRequestTimeoutMessage())
+      }
+      if (isNetworkFetchError(error) || error instanceof TypeError) {
+        throw new Error(buildApiUnavailableMessage())
+      }
       throw error
     }
   }

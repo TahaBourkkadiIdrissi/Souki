@@ -1,16 +1,29 @@
+from datetime import datetime
 from typing import Any, Iterable, Optional
+from uuid import UUID
 
-from sqlalchemy import Float, MetaData, Table, func, inspect, literal, select, update
+from sqlalchemy import Float, MetaData, Table, case, func, inspect, literal, select
 from sqlalchemy.orm import Session
 
 from entities.client_entity import Client
 from entities.commande_entity import Commande
+from entities.delivery_event_entity import DeliveryEvent
 from entities.ligne_panier_entity import LignePanier
+from entities.notification_outbox_entity import NotificationOutbox
+from entities.paiement_entity import Paiement
 from entities.user_entity import User
 from interfaces.livreur_dao_interface import ILivreurDao
 
 
 class LivreurDaoBD(ILivreurDao):
+
+    @staticmethod
+    def _payment_validated_expression():
+        return case(
+            (Commande.payment_validated.is_(True), True),
+            (Paiement.valide.is_(True), True),
+            else_=False,
+        )
 
     def get_tournee_rows(
         self,
@@ -74,9 +87,14 @@ class LivreurDaoBD(ILivreurDao):
                 Commande.id.label("commande_id"),
                 Commande.creneau_livraison.label("creneau_livraison"),
                 Commande.statut.label("statut"),
+                Commande.status_version.label("status_version"),
+                Commande.enroute_at.label("enroute_at"),
+                Commande.delivered_at.label("delivered_at"),
+                Commande.absent_at.label("absent_at"),
                 Commande.mode_paiement.label("mode_paiement"),
                 Commande.montant_total.label("montant_total"),
                 User.phone.label("client_phone"),
+                self._payment_validated_expression().label("payment_validated"),
                 address_alias.c.street.label("street"),
                 address_alias.c.neighborhood.label("neighborhood"),
                 address_alias.c.details.label("details"),
@@ -87,6 +105,7 @@ class LivreurDaoBD(ILivreurDao):
             .select_from(Commande)
             .join(Client, Client.user_id == Commande.client_id)
             .join(User, User.id == Client.user_id)
+            .outerjoin(Paiement, Paiement.commande_id == Commande.id)
             .outerjoin(
                 preferred_address_subquery,
                 preferred_address_subquery.c.user_id == Client.user_id,
@@ -105,25 +124,6 @@ class LivreurDaoBD(ILivreurDao):
 
         return [dict(row._mapping) for row in session.execute(statement).all()]
 
-    def start_tournee(
-        self,
-        session: Session,
-        livreur_id: int,
-        pending_statuses: Iterable[str],
-        started_status: str,
-    ) -> int:
-        normalized_statuses = [status.upper() for status in pending_statuses]
-        statement = (
-            update(Commande)
-            .where(
-                Commande.livreur_id == livreur_id,
-                func.upper(func.coalesce(Commande.statut, "")).in_(normalized_statuses),
-            )
-            .values(statut=started_status)
-        )
-        result = session.execute(statement)
-        return int(result.rowcount or 0)
-
     def count_by_statuses(
         self,
         session: Session,
@@ -139,6 +139,146 @@ class LivreurDaoBD(ILivreurDao):
             )
         )
         return int(session.execute(statement).scalar_one() or 0)
+
+    def get_commande_delivery_context(
+        self,
+        session: Session,
+        livreur_id: int,
+        commande_id: int,
+    ) -> Optional[dict[str, Any]]:
+        commande_statement = (
+            select(Commande)
+            .where(
+                Commande.id == commande_id,
+                Commande.livreur_id == livreur_id,
+            )
+            .with_for_update(of=Commande)
+        )
+        commande = session.execute(commande_statement).scalar_one_or_none()
+        if commande is None:
+            return None
+
+        details_statement = (
+            select(
+                User.phone.label("client_phone"),
+                self._payment_validated_expression().label("payment_validated"),
+            )
+            .select_from(Commande)
+            .outerjoin(Client, Client.user_id == Commande.client_id)
+            .outerjoin(User, User.id == Client.user_id)
+            .outerjoin(Paiement, Paiement.commande_id == Commande.id)
+            .where(Commande.id == commande_id)
+        )
+        details_row = session.execute(details_statement).first()
+
+        return {
+            "commande": commande,
+            "client_phone": details_row.client_phone if details_row else None,
+            "payment_validated": details_row.payment_validated if details_row else None,
+        }
+
+    def get_delivery_event_by_client_event_id(
+        self,
+        session: Session,
+        client_event_id: UUID,
+    ) -> Optional[DeliveryEvent]:
+        statement = select(DeliveryEvent).where(DeliveryEvent.client_event_id == client_event_id)
+        return session.execute(statement).scalar_one_or_none()
+
+    def create_delivery_event(
+        self,
+        session: Session,
+        **kwargs,
+    ) -> DeliveryEvent:
+        event = DeliveryEvent(**kwargs)
+        session.add(event)
+        session.flush()
+        return event
+
+    def create_notification_outbox(
+        self,
+        session: Session,
+        *,
+        outbox_type: str,
+        payload: dict[str, Any],
+    ) -> NotificationOutbox:
+        outbox_entry = NotificationOutbox(type=outbox_type, payload=payload, status="PENDING")
+        session.add(outbox_entry)
+        session.flush()
+        return outbox_entry
+
+    def mark_cod_payment_validated(
+        self,
+        session: Session,
+        *,
+        commande_id: int,
+        mode_paiement: Optional[str],
+        montant_total: Optional[float],
+    ) -> bool:
+        statement = (
+            select(Paiement)
+            .where(Paiement.commande_id == commande_id)
+            .with_for_update(of=Paiement)
+        )
+        commande = session.execute(
+            select(Commande)
+            .where(Commande.id == commande_id)
+        ).scalar_one()
+
+        paiement = session.execute(statement).scalar_one_or_none()
+        commande_was_already_validated = commande.payment_validated is True
+        commande.payment_validated = True
+
+        if paiement is None:
+            paiement = Paiement(
+                commande_id=commande_id,
+                methode=(mode_paiement or "COD"),
+                montant=float(montant_total or 0.0),
+                frais_cmi=0.0,
+                montant_net=float(montant_total or 0.0),
+                valide=True,
+            )
+            session.add(paiement)
+            session.flush()
+            return commande_was_already_validated
+
+        was_already_validated = paiement.valide is True
+        paiement.valide = True
+        if paiement.methode in (None, ""):
+            paiement.methode = mode_paiement or "COD"
+        if paiement.montant is None:
+            paiement.montant = float(montant_total or 0.0)
+        if paiement.montant_net is None:
+            paiement.montant_net = float(montant_total or 0.0)
+        if paiement.frais_cmi is None:
+            paiement.frais_cmi = 0.0
+        session.flush()
+        return was_already_validated or commande_was_already_validated
+
+    def get_delivery_changes_since(
+        self,
+        session: Session,
+        *,
+        since: Optional[datetime],
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        statement = (
+            select(
+                DeliveryEvent.id.label("event_id"),
+                DeliveryEvent.commande_id.label("commande_id"),
+                DeliveryEvent.livreur_id.label("livreur_id"),
+                DeliveryEvent.previous_status.label("previous_status"),
+                DeliveryEvent.new_status.label("new_status"),
+                DeliveryEvent.server_timestamp.label("server_timestamp"),
+                DeliveryEvent.device_timestamp.label("device_timestamp"),
+            )
+            .order_by(DeliveryEvent.server_timestamp.asc())
+            .limit(limit)
+        )
+        if since is not None:
+            statement = statement.where(DeliveryEvent.server_timestamp > since)
+
+        return [dict(row._mapping) for row in session.execute(statement).all()]
 
     def _resolve_coordinate_columns(
         self,

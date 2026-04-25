@@ -1,25 +1,42 @@
+import logging
 import math
 import re
 from collections import defaultdict
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 from typing import Optional
 
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from config import LocalSession, SOUKI_DEPOT_LAT, SOUKI_DEPOT_LNG
 from dto.livreur_dto import (
+    CodValidationResponseDTO,
+    DeliveryEventRequestDTO,
+    DeliveryEventResponseDTO,
     DemarrerTourneeResponseDTO,
     TourneeItemDTO,
     TourneeResponseDTO,
 )
+from entities.commande_entity import Commande
+from entities.delivery_event_entity import DeliveryEvent
 from interfaces.livreur_dao_interface import ILivreurDao
 from interfaces.livreur_service_interface import ILivreurService
 
 TOURNEE_RELEASE_TIME = time(7, 0)
-PENDING_DELIVERY_STATUSES = {"A_LIVRER", "EN_ATTENTE"}
-STARTED_DELIVERY_STATUS = "EN_COURS_DE_LIVRAISON"
-VISIBLE_TOURNEE_STATUSES = PENDING_DELIVERY_STATUSES | {STARTED_DELIVERY_STATUS}
+LEGACY_PENDING_DELIVERY_STATUS = "EN_ATTENTE"
+PENDING_DELIVERY_STATUS = "A_LIVRER"
+STARTED_DELIVERY_STATUS = "EN_ROUTE"
+DELIVERED_STATUS = "LIVRE"
+ABSENT_STATUS = "ABSENT"
+VISIBLE_TOURNEE_STATUSES = {
+    LEGACY_PENDING_DELIVERY_STATUS,
+    PENDING_DELIVERY_STATUS,
+    STARTED_DELIVERY_STATUS,
+    DELIVERED_STATUS,
+    ABSENT_STATUS,
+}
+logger = logging.getLogger(__name__)
 
 
 class LivreurService(ILivreurService):
@@ -62,7 +79,7 @@ class LivreurService(ILivreurService):
         items = [self._build_tournee_item(row) for row in rows]
         sorted_items, sort_strategy = self._sort_items(items)
         tournee_started = any(
-            self._normalize_status(item.statut) == STARTED_DELIVERY_STATUS
+            self._canonical_delivery_status(item.statut) in {STARTED_DELIVERY_STATUS, DELIVERED_STATUS, ABSENT_STATUS}
             for item in sorted_items
         )
 
@@ -75,48 +92,254 @@ class LivreurService(ILivreurService):
 
     def demarrer_tournee(self, livreur_id: int) -> DemarrerTourneeResponseDTO:
         session = self._ensure_session()
-        updated_count = self.livreur_dao.start_tournee(
+        pending_count = self.livreur_dao.count_by_statuses(
             session=session,
             livreur_id=livreur_id,
-            pending_statuses=PENDING_DELIVERY_STATUSES,
-            started_status=STARTED_DELIVERY_STATUS,
+            statuses=[LEGACY_PENDING_DELIVERY_STATUS, PENDING_DELIVERY_STATUS],
         )
-        session.commit()
-
-        if updated_count > 0:
-            return DemarrerTourneeResponseDTO(
-                updated_count=updated_count,
-                previous_status="/".join(sorted(PENDING_DELIVERY_STATUSES)),
-                new_status=STARTED_DELIVERY_STATUS,
-                message="Votre tournee a bien demarre.",
-            )
-
-        already_started_count = self.livreur_dao.count_by_statuses(
-            session=session,
-            livreur_id=livreur_id,
-            statuses=[STARTED_DELIVERY_STATUS],
-        )
-        if already_started_count > 0:
-            return DemarrerTourneeResponseDTO(
-                updated_count=0,
-                previous_status=STARTED_DELIVERY_STATUS,
-                new_status=STARTED_DELIVERY_STATUS,
-                message="La tournee est deja en cours de livraison.",
-            )
 
         return DemarrerTourneeResponseDTO(
             updated_count=0,
-            previous_status="/".join(sorted(PENDING_DELIVERY_STATUSES)),
+            previous_status="/".join(sorted({LEGACY_PENDING_DELIVERY_STATUS, PENDING_DELIVERY_STATUS})),
             new_status=STARTED_DELIVERY_STATUS,
-            message="Aucune commande a demarrer pour cette tournee.",
+            message=(
+                "Le demarrage est desormais gere commande par commande via les evenements de livraison."
+                if pending_count > 0
+                else "Aucune commande a demarrer pour cette tournee."
+            ),
         )
+
+    def confirm_cod_payment(
+        self,
+        livreur_id: int,
+        commande_id: int,
+    ) -> CodValidationResponseDTO:
+        session = self._ensure_session()
+
+        try:
+            context = self.livreur_dao.get_commande_delivery_context(
+                session=session,
+                livreur_id=livreur_id,
+                commande_id=commande_id,
+            )
+            if not context:
+                raise HTTPException(status_code=404, detail="Commande introuvable pour ce livreur.")
+
+            commande: Commande = context["commande"]
+            if not self._is_cod_mode(commande.mode_paiement):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Cette commande n'est pas en paiement a la livraison.",
+                )
+
+            if context["payment_validated"] is True:
+                return CodValidationResponseDTO(
+                    commande_id=int(commande.id),
+                    payment_validated=True,
+                    mode_paiement=self._clean_optional_text(commande.mode_paiement),
+                    montant_total=float(commande.montant_total or 0.0),
+                    idempotent=True,
+                    message="Encaissement COD deja confirme.",
+                )
+
+            was_already_validated = self.livreur_dao.mark_cod_payment_validated(
+                session=session,
+                commande_id=int(commande.id),
+                mode_paiement=commande.mode_paiement,
+                montant_total=commande.montant_total,
+            )
+
+            self.livreur_dao.create_notification_outbox(
+                session=session,
+                outbox_type="WEBSOCKET",
+                payload={
+                    "event": "COD_PAYMENT_VALIDATED",
+                    "channel": "bo_deliveries",
+                    "commande_id": int(commande.id),
+                    "livreur_id": int(commande.livreur_id or 0),
+                    "mode_paiement": self._clean_optional_text(commande.mode_paiement),
+                    "montant_total": float(commande.montant_total or 0.0),
+                    "payment_validated": True,
+                    "server_timestamp": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+
+            session.commit()
+
+            return CodValidationResponseDTO(
+                commande_id=int(commande.id),
+                payment_validated=True,
+                mode_paiement=self._clean_optional_text(commande.mode_paiement),
+                montant_total=float(commande.montant_total or 0.0),
+                idempotent=was_already_validated,
+                message=(
+                    "Encaissement COD deja confirme."
+                    if was_already_validated
+                    else "Encaissement COD confirme. Vous pouvez maintenant livrer."
+                ),
+            )
+        except HTTPException:
+            session.rollback()
+            raise
+        except Exception as exc:
+            session.rollback()
+            logger.exception(
+                "Erreur backend lors de la validation COD commande_id=%s livreur_id=%s",
+                commande_id,
+                livreur_id,
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Erreur interne lors de la validation COD.",
+            ) from exc
+
+    def apply_delivery_event(
+        self,
+        livreur_id: int,
+        commande_id: int,
+        payload: DeliveryEventRequestDTO,
+    ) -> DeliveryEventResponseDTO:
+        session = self._ensure_session()
+
+        try:
+            existing_event = self.livreur_dao.get_delivery_event_by_client_event_id(
+                session=session,
+                client_event_id=payload.client_event_id,
+            )
+            if existing_event is not None:
+                if int(existing_event.commande_id) != int(commande_id):
+                    raise HTTPException(status_code=409, detail="client_event_id deja utilise pour une autre commande.")
+
+                existing_context = self.livreur_dao.get_commande_delivery_context(
+                    session=session,
+                    livreur_id=livreur_id,
+                    commande_id=commande_id,
+                )
+                if not existing_context:
+                    raise HTTPException(status_code=404, detail="Commande introuvable pour ce livreur.")
+
+                return self._build_delivery_event_response(
+                    event=existing_event,
+                    commande=existing_context["commande"],
+                    idempotent=True,
+                    message="Evenement deja traite.",
+                )
+
+            context = self.livreur_dao.get_commande_delivery_context(
+                session=session,
+                livreur_id=livreur_id,
+                commande_id=commande_id,
+            )
+            if not context:
+                raise HTTPException(status_code=404, detail="Commande introuvable pour ce livreur.")
+
+            commande: Commande = context["commande"]
+            previous_status = self._canonical_delivery_status(commande.statut)
+            target_status = payload.target_status.value
+
+            if payload.expected_version is not None and int(commande.status_version or 1) != payload.expected_version:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Conflit de version. Rechargez la commande avant de renvoyer l'action.",
+                )
+
+            if not self._is_transition_allowed(previous_status, target_status):
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Transition interdite: {previous_status} -> {target_status}.",
+                )
+
+            if target_status == DELIVERED_STATUS and self._is_cod_mode(commande.mode_paiement):
+                if context["payment_validated"] is not True:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Encaissement COD non confirme. Livraison refusee.",
+                    )
+
+            server_timestamp = datetime.now(timezone.utc)
+            event = self.livreur_dao.create_delivery_event(
+                session=session,
+                commande_id=commande.id,
+                livreur_id=livreur_id,
+                previous_status=previous_status,
+                new_status=target_status,
+                client_event_id=payload.client_event_id,
+                device_timestamp=payload.device_timestamp,
+                server_timestamp=server_timestamp,
+            )
+
+            self._apply_transition_on_commande(
+                commande=commande,
+                target_status=target_status,
+                server_timestamp=server_timestamp,
+            )
+
+            self._queue_notifications(
+                session=session,
+                commande=commande,
+                client_phone=context["client_phone"],
+                previous_status=previous_status,
+                new_status=target_status,
+                client_event_id=str(payload.client_event_id),
+                server_timestamp=server_timestamp,
+            )
+
+            session.commit()
+
+            return self._build_delivery_event_response(
+                event=event,
+                commande=commande,
+                idempotent=False,
+                message="Statut de livraison mis a jour avec succes.",
+            )
+        except HTTPException:
+            session.rollback()
+            raise
+        except IntegrityError as exc:
+            session.rollback()
+
+            existing_event = self.livreur_dao.get_delivery_event_by_client_event_id(
+                session=session,
+                client_event_id=payload.client_event_id,
+            )
+            if existing_event is not None:
+                if int(existing_event.commande_id) != int(commande_id):
+                    raise HTTPException(
+                        status_code=409,
+                        detail="client_event_id deja utilise pour une autre commande.",
+                    ) from exc
+
+                existing_context = self.livreur_dao.get_commande_delivery_context(
+                    session=session,
+                    livreur_id=livreur_id,
+                    commande_id=commande_id,
+                )
+                if existing_context:
+                    return self._build_delivery_event_response(
+                        event=existing_event,
+                        commande=existing_context["commande"],
+                        idempotent=True,
+                        message="Evenement deja traite.",
+                    )
+
+            raise HTTPException(
+                status_code=409,
+                detail="Conflit d'idempotence sur l'evenement de livraison.",
+            ) from exc
+        except Exception as exc:
+            session.rollback()
+            logger.exception(
+                "Erreur backend lors de la mise a jour de livraison commande_id=%s livreur_id=%s",
+                commande_id,
+                livreur_id,
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Erreur interne lors de la mise a jour de livraison.",
+            ) from exc
 
     def _ensure_tournee_available(self) -> None:
         if datetime.now().time() < TOURNEE_RELEASE_TIME:
-            #raise HTTPException(
-            #    status_code=403,
-            #    detail="Votre tournée sera disponible à partir de 07h00.",
-            #)
             pass
 
     def _build_tournee_item(self, row: dict) -> TourneeItemDTO:
@@ -136,9 +359,14 @@ class LivreurService(ILivreurService):
             full_address=full_address,
             colis_count=int(row.get("colis_count") or 0),
             creneau_livraison=self._clean_optional_text(row.get("creneau_livraison")),
-            statut=str(row.get("statut") or ""),
+            statut=self._canonical_delivery_status(str(row.get("statut") or "")),
+            status_version=int(row.get("status_version") or 1),
+            enroute_at=row.get("enroute_at"),
+            delivered_at=row.get("delivered_at"),
+            absent_at=row.get("absent_at"),
             montant_total=float(row.get("montant_total") or 0.0),
             mode_paiement=self._clean_optional_text(row.get("mode_paiement")),
+            payment_validated=row.get("payment_validated"),
             lat=self._as_float(row.get("lat", row.get("latitude"))),
             lng=self._as_float(row.get("lng", row.get("longitude"))),
         )
@@ -147,13 +375,16 @@ class LivreurService(ILivreurService):
         if not items:
             return items, "EMPTY"
 
-        if self._can_use_greedy_gps(items):
-            return self._sort_by_nearest_neighbor(items), "GREEDY_GPS"
+        active_items = [item for item in items if self._canonical_delivery_status(item.statut) in {PENDING_DELIVERY_STATUS, STARTED_DELIVERY_STATUS}]
+        completed_items = [item for item in items if item not in active_items]
 
-        return self._sort_by_neighborhood(items), "NEIGHBORHOOD_CLUSTER"
+        if self._can_use_greedy_gps(active_items):
+            return self._sort_by_nearest_neighbor(active_items) + completed_items, "GREEDY_GPS"
+
+        return self._sort_by_neighborhood(active_items) + completed_items, "NEIGHBORHOOD_CLUSTER"
 
     def _can_use_greedy_gps(self, items: list[TourneeItemDTO]) -> bool:
-        return all(item.lat is not None and item.lng is not None for item in items)
+        return len(items) > 0 and all(item.lat is not None and item.lng is not None for item in items)
 
     def _sort_by_neighborhood(self, items: list[TourneeItemDTO]) -> list[TourneeItemDTO]:
         grouped_items: dict[str, list[TourneeItemDTO]] = defaultdict(list)
@@ -200,6 +431,123 @@ class LivreurService(ILivreurService):
 
         return ordered_items
 
+    def _apply_transition_on_commande(
+        self,
+        *,
+        commande: Commande,
+        target_status: str,
+        server_timestamp: datetime,
+    ) -> None:
+        commande.statut = target_status
+        commande.status_version = int(commande.status_version or 1) + 1
+
+        if target_status == STARTED_DELIVERY_STATUS:
+            commande.enroute_at = server_timestamp
+        elif target_status == DELIVERED_STATUS:
+            commande.delivered_at = server_timestamp
+        elif target_status == ABSENT_STATUS:
+            commande.absent_at = server_timestamp
+
+    def _queue_notifications(
+        self,
+        *,
+        session: Session,
+        commande: Commande,
+        client_phone: Optional[str],
+        previous_status: str,
+        new_status: str,
+        client_event_id: str,
+        server_timestamp: datetime,
+    ) -> None:
+        base_payload = {
+            "commande_id": int(commande.id),
+            "livreur_id": int(commande.livreur_id or 0),
+            "previous_status": previous_status,
+            "new_status": new_status,
+            "client_event_id": client_event_id,
+            "server_timestamp": server_timestamp.isoformat(),
+            "status_version": int(commande.status_version or 1),
+        }
+
+        if client_phone:
+            self.livreur_dao.create_notification_outbox(
+                session=session,
+                outbox_type="SMS",
+                payload={
+                    **base_payload,
+                    "recipient": client_phone,
+                    "message": f"Votre commande #{commande.id} est maintenant {new_status}.",
+                },
+            )
+
+        self.livreur_dao.create_notification_outbox(
+            session=session,
+            outbox_type="WEBSOCKET",
+            payload={
+                **base_payload,
+                "event": "DELIVERY_STATUS_UPDATED",
+                "channel": "bo_deliveries",
+            },
+        )
+
+        if new_status == ABSENT_STATUS:
+            self.livreur_dao.create_notification_outbox(
+                session=session,
+                outbox_type="WEBSOCKET",
+                payload={
+                    **base_payload,
+                    "event": "ALERT_ABSENT",
+                    "channel": "bo_deliveries",
+                    "priority": "high",
+                },
+            )
+
+    def _build_delivery_event_response(
+        self,
+        *,
+        event: DeliveryEvent,
+        commande: Commande,
+        idempotent: bool,
+        message: str,
+    ) -> DeliveryEventResponseDTO:
+        return DeliveryEventResponseDTO(
+            event_id=event.id,
+            client_event_id=event.client_event_id,
+            commande_id=int(commande.id),
+            previous_status=self._canonical_delivery_status(event.previous_status),
+            new_status=self._canonical_delivery_status(event.new_status),
+            status_version=int(commande.status_version or 1),
+            enroute_at=commande.enroute_at,
+            delivered_at=commande.delivered_at,
+            absent_at=commande.absent_at,
+            device_timestamp=event.device_timestamp,
+            server_timestamp=event.server_timestamp,
+            idempotent=idempotent,
+            message=message,
+        )
+
+    def _is_transition_allowed(self, previous_status: str, target_status: str) -> bool:
+        allowed_transitions = {
+            PENDING_DELIVERY_STATUS: {STARTED_DELIVERY_STATUS},
+            STARTED_DELIVERY_STATUS: {DELIVERED_STATUS, ABSENT_STATUS},
+            ABSENT_STATUS: {STARTED_DELIVERY_STATUS},
+        }
+        return target_status in allowed_transitions.get(previous_status, set())
+
+    def _canonical_delivery_status(self, status: str) -> str:
+        normalized_status = self._normalize_status(status)
+        status_aliases = {
+            "EN_COURS_DE_LIVRAISON": STARTED_DELIVERY_STATUS,
+            "EN_ATTENTE": PENDING_DELIVERY_STATUS,
+            "LIVREE": DELIVERED_STATUS,
+            "DELIVERED": DELIVERED_STATUS,
+        }
+        return status_aliases.get(normalized_status, normalized_status)
+
+    def _is_cod_mode(self, mode_paiement: Optional[str]) -> bool:
+        normalized_mode = (mode_paiement or "").strip().casefold()
+        return normalized_mode in {"cod", "cash", "especes", "especes_livraison", "cash_on_delivery"}
+
     def _haversine_km(
         self,
         lat1: Optional[float],
@@ -245,7 +593,15 @@ class LivreurService(ILivreurService):
         return "Adresse non renseignee"
 
     def _normalize_status(self, status: str) -> str:
-        return status.strip().upper()
+        normalized_status = status.strip().upper()
+        replacements = {
+            "EN ATTENTE": LEGACY_PENDING_DELIVERY_STATUS,
+            "A LIVRER": PENDING_DELIVERY_STATUS,
+            "EN ROUTE": STARTED_DELIVERY_STATUS,
+            "CONFIRMÉE": "CONFIRMEE",
+            "VERROUILLÉE": "VERROUILLEE",
+        }
+        return replacements.get(normalized_status, normalized_status)
 
     def _clean_optional_text(self, value: Optional[object]) -> Optional[str]:
         if value is None:

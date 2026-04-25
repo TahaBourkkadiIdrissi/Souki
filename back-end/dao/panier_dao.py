@@ -47,7 +47,7 @@ class PanierDaoBD(IPanierDao):
         commande = Commande(
             client_id=client_id,
             panier_id=panier_id,
-            statut="brouillon",
+            statut="BROUILLON",
             montant_total=montant_total
         )
         session.add(commande)

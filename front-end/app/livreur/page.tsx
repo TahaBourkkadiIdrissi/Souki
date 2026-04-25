@@ -22,17 +22,27 @@ import {
   WifiOff,
 } from "lucide-react"
 import type { LineLayerSpecification } from "mapbox-gl"
-import Map, { Layer, Marker, NavigationControl, Source, type MapRef } from "react-map-gl/mapbox"
+import MapView, { Layer, Marker, NavigationControl, Source, type MapRef } from "react-map-gl/mapbox"
 
 import { Spinner } from "@/components/ui/spinner"
 import { useAuth } from "@/hooks/useAuth"
 import {
   ApiError,
-  demarrerLivreurTournee,
+  CodValidationResponse,
+  DeliveryEventRequest,
+  DeliveryEventResponse,
+  envoyerEvenementLivraison,
   getLivreurTournee,
   TourneeItem,
   TourneeResponse,
+  validerPaiementCodLivreur,
 } from "@/lib/api"
+import {
+  enqueueDeliverySyncEvent,
+  getAllDeliverySyncEvents,
+  removeDeliverySyncEvent,
+  type DeliverySyncQueueItem,
+} from "@/lib/delivery-sync-queue"
 import { cn } from "@/lib/utils"
 
 const CACHE_KEY = "souki_tournee_today"
@@ -62,7 +72,7 @@ const ROUTE_REFRESH_DISTANCE_METERS = 40
 const ROUTE_REFRESH_INTERVAL_MS = 15000
 const ROUTE_OVERVIEW_PADDING = { top: 140, bottom: 190, left: 28, right: 28 }
 const DRIVE_MODE_PADDING = { top: 100, bottom: 190, left: 20, right: 20 }
-const STARTED_DELIVERY_STATUS = "EN_COURS_DE_LIVRAISON"
+const STARTED_DELIVERY_STATUS = "EN_ROUTE"
 const ROUTE_CASING_LAYER: Omit<LineLayerSpecification, "source"> = {
   id: "tournee-route-casing",
   type: "line",
@@ -91,6 +101,7 @@ const ROUTE_LAYER: Omit<LineLayerSpecification, "source"> = {
 }
 
 type DeliveryStatus = "pending" | "enroute" | "delivered" | "absent"
+type DeliveryBackendStatus = DeliveryEventRequest["target_status"]
 type PaymentMethod = "cod" | "wallet" | "cmi"
 type NoticeTone = "info" | "success" | "error"
 type SheetMode = "peek" | "expanded"
@@ -110,8 +121,13 @@ interface DeliveryViewItem {
   packageCount: number
   amount: number
   paymentMethod: PaymentMethod
+  paymentValidated: boolean
   status: DeliveryStatus
   rawStatus: string
+  statusVersion: number
+  enrouteAt: string | null
+  deliveredAt: string | null
+  absentAt: string | null
   lat: number | null
   lng: number | null
 }
@@ -293,6 +309,15 @@ function mergeTourneeWithCache(apiResponse: TourneeResponse, cachedResponse: Tou
     return {
       ...item,
       statut: cachedItem.statut,
+      payment_validated:
+        cachedItem.payment_validated === true ? true : (item.payment_validated ?? cachedItem.payment_validated ?? null),
+      status_version:
+        Number(cachedItem.status_version || 1) >= Number(item.status_version || 1)
+          ? cachedItem.status_version
+          : item.status_version,
+      enroute_at: cachedItem.enroute_at ?? item.enroute_at ?? null,
+      delivered_at: cachedItem.delivered_at ?? item.delivered_at ?? null,
+      absent_at: cachedItem.absent_at ?? item.absent_at ?? null,
     }
   })
 
@@ -347,7 +372,7 @@ function normalizeBackendStatus(status: string | null | undefined) {
 function normalizeDeliveryStatus(status: string): DeliveryStatus {
   const normalizedStatus = normalizeBackendStatus(status)
 
-  if (normalizedStatus === "EN_COURS_DE_LIVRAISON" || normalizedStatus === "EN_ROUTE") {
+  if (normalizedStatus === "EN_ROUTE" || normalizedStatus === "EN_COURS_DE_LIVRAISON") {
     return "enroute"
   }
 
@@ -364,7 +389,7 @@ function normalizeDeliveryStatus(status: string): DeliveryStatus {
 
 function mapDeliveryStatusToBackendStatus(status: DeliveryStatus) {
   if (status === "enroute") {
-    return "EN_COURS_DE_LIVRAISON"
+    return "EN_ROUTE"
   }
 
   if (status === "delivered") {
@@ -417,8 +442,13 @@ function mapTourneeItemToDeliveryView(item: TourneeItem, index: number): Deliver
     packageCount: item.colis_count,
     amount: Number(item.montant_total || 0),
     paymentMethod: normalizePaymentMethod(item.mode_paiement),
+    paymentValidated: Boolean(item.payment_validated),
     status: normalizeDeliveryStatus(item.statut),
     rawStatus: item.statut,
+    statusVersion: Number(item.status_version || 1),
+    enrouteAt: item.enroute_at ?? null,
+    deliveredAt: item.delivered_at ?? null,
+    absentAt: item.absent_at ?? null,
     lat: item.lat,
     lng: item.lng,
   }
@@ -508,28 +538,6 @@ function computeRemainingTime(items: DeliveryViewItem[]) {
   const hours = Math.floor(totalMinutes / 60)
   const minutes = totalMinutes % 60
   return `${hours}h${minutes.toString().padStart(2, "0")}`
-}
-
-function updateStartedStatuses(response: TourneeResponse): TourneeResponse {
-  return {
-    ...response,
-    tournee_started: true,
-    items: response.items.map((item) => {
-      const normalizedStatus = normalizeBackendStatus(item.statut)
-      if (normalizedStatus === "EN_COURS_DE_LIVRAISON") {
-        return item
-      }
-
-      if (normalizedStatus === "A_LIVRER" || normalizedStatus === "EN_ATTENTE") {
-        return {
-          ...item,
-          statut: "EN_COURS_DE_LIVRAISON",
-        }
-      }
-
-      return item
-    }),
-  }
 }
 
 function toRadians(value: number) {
@@ -660,8 +668,10 @@ export default function LivreurPage() {
   const { token, isLoading: isAuthLoading, isAuthenticated, can } = useAuth()
   const hasLivreurAccess = can("livreur.dashboard.access")
   const mapRef = useRef<MapRef | null>(null)
+  const deliveryListRef = useRef<DeliveryViewItem[]>([])
   const lastDriverLocationRef = useRef<DriverLocation | null>(null)
   const isLocationRequestPendingRef = useRef(false)
+  const isQueueSyncInFlightRef = useRef(false)
   const lastDirectionsRequestRef = useRef<{
     origin: [number, number]
     destination: [number, number]
@@ -674,6 +684,7 @@ export default function LivreurPage() {
   const [isOffline, setIsOffline] = useState(false)
   const [isTourneeLoading, setIsTourneeLoading] = useState(true)
   const [isStartingTournee, setIsStartingTournee] = useState(false)
+  const [isValidatingCodPayment, setIsValidatingCodPayment] = useState(false)
   const [beforeSeven, setBeforeSeven] = useState(false)
   const [tourneeStarted, setTourneeStarted] = useState(false)
   const [loadSource, setLoadSource] = useState<"api" | "cache" | null>(null)
@@ -682,6 +693,7 @@ export default function LivreurPage() {
   const [gpsError, setGpsError] = useState<string | null>(null)
   const [isRequestingLocation, setIsRequestingLocation] = useState(false)
   const [isNavigating, setIsNavigating] = useState(false)
+  const [activeNavigationDeliveryId, setActiveNavigationDeliveryId] = useState<string | null>(null)
   const [sheetMode, setSheetMode] = useState<SheetMode>("peek")
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false)
   const [isDriverFocusEnabled, setIsDriverFocusEnabled] = useState(true)
@@ -704,6 +716,10 @@ export default function LivreurPage() {
     setBeforeSeven(false)
   })
 
+  useEffect(() => {
+    deliveryListRef.current = deliveryList
+  }, [deliveryList])
+
   const loadCachedTournee = useEffectEvent((fallbackMessage: string) => {
     const cachedTournee = readCachedTournee()
     if (!cachedTournee) {
@@ -714,6 +730,301 @@ export default function LivreurPage() {
     setNotice({ tone: "info", message: fallbackMessage })
     return true
   })
+
+  const applyLocalDeliverySnapshot = useEffectEvent((snapshot: DeliveryViewItem) => {
+    setDeliveryList((previousList) =>
+      previousList.map((item) =>
+        item.id === snapshot.id
+          ? {
+              ...item,
+              status: snapshot.status,
+              rawStatus: snapshot.rawStatus,
+              statusVersion: snapshot.statusVersion,
+              enrouteAt: snapshot.enrouteAt,
+              deliveredAt: snapshot.deliveredAt,
+              absentAt: snapshot.absentAt,
+            }
+          : item
+      )
+    )
+
+    setTourneeData((previousTournee) => {
+      if (!previousTournee) {
+        return previousTournee
+      }
+
+      const nextTournee = {
+        ...previousTournee,
+        items: previousTournee.items.map((item) =>
+          String(item.commande_id) === snapshot.id
+            ? {
+                ...item,
+                statut: snapshot.rawStatus,
+                status_version: snapshot.statusVersion,
+                enroute_at: snapshot.enrouteAt,
+                delivered_at: snapshot.deliveredAt,
+                absent_at: snapshot.absentAt,
+              }
+            : item
+        ),
+      }
+
+      writeCachedTournee(nextTournee)
+      return nextTournee
+    })
+  })
+
+  const applyLocalDeliveryMutation = useEffectEvent((commandeId: string, nextStatus: DeliveryStatus, nextVersion?: number) => {
+    const nextRawStatus = mapDeliveryStatusToBackendStatus(nextStatus)
+    const nowIso = new Date().toISOString()
+
+    setTourneeStarted(true)
+    setDeliveryList((previousList) =>
+      previousList.map((item) => {
+        if (item.id !== commandeId) {
+          return item
+        }
+
+        return {
+          ...item,
+          status: nextStatus,
+          rawStatus: nextRawStatus,
+          statusVersion: nextVersion ?? item.statusVersion + 1,
+          enrouteAt: nextStatus === "enroute" ? nowIso : item.enrouteAt,
+          deliveredAt: nextStatus === "delivered" ? nowIso : item.deliveredAt,
+          absentAt: nextStatus === "absent" ? nowIso : item.absentAt,
+        }
+      })
+    )
+
+    setTourneeData((previousTournee) => {
+      if (!previousTournee) {
+        return previousTournee
+      }
+
+      const nextTournee = {
+        ...previousTournee,
+        tournee_started: true,
+        items: previousTournee.items.map((item) =>
+          String(item.commande_id) === commandeId
+            ? {
+                ...item,
+                statut: nextRawStatus,
+                status_version: nextVersion ?? Number(item.status_version || 1) + 1,
+                enroute_at: nextStatus === "enroute" ? nowIso : item.enroute_at ?? null,
+                delivered_at: nextStatus === "delivered" ? nowIso : item.delivered_at ?? null,
+                absent_at: nextStatus === "absent" ? nowIso : item.absent_at ?? null,
+              }
+            : item
+        ),
+      }
+
+      writeCachedTournee(nextTournee)
+      return nextTournee
+    })
+  })
+
+  const applyServerDeliveryEvent = useEffectEvent((response: DeliveryEventResponse) => {
+    const nextStatus = normalizeDeliveryStatus(response.new_status)
+
+    setTourneeStarted(true)
+    setDeliveryList((previousList) =>
+      previousList.map((item) =>
+        item.id === String(response.commande_id)
+          ? {
+              ...item,
+              status: nextStatus,
+              rawStatus: response.new_status,
+              statusVersion: response.status_version,
+              enrouteAt: response.enroute_at ?? item.enrouteAt,
+              deliveredAt: response.delivered_at ?? item.deliveredAt,
+              absentAt: response.absent_at ?? item.absentAt,
+            }
+          : item
+      )
+    )
+
+    setTourneeData((previousTournee) => {
+      if (!previousTournee) {
+        return previousTournee
+      }
+
+      const nextTournee = {
+        ...previousTournee,
+        tournee_started: true,
+        items: previousTournee.items.map((item) =>
+          item.commande_id === response.commande_id
+            ? {
+                ...item,
+                statut: response.new_status,
+                status_version: response.status_version,
+                enroute_at: response.enroute_at ?? item.enroute_at ?? null,
+                delivered_at: response.delivered_at ?? item.delivered_at ?? null,
+                absent_at: response.absent_at ?? item.absent_at ?? null,
+              }
+            : item
+        ),
+      }
+
+      writeCachedTournee(nextTournee)
+      return nextTournee
+    })
+  })
+
+  const applyCodPaymentValidation = useEffectEvent((commandeId: string, validated: boolean) => {
+    setDeliveryList((previousList) =>
+      previousList.map((item) =>
+        item.id === commandeId
+          ? {
+              ...item,
+              paymentValidated: validated,
+            }
+          : item
+      )
+    )
+
+    setTourneeData((previousTournee) => {
+      if (!previousTournee) {
+        return previousTournee
+      }
+
+      const nextTournee = {
+        ...previousTournee,
+        items: previousTournee.items.map((item) =>
+          String(item.commande_id) === commandeId
+            ? {
+                ...item,
+                payment_validated: validated,
+              }
+            : item
+        ),
+      }
+
+      writeCachedTournee(nextTournee)
+      return nextTournee
+    })
+  })
+
+  const refreshTourneeFromApi = useEffectEvent(async () => {
+    if (!token || typeof window === "undefined" || !window.navigator.onLine) {
+      return false
+    }
+
+    try {
+      const response = await getLivreurTournee(token)
+      const mergedResponse = mergeTourneeWithCache(response, readCachedTournee())
+      writeCachedTournee(mergedResponse)
+      applyTourneeData(mergedResponse, "api")
+      return true
+    } catch {
+      return false
+    }
+  })
+
+  const flushDeliverySyncQueue = useEffectEvent(async () => {
+    if (typeof window === "undefined" || !token || !window.navigator.onLine || isQueueSyncInFlightRef.current) {
+      return
+    }
+
+    isQueueSyncInFlightRef.current = true
+    let shouldRefreshTournee = false
+
+    try {
+      const queuedEvents = await getAllDeliverySyncEvents()
+      for (const queuedEvent of queuedEvents) {
+        try {
+          const response = await envoyerEvenementLivraison(token, queuedEvent.commandeId, {
+            target_status: queuedEvent.targetStatus,
+            client_event_id: queuedEvent.clientEventId,
+            device_timestamp: queuedEvent.deviceTimestamp,
+            expected_version: queuedEvent.expectedVersion,
+          })
+          await removeDeliverySyncEvent(queuedEvent.clientEventId)
+          applyServerDeliveryEvent(response)
+        } catch (error) {
+          if (error instanceof ApiError) {
+            await removeDeliverySyncEvent(queuedEvent.clientEventId)
+            shouldRefreshTournee = true
+            setNotice({ tone: "error", message: error.message })
+            continue
+          }
+
+          break
+        }
+      }
+    } finally {
+      isQueueSyncInFlightRef.current = false
+      if (shouldRefreshTournee) {
+        void refreshTourneeFromApi()
+      }
+    }
+  })
+
+  const submitDeliveryStatusChange = useEffectEvent(
+    async ({
+      delivery,
+      targetStatus,
+      offlineMessage,
+    }: {
+      delivery: DeliveryViewItem
+      targetStatus: DeliveryStatus
+      offlineMessage: string
+    }) => {
+      if (!token) {
+        setNotice({ tone: "error", message: "Session livreur requise pour mettre a jour la livraison." })
+        return false
+      }
+
+      if (targetStatus === "delivered" && delivery.paymentMethod === "cod" && !delivery.paymentValidated) {
+        setNotice({ tone: "error", message: "Encaissement COD non valide. Livraison bloquee." })
+        return false
+      }
+
+      const previousSnapshot = { ...delivery }
+      const clientEventId = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${delivery.id}-${Date.now()}`
+      const deviceTimestamp = new Date().toISOString()
+      const queueItem: DeliverySyncQueueItem = {
+        clientEventId,
+        commandeId: delivery.id,
+        targetStatus: mapDeliveryStatusToBackendStatus(targetStatus) as DeliveryBackendStatus,
+        deviceTimestamp,
+        expectedVersion: delivery.statusVersion,
+        createdAt: Date.now(),
+      }
+
+      applyLocalDeliveryMutation(delivery.id, targetStatus, delivery.statusVersion + 1)
+      await enqueueDeliverySyncEvent(queueItem)
+
+      if (typeof window !== "undefined" && !window.navigator.onLine) {
+        setNotice({ tone: "info", message: offlineMessage })
+        return true
+      }
+
+      try {
+        const response = await envoyerEvenementLivraison(token, delivery.id, {
+          target_status: queueItem.targetStatus,
+          client_event_id: clientEventId,
+          device_timestamp: deviceTimestamp,
+          expected_version: delivery.statusVersion,
+        })
+
+        await removeDeliverySyncEvent(clientEventId)
+        applyServerDeliveryEvent(response)
+        setNotice({ tone: "success", message: response.message })
+        return true
+      } catch (error) {
+        if (error instanceof ApiError) {
+          await removeDeliverySyncEvent(clientEventId)
+          applyLocalDeliverySnapshot(previousSnapshot)
+          setNotice({ tone: "error", message: error.message })
+          return false
+        }
+
+        setNotice({ tone: "info", message: offlineMessage })
+        return true
+      }
+    }
+  )
 
   const applyDriverPosition = useEffectEvent((position: GeolocationPosition) => {
     const previousLocation = lastDriverLocationRef.current
@@ -1023,12 +1334,33 @@ export default function LivreurPage() {
     }
   }, [hasLivreurAccess, isAuthLoading, token])
 
+  useEffect(() => {
+    if (!token || typeof window === "undefined") {
+      return
+    }
+
+    void flushDeliverySyncQueue()
+
+    const handleOnline = () => {
+      void flushDeliverySyncQueue()
+    }
+
+    window.addEventListener("online", handleOnline)
+    return () => {
+      window.removeEventListener("online", handleOnline)
+    }
+  }, [flushDeliverySyncQueue, token])
+
   const mappableDeliveries = deliveryList.filter(hasCoordinates)
   const activeDeliveries = deliveryList.filter(isActiveDelivery)
   const nextDelivery = activeDeliveries[0] ?? null
-  const futureDeliveries = activeDeliveries.slice(1)
-  const nextDeliveryWithCoordinates = nextDelivery && hasCoordinates(nextDelivery) ? nextDelivery : null
-  const nextDeliveryIndex = nextDelivery ? deliveryList.findIndex((item) => item.id === nextDelivery.id) : -1
+  const navigatingDelivery = activeNavigationDeliveryId
+    ? deliveryList.find((item) => item.id === activeNavigationDeliveryId && isActiveDelivery(item)) ?? null
+    : null
+  const currentDelivery = isNavigating ? navigatingDelivery ?? nextDelivery : nextDelivery
+  const futureDeliveries = activeDeliveries.filter((item) => item.id !== currentDelivery?.id)
+  const nextDeliveryWithCoordinates = currentDelivery && hasCoordinates(currentDelivery) ? currentDelivery : null
+  const nextDeliveryIndex = currentDelivery ? deliveryList.findIndex((item) => item.id === currentDelivery.id) : -1
   const previousMappableDelivery =
     nextDeliveryIndex > 0 ? deliveryList.slice(0, nextDeliveryIndex).reverse().find(hasCoordinates) ?? null : null
   const fallbackRouteStartCoordinates = previousMappableDelivery
@@ -1043,11 +1375,12 @@ export default function LivreurPage() {
   const routeOriginLatitude = routeOriginCoordinates[1]
 
   useEffect(() => {
-    if (!nextDelivery) {
+    if (!currentDelivery) {
       setIsNavigating(false)
+      setActiveNavigationDeliveryId(null)
       setSheetMode("peek")
     }
-  }, [nextDelivery])
+  }, [currentDelivery])
 
   useEffect(() => {
     if (isNavigating) {
@@ -1353,7 +1686,7 @@ export default function LivreurPage() {
   const progressRatio = totalCount === 0 ? 0 : completedCount / totalCount
   const currentRouteDistanceLabel = routeSummary ? formatDistanceLabel(routeSummary.distanceMeters) : "Trace en attente"
   const currentRouteDurationLabel = routeSummary ? formatDurationFromSeconds(routeSummary.durationSeconds) : remainingTime
-  const futureMarkers = nextDelivery ? futureDeliveries.filter(hasCoordinates) : mappableDeliveries
+  const futureMarkers = currentDelivery ? futureDeliveries.filter(hasCoordinates) : mappableDeliveries
   const sheetHeightValue = sheetMode === "expanded" ? "min(58dvh, 34rem)" : "max(20dvh, 12rem)"
   const isSheetExpanded = sheetMode === "expanded"
   const routeOverviewPadding = isHeaderCollapsed ? { ...ROUTE_OVERVIEW_PADDING, top: 72 } : ROUTE_OVERVIEW_PADDING
@@ -1362,114 +1695,130 @@ export default function LivreurPage() {
   const showMap =
     isMapboxConfigured && !isTourneeLoading && !beforeSeven && Boolean(token) && mappableDeliveries.length > 0
   const showBottomSheet = !isTourneeLoading && !beforeSeven && Boolean(token) && deliveryList.length > 0
-
-  const handleStatusChange = (id: string, newStatus: "enroute" | "delivered" | "absent") => {
-    const nextRawStatus = mapDeliveryStatusToBackendStatus(newStatus)
-    setTourneeStarted(true)
-
-    setDeliveryList((previousList) =>
-      previousList.map((item) =>
-        item.id === id ? { ...item, status: newStatus, rawStatus: nextRawStatus } : item
-      )
-    )
-
-    setTourneeData((previousTournee) => {
-      if (!previousTournee) {
-        return previousTournee
-      }
-
-      const nextTournee = {
-        ...previousTournee,
-        tournee_started: true,
-        items: previousTournee.items.map((item) =>
-          String(item.commande_id) === id
-            ? {
-                ...item,
-                statut: nextRawStatus,
-              }
-            : item
-        ),
-      }
-
-      writeCachedTournee(nextTournee)
-      return nextTournee
-    })
-  }
-
-  const handleStartTournee = async () => {
-    if (!token || deliveryList.length === 0 || isStartingTournee) {
-      return false
-    }
-
-    setIsStartingTournee(true)
-    setNotice(null)
-
-    try {
-      const response = await demarrerLivreurTournee(token)
-      const shouldMarkStarted =
-        response.updated_count > 0 || response.previous_status === "EN_COURS_DE_LIVRAISON"
-      const nextTourneeData = tourneeData ? updateStartedStatuses(tourneeData) : null
-
-      setTourneeStarted(shouldMarkStarted)
-      if (shouldMarkStarted) {
-        setDeliveryList((previousList) =>
-          previousList.map((item) =>
-            item.status === "pending" ? { ...item, status: "enroute", rawStatus: "EN_COURS_DE_LIVRAISON" } : item
-          )
-        )
-      }
-
-      if (nextTourneeData && shouldMarkStarted) {
-        setTourneeData(nextTourneeData)
-        writeCachedTournee(nextTourneeData)
-      }
-
-      setNotice({ tone: "success", message: response.message })
-      return shouldMarkStarted
-    } catch (error) {
-      setNotice({
-        tone: "error",
-        message: error instanceof Error ? error.message : "Impossible de demarrer la tournee.",
-      })
-      return false
-    } finally {
-      setIsStartingTournee(false)
-    }
-  }
+  const isCodDeliveryPendingValidation = Boolean(
+    currentDelivery && currentDelivery.paymentMethod === "cod" && !currentDelivery.paymentValidated
+  )
 
   const handleStartDriveMode = async () => {
     if (!nextDelivery) {
       return
     }
 
-    if (!tourneeStarted) {
-      const hasStarted = await handleStartTournee()
+    if (nextDelivery.status === "pending") {
+      setIsStartingTournee(true)
+      const hasStarted = await submitDeliveryStatusChange({
+        delivery: nextDelivery,
+        targetStatus: "enroute",
+        offlineMessage: "Demarrage enregistre hors ligne. Synchronisation des le retour du reseau.",
+      })
+      setIsStartingTournee(false)
       if (!hasStarted) {
         return
       }
     }
 
+    setActiveNavigationDeliveryId(nextDelivery.id)
     setIsDriverFocusEnabled(true)
     setIsNavigating(true)
   }
 
-  const handleCompleteCurrentDelivery = () => {
-    if (!nextDelivery) {
+  const handleCompleteCurrentDelivery = async () => {
+    const deliveryToComplete = currentDelivery
+    if (!deliveryToComplete) {
       return
     }
 
-    handleStatusChange(nextDelivery.id, "delivered")
-    setIsNavigating(false)
+    setIsStartingTournee(true)
+    let readyDelivery = deliveryToComplete
+
+    if (deliveryToComplete.status === "pending") {
+      const hasStarted = await submitDeliveryStatusChange({
+        delivery: deliveryToComplete,
+        targetStatus: "enroute",
+        offlineMessage: "Demarrage enregistre hors ligne. Synchronisation des le retour du reseau.",
+      })
+
+      if (!hasStarted) {
+        setIsStartingTournee(false)
+        return
+      }
+
+      readyDelivery =
+        deliveryListRef.current.find((item) => item.id === deliveryToComplete.id) ??
+        {
+          ...deliveryToComplete,
+          status: "enroute",
+          rawStatus: STARTED_DELIVERY_STATUS,
+          statusVersion: deliveryToComplete.statusVersion + 1,
+          enrouteAt: new Date().toISOString(),
+        }
+    }
+
+    const hasCompleted = await submitDeliveryStatusChange({
+      delivery: readyDelivery,
+      targetStatus: "delivered",
+      offlineMessage: "Livraison enregistree hors ligne. Synchronisation des le retour du reseau.",
+    })
+    setIsStartingTournee(false)
+    if (hasCompleted) {
+      setActiveNavigationDeliveryId(null)
+      setIsNavigating(false)
+    }
   }
 
-  const handleMarkCurrentDeliveryAbsent = () => {
-    if (!nextDelivery) {
+  const handleValidateCurrentCodPayment = async () => {
+    const deliveryToValidate = currentDelivery
+    if (!deliveryToValidate || !token) {
       return
     }
 
-    handleStatusChange(nextDelivery.id, "absent")
-    setIsNavigating(false)
-    setNotice({ tone: "info", message: "Client marque absent. Passage a l'etape suivante." })
+    if (deliveryToValidate.paymentMethod !== "cod") {
+      setNotice({ tone: "info", message: "Cette commande n'est pas en paiement COD." })
+      return
+    }
+
+    if (deliveryToValidate.paymentValidated) {
+      setNotice({ tone: "success", message: "Encaissement COD deja confirme." })
+      return
+    }
+
+    if (typeof window !== "undefined" && !window.navigator.onLine) {
+      setNotice({ tone: "error", message: "La validation COD exige une connexion reseau active." })
+      return
+    }
+
+    setIsValidatingCodPayment(true)
+    try {
+      const response: CodValidationResponse = await validerPaiementCodLivreur(token, deliveryToValidate.id)
+      applyCodPaymentValidation(String(response.commande_id), response.payment_validated)
+      setNotice({ tone: "success", message: response.message })
+    } catch (error) {
+      setNotice({
+        tone: "error",
+        message: error instanceof ApiError ? error.message : "Impossible de valider l'encaissement COD.",
+      })
+    } finally {
+      setIsValidatingCodPayment(false)
+    }
+  }
+
+  const handleMarkCurrentDeliveryAbsent = async () => {
+    const deliveryToMarkAbsent = currentDelivery
+    if (!deliveryToMarkAbsent) {
+      return
+    }
+
+    setIsStartingTournee(true)
+    const hasMarkedAbsent = await submitDeliveryStatusChange({
+      delivery: deliveryToMarkAbsent,
+      targetStatus: "absent",
+      offlineMessage: "Absence enregistree hors ligne. Alerte envoyee des le retour du reseau.",
+    })
+    setIsStartingTournee(false)
+    if (hasMarkedAbsent) {
+      setActiveNavigationDeliveryId(null)
+      setIsNavigating(false)
+    }
   }
 
   const handleRecenterToDriver = () => {
@@ -1652,7 +2001,7 @@ export default function LivreurPage() {
 
       {showMap && (
         <div className="absolute inset-x-0 top-0 bottom-[var(--driver-bottom-sheet-height)] z-0">
-          <Map
+          <MapView
             ref={mapRef}
             reuseMaps
             initialViewState={DEFAULT_MAP_VIEW}
@@ -1708,7 +2057,7 @@ export default function LivreurPage() {
                 </div>
               </Marker>
             )}
-          </Map>
+          </MapView>
         </div>
       )}
 
@@ -1872,7 +2221,7 @@ export default function LivreurPage() {
                 {isSheetExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
               </button>
 
-              {!nextDelivery ? (
+              {!currentDelivery ? (
                 <div className="flex flex-1 items-center px-4 pb-4 pt-3">
                   <div className="w-full rounded-[1.5rem] bg-[#F0FAF1] p-4 text-center">
                     <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#1E8A3C] text-white">
@@ -1904,14 +2253,14 @@ export default function LivreurPage() {
                             {currentRouteDistanceLabel}
                           </span>
                         </div>
-                        <h3 className="mt-2 truncate text-lg font-bold text-[#17301E]">{nextDelivery.clientName}</h3>
-                        <p className="mt-1 truncate text-sm font-medium text-[#3F5246]">{buildPreciseAddress(nextDelivery)}</p>
-                        <p className="mt-1 truncate text-xs text-[#5B6B60]">{buildPaymentSummary(nextDelivery)}</p>
+                        <h3 className="mt-2 truncate text-lg font-bold text-[#17301E]">{currentDelivery.clientName}</h3>
+                        <p className="mt-1 truncate text-sm font-medium text-[#3F5246]">{buildPreciseAddress(currentDelivery)}</p>
+                        <p className="mt-1 truncate text-xs text-[#5B6B60]">{buildPaymentSummary(currentDelivery)}</p>
                       </div>
 
                       <div className="shrink-0 rounded-[1.25rem] bg-white px-3 py-2 text-center shadow-sm">
                         <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#6B7280]">Stop</p>
-                        <p className="mt-1 text-xl font-black text-[#1E8A3C]">{nextDelivery.stepNumber}</p>
+                        <p className="mt-1 text-xl font-black text-[#1E8A3C]">{currentDelivery.stepNumber}</p>
                       </div>
                     </div>
 
@@ -1921,7 +2270,7 @@ export default function LivreurPage() {
                           <Package className="h-3.5 w-3.5" />
                           <span className="text-[10px] font-medium uppercase tracking-[0.14em]">Colis</span>
                         </div>
-                        <p className="mt-1.5 truncate text-sm font-bold text-[#17301E]">{nextDelivery.packageCount}</p>
+                        <p className="mt-1.5 truncate text-sm font-bold text-[#17301E]">{currentDelivery.packageCount}</p>
                       </div>
 
                       <div className="rounded-2xl bg-white px-3 py-2.5 shadow-sm">
@@ -1954,7 +2303,7 @@ export default function LivreurPage() {
                             <MapPin className="h-4 w-4" />
                             <span className="text-xs font-medium uppercase tracking-[0.16em]">Adresse complete</span>
                           </div>
-                          <p className="mt-2 text-sm font-semibold text-[#17301E]">{nextDelivery.address}</p>
+                          <p className="mt-2 text-sm font-semibold text-[#17301E]">{currentDelivery.address}</p>
                         </div>
 
                         <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
@@ -1962,7 +2311,19 @@ export default function LivreurPage() {
                             <DollarSign className="h-4 w-4" />
                             <span className="text-xs font-medium uppercase tracking-[0.16em]">Paiement</span>
                           </div>
-                          <p className="mt-2 text-sm font-semibold text-[#17301E]">{buildPaymentSummary(nextDelivery)}</p>
+                          <p className="mt-2 text-sm font-semibold text-[#17301E]">{buildPaymentSummary(currentDelivery)}</p>
+                          {currentDelivery.paymentMethod === "cod" && (
+                            <span
+                              className={cn(
+                                "mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]",
+                                currentDelivery.paymentValidated
+                                  ? "bg-[#F0FAF1] text-[#1E8A3C]"
+                                  : "bg-[#FFF3E0] text-[#8A5A00]"
+                              )}
+                            >
+                              {currentDelivery.paymentValidated ? "COD valide" : "COD a encaisser"}
+                            </span>
+                          )}
                         </div>
 
                         <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
@@ -1970,7 +2331,7 @@ export default function LivreurPage() {
                             <Package className="h-4 w-4" />
                             <span className="text-xs font-medium uppercase tracking-[0.16em]">Details colis</span>
                           </div>
-                          <p className="mt-2 text-sm font-semibold text-[#17301E]">{buildPackageSummary(nextDelivery)}</p>
+                          <p className="mt-2 text-sm font-semibold text-[#17301E]">{buildPackageSummary(currentDelivery)}</p>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
@@ -2013,6 +2374,20 @@ export default function LivreurPage() {
                     </div>
                   )}
 
+                  {isNavigating && isCodDeliveryPendingValidation && (
+                    <button
+                      type="button"
+                      onClick={handleValidateCurrentCodPayment}
+                      disabled={isStartingTournee || isValidatingCodPayment || !currentDelivery}
+                      className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#F07C00] px-4 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(240,124,0,0.25)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isValidatingCodPayment ? <Spinner className="size-5" /> : <DollarSign className="h-5 w-5" />}
+                      <span className="truncate">
+                        {isValidatingCodPayment ? "Validation COD..." : "Valider l'encaissement COD"}
+                      </span>
+                    </button>
+                  )}
+
                   <div
                     className={cn(
                       "grid gap-3",
@@ -2021,11 +2396,11 @@ export default function LivreurPage() {
                     )}
                   >
                     <a
-                      href={nextDelivery.callHref ?? undefined}
-                      aria-disabled={!nextDelivery.callHref}
+                      href={currentDelivery.callHref ?? undefined}
+                      aria-disabled={!currentDelivery.callHref}
                       className={cn(
                         "flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#F3F4F6] px-3 text-sm font-semibold text-[#17301E] transition-transform active:scale-[0.99]",
-                        !nextDelivery.callHref && "pointer-events-none bg-gray-200 text-gray-500"
+                        !currentDelivery.callHref && "pointer-events-none bg-gray-200 text-gray-500"
                       )}
                     >
                       <Phone className="h-5 w-5" />
@@ -2035,7 +2410,7 @@ export default function LivreurPage() {
                       <button
                         type="button"
                         onClick={handleMarkCurrentDeliveryAbsent}
-                        disabled={isStartingTournee || !nextDelivery}
+                        disabled={isStartingTournee || isValidatingCodPayment || !currentDelivery}
                         title="Client introuvable"
                         className="flex h-12 items-center justify-center rounded-2xl bg-red-500 px-3 text-xs font-semibold text-white shadow-[0_14px_30px_rgba(220,38,38,0.22)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                       >
@@ -2046,7 +2421,12 @@ export default function LivreurPage() {
                     <button
                       type="button"
                       onClick={isNavigating ? handleCompleteCurrentDelivery : handleStartDriveMode}
-                      disabled={isStartingTournee || !nextDelivery}
+                        disabled={
+                          isStartingTournee ||
+                          isValidatingCodPayment ||
+                          !currentDelivery ||
+                          (isNavigating && isCodDeliveryPendingValidation)
+                        }
                       className={cn(
                         "flex h-12 w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60",
                         isNavigating ? "bg-[#1E8A3C]" : "bg-[#17301E]"
@@ -2063,6 +2443,12 @@ export default function LivreurPage() {
                     </button>
                   </div>
 
+                  {isNavigating && isCodDeliveryPendingValidation && (
+                    <p className="mt-2 text-xs font-medium text-[#8A5A00]">
+                      Encaissez puis validez le COD pour debloquer le bouton de livraison.
+                    </p>
+                  )}
+
                   {!isSheetExpanded && (
                     <button
                       type="button"
@@ -2076,7 +2462,10 @@ export default function LivreurPage() {
                   {isNavigating && (
                     <button
                       type="button"
-                      onClick={() => setIsNavigating(false)}
+                      onClick={() => {
+                        setActiveNavigationDeliveryId(null)
+                        setIsNavigating(false)
+                      }}
                       className="mt-2 w-full text-xs font-medium text-[#285C9A]"
                     >
                       Revenir a la vue d'ensemble
