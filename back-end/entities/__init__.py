@@ -12,6 +12,7 @@ from entities.delivery_event_entity import DeliveryEvent
 from entities.notification_outbox_entity import NotificationOutbox
 from entities.paiement_entity import Paiement
 from entities.wallet_entity import Wallet
+from entities.souki_wallet_entity import SoukiWallet
 from entities.verification_code_entity import VerificationCode
 from entities.transaction_wallet_entity import TransactionWallet
 from entities.abonnement_entity import Abonnement
@@ -21,6 +22,8 @@ from entities.role_entity import Role
 from entities.permission_entity import Permission
 from entities.user_role_entity import UserRole
 from entities.role_permission_entity import RolePermission
+from entities.user_notification_preferences_entity import UserNotificationPreferences
+from entities.user_session_entity import UserSession
 
 __all__ = [
     "User",
@@ -38,6 +41,7 @@ __all__ = [
     "NotificationOutbox",
     "Paiement",
     "Wallet",
+    "SoukiWallet",
     "VerificationCode",
     "TransactionWallet",
     "Abonnement",
@@ -47,4 +51,6 @@ __all__ = [
     "Permission",
     "UserRole",
     "RolePermission",
+    "UserNotificationPreferences",
+    "UserSession",
 ]

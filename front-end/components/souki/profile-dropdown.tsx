@@ -3,13 +3,16 @@
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
+import { useProfile } from "@/hooks/useProfile"
 import { User } from "@/contexts/auth-context"
 import { Menu, LogOut, User as UserIcon, Heart, Shield } from "lucide-react"
 
 export function ProfileDropdown({ user }: { user: User }) {
   const [isOpen, setIsOpen] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const { logout } = useAuth()
+  const { getProfile } = useProfile()
   const router = useRouter()
 
   useEffect(() => {
@@ -23,6 +26,27 @@ export function ProfileDropdown({ user }: { user: User }) {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
+  useEffect(() => {
+    let isMounted = true
+
+    const loadAvatar = async () => {
+      try {
+        const profile = await getProfile()
+        if (!isMounted) return
+        setAvatarUrl(profile.photo_url ?? profile.avatar_url ?? null)
+      } catch {
+        if (!isMounted) return
+        setAvatarUrl(null)
+      }
+    }
+
+    void loadAvatar()
+
+    return () => {
+      isMounted = false
+    }
+  }, [getProfile, user.id])
+
   const handleLogout = () => {
     logout()
     setIsOpen(false)
@@ -30,7 +54,7 @@ export function ProfileDropdown({ user }: { user: User }) {
   }
 
   const handleProfileClick = () => {
-    router.push("/profile")
+    router.push("/parametres")
     setIsOpen(false)
   }
 
@@ -54,11 +78,15 @@ export function ProfileDropdown({ user }: { user: User }) {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-3 px-2 py-1.5 rounded-full border border-gray-200 bg-white hover:shadow-md transition-all duration-300 shadow-sm"
+        className="flex items-center gap-3 px-2.5 py-2 rounded-full border border-gray-200 bg-white hover:shadow-md transition-all duration-300 shadow-sm"
       >
         <Menu size={18} className="text-[#8A8A8A] ml-2" />
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#1E8A3C] to-[#4CB84A] text-white flex items-center justify-center font-bold text-sm shadow-inner">
-          {initials}
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1E8A3C] to-[#4CB84A] text-white flex items-center justify-center font-bold text-sm shadow-inner overflow-hidden">
+          {avatarUrl ? (
+            <img src={avatarUrl} alt={user.email || user.phone || "Profil"} className="w-full h-full object-cover" />
+          ) : (
+            initials
+          )}
         </div>
       </button>
 
@@ -86,7 +114,7 @@ export function ProfileDropdown({ user }: { user: User }) {
               className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-[#F0FAF1] flex items-center gap-3 text-sm font-medium text-[#3D3D3D] transition-colors"
             >
               <UserIcon size={18} className="text-[#8A8A8A]" />
-              Mon Profil
+              Parametres
             </button>
             <button
               onClick={() => { setIsOpen(false); router.push("/commandes"); }}

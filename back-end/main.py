@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
 import entities
 from config import Base, engine
@@ -18,6 +19,32 @@ from controllers.jit_controller import router_jit
 from controllers.livreur_controller import router_livreur
 from controllers.panier_controller import router_panier
 from controllers.profile_controller import profile_router
+from controllers.settings_controller import settings_router
+from services.catalogue_bootstrap_service import CatalogueBootstrapService
+from services.rbac_bootstrap_service import RBACBootstrapService
+from services.scheduler_service import start_scheduler, stop_scheduler
+from services.supabase_storage_service import avatar_storage_service
+
+
+def initialize_application() -> None:
+    try:
+        Base.metadata.create_all(bind=engine)
+        avatar_storage_service.ensure_avatar_column()
+    except OperationalError as exc:
+        raise RuntimeError(
+            "Connexion a la base impossible au demarrage. Verifie back-end/.env "
+            "(user, password, host, port, dbname) ainsi que l'acces reseau a PostgreSQL/Supabase."
+        ) from exc
+
+    try:
+        RBACBootstrapService().sync_rbac()
+        CatalogueBootstrapService().sync_catalogue()
+    except SQLAlchemyError as exc:
+        raise RuntimeError(
+            "L'initialisation de la base a echoue pendant le bootstrap des donnees."
+        ) from exc
+
+    avatar_storage_service.bootstrap_avatar_storage()
 from services.catalogue_bootstrap_service import CatalogueBootstrapService
 from services.delivery_schema_sync_service import DeliverySchemaSyncService
 from services.rbac_bootstrap_service import RBACBootstrapService
@@ -60,9 +87,17 @@ def get_allowed_origins() -> list[str]:
     ]
 
 
+def get_allowed_origin_regex() -> str:
+    configured_regex = os.getenv("FRONTEND_ORIGIN_REGEX")
+    if configured_regex:
+        return configured_regex
+    return r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_allowed_origins(),
+    allow_origin_regex=get_allowed_origin_regex(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -80,6 +115,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 app.include_router(auth_router)
 app.include_router(profile_router)
+app.include_router(settings_router)
 app.include_router(router_catalogue)
 app.include_router(router_voice)
 app.include_router(router_panier)
