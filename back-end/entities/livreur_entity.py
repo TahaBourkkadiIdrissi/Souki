@@ -11,5 +11,6 @@ class Livreur(Base):
     disponible   = Column(Boolean, default=True)
     note_moyenne = Column(Float)
 
-    user      = relationship("User", back_populates="livreur_profile")
+    user = relationship("User", back_populates="livreur_profile")
     commandes = relationship("Commande", back_populates="livreur")
+    delivery_events = relationship("DeliveryEvent", back_populates="livreur")

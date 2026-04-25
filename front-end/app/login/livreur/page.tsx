@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
+import { API_BASE_URL } from "@/lib/api"
 import { GoogleLoginButton } from "@/components/auth/google-login-button"
 import { PasswordStrength } from "@/components/souki/password-strength"
 import { 
@@ -24,8 +25,6 @@ type AuthMode = "login" | "signup"
 type UserRole = "client" | "parent" | "livreur"
 
 const cities = ["Fès", "Meknès", "Casablanca", "Rabat"]
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-
 export default function LivreurLoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -168,7 +167,7 @@ export default function LivreurLoginPage() {
           }
         }
 
-        const response = await fetch(`${API_URL}/auth/register`, {
+        const response = await fetch(`${API_BASE_URL}/auth/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -205,7 +204,11 @@ export default function LivreurLoginPage() {
         }, 300);
       }
     } catch (err: any) {
-      setGeneralError(err.message || "Une erreur inattendue est survenue.");
+      setGeneralError(
+        err instanceof TypeError
+          ? `Impossible de joindre l'API (${API_BASE_URL}). Verifiez que le back-end est demarre et accessible depuis le front.`
+          : err.message || "Une erreur inattendue est survenue."
+      );
     } finally {
       setLoading(false);
     }

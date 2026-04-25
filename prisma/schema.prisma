@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                       Int                         @id @default(autoincrement())
+  email                    String?                     @unique
+  telephone                String?                     @map("phone")
+  password                 String?
+  role                     String?
+  isVerified               Boolean?                    @map("is_verified")
+  parentId                 Int?                        @map("parent_id")
+  createdAt                DateTime                    @default(now()) @map("created_at")
+  authProvider             String                      @default("local") @map("auth_provider")
+  emailVerified            Boolean?                    @default(false) @map("is_email_verified")
+  phoneVerified            Boolean?                    @default(false) @map("is_phone_verified")
+  isActive                 Boolean                     @default(true) @map("is_active")
+  avatarUrl                String?                     @map("avatar_url")
+  lastLoginAt              DateTime?                   @map("last_login_at")
+  updatedAt                DateTime                    @default(now()) @map("updated_at")
+  wallet                   Wallet?
+  soukiWallet              SoukiWallet?
+  addresses                Address[]
+  notificationPreferences  UserNotificationPreferences?
+  sessions                 UserSession[]
+
+  @@map("t_users")
+}
+
+model Wallet {
+  id           Int                 @id @default(autoincrement())
+  userId       Int                 @unique @map("user_id")
+  solde        Float?              @default(0) @map("solde")
+  user         User                @relation(fields: [userId], references: [id])
+  transactions WalletTransaction[]
+
+  @@map("t_wallets")
+}
+
+model WalletTransaction {
+  id       Int      @id @default(autoincrement())
+  walletId Int      @map("wallet_id")
+  type     String
+  montant  Float?   @default(0) @map("montant")
+  date     DateTime @default(now())
+  wallet   Wallet   @relation(fields: [walletId], references: [id])
+
+  @@map("t_transactions_wallet")
+}
+
+model SoukiWallet {
+  id           String   @id @db.Uuid
+  userId       Int      @unique @map("user_id")
+  walletCode   String   @unique @map("wallet_code")
+  passwordHash String   @map("password_hash")
+  balance      Decimal  @default(0) @db.Decimal(12, 2)
+  createdAt    DateTime @default(now()) @map("created_at")
+  user         User     @relation(fields: [userId], references: [id])
+
+  @@map("wallets")
+}
+
+model Address {
+  id           Int       @id @default(autoincrement())
+  userId       Int       @map("user_id")
+  neighborhood String
+  street       String
+  details      String?
+  ville        String?
+  codePostal   String?   @map("code_postal")
+  latitude     Float?
+  longitude    Float?
+  isDefault    Boolean   @default(false) @map("is_default")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @map("updated_at")
+  user         User      @relation(fields: [userId], references: [id])
+
+  @@map("t_addresses")
+}
+
+model UserNotificationPreferences {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @unique @map("user_id")
+  email        Boolean  @default(true)
+  push         Boolean  @default(true)
+  sms          Boolean  @default(false)
+  promotions   Boolean  @default(true)
+  orderUpdates Boolean  @default(true) @map("order_updates")
+  newsletter   Boolean  @default(false)
+  livraison    Boolean  @default(true)
+  user         User     @relation(fields: [userId], references: [id])
+
+  @@map("t_user_notification_preferences")
+}
+
+model UserSession {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id")
+  tokenHash  String   @unique @map("token_hash")
+  deviceName String?  @map("device_name")
+  browser    String?
+  location   String?
+  ip         String?
+  isActive   Boolean  @default(true) @map("is_active")
+  lastActive DateTime @default(now()) @map("last_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@map("t_user_sessions")
+}
