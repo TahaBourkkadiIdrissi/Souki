@@ -5,13 +5,13 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft, User, Bell, Shield, CreditCard, MapPin, Phone, Mail, Camera, Save, Trash2, LogOut,
-  Moon, Sun, Globe, Smartphone, Lock, Eye, EyeOff, Check, ChevronRight, Plus, Wallet, Loader2
+  Moon, Sun, Globe, Smartphone, Lock, Eye, EyeOff, Check, ChevronRight, Wallet, Loader2, Copy, ShieldCheck, Sparkles
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useProfile } from "@/hooks/useProfile"
 import { useNotifications, type NotificationPrefs } from "@/hooks/useNotifications"
 import { useSecurity } from "@/hooks/useSecurity"
-import { useWallet } from "@/hooks/useWallet"
+import { useWallet, type WalletState } from "@/hooks/useWallet"
 import { useAuth } from "@/hooks/useAuth"
 
 type Section = "compte" | "notifications" | "securite" | "paiement"
@@ -23,6 +23,7 @@ type SettingsBootstrapResponse = {
     email: string
     telephone: string
     photo_url?: string | null
+    avatar_url?: string | null
     email_verified: boolean
     address: {
       adresse: string
@@ -37,6 +38,8 @@ type SettingsBootstrapResponse = {
 
 const moroccanCities = ["Fes", "Casablanca", "Rabat", "Marrakech", "Agadir", "Tanger", "Meknes", "Oujda", "Kenitra", "Tetouan"]
 const initialNotif: NotificationPrefs = { email: true, push: true, sms: false, promotions: true, orderUpdates: true, newsletter: false, livraison: true }
+const acceptedPhotoTypes = ["image/jpeg", "image/png", "image/webp"]
+const maxPhotoSize = 2 * 1024 * 1024
 
 function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (v: boolean) => void }) {
   return <button onClick={() => onCheckedChange(!checked)} className={cn("relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none", checked ? "bg-[#1E8A3C]" : "bg-gray-200")}><span className={cn("inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform duration-200", checked ? "translate-x-6" : "translate-x-1")} /></button>
@@ -57,6 +60,16 @@ function SectionCard({ title, children, onSave, saving }: { title: string; child
 function dhFromCentimes(c: number) { return `${(c / 100).toFixed(2).replace(".", ",")} DH` }
 const isMoroccanPhone = (v: string) => /^\+212[67]\d{8}$/.test(v.replace(/\s+/g, ""))
 const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
+const walletPasswordChecks = (value: string) => ({
+  minLength: value.length >= 8,
+  uppercase: /[A-Z]/.test(value),
+  number: /\d/.test(value),
+  special: /[^A-Za-z0-9]/.test(value),
+})
+const isWalletPasswordStrong = (value: string) => {
+  const checks = walletPasswordChecks(value)
+  return Object.values(checks).every(Boolean)
+}
 
 export default function ParametresPage() {
   const router = useRouter()
@@ -74,18 +87,20 @@ export default function ParametresPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showWalletActivate, setShowWalletActivate] = useState(false)
+  const [showWalletPassword, setShowWalletPassword] = useState(false)
+  const [showWalletConfirmPassword, setShowWalletConfirmPassword] = useState(false)
   const [showWalletIdModal, setShowWalletIdModal] = useState(false)
   const [walletIdFull, setWalletIdFull] = useState("")
-  const [showRechargeModal, setShowRechargeModal] = useState(false)
   const [deleteText, setDeleteText] = useState("")
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [personal, setPersonal] = useState({ prenom: "", nom: "", email: "", telephone: "" })
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [emailVerified, setEmailVerified] = useState(false)
   const [address, setAddress] = useState({ adresse: "", ville: moroccanCities[0], code_postal: "" })
   const [notifications, setNotifications] = useState<NotificationPrefs>(initialNotif)
   const [passwords, setPasswords] = useState({ current_password: "", new_password: "", confirm_password: "" })
   const [sessions, setSessions] = useState<Array<any>>([])
-  const [walletState, setWalletState] = useState<any>(null)
+  const [walletState, setWalletState] = useState<WalletState | null>(null)
   const [walletCreate, setWalletCreate] = useState({ password: "", confirm_password: "" })
   const [photoUploading, setPhotoUploading] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
@@ -119,6 +134,7 @@ export default function ParametresPage() {
         const s = data.sessions
         const w = data.wallet
         setPersonal({ prenom: p.prenom, nom: p.nom, email: p.email, telephone: p.telephone })
+        setPhotoUrl(p.photo_url ?? p.avatar_url ?? null)
         setEmailVerified(Boolean(p.email_verified))
         setAddress({ adresse: p.address.adresse, ville: p.address.ville || moroccanCities[0], code_postal: p.address.code_postal })
         setNotifications(n)
@@ -167,27 +183,80 @@ export default function ParametresPage() {
 
   const onClickCamera = () => fileInputRef.current?.click()
   const onUploadPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) return setErrors((v) => ({ ...v, photo: "Format non supporte" }))
-    if (file.size > 5 * 1024 * 1024) return setErrors((v) => ({ ...v, photo: "Max 5MB" }))
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!acceptedPhotoTypes.includes(file.type)) {
+      e.target.value = ""
+      return setErrors((v) => ({ ...v, photo: "Choisissez une image JPG, PNG ou WEBP." }))
+    }
+    if (file.size > maxPhotoSize) {
+      e.target.value = ""
+      return setErrors((v) => ({ ...v, photo: "L'image ne doit pas depasser 2 Mo." }))
+    }
+
+    const previousPhotoUrl = photoUrl
+    const previewUrl = URL.createObjectURL(file)
     try {
+      setErrors((v) => {
+        const next = { ...v }
+        delete next.photo
+        return next
+      })
       setPhotoUploading(true)
-      const objectUrl = URL.createObjectURL(file)
-      setWalletState((w: any) => ({ ...w }))
-      await profileApi.uploadPhoto(file)
-      URL.revokeObjectURL(objectUrl)
+      setPhotoUrl(previewUrl)
+      const response = await profileApi.uploadPhoto(file)
+      setPhotoUrl(response.photo_url ?? response.avatar_url ?? previewUrl)
       showSaved()
-    } finally { setPhotoUploading(false) }
+    } catch (err) {
+      setPhotoUrl(previousPhotoUrl)
+      setErrors((v) => ({
+        ...v,
+        photo: err instanceof Error ? err.message : "Le televersement de l'image a echoue. Reessayez dans un instant.",
+      }))
+    } finally {
+      URL.revokeObjectURL(previewUrl)
+      setPhotoUploading(false)
+      e.target.value = ""
+    }
   }
 
   const onActivateWallet = async () => {
-    const res = await walletApi.activateWallet(walletCreate)
-    setWalletIdFull(res.wallet_identifier)
-    setShowWalletIdModal(true)
-    const fresh = await walletApi.getWallet()
-    setWalletState(fresh)
-    setShowWalletActivate(false)
-    showSaved()
+    const nextErrors: Record<string, string> = {}
+    if (!isWalletPasswordStrong(walletCreate.password)) {
+      nextErrors.wallet_password = "Le mot de passe doit contenir 8 caracteres, une majuscule, un chiffre et un caractere special."
+    }
+    if (walletCreate.password !== walletCreate.confirm_password) {
+      nextErrors.wallet_confirm = "Les deux mots de passe doivent etre identiques."
+    }
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors((prev) => ({ ...prev, ...nextErrors }))
+      return
+    }
+
+    try {
+      const res = await walletApi.activateWallet(walletCreate)
+      setErrors((prev) => {
+        const next = { ...prev }
+        delete next.wallet_password
+        delete next.wallet_confirm
+        delete next.wallet
+        return next
+      })
+      setWalletIdFull(res.wallet_code)
+      setShowWalletIdModal(true)
+      const fresh = await walletApi.getWallet()
+      setWalletState(fresh)
+      setWalletCreate({ password: "", confirm_password: "" })
+      setShowWalletActivate(false)
+      setShowWalletPassword(false)
+      setShowWalletConfirmPassword(false)
+      showSaved()
+    } catch (e) {
+      setErrors((prev) => ({
+        ...prev,
+        wallet: e instanceof Error ? e.message : "Impossible de creer le portefeuille pour le moment.",
+      }))
+    }
   }
 
   const notifRows = useMemo(() => [
@@ -199,6 +268,7 @@ export default function ParametresPage() {
     { key: "promotions", label: "Promotions et offres", desc: "Remises exclusives et offres speciales", icon: CreditCard },
     { key: "newsletter", label: "Newsletter SOUKI", desc: "Actualites et conseils hebdomadaires", icon: Globe },
   ] as const, [])
+  const walletPasswordState = useMemo(() => walletPasswordChecks(walletCreate.password), [walletCreate.password])
 
   if (pageLoading || isAuthLoading) {
     return (
@@ -219,7 +289,7 @@ export default function ParametresPage() {
         {errors.page && <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{errors.page}</div>}
         <div className="flex flex-col lg:flex-row gap-8">
           <aside className="lg:w-64 flex-shrink-0">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-4"><div className="flex items-center gap-4"><div className="relative"><div className="w-14 h-14 rounded-xl bg-[#F0FAF1] flex items-center justify-center font-bold text-[#1E8A3C]">{photoUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : initialLetter}</div><button onClick={onClickCamera} className="absolute -bottom-1 -right-1 w-6 h-6 bg-[#1E8A3C] rounded-full flex items-center justify-center text-white shadow-sm hover:bg-[#176B2E] transition-colors"><Camera className="w-3 h-3" /></button><input ref={fileInputRef} onChange={onUploadPhoto} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" /></div><div><p className="font-bold text-[#3D3D3D]">{sidebarName}</p><p className="text-sm text-[#8A8A8A]">{personal.email}</p>{emailVerified && <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-[#F0FAF1] text-[#1E8A3C] rounded-full text-xs font-medium"><Check className="w-3 h-3" /> Verifie</span>}{errors.photo && <p className="text-xs text-red-500">{errors.photo}</p>}</div></div></div>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-4"><div className="flex items-center gap-4"><div className="relative"><div className="relative w-14 h-14 rounded-xl bg-[#F0FAF1] overflow-hidden flex items-center justify-center font-bold text-[#1E8A3C]">{photoUrl ? <img src={photoUrl} alt={sidebarName} className="w-full h-full object-cover" /> : initialLetter}{photoUploading && <div className="absolute inset-0 bg-black/30 flex items-center justify-center"><Loader2 className="w-5 h-5 animate-spin text-white" /></div>}</div><button onClick={onClickCamera} className="absolute -bottom-1 -right-1 w-6 h-6 bg-[#1E8A3C] rounded-full flex items-center justify-center text-white shadow-sm hover:bg-[#176B2E] transition-colors"><Camera className="w-3 h-3" /></button><input ref={fileInputRef} onChange={onUploadPhoto} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" /></div><div><p className="font-bold text-[#3D3D3D]">{sidebarName}</p><p className="text-sm text-[#8A8A8A]">{personal.email}</p>{emailVerified && <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-[#F0FAF1] text-[#1E8A3C] rounded-full text-xs font-medium"><Check className="w-3 h-3" /> Verifie</span>}{errors.photo && <p className="text-xs text-red-500">{errors.photo}</p>}</div></div></div>
             <nav className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">{([{ id: "compte", icon: User, label: "Compte" }, { id: "notifications", icon: Bell, label: "Notifications" }, { id: "securite", icon: Shield, label: "Securite" }, { id: "paiement", icon: CreditCard, label: "Paiement" }] as const).map((item) => <button key={item.id} onClick={() => setActiveSection(item.id)} className={cn("w-full flex items-center justify-between px-5 py-4 border-b border-gray-50 last:border-0 transition-colors", activeSection === item.id ? "bg-[#F0FAF1] text-[#1E8A3C]" : "text-[#3D3D3D] hover:bg-gray-50")}><div className="flex items-center gap-3"><item.icon className="w-4 h-4" /><span className="font-medium text-sm">{item.label}</span></div><ChevronRight className={cn("w-4 h-4 transition-transform", activeSection === item.id && "rotate-90")} /></button>)}</nav>
           </aside>
           <main className="flex-1 space-y-6">
@@ -235,15 +305,160 @@ export default function ParametresPage() {
               <div className="bg-red-50 rounded-2xl border-2 border-red-100 overflow-hidden"><div className="px-6 py-4 border-b border-red-100"><h2 className="font-bold text-red-600 text-lg">Zone de danger</h2><p className="text-sm text-red-400">Actions irreversibles pour votre compte</p></div><div className="p-6 space-y-4"><div className="flex items-center justify-between"><div><p className="font-medium text-[#3D3D3D] text-sm">Deconnexion de tous les appareils</p><p className="text-xs text-[#8A8A8A]">Vous serez deconnecte de tous vos appareils</p></div><button onClick={onDisconnectAll} className="flex items-center gap-2 px-4 py-2 border-2 border-gray-200 text-[#3D3D3D] rounded-xl text-sm font-medium hover:border-red-300 hover:text-red-600 transition-colors"><LogOut className="w-4 h-4" />Tout deconnecter</button></div><div className="border-t border-red-100 pt-4 flex items-center justify-between"><div><p className="font-medium text-[#3D3D3D] text-sm">Supprimer le compte</p><p className="text-xs text-[#8A8A8A]">Action permanente et irreversible</p></div><button onClick={() => setShowDeleteModal(true)} className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl text-sm font-semibold hover:bg-red-600 transition-colors"><Trash2 className="w-4 h-4" />Supprimer</button></div></div></div>
             </>}
             {activeSection === "paiement" && <>
-              {walletState?.is_activated ? <div className="bg-gradient-to-br from-[#1E8A3C] to-[#4CB84A] rounded-2xl p-6 text-white shadow-lg shadow-green-900/20"><div className="flex items-center justify-between mb-6"><div className="flex items-center gap-3"><div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center"><Wallet className="w-6 h-6 text-white" /></div><div><p className="text-white/80 text-sm">Wallet SOUKI</p><p className="text-3xl font-bold">{dhFromCentimes(walletState.solde_centimes || 0)}</p><p className="text-xs text-white/80 mt-1">{walletState.wallet_identifier}</p></div></div><button onClick={() => setShowRechargeModal(true)} className="px-4 py-2 bg-white text-[#1E8A3C] rounded-xl font-semibold text-sm hover:bg-white/90 transition-colors">Recharger</button></div><div className="space-y-2">{(walletState.transactions || []).map((tx: any) => <div key={tx.id} className="flex justify-between items-center py-2 border-t border-white/20"><span className="text-white/80 text-sm">{tx.libelle}</span><span className={cn("text-sm font-medium", tx.type === "debit" ? "text-red-300" : "text-white")}>{tx.type === "debit" ? "-" : "+"}{dhFromCentimes(Math.abs(tx.montant_centimes || 0))}</span></div>)}</div></div> : <div className="bg-white rounded-2xl border border-gray-100 p-6"><h3 className="font-bold text-[#3D3D3D] text-lg">Creer mon portefeuille Souki</h3><p className="text-sm text-[#8A8A8A] mt-1">Payez vos commandes en 1 clic sans ressaisir votre carte</p><button onClick={() => setShowWalletActivate((v) => !v)} className="mt-4 px-4 py-2 bg-[#1E8A3C] text-white rounded-xl text-sm font-semibold hover:bg-[#176B2E] transition-colors">Activer mon Souki-Wallet</button>{showWalletActivate && <div className="mt-4 grid gap-3 max-w-md"><input type="password" value={walletCreate.password} onChange={(e) => setWalletCreate((p) => ({ ...p, password: e.target.value }))} placeholder="Mot de passe du portefeuille" className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none" /><input type="password" value={walletCreate.confirm_password} onChange={(e) => setWalletCreate((p) => ({ ...p, confirm_password: e.target.value }))} placeholder="Confirmer le mot de passe" className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none" /><button onClick={onActivateWallet} className="px-4 py-2 bg-[#1E8A3C] text-white rounded-xl text-sm font-semibold">Creer mon portefeuille</button></div>}</div>}
-              <SectionCard title="Cartes enregistrees"><div className="space-y-3"><div className="p-4 border-2 border-gray-100 rounded-xl text-sm text-[#8A8A8A]">Carte bancaire temporairement indisponible.</div><div className="p-4 border-2 border-gray-100 rounded-xl text-sm text-[#8A8A8A]">PayPal temporairement indisponible.</div><button className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-200 text-[#8A8A8A] rounded-xl hover:border-[#4CB84A] hover:text-[#1E8A3C] transition-colors text-sm font-medium"><Plus className="w-4 h-4" />Ajouter une nouvelle carte</button></div></SectionCard>
+              {walletState?.has_wallet ? (
+                <div className="rounded-[28px] border border-[#1E8A3C]/10 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.32),_transparent_36%),linear-gradient(135deg,#165f2e_0%,#1E8A3C_48%,#79d65e_100%)] p-6 text-white shadow-[0_18px_60px_rgba(30,138,60,0.22)]">
+                  <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/18 backdrop-blur-sm">
+                          <Wallet className="h-6 w-6 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-white/80">Souki e-wallet</p>
+                          <h3 className="text-3xl font-bold tracking-tight">{dhFromCentimes(walletState.balance_centimes || 0)}</h3>
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur-sm">
+                        <p className="text-xs uppercase tracking-[0.24em] text-white/65">Code portefeuille</p>
+                        <p className="mt-2 font-mono text-sm font-semibold tracking-[0.2em] text-white">{walletState.wallet_code_masked ?? "Code indisponible"}</p>
+                      </div>
+                    </div>
+                    <div className="min-w-[260px] rounded-2xl border border-white/16 bg-[#0c2f18]/25 p-4 backdrop-blur-sm">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                        <ShieldCheck className="h-4 w-4" />
+                        Mot de passe portefeuille distinct
+                      </div>
+                      <p className="mt-2 text-sm text-white/75">Ce portefeuille est separe de ton compte SOUKI. Son mot de passe n'est jamais stocke en clair.</p>
+                      <p className="mt-4 text-xs text-white/60">Historique</p>
+                      {(walletState.transactions || []).length === 0 ? (
+                        <div className="mt-2 rounded-xl border border-dashed border-white/20 bg-white/5 px-3 py-4 text-sm text-white/80">
+                          {walletState.transaction_placeholder}
+                        </div>
+                      ) : (
+                        <div className="mt-2 space-y-2">
+                          {walletState.transactions.map((tx) => (
+                            <div key={tx.id} className="flex items-center justify-between rounded-xl border border-white/12 bg-white/6 px-3 py-3 text-sm">
+                              <span>{tx.libelle}</span>
+                              <span className="font-semibold">{dhFromCentimes(Math.abs(tx.montant_centimes || 0))}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-[28px] border border-[#F0E4C8] bg-[radial-gradient(circle_at_top_right,_rgba(255,250,240,0.92),_transparent_36%),linear-gradient(135deg,#fffdf7_0%,#fff3d6_58%,#f8e6b3_100%)] p-6 shadow-[0_20px_65px_rgba(124,98,35,0.12)]">
+                  <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="max-w-2xl space-y-4">
+                      <div className="flex items-center gap-3 text-[#7A4F00]">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fff7e0] shadow-sm">
+                          <Sparkles className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#B17900]">Souki wallet</p>
+                          <h3 className="text-2xl font-black tracking-tight text-[#3D3D3D]">Ach katsenna ? Cree ton portefeuille Souki daba !</h3>
+                        </div>
+                      </div>
+                      <p className="max-w-xl text-sm leading-6 text-[#6E6555]">
+                        Active ton portefeuille Souki pour preparer tes futurs paiements en un geste. Ton code portefeuille sera genere une seule fois et ton mot de passe restera separe de celui du compte.
+                      </p>
+                      <button
+                        onClick={() => setShowWalletActivate((v) => !v)}
+                        className="inline-flex items-center gap-2 rounded-2xl bg-[#1E8A3C] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(30,138,60,0.24)] transition hover:bg-[#176B2E]"
+                      >
+                        <Wallet className="h-4 w-4" />
+                        Créer mon portefeuille
+                      </button>
+                      {errors.wallet && <p className="text-sm text-red-600">{errors.wallet}</p>}
+                    </div>
+                    <div className="min-w-[260px] rounded-2xl border border-[#E8D9B0] bg-white/70 p-4 shadow-sm">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-[#3D3D3D]">
+                        <ShieldCheck className="h-4 w-4 text-[#1E8A3C]" />
+                        Regles du mot de passe
+                      </div>
+                      <div className="mt-3 space-y-2 text-sm text-[#6E6555]">
+                        <div className="flex items-center gap-2"><Check className="h-4 w-4 text-[#1E8A3C]" />Minimum 8 caracteres</div>
+                        <div className="flex items-center gap-2"><Check className="h-4 w-4 text-[#1E8A3C]" />Une lettre majuscule</div>
+                        <div className="flex items-center gap-2"><Check className="h-4 w-4 text-[#1E8A3C]" />Un chiffre</div>
+                        <div className="flex items-center gap-2"><Check className="h-4 w-4 text-[#1E8A3C]" />Un caractere special</div>
+                      </div>
+                    </div>
+                  </div>
+                  {showWalletActivate && (
+                    <div className="mt-6 rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div>
+                          <label className="mb-2 block text-sm font-medium text-[#3D3D3D]">Mot de passe du portefeuille</label>
+                          <div className="relative">
+                            <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8A8A8A]" />
+                            <input
+                              type={showWalletPassword ? "text" : "password"}
+                              value={walletCreate.password}
+                              onChange={(e) => setWalletCreate((p) => ({ ...p, password: e.target.value }))}
+                              placeholder="Cree un mot de passe securise"
+                              className="w-full rounded-xl border-2 border-gray-200 py-3 pl-10 pr-12 text-[#3D3D3D] transition-colors focus:border-[#4CB84A] focus:outline-none"
+                            />
+                            <button type="button" onClick={() => setShowWalletPassword((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8A8A8A] hover:text-[#3D3D3D]">
+                              {showWalletPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
+                          {errors.wallet_password && <p className="mt-1 text-xs text-red-500">{errors.wallet_password}</p>}
+                        </div>
+                        <div>
+                          <label className="mb-2 block text-sm font-medium text-[#3D3D3D]">Confirmation du mot de passe</label>
+                          <div className="relative">
+                            <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8A8A8A]" />
+                            <input
+                              type={showWalletConfirmPassword ? "text" : "password"}
+                              value={walletCreate.confirm_password}
+                              onChange={(e) => setWalletCreate((p) => ({ ...p, confirm_password: e.target.value }))}
+                              placeholder="Retape le mot de passe"
+                              className="w-full rounded-xl border-2 border-gray-200 py-3 pl-10 pr-12 text-[#3D3D3D] transition-colors focus:border-[#4CB84A] focus:outline-none"
+                            />
+                            <button type="button" onClick={() => setShowWalletConfirmPassword((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8A8A8A] hover:text-[#3D3D3D]">
+                              {showWalletConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
+                          {errors.wallet_confirm && <p className="mt-1 text-xs text-red-500">{errors.wallet_confirm}</p>}
+                        </div>
+                      </div>
+                      <div className="mt-4 grid gap-2 text-sm text-[#6E6555]">
+                        <div className={cn("flex items-center gap-2", walletPasswordState.minLength ? "text-[#1E8A3C]" : "text-[#8A8A8A]")}><Check className="h-4 w-4" />8 caracteres minimum</div>
+                        <div className={cn("flex items-center gap-2", walletPasswordState.uppercase ? "text-[#1E8A3C]" : "text-[#8A8A8A]")}><Check className="h-4 w-4" />Au moins une majuscule</div>
+                        <div className={cn("flex items-center gap-2", walletPasswordState.number ? "text-[#1E8A3C]" : "text-[#8A8A8A]")}><Check className="h-4 w-4" />Au moins un chiffre</div>
+                        <div className={cn("flex items-center gap-2", walletPasswordState.special ? "text-[#1E8A3C]" : "text-[#8A8A8A]")}><Check className="h-4 w-4" />Au moins un caractere special</div>
+                      </div>
+                      <div className="mt-5 flex flex-wrap gap-3">
+                        <button onClick={onActivateWallet} disabled={walletApi.loading} className="inline-flex items-center gap-2 rounded-xl bg-[#1E8A3C] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#176B2E] disabled:opacity-70">
+                          {walletApi.loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                          Créer mon portefeuille
+                        </button>
+                        <button onClick={() => setShowWalletActivate(false)} className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-[#3D3D3D] transition hover:border-gray-300">
+                          Annuler
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="rounded-2xl border border-dashed border-gray-200 bg-white/80 p-6">
+                <div className="flex items-center gap-3 text-[#3D3D3D]">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-100">
+                    <Lock className="h-5 w-5 text-[#8A8A8A]" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-lg">Paiement par carte — Bientôt disponible</h3>
+                    <p className="text-sm text-[#8A8A8A]">Le paiement par carte arrivera prochainement. Aucune action n'est necessaire pour le moment.</p>
+                  </div>
+                </div>
+              </div>
             </>}
           </main>
         </div>
       </div>
       {showDeleteModal && <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"><div className="bg-white rounded-2xl w-full max-w-md p-6"><h3 className="font-bold text-lg text-[#3D3D3D]">Confirmer la suppression</h3><p className="text-sm text-[#8A8A8A] mt-2">Tapez SUPPRIMER pour confirmer</p><input value={deleteText} onChange={(e) => setDeleteText(e.target.value)} className="mt-4 w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-red-400 focus:outline-none" /><div className="mt-4 flex gap-2 justify-end"><button onClick={() => setShowDeleteModal(false)} className="px-4 py-2 border border-gray-200 rounded-xl">Annuler</button><button disabled={deleteText !== "SUPPRIMER"} onClick={onDeleteAccount} className="px-4 py-2 bg-red-500 text-white rounded-xl disabled:opacity-50">Supprimer</button></div></div></div>}
-      {showWalletIdModal && <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"><div className="bg-white rounded-2xl w-full max-w-lg p-6 border-2 border-[#4CB84A]/30"><p className="text-[#1E8A3C] font-semibold">Notez cet identifiant, il ne sera plus affiche en entier : {walletIdFull}</p><div className="mt-4 flex gap-2 justify-end"><button onClick={() => navigator.clipboard.writeText(walletIdFull)} className="px-4 py-2 border border-[#1E8A3C] text-[#1E8A3C] rounded-xl">Copier</button><button onClick={() => setShowWalletIdModal(false)} className="px-4 py-2 bg-[#1E8A3C] text-white rounded-xl">J'ai note mon identifiant</button></div></div></div>}
-      {showRechargeModal && <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"><div className="bg-white rounded-2xl w-full max-w-lg p-6"><h3 className="font-bold text-[#3D3D3D]">Recharger mon wallet</h3><div className="mt-4 grid grid-cols-4 gap-2">{[50, 100, 200, 500].map((m) => <button key={m} className="px-3 py-2 border-2 border-gray-200 rounded-xl hover:border-[#4CB84A]">{m} DH</button>)}</div><input type="number" min={50} max={5000} placeholder="Montant personnalise (50-5000 DH)" className="mt-3 w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none" /><div className="mt-4 grid grid-cols-2 gap-2"><button className="px-4 py-2 border-2 border-gray-200 rounded-xl">Carte bancaire (indisponible)</button><button className="px-4 py-2 border-2 border-gray-200 rounded-xl">PayPal (indisponible)</button></div><div className="mt-4 flex justify-end"><button onClick={() => setShowRechargeModal(false)} className="px-4 py-2 bg-[#1E8A3C] text-white rounded-xl">Fermer</button></div></div></div>}
+      {showWalletIdModal && <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"><div className="w-full max-w-lg rounded-3xl border border-[#4CB84A]/30 bg-white p-6 shadow-[0_20px_70px_rgba(30,138,60,0.18)]"><div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F0FAF1] text-[#1E8A3C]"><Wallet className="h-5 w-5" /></div><div><h3 className="font-bold text-[#3D3D3D]">Portefeuille Souki cree</h3><p className="text-sm text-[#8A8A8A]">Ce code complet n'est affiche qu'une seule fois.</p></div></div><div className="mt-5 rounded-2xl border border-gray-200 bg-[#FAFAF8] px-4 py-4"><p className="text-xs uppercase tracking-[0.22em] text-[#8A8A8A]">Code portefeuille</p><p className="mt-2 break-all font-mono text-lg font-semibold tracking-[0.18em] text-[#1E8A3C]">{walletIdFull}</p></div><div className="mt-5 flex flex-wrap justify-end gap-3"><button onClick={() => navigator.clipboard.writeText(walletIdFull)} className="inline-flex items-center gap-2 rounded-xl border border-[#1E8A3C] px-4 py-2 text-[#1E8A3C] transition hover:bg-[#F0FAF1]"><Copy className="h-4 w-4" />Copier le code</button><button onClick={() => setShowWalletIdModal(false)} className="rounded-xl bg-[#1E8A3C] px-4 py-2 text-white transition hover:bg-[#176B2E]">J'ai note mon code</button></div></div></div>}
     </div>
   )
 }

@@ -20,10 +20,12 @@ model User {
   emailVerified            Boolean?                    @default(false) @map("is_email_verified")
   phoneVerified            Boolean?                    @default(false) @map("is_phone_verified")
   isActive                 Boolean                     @default(true) @map("is_active")
+  avatarUrl                String?                     @map("avatar_url")
   lastLoginAt              DateTime?                   @map("last_login_at")
   updatedAt                DateTime                    @default(now()) @map("updated_at")
   wallet                   Wallet?
-  address                  UserAddress?
+  soukiWallet              SoukiWallet?
+  addresses                Address[]
   notificationPreferences  UserNotificationPreferences?
   sessions                 UserSession[]
 
@@ -51,15 +53,34 @@ model WalletTransaction {
   @@map("t_transactions_wallet")
 }
 
-model UserAddress {
-  id         Int      @id @default(autoincrement())
-  userId     Int      @unique @map("user_id")
-  adresse    String?
-  ville      String?
-  codePostal String?  @map("code_postal")
-  user       User     @relation(fields: [userId], references: [id])
+model SoukiWallet {
+  id           String   @id @db.Uuid
+  userId       Int      @unique @map("user_id")
+  walletCode   String   @unique @map("wallet_code")
+  passwordHash String   @map("password_hash")
+  balance      Decimal  @default(0) @db.Decimal(12, 2)
+  createdAt    DateTime @default(now()) @map("created_at")
+  user         User     @relation(fields: [userId], references: [id])
 
-  @@map("t_user_addresses")
+  @@map("wallets")
+}
+
+model Address {
+  id           Int       @id @default(autoincrement())
+  userId       Int       @map("user_id")
+  neighborhood String
+  street       String
+  details      String?
+  ville        String?
+  codePostal   String?   @map("code_postal")
+  latitude     Float?
+  longitude    Float?
+  isDefault    Boolean   @default(false) @map("is_default")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @map("updated_at")
+  user         User      @relation(fields: [userId], references: [id])
+
+  @@map("t_addresses")
 }
 
 model UserNotificationPreferences {

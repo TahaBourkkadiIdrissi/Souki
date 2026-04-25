@@ -1,17 +1,28 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-from dotenv import load_dotenv
 import os
 
-# Load environment variables from .env
-load_dotenv()
+from sqlalchemy import create_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+from env_loader import load_app_env
+
+# Load shared repo env first, then backend-specific overrides.
+load_app_env()
+
+
+def _get_required_env(name: str) -> str:
+    value = os.getenv(name)
+    if value in (None, ""):
+        raise RuntimeError(
+            f"Variable d'environnement manquante: {name}. Verifie le fichier back-end/.env."
+        )
+    return value
 
 # Fetch variables
-USER     = os.getenv("user")
-PASSWORD = os.getenv("password")
-HOST     = os.getenv("host")
-PORT     = os.getenv("port")
-DBNAME   = os.getenv("dbname")
+USER = _get_required_env("user")
+PASSWORD = _get_required_env("password")
+HOST = _get_required_env("host")
+PORT = _get_required_env("port")
+DBNAME = _get_required_env("dbname")
 
 # Construct the SQLAlchemy connection string
 DATABASE_URL = f"postgresql+psycopg2://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}?sslmode=require"
@@ -25,6 +36,7 @@ engine = create_engine(
     pool_size=10,
     max_overflow=5,
     pool_timeout=30,
+    connect_args={"connect_timeout": 5},
 )
 
 # Session locale — à utiliser dans chaque route / service

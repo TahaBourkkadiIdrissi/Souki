@@ -42,6 +42,19 @@ class WalletActivationDTO(BaseModel):
     password: str
     confirm_password: str
 
+    @field_validator("password")
+    @classmethod
+    def validate_wallet_password(cls, value: str) -> str:
+        if len(value) < 8:
+            raise ValueError("Le mot de passe du portefeuille doit contenir au moins 8 caracteres.")
+        if not any(char.isupper() for char in value):
+            raise ValueError("Le mot de passe du portefeuille doit contenir une majuscule.")
+        if not any(char.isdigit() for char in value):
+            raise ValueError("Le mot de passe du portefeuille doit contenir un chiffre.")
+        if not any(not char.isalnum() for char in value):
+            raise ValueError("Le mot de passe du portefeuille doit contenir un caractere special.")
+        return value
+
 
 class DeleteAccountDTO(BaseModel):
     confirmation: str

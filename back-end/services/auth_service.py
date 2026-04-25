@@ -13,7 +13,6 @@ from entities.livreur_entity import Livreur
 from entities.parent_entity import Parent
 from entities.user_entity import User
 from entities.verification_code_entity import VerificationCode
-from entities.wallet_entity import Wallet
 from rbac_config import LOGIN_TARGET_PERMISSIONS
 from services.authorization_service import AuthorizationPrincipal, AuthorizationService
 from services.email_delivery_service import EmailDeliveryService
@@ -178,7 +177,6 @@ class AuthService:
                 or user.is_phone_verified
                 or self._has_google_provider(user.auth_provider)
             )
-            self._ensure_wallet(db, user)
             self._ensure_rbac_role_assignment(db, user)
             db.commit()
             db.refresh(user)
@@ -276,7 +274,6 @@ class AuthService:
                     user.is_email_verified = True
                     user.auth_provider = self._merge_auth_provider(user.auth_provider, "google")
 
-                self._ensure_wallet(db, user)
                 db.commit()
                 db.refresh(user)
 
@@ -398,13 +395,6 @@ class AuthService:
         providers = {part.strip() for part in (current or "local").split(",") if part.strip()}
         providers.add(incoming)
         return ",".join(sorted(providers))
-
-    def _ensure_wallet(self, db, user: User):
-        if not user.is_verified:
-            return
-        if user.wallet:
-            return
-        db.add(Wallet(user_id=user.id, solde=0))
 
     def _ensure_client_profile(self, db, user: User):
         if user.client_profile:

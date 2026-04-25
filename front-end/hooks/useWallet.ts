@@ -12,10 +12,15 @@ export interface WalletTransaction {
 }
 
 export interface WalletState {
+  has_wallet: boolean
   is_activated: boolean
+  balance_centimes: number
   solde_centimes: number
-  wallet_identifier: string
+  wallet_code_masked: string | null
+  wallet_identifier: string | null
   transactions: WalletTransaction[]
+  transaction_placeholder: string
+  created_at?: string | null
 }
 
 export function useWallet() {
@@ -23,7 +28,7 @@ export function useWallet() {
   const getWallet = useCallback(() => callApi<WalletState>("/api/user/wallet"), [callApi])
   const activateWallet = useCallback(
     (payload: { password: string; confirm_password: string }) =>
-      callApi<{ wallet_identifier: string }>("/api/user/wallet/activate", "POST", payload),
+      callApi<{ wallet_code: string; wallet_identifier: string; balance_centimes: number }>("/api/user/wallet/activate", "POST", payload),
     [callApi]
   )
   return { callApi, loading, error, setError, getWallet, activateWallet }

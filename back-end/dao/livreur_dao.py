@@ -20,12 +20,29 @@ class LivreurDaoBD(ILivreurDao):
     ) -> list[dict[str, Any]]:
         address_table = Table("t_addresses", MetaData(), autoload_with=session.bind)
         address_alias = address_table.alias("delivery_address")
-        latest_address_subquery = (
+        address_ordering = [address_table.c.id.desc()]
+        if "is_default" in address_table.c:
+            address_ordering.insert(0, address_table.c.is_default.desc())
+
+        ranked_address_subquery = (
             select(
                 address_table.c.user_id.label("user_id"),
-                func.max(address_table.c.id).label("address_id"),
+                address_table.c.id.label("address_id"),
+                func.row_number()
+                .over(
+                    partition_by=address_table.c.user_id,
+                    order_by=address_ordering,
+                )
+                .label("row_rank"),
             )
-            .group_by(address_table.c.user_id)
+            .subquery()
+        )
+        preferred_address_subquery = (
+            select(
+                ranked_address_subquery.c.user_id,
+                ranked_address_subquery.c.address_id,
+            )
+            .where(ranked_address_subquery.c.row_rank == 1)
             .subquery()
         )
         colis_subquery = (
@@ -71,12 +88,12 @@ class LivreurDaoBD(ILivreurDao):
             .join(Client, Client.user_id == Commande.client_id)
             .join(User, User.id == Client.user_id)
             .outerjoin(
-                latest_address_subquery,
-                latest_address_subquery.c.user_id == Client.user_id,
+                preferred_address_subquery,
+                preferred_address_subquery.c.user_id == Client.user_id,
             )
             .outerjoin(
                 address_alias,
-                address_alias.c.id == latest_address_subquery.c.address_id,
+                address_alias.c.id == preferred_address_subquery.c.address_id,
             )
             .outerjoin(colis_subquery, colis_subquery.c.panier_id == Commande.panier_id)
             .where(

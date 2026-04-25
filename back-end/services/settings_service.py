@@ -1,4 +1,7 @@
 import bcrypt
+from decimal import Decimal
+from uuid import uuid4
+
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 
@@ -10,13 +13,13 @@ from dto.settings_dto import (
     PersonalInfoUpdateDTO,
     WalletActivationDTO,
 )
-from entities.transaction_wallet_entity import TransactionWallet
-from entities.user_address_entity import UserAddress
+from entities.address_entity import Address
+from entities.souki_wallet_entity import SoukiWallet
 from entities.user_entity import User
 from entities.user_notification_preferences_entity import UserNotificationPreferences
 from entities.user_session_entity import UserSession
-from entities.wallet_entity import Wallet
 from security import verify_password
+from services.supabase_storage_service import avatar_storage_service
 
 
 class SettingsService:
@@ -52,8 +55,40 @@ class SettingsService:
         return f"{identifier[:4]}-********{identifier[-4:]}"
 
     @staticmethod
-    def _to_centimes(amount: float | None) -> int:
-        return int(round((amount or 0) * 100))
+    def _mask_wallet_code(wallet_code: str | None) -> str | None:
+        if not wallet_code:
+            return None
+        if len(wallet_code) <= 10:
+            return wallet_code
+        return f"{wallet_code[:6]}-********-{wallet_code[-4:]}"
+
+    @staticmethod
+    def _to_centimes(amount: Decimal | float | int | None) -> int:
+        if amount is None:
+            return 0
+        return int(round(float(amount) * 100))
+
+    @staticmethod
+    def _generate_wallet_code() -> str:
+        return f"SOUKI-{uuid4().hex[:12].upper()}"
+
+    @staticmethod
+    def _preferred_address(db, user_id: int) -> Address | None:
+        return (
+            db.query(Address)
+            .filter(Address.user_id == user_id)
+            .order_by(Address.is_default.desc(), Address.id.desc())
+            .first()
+        )
+
+    @staticmethod
+    def _apply_settings_address(address: Address, data: AddressUpdateDTO) -> None:
+        address.street = data.adresse
+        if not address.neighborhood or address.neighborhood == address.ville:
+            address.neighborhood = data.ville
+        address.ville = data.ville
+        address.code_postal = data.code_postal
+        address.is_default = True
 
     def get_profile(self, user_id: int):
         db = LocalSession()
@@ -62,18 +97,19 @@ class SettingsService:
             if not user:
                 raise HTTPException(status_code=404, detail="Utilisateur introuvable")
 
-            address = user.settings_address
+            address = self._preferred_address(db, user_id)
             prenom, nom = self._derive_name_parts(user)
             return {
                 "prenom": prenom,
                 "nom": nom,
                 "email": user.email or "",
                 "telephone": user.phone or "",
-                "photo_url": None,
+                "photo_url": user.avatar_url,
+                "avatar_url": user.avatar_url,
                 "email_verified": bool(user.is_email_verified),
                 "address": {
-                    "adresse": address.adresse if address else "",
-                    "ville": address.ville if address else "",
+                    "adresse": address.street if address else "",
+                    "ville": (address.ville or address.neighborhood) if address else "",
                     "code_postal": address.code_postal if address else "",
                 },
             }
@@ -115,16 +151,38 @@ class SettingsService:
     def update_address(self, user_id: int, data: AddressUpdateDTO):
         db = LocalSession()
         try:
-            address = db.query(UserAddress).filter(UserAddress.user_id == user_id).first()
+            address = self._preferred_address(db, user_id)
             if not address:
-                address = UserAddress(user_id=user_id)
+                address = Address(
+                    user_id=user_id,
+                    street=data.adresse,
+                    neighborhood=data.ville,
+                )
                 db.add(address)
+                db.flush()
 
-            address.adresse = data.adresse
-            address.ville = data.ville
-            address.code_postal = data.code_postal
+            db.query(Address).filter(Address.user_id == user_id, Address.id != address.id).update(
+                {Address.is_default: False},
+                synchronize_session=False,
+            )
+            self._apply_settings_address(address, data)
             db.commit()
             return {"success": True}
+        finally:
+            db.close()
+
+    def upload_profile_photo(self, user_id: int, content: bytes, content_type: str):
+        avatar_url = avatar_storage_service.upload_avatar(user_id, content, content_type)
+
+        db = LocalSession()
+        try:
+            user = db.query(User).filter(User.id == user_id, User.is_active.is_(True)).first()
+            if not user:
+                raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+
+            user.avatar_url = avatar_url
+            db.commit()
+            return {"photo_url": avatar_url, "avatar_url": avatar_url}
         finally:
             db.close()
 
@@ -253,37 +311,29 @@ class SettingsService:
     def get_wallet(self, user_id: int):
         db = LocalSession()
         try:
-            wallet = db.query(Wallet).filter(Wallet.user_id == user_id).first()
+            wallet = db.query(SoukiWallet).filter(SoukiWallet.user_id == user_id).first()
             if not wallet:
                 return {
+                    "has_wallet": False,
                     "is_activated": False,
+                    "balance_centimes": 0,
                     "solde_centimes": 0,
-                    "wallet_identifier": self._mask_wallet_identifier(self._wallet_identifier(user_id, None)),
+                    "wallet_code_masked": None,
+                    "wallet_identifier": None,
                     "transactions": [],
+                    "transaction_placeholder": "Aucune transaction pour le moment.",
                 }
-
-            txs = (
-                db.query(TransactionWallet)
-                .filter(TransactionWallet.wallet_id == wallet.id)
-                .order_by(TransactionWallet.date.desc())
-                .limit(5)
-                .all()
-            )
-            identifier = self._wallet_identifier(user_id, wallet.id)
+            masked_wallet_code = self._mask_wallet_code(wallet.wallet_code)
             return {
+                "has_wallet": True,
                 "is_activated": True,
-                "solde_centimes": self._to_centimes(wallet.solde),
-                "wallet_identifier": self._mask_wallet_identifier(identifier),
-                "transactions": [
-                    {
-                        "id": tx.id,
-                        "type": tx.type,
-                        "libelle": (tx.type or "transaction").replace("_", " ").title(),
-                        "montant_centimes": self._to_centimes(tx.montant),
-                        "date": tx.date.isoformat() if tx.date else None,
-                    }
-                    for tx in txs
-                ],
+                "balance_centimes": self._to_centimes(wallet.balance),
+                "solde_centimes": self._to_centimes(wallet.balance),
+                "wallet_code_masked": masked_wallet_code,
+                "wallet_identifier": masked_wallet_code,
+                "transactions": [],
+                "transaction_placeholder": "Aucune transaction pour le moment.",
+                "created_at": wallet.created_at.isoformat() if wallet.created_at else None,
             }
         finally:
             db.close()
@@ -293,14 +343,39 @@ class SettingsService:
             raise HTTPException(status_code=400, detail="Les mots de passe ne correspondent pas")
         db = LocalSession()
         try:
-            wallet = db.query(Wallet).filter(Wallet.user_id == user_id).first()
-            if not wallet:
-                wallet = Wallet(user_id=user_id, solde=0)
-                db.add(wallet)
-                db.flush()
+            existing_wallet = db.query(SoukiWallet).filter(SoukiWallet.user_id == user_id).first()
+            if existing_wallet:
+                raise HTTPException(status_code=400, detail="Vous avez deja un portefeuille Souki.")
 
-            wallet_identifier = self._wallet_identifier(user_id, wallet.id)
-            db.commit()
-            return {"wallet_identifier": wallet_identifier}
+            created_wallet = None
+            for _ in range(5):
+                wallet_code = self._generate_wallet_code()
+                password_hash = bcrypt.hashpw(
+                    data.password.encode("utf-8"),
+                    bcrypt.gensalt(rounds=12),
+                ).decode("utf-8")
+                created_wallet = SoukiWallet(
+                    user_id=user_id,
+                    wallet_code=wallet_code,
+                    password_hash=password_hash,
+                    balance=Decimal("0.00"),
+                )
+                db.add(created_wallet)
+                try:
+                    db.commit()
+                    db.refresh(created_wallet)
+                    return {
+                        "wallet_code": wallet_code,
+                        "wallet_identifier": wallet_code,
+                        "balance_centimes": 0,
+                    }
+                except IntegrityError:
+                    db.rollback()
+                    created_wallet = None
+
+            raise HTTPException(
+                status_code=500,
+                detail="Impossible de generer un code portefeuille unique pour le moment.",
+            )
         finally:
             db.close()

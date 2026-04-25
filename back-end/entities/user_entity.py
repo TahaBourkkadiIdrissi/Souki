@@ -19,6 +19,7 @@ class User(Base):
     is_email_verified = Column(Boolean, default=False)
     is_phone_verified = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True, nullable=False)
+    avatar_url = Column(String(512), nullable=True)
     last_login_at = Column(DateTime(timezone=True), nullable=True)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
@@ -27,8 +28,8 @@ class User(Base):
     parent_profile = relationship("Parent", back_populates="user", uselist=False)
     livreur_profile = relationship("Livreur", back_populates="user", uselist=False)
     wallet = relationship("Wallet", back_populates="user", uselist=False)
+    souki_wallet = relationship("SoukiWallet", back_populates="user", uselist=False)
     paniers = relationship("Panier", back_populates="user")
     user_roles = relationship("UserRole", back_populates="user", foreign_keys="UserRole.user_id")
-    settings_address = relationship("UserAddress", back_populates="user", uselist=False)
     notification_preferences = relationship("UserNotificationPreferences", back_populates="user", uselist=False)
     sessions = relationship("UserSession", back_populates="user")

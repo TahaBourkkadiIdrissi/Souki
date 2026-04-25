@@ -9,6 +9,7 @@ export interface ProfileData {
   email: string
   telephone: string
   photo_url?: string | null
+  avatar_url?: string | null
   email_verified: boolean
   address: {
     adresse: string
@@ -33,7 +34,7 @@ export function useProfile() {
   const uploadPhoto = useCallback(async (file: File) => {
     const fd = new FormData()
     fd.append("file", file)
-    return callApi<{ photo_url: string }>("/api/user/profile/photo", "POST", fd, true)
+    return callApi<{ photo_url?: string | null; avatar_url?: string | null }>("/api/user/profile/photo", "POST", fd, true)
   }, [callApi])
 
   return { callApi, loading, error, setError, getProfile, updateProfile, updateAddress, uploadPhoto }
