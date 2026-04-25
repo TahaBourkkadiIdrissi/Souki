@@ -37,6 +37,7 @@ import {
   ApiError,
   apiCall,
   type DetailProduitJIT,
+  type JITCommandeDeverrouillee,
   type JITDeverrouillerResponse,
   type JITLogDTO,
   jitAgreger,
@@ -57,6 +58,7 @@ interface OrderLineLike {
 
 interface AdminOrderRow {
   id: string
+  dateCommande: string | null
   client: string
   produits: string
   volumeKg: number | null
@@ -110,7 +112,7 @@ function formatWeight(value: number | null | undefined) {
   return `${value.toFixed(2)} kg`
 }
 
-function formatDateTime(value: string | undefined) {
+function formatDateTime(value: string | null | undefined) {
   if (!value) {
     return "—"
   }
@@ -126,6 +128,33 @@ function formatDateTime(value: string | undefined) {
   })
 }
 
+function formatShortDateTime(value: string | null | undefined) {
+  if (!value) {
+    return "-"
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return date.toLocaleString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
+function formatShortDate(value: Date) {
+  return value.toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  })
+}
+
 function normalizeStatus(value: string | undefined) {
   return (value || "")
     .trim()
@@ -135,7 +164,7 @@ function normalizeStatus(value: string | undefined) {
 }
 
 function extractOrderLines(rawOrder: RawRecord): OrderLineLike[] {
-  const lines = getArray(rawOrder.lignes ?? rawOrder.lines ?? rawOrder.produits_details)
+  const lines = getArray(rawOrder.produits ?? rawOrder.lignes ?? rawOrder.lines ?? rawOrder.produits_details)
 
   return lines
     .map((line) => {
@@ -214,6 +243,7 @@ function normalizeOrders(payload: unknown): AdminOrderRow[] {
               getString(item.commande_id) ??
               "—"
           ),
+        dateCommande: getString(item.date_commande),
         client:
           getString(item.client) ||
           getString(item.client_nom) ||
@@ -380,6 +410,7 @@ function ProductDetailsTable({ details }: { details: DetailProduitJIT[] }) {
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Quantité brute</th>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Buffer 10%</th>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Volume total</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Unit&eacute;</th>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Prix kg</th>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Sous-total</th>
           </tr>
@@ -394,10 +425,105 @@ function ProductDetailsTable({ details }: { details: DetailProduitJIT[] }) {
               <td className="px-4 py-3 text-[#3D3D3D]">{formatWeight(detail.quantite_brute_kg)}</td>
               <td className="px-4 py-3 text-[#3D3D3D]">{formatWeight(detail.buffer_perte_10_pct)}</td>
               <td className="px-4 py-3 font-semibold text-[#1E8A3C]">{formatWeight(detail.volume_total_kg)}</td>
+              <td className="px-4 py-3 text-[#3D3D3D]">{detail.unite}</td>
               <td className="px-4 py-3 text-[#3D3D3D]">{formatMoney(detail.prix_kg)}</td>
               <td className="px-4 py-3 font-semibold text-[#F07C00]">{formatMoney(detail.sous_total)}</td>
             </tr>
           ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function JITLogDetailsTable({ log }: { log: JITLogDTO | null }) {
+  if (!Array.isArray(log?.details_volumes?.produits) || log.details_volumes.produits.length === 0) {
+    return (
+      <div className="px-6 py-12 text-center text-sm text-[#8A8A8A]">
+        Aucun détail disponible
+      </div>
+    )
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Produit</th>
+            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Quantité brute</th>
+            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Buffer 10%</th>
+            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Volume final</th>
+            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Unité</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {log.details_volumes?.produits?.map((produit, index) => {
+            const detail = normalizeDetailProduit(produit)
+            if (!detail) {
+              return null
+            }
+
+            return (
+              <tr key={`${detail.product_id}-${index}`} className="hover:bg-gray-50">
+                <td className="px-6 py-4 text-sm text-[#8A8A8A] max-w-[320px] whitespace-normal">{detail.nom_fr}</td>
+                <td className="px-6 py-4 text-[#3D3D3D]">{formatWeight(detail.quantite_brute_kg)}</td>
+                <td className="px-6 py-4 text-[#3D3D3D]">{formatWeight(detail.buffer_perte_10_pct)}</td>
+                <td className="px-6 py-4 font-semibold text-[#1E8A3C]">{formatWeight(detail.volume_total_kg)}</td>
+                <td className="px-6 py-4 text-[#3D3D3D]">{detail.unite}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function UnlockDetailsTable({ details }: { details: JITCommandeDeverrouillee[] }) {
+  if (details.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-[#8A8A8A]">
+        Aucun detail de deverrouillage disponible.
+      </div>
+    )
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">ID commande</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Date</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Avant</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Apres</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {details.map((detail) => {
+            const beforeBadge = statusBadge(detail.statut_avant || "")
+            const afterBadge = statusBadge(detail.statut_apres || "")
+
+            return (
+              <tr key={detail.id} className="hover:bg-gray-50">
+                <td className="px-4 py-3 font-medium text-[#1E8A3C]">{detail.id}</td>
+                <td className="px-4 py-3 text-sm text-[#3D3D3D]">{formatShortDateTime(detail.date_commande)}</td>
+                <td className="px-4 py-3">
+                  <span className={cn("inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium", beforeBadge.className)}>
+                    {beforeBadge.locked && <Lock className="w-3 h-3" />}
+                    {beforeBadge.label}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <span className={cn("inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium", afterBadge.className)}>
+                    {afterBadge.locked && <Lock className="w-3 h-3" />}
+                    {afterBadge.label}
+                  </span>
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>
@@ -422,13 +548,15 @@ export default function AdminOrdersPage() {
   const [unlockFeedback, setUnlockFeedback] = useState<string | null>(null)
   const [unlockError, setUnlockError] = useState<string | null>(null)
   const [lastUnlockedCount, setLastUnlockedCount] = useState<number | null>(null)
+  const [lastUnlockedDetails, setLastUnlockedDetails] = useState<JITCommandeDeverrouillee[]>([])
   const [isUnlocking, setIsUnlocking] = useState(false)
   const [isUnlockDialogOpen, setIsUnlockDialogOpen] = useState(false)
+  const [isUnlockDetailsOpen, setIsUnlockDetailsOpen] = useState(false)
 
   const [lastLog, setLastLog] = useState<JITLogDTO | null>(null)
   const [logError, setLogError] = useState<string | null>(null)
   const [isLogLoading, setIsLogLoading] = useState(true)
-  const [isLogDialogOpen, setIsLogDialogOpen] = useState(false)
+  const [showDetails, setShowDetails] = useState(false)
 
   async function loadOrders(nextToken: string, showLoader = true, signal?: AbortSignal) {
     if (showLoader) {
@@ -570,6 +698,7 @@ export default function AdminOrdersPage() {
       const response = await jitDeverrouiller(token)
       const count = getUnlockCount(response)
       setLastUnlockedCount(count)
+      setLastUnlockedDetails(response.commandes || [])
       setUnlockFeedback(response.message || `${count} commande(s) déverrouillée(s).`)
       await loadOrders(token, false)
       setIsUnlockDialogOpen(false)
@@ -584,9 +713,7 @@ export default function AdminOrdersPage() {
     }
   }
 
-  const logDetails = getArray(lastLog?.details_volumes?.produits)
-    .map(normalizeDetailProduit)
-    .filter((detail): detail is DetailProduitJIT => detail !== null)
+  const todayLabel = formatShortDate(new Date())
 
   if (isAuthLoading) {
     return (
@@ -684,6 +811,7 @@ export default function AdminOrdersPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">ID</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Date</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Client</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Produits</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Volume kg</th>
@@ -698,6 +826,7 @@ export default function AdminOrdersPage() {
                     return (
                       <tr key={order.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 font-medium text-[#1E8A3C]">{order.id}</td>
+                        <td className="px-6 py-4 text-sm text-[#3D3D3D]">{formatShortDateTime(order.dateCommande)}</td>
                         <td className="px-6 py-4 text-[#3D3D3D]">{order.client}</td>
                         <td className="px-6 py-4 text-sm text-[#8A8A8A] max-w-[320px] whitespace-normal">{order.produits}</td>
                         <td className="px-6 py-4 text-[#3D3D3D]">{formatWeight(order.volumeKg)}</td>
@@ -723,15 +852,18 @@ export default function AdminOrdersPage() {
         </section>
 
         <section className="bg-white rounded-2xl shadow-sm p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+          <div className="flex items-center justify-between gap-4 mb-6">
             <div>
               <h2 className="text-lg font-bold text-[#3D3D3D]">Agrégation JIT</h2>
               <p className="text-sm text-[#8A8A8A] mt-1">
                 Prévisualisez l&apos;agrégation ou lancez le verrouillage immédiat des commandes.
               </p>
+              <span className="mt-3 inline-flex items-center rounded-full border border-[#1E8A3C]/20 bg-[#F0FAF1] px-3 py-1 text-xs font-medium text-[#1E8A3C]">
+                Agrégation du {todayLabel}
+              </span>
             </div>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => void handlePreview()}
                 disabled={!token || isPreviewLoading || isExecuteLoading}
@@ -893,9 +1025,22 @@ export default function AdminOrdersPage() {
 
           {(unlockFeedback || lastUnlockedCount !== null) && !unlockError && (
             <div className="mt-6 rounded-xl border border-[#4CB84A]/20 bg-[#F0FAF1] px-4 py-4">
-              <p className="text-sm text-[#8A8A8A]">Commandes rouvertes</p>
-              <p className="mt-2 text-3xl font-bold text-[#1E8A3C]">{lastUnlockedCount ?? 0}</p>
-              {unlockFeedback && <p className="mt-2 text-sm text-[#1E8A3C]">{unlockFeedback}</p>}
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm text-[#8A8A8A]">Commandes rouvertes</p>
+                  <p className="mt-2 text-3xl font-bold text-[#1E8A3C]">{lastUnlockedCount ?? 0}</p>
+                  {unlockFeedback && <p className="mt-2 text-sm text-[#1E8A3C]">{unlockFeedback}</p>}
+                </div>
+
+                <button
+                  onClick={() => setIsUnlockDetailsOpen(true)}
+                  disabled={lastUnlockedDetails.length === 0}
+                  className="px-4 py-2 border border-[#4CB84A]/30 bg-white rounded-xl font-medium text-[#3D3D3D] hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Eye className="w-4 h-4 text-[#1A4F8A]" />
+                  Voir le détail
+                </button>
+              </div>
             </div>
           )}
 
@@ -916,12 +1061,12 @@ export default function AdminOrdersPage() {
             </div>
 
             <button
-              onClick={() => setIsLogDialogOpen(true)}
+              onClick={() => setShowDetails(!showDetails)}
               disabled={!lastLog}
               className="px-4 py-2 border border-gray-200 rounded-xl font-medium text-[#3D3D3D] hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2"
             >
               <Eye className="w-4 h-4 text-[#1A4F8A]" />
-              Voir le détail
+              {showDetails ? "Masquer détails" : "Voir détails"}
             </button>
           </div>
 
@@ -970,19 +1115,25 @@ export default function AdminOrdersPage() {
               <span>{lastLog.message_alerte}</span>
             </div>
           )}
+
+          {showDetails && (
+            <div className="mt-6 overflow-hidden">
+              <JITLogDetailsTable log={lastLog} />
+            </div>
+          )}
         </section>
 
-        <Dialog open={isLogDialogOpen} onOpenChange={setIsLogDialogOpen}>
+        <Dialog open={isUnlockDetailsOpen} onOpenChange={setIsUnlockDetailsOpen}>
           <DialogContent className="max-w-4xl rounded-2xl p-0 overflow-hidden">
             <DialogHeader className="px-6 pt-6">
-              <DialogTitle>Détails du dernier log JIT</DialogTitle>
+              <DialogTitle>Details du deverrouillage JIT</DialogTitle>
               <DialogDescription>
-                Produits agrégés depuis <span className="font-medium text-[#3D3D3D]">{formatDateTime(lastLog?.date_execution)}</span>
+                Commandes rouvertes lors de la derniere action de deverrouillage.
               </DialogDescription>
             </DialogHeader>
 
             <div className="px-6 pb-6">
-              <ProductDetailsTable details={logDetails} />
+              <UnlockDetailsTable details={lastUnlockedDetails} />
             </div>
           </DialogContent>
         </Dialog>

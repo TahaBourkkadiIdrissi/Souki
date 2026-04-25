@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, List
+from dto.commande_dto import CommandeJourDTO
 from entities.commande_vocale_entity import CommandeVocale
 
 
@@ -25,4 +26,9 @@ class ICommandeVocaleDao(ABC):
     @abstractmethod
     def get_details_for_checkout(self, session: Session, commande_id: int) -> Optional[dict]:
         """Récupère les données formatées pour le checkout."""
+        pass
+
+    @abstractmethod
+    def get_commandes_du_jour(self, session: Session) -> List[CommandeJourDTO]:
+        """Retourne toutes les commandes du jour"""
         pass

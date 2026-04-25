@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, List
+from sqlalchemy.orm import Session
 
-from dto.commande_dto import VoiceBasketResponseDTO, CommandeCheckoutDTO
+from dto.commande_dto import VoiceBasketResponseDTO, CommandeCheckoutDTO, CommandeJourDTO
 
 
 
@@ -30,4 +31,9 @@ class ICommandeVocaleService(ABC):
     @abstractmethod
     def get_commande_checkout(self, commande_id: int) -> Optional[CommandeCheckoutDTO]:
         """Récupère le détail d'une commande pour le checkout."""
+        pass
+
+    @abstractmethod
+    def get_commandes_du_jour(self, session: Session) -> List[CommandeJourDTO]:
+        """Retourne toutes les commandes du jour"""
         pass

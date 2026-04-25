@@ -3,11 +3,25 @@ import base64
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from auth_dependencies import require_auth, require_permission
+from controllers.auth_controller import get_current_user
 from dependencies import get_voice_service
-from dto.commande_dto import CommandeCheckoutDTO, TextBasketRequest, VoiceBasketResponseDTO
+from dto.commande_dto import CommandeCheckoutDTO, CommandeJourDTO, TextBasketRequest, VoiceBasketResponseDTO
 from interfaces.commande_service_interface import ICommandeVocaleService
 
 router_voice = APIRouter(prefix="/api", tags=["Voice AI"])
+
+
+def get_admin_user(user=Depends(get_current_user)):
+    """
+    Dependance pour verifier que l'utilisateur est ADMIN.
+    Leve une exception 403 si ce n'est pas un admin.
+    """
+    if not user or user.primary_role != "ADMIN":
+        raise HTTPException(
+            status_code=403,
+            detail="Acces refuse. Seul l'administrateur peut acceder a ce endpoint."
+        )
+    return user
 
 
 @router_voice.post("/text-basket", response_model=VoiceBasketResponseDTO)
@@ -46,6 +60,24 @@ def process_voice_basket(
 
     with service:
         return service.traiter_audio(principal.user_id, audio_b64, mime)
+
+
+@router_voice.get("/commandes", response_model=list[CommandeJourDTO])
+@router_voice.get("/commandes/jour", response_model=list[CommandeJourDTO])
+def get_commandes_du_jour(
+    admin_user=Depends(get_admin_user),
+    service: ICommandeVocaleService = Depends(get_voice_service)
+):
+    """
+    Retourne les commandes du jour.
+
+    ADMIN ONLY - Authentification requise
+    """
+    try:
+        with service:
+            return service.get_commandes_du_jour(service.session)  # type: ignore
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors du chargement des commandes du jour: {str(e)}")
 
 
 @router_voice.get("/commandes/{commande_id}", response_model=CommandeCheckoutDTO)

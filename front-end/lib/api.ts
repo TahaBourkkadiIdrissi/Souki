@@ -82,25 +82,40 @@ export interface ResultatAgregationJIT {
   details_produits: DetailProduitJIT[]
   montant_total: number
   statut: string
-  message?: string
+  message?: string | null
 }
 
 export interface JITLogDTO {
-  id?: number
-  date_execution?: string
+  id?: number | null
+  date_execution?: string | null
   volume_total: number
   nombre_commandes: number
   nombre_abonnements: number
   statut: string
-  details_volumes?: { produits: DetailProduitJIT[] }
-  message_alerte?: string
+  details_volumes?: Record<string, unknown> | null
+  message_alerte?: string | null
 }
 
 export interface JITDeverrouillerResponse {
   nombre_commandes?: number
   nombre_deverrouillees?: number
+  commandes?: JITCommandeDeverrouillee[]
   statut?: string
   message?: string
+}
+
+export interface JITCommandeDeverrouillee {
+  id: number
+  date_commande?: string | null
+  statut_avant?: string | null
+  statut_apres?: string | null
+}
+
+export interface JITLogsParPlageResponse {
+  logs: JITLogDTO[]
+  nombre: number
+}
+
 export interface DeliveryEventRequest {
   target_status: "EN_ROUTE" | "LIVRE" | "ABSENT"
   client_event_id: string
@@ -196,6 +211,11 @@ export async function demarrerLivreurTournee(token: string) {
 
 export async function jitAgreger(token: string) {
   return apiCall<ResultatAgregationJIT>("/api/jit/agreguer", {
+    method: "POST",
+    token,
+  })
+}
+
 export async function envoyerEvenementLivraison(
   token: string,
   commandeId: string | number,
@@ -231,4 +251,11 @@ export async function jitDeverrouiller(token: string) {
 
 export async function jitDernierLog(token: string) {
   return apiCall<JITLogDTO>("/api/jit/logs/dernier", { token })
+}
+
+export async function jitLogsParPlage(token: string, dateDebut: string, dateFin: string) {
+  return apiCall<JITLogsParPlageResponse>(
+    `/api/jit/logs/${encodeURIComponent(dateDebut)}/${encodeURIComponent(dateFin)}`,
+    { token }
+  )
 }
