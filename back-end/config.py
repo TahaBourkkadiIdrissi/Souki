@@ -44,6 +44,8 @@ engine = create_engine(
     connect_args={"connect_timeout": DB_CONNECT_TIMEOUT},
 )
 
+)
+ # type: ignore
 # Session locale — à utiliser dans chaque route / service
 LocalSession = sessionmaker(bind=engine)
 

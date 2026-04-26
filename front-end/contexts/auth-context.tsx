@@ -272,8 +272,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!response) {
         throw new Error("Le serveur backend est indisponible.")
       }
-
-      if (!response.ok) {
         const errorDetail = await readErrorDetail(response)
         throw new Error(
           errorDetail || `Erreur de connexion (${response.status} ${response.statusText || "HTTP"})`

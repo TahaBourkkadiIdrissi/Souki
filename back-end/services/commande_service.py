@@ -1,11 +1,12 @@
 import json
-from typing import Optional
+from typing import Optional, List
 from config import LocalSession
+from sqlalchemy.orm import Session
 from interfaces.commande_service_interface import ICommandeVocaleService
 from interfaces.product_dao_interface import IProductDao
 from interfaces.commande_dao_interface import ICommandeVocaleDao
 from services.catalogue_service import CatalogueService
-from dto.commande_dto import VoiceBasketResponseDTO, CommandeCheckoutDTO, LigneCheckoutDTO
+from dto.commande_dto import VoiceBasketResponseDTO, CommandeCheckoutDTO, LigneCheckoutDTO, CommandeJourDTO
 from api.algorithms import call_gemini, build_audio_parts, build_text_parts
 
 
@@ -109,3 +110,6 @@ class CommandeVocaleService(ICommandeVocaleService):
             lignes=lignes_dto,
             total_dh=round(total, 2)
         )
+
+    def get_commandes_du_jour(self, session: Session) -> List[CommandeJourDTO]:
+        return self.commande_dao.get_commandes_du_jour(session)
