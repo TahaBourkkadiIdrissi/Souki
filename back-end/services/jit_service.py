@@ -1,4 +1,5 @@
 import math
+from datetime import date, datetime, time
 from typing import Dict, List
 
 from sqlalchemy.orm import Session
@@ -14,6 +15,7 @@ from interfaces.jit_service_interface import IJITService
 
 PENDING_JIT_STATUSES = ("EN_ATTENTE", "CONFIRMEE")
 LOCKED_JIT_STATUS = "VERROUILLEE"
+UNLOCKED_JIT_STATUS = "CONFIRMEE"
 
 
 class JITService(IJITService):
@@ -28,10 +30,17 @@ class JITService(IJITService):
         Calcule les volumes avec buffer 10% et arrondit a la caisse entiere.
         """
         volumes_par_produit: Dict[int, Dict] = {}
+        today = date.today()
+        start_of_day = datetime.combine(today, time.min)
+        end_of_day = datetime.combine(today, time.max)
 
         commandes = (
             session.query(Commande)
-            .filter(Commande.statut.in_(PENDING_JIT_STATUSES))
+            .filter(
+                Commande.statut.in_(PENDING_JIT_STATUSES),
+                Commande.date_commande >= start_of_day,
+                Commande.date_commande <= end_of_day,
+            )
             .all()
         )
 
@@ -82,7 +91,7 @@ class JITService(IJITService):
             volume_final = math.ceil(volume_avec_buffer)
 
             prix_kg = info["prix_kg"]
-            sous_total = volume_final * prix_kg
+            sous_total = quantite_brute * prix_kg
 
             detail = DetailProduitJIT(
                 product_id=product_id,
@@ -123,9 +132,17 @@ class JITService(IJITService):
         Retourne le nombre de commandes verrouillees.
         """
         try:
+            today = date.today()
+            start_of_day = datetime.combine(today, time.min)
+            end_of_day = datetime.combine(today, time.max)
+
             commandes = (
                 session.query(Commande)
-                .filter(Commande.statut.in_(PENDING_JIT_STATUSES))
+                .filter(
+                    Commande.statut.in_(PENDING_JIT_STATUSES),
+                    Commande.date_commande >= start_of_day,
+                    Commande.date_commande <= end_of_day,
+                )
                 .all()
             )
 
@@ -138,6 +155,48 @@ class JITService(IJITService):
             return nombre_verrouillees
         except Exception as exc:
             print(f"Erreur lors du verrouillage des commandes: {exc}")
+            raise
+
+    def deverrouiller_commandes(self, session: Session) -> Dict:
+        """
+        Deverrouille toutes les commandes verrouillees par le JIT.
+        Retourne le nombre et le detail des commandes rouvertes.
+        """
+        try:
+            today = date.today()
+            start_of_day = datetime.combine(today, time.min)
+            end_of_day = datetime.combine(today, time.max)
+
+            commandes = (
+                session.query(Commande)
+                .filter(
+                    Commande.statut == LOCKED_JIT_STATUS,
+                    Commande.date_commande >= start_of_day,
+                    Commande.date_commande <= end_of_day,
+                )
+                .all()
+            )
+
+            commandes_deverrouillees = []
+            for commande in commandes:
+                statut_avant = str(commande.statut) if commande.statut else None
+                setattr(commande, "statut", UNLOCKED_JIT_STATUS)  # type: ignore
+                commandes_deverrouillees.append(
+                    {
+                        "id": int(commande.id),  # type: ignore
+                        "date_commande": commande.date_commande.isoformat() if commande.date_commande else None,  # type: ignore
+                        "statut_avant": statut_avant,
+                        "statut_apres": UNLOCKED_JIT_STATUS,
+                    }
+                )
+
+            session.flush()
+            return {
+                "nombre_deverrouillees": len(commandes_deverrouillees),
+                "commandes": commandes_deverrouillees,
+            }
+        except Exception as exc:
+            print(f"Erreur lors du deverrouillage des commandes: {exc}")
             raise
 
     def executer_job_jit(self, session: Session) -> JITLogDTO:

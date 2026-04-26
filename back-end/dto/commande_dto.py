@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from datetime import datetime
 from typing import Optional, List
 
 
@@ -40,3 +41,19 @@ class CommandeCheckoutDTO(BaseModel):
     transcription: Optional[str] = None
     lignes: List[LigneCheckoutDTO]
     total_dh: float
+
+class ProduitCommandeJourDTO(BaseModel):
+    nom_fr: str
+    quantite_kg: float
+
+class CommandeJourDTO(BaseModel):
+    id: int
+    date_commande: Optional[datetime] = None
+    statut: Optional[str] = None
+    client_nom: str
+    client_phone: Optional[str] = None
+    produits: List[ProduitCommandeJourDTO] = []
+    volume_total_kg: float = 0.0
+    montant_total: float = 0.0
+    mode_paiement: Optional[str] = None
+    creneau_livraison: Optional[str] = None

@@ -12,6 +12,7 @@ ALLOWED_COMMANDE_STATUSES = (
     "EN_ROUTE",
     "LIVRE",
     "ABSENT",
+    "REFUS",
 )
 
 
@@ -39,6 +40,7 @@ class DeliverySchemaSyncService:
                         WHEN upper(btrim(statut)) IN ('EN_ROUTE', 'EN ROUTE', 'EN_COURS_DE_LIVRAISON') THEN 'EN_ROUTE'
                         WHEN upper(btrim(statut)) IN ('LIVRE', 'LIVREE', 'LIVRÉE', 'LIVRÃ‰E', 'DELIVERED') THEN 'LIVRE'
                         WHEN upper(btrim(statut)) = 'ABSENT' THEN 'ABSENT'
+                        WHEN upper(btrim(statut)) IN ('REFUS', 'REFUSE', 'REFUSÉ', 'REFUSÃ‰') THEN 'REFUS'
                         ELSE upper(replace(btrim(statut), ' ', '_'))
                     END
                     """
@@ -112,19 +114,18 @@ class DeliverySchemaSyncService:
 
             connection.execute(
                 text(
+                    """
+                    ALTER TABLE t_commandes
+                    DROP CONSTRAINT IF EXISTS ck_t_commandes_statut_allowed
+                    """
+                )
+            )
+            connection.execute(
+                text(
                     f"""
-                    DO $$
-                    BEGIN
-                        IF NOT EXISTS (
-                            SELECT 1
-                            FROM pg_constraint
-                            WHERE conname = 'ck_t_commandes_statut_allowed'
-                        ) THEN
-                            ALTER TABLE t_commandes
-                            ADD CONSTRAINT ck_t_commandes_statut_allowed
-                            CHECK (statut IN ({allowed_statuses_sql}));
-                        END IF;
-                    END $$;
+                    ALTER TABLE t_commandes
+                    ADD CONSTRAINT ck_t_commandes_statut_allowed
+                    CHECK (statut IN ({allowed_statuses_sql}))
                     """
                 )
             )

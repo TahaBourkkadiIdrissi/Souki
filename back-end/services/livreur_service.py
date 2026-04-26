@@ -18,6 +18,7 @@ from dto.livreur_dto import (
     TourneeItemDTO,
     TourneeResponseDTO,
 )
+from entities.client_entity import Client
 from entities.commande_entity import Commande
 from entities.delivery_event_entity import DeliveryEvent
 from interfaces.livreur_dao_interface import ILivreurDao
@@ -29,12 +30,14 @@ PENDING_DELIVERY_STATUS = "A_LIVRER"
 STARTED_DELIVERY_STATUS = "EN_ROUTE"
 DELIVERED_STATUS = "LIVRE"
 ABSENT_STATUS = "ABSENT"
+REFUSED_STATUS = "REFUS"
 VISIBLE_TOURNEE_STATUSES = {
     LEGACY_PENDING_DELIVERY_STATUS,
     PENDING_DELIVERY_STATUS,
     STARTED_DELIVERY_STATUS,
     DELIVERED_STATUS,
     ABSENT_STATUS,
+    REFUSED_STATUS,
 }
 logger = logging.getLogger(__name__)
 
@@ -79,7 +82,7 @@ class LivreurService(ILivreurService):
         items = [self._build_tournee_item(row) for row in rows]
         sorted_items, sort_strategy = self._sort_items(items)
         tournee_started = any(
-            self._canonical_delivery_status(item.statut) in {STARTED_DELIVERY_STATUS, DELIVERED_STATUS, ABSENT_STATUS}
+            self._canonical_delivery_status(item.statut) in {STARTED_DELIVERY_STATUS, DELIVERED_STATUS, ABSENT_STATUS, REFUSED_STATUS}
             for item in sorted_items
         )
 
@@ -273,6 +276,11 @@ class LivreurService(ILivreurService):
                 target_status=target_status,
                 server_timestamp=server_timestamp,
             )
+            self._apply_refusal_blacklist(
+                session=session,
+                commande=commande,
+                target_status=target_status,
+            )
 
             self._queue_notifications(
                 session=session,
@@ -322,9 +330,24 @@ class LivreurService(ILivreurService):
                         message="Evenement deja traite.",
                     )
 
+            integrity_message = str(getattr(exc, "orig", exc))
+            lowered_message = integrity_message.casefold()
+
+            if "client_event_id" in lowered_message or "t_delivery_events" in lowered_message:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Conflit d'idempotence sur l'evenement de livraison.",
+                ) from exc
+
+            logger.exception(
+                "IntegrityError backend lors de la mise a jour de livraison commande_id=%s livreur_id=%s: %s",
+                commande_id,
+                livreur_id,
+                integrity_message,
+            )
             raise HTTPException(
                 status_code=409,
-                detail="Conflit d'idempotence sur l'evenement de livraison.",
+                detail=f"Contrainte base de donnees refusee: {integrity_message}",
             ) from exc
         except Exception as exc:
             session.rollback()
@@ -448,6 +471,23 @@ class LivreurService(ILivreurService):
         elif target_status == ABSENT_STATUS:
             commande.absent_at = server_timestamp
 
+    def _apply_refusal_blacklist(
+        self,
+        *,
+        session: Session,
+        commande: Commande,
+        target_status: str,
+    ) -> None:
+        if target_status != REFUSED_STATUS:
+            return
+
+        if commande.client_id is None:
+            return
+
+        client = session.get(Client, int(commande.client_id))
+        if client is not None:
+            client.is_blacklisted = True
+
     def _queue_notifications(
         self,
         *,
@@ -529,7 +569,7 @@ class LivreurService(ILivreurService):
     def _is_transition_allowed(self, previous_status: str, target_status: str) -> bool:
         allowed_transitions = {
             PENDING_DELIVERY_STATUS: {STARTED_DELIVERY_STATUS},
-            STARTED_DELIVERY_STATUS: {DELIVERED_STATUS, ABSENT_STATUS},
+            STARTED_DELIVERY_STATUS: {DELIVERED_STATUS, ABSENT_STATUS, REFUSED_STATUS},
             ABSENT_STATUS: {STARTED_DELIVERY_STATUS},
         }
         return target_status in allowed_transitions.get(previous_status, set())
@@ -541,6 +581,8 @@ class LivreurService(ILivreurService):
             "EN_ATTENTE": PENDING_DELIVERY_STATUS,
             "LIVREE": DELIVERED_STATUS,
             "DELIVERED": DELIVERED_STATUS,
+            "REFUSE": REFUSED_STATUS,
+            "REFUSED": REFUSED_STATUS,
         }
         return status_aliases.get(normalized_status, normalized_status)
 
@@ -598,6 +640,8 @@ class LivreurService(ILivreurService):
             "EN ATTENTE": LEGACY_PENDING_DELIVERY_STATUS,
             "A LIVRER": PENDING_DELIVERY_STATUS,
             "EN ROUTE": STARTED_DELIVERY_STATUS,
+            "REFUSÉ": REFUSED_STATUS,
+            "REFUSE": REFUSED_STATUS,
             "CONFIRMÉE": "CONFIRMEE",
             "VERROUILLÉE": "VERROUILLEE",
         }

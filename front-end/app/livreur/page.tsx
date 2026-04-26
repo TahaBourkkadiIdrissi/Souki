@@ -100,7 +100,7 @@ const ROUTE_LAYER: Omit<LineLayerSpecification, "source"> = {
   },
 }
 
-type DeliveryStatus = "pending" | "enroute" | "delivered" | "absent"
+type DeliveryStatus = "pending" | "enroute" | "delivered" | "absent" | "refused"
 type DeliveryBackendStatus = DeliveryEventRequest["target_status"]
 type PaymentMethod = "cod" | "wallet" | "cmi"
 type NoticeTone = "info" | "success" | "error"
@@ -253,14 +253,14 @@ function isTourneeForCurrentDay(response: TourneeResponse) {
 
 function isTerminalDeliveryStatus(status: string) {
   const normalizedStatus = normalizeDeliveryStatus(status)
-  return normalizedStatus === "delivered" || normalizedStatus === "absent"
+  return normalizedStatus === "delivered" || normalizedStatus === "absent" || normalizedStatus === "refused"
 }
 
 function shouldPreferCachedStatus(apiStatus: string, cachedStatus: string) {
   const normalizedApiStatus = normalizeDeliveryStatus(apiStatus)
   const normalizedCachedStatus = normalizeDeliveryStatus(cachedStatus)
 
-  if (normalizedCachedStatus === "delivered" || normalizedCachedStatus === "absent") {
+  if (normalizedCachedStatus === "delivered" || normalizedCachedStatus === "absent" || normalizedCachedStatus === "refused") {
     return normalizedApiStatus !== normalizedCachedStatus
   }
 
@@ -384,6 +384,10 @@ function normalizeDeliveryStatus(status: string): DeliveryStatus {
     return "absent"
   }
 
+  if (normalizedStatus === "REFUS" || normalizedStatus === "REFUSE" || normalizedStatus === "REFUSED") {
+    return "refused"
+  }
+
   return "pending"
 }
 
@@ -398,6 +402,10 @@ function mapDeliveryStatusToBackendStatus(status: DeliveryStatus) {
 
   if (status === "absent") {
     return "ABSENT"
+  }
+
+  if (status === "refused") {
+    return "REFUS"
   }
 
   return "A_LIVRER"
@@ -685,6 +693,7 @@ export default function LivreurPage() {
   const [isTourneeLoading, setIsTourneeLoading] = useState(true)
   const [isStartingTournee, setIsStartingTournee] = useState(false)
   const [isValidatingCodPayment, setIsValidatingCodPayment] = useState(false)
+  const [isLoadingRefus, setIsLoadingRefus] = useState(false)
   const [beforeSeven, setBeforeSeven] = useState(false)
   const [tourneeStarted, setTourneeStarted] = useState(false)
   const [loadSource, setLoadSource] = useState<"api" | "cache" | null>(null)
@@ -965,10 +974,12 @@ export default function LivreurPage() {
       delivery,
       targetStatus,
       offlineMessage,
+      clientEventIdOverride,
     }: {
       delivery: DeliveryViewItem
       targetStatus: DeliveryStatus
       offlineMessage: string
+      clientEventIdOverride?: string
     }) => {
       if (!token) {
         setNotice({ tone: "error", message: "Session livreur requise pour mettre a jour la livraison." })
@@ -981,7 +992,9 @@ export default function LivreurPage() {
       }
 
       const previousSnapshot = { ...delivery }
-      const clientEventId = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${delivery.id}-${Date.now()}`
+      const clientEventId =
+        clientEventIdOverride ??
+        (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${delivery.id}-${Date.now()}`)
       const deviceTimestamp = new Date().toISOString()
       const queueItem: DeliverySyncQueueItem = {
         clientEventId,
@@ -1678,7 +1691,9 @@ export default function LivreurPage() {
     return () => window.cancelAnimationFrame(frameId)
   }, [mapCameraKey])
 
-  const completedCount = deliveryList.filter((item) => item.status === "delivered" || item.status === "absent").length
+  const completedCount = deliveryList.filter(
+    (item) => item.status === "delivered" || item.status === "absent" || item.status === "refused"
+  ).length
   const totalCount = deliveryList.length
   const remainingCount = activeDeliveries.length
   const remainingTime = computeRemainingTime(deliveryList)
@@ -1818,6 +1833,49 @@ export default function LivreurPage() {
     if (hasMarkedAbsent) {
       setActiveNavigationDeliveryId(null)
       setIsNavigating(false)
+    }
+  }
+
+  const handleMarkCurrentDeliveryRefused = async () => {
+    const activeDelivery = currentDelivery
+    if (!activeDelivery) {
+      return
+    }
+
+    if (isLoadingRefus) {
+      return
+    }
+
+    setIsLoadingRefus(true)
+    try {
+      const freshEventId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${activeDelivery.id}-refus-${Date.now()}`
+
+      const liveDelivery =
+        deliveryListRef.current.find((item) => item.id === activeDelivery.id) ??
+        activeDelivery
+
+      const hasMarkedRefused = await submitDeliveryStatusChange({
+        delivery: liveDelivery,
+        targetStatus: "refused",
+        offlineMessage: "Refus client enregistre hors ligne. La mise en liste noire sera synchronisee au retour du reseau.",
+        clientEventIdOverride: freshEventId,
+      })
+
+      if (hasMarkedRefused) {
+        setActiveNavigationDeliveryId(null)
+        setIsNavigating(false)
+      }
+    } catch (error) {
+      console.error("Erreur lors du refus :", error)
+      setNotice({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Impossible d'enregistrer le refus client.",
+      })
+    } finally {
+      setIsLoadingRefus(false)
     }
   }
 
@@ -2391,7 +2449,9 @@ export default function LivreurPage() {
                   <div
                     className={cn(
                       "grid gap-3",
-                      isNavigating ? "grid-cols-[3.25rem_5.5rem_minmax(0,1fr)]" : "grid-cols-[3.25rem_minmax(0,1fr)]",
+                      isNavigating
+                        ? "grid-cols-[3.25rem_5.5rem_7.5rem_minmax(0,1fr)]"
+                        : "grid-cols-[3.25rem_minmax(0,1fr)]",
                       isSheetExpanded ? "pt-3" : "mt-auto pt-3"
                     )}
                   >
@@ -2412,9 +2472,24 @@ export default function LivreurPage() {
                         onClick={handleMarkCurrentDeliveryAbsent}
                         disabled={isStartingTournee || isValidatingCodPayment || !currentDelivery}
                         title="Client introuvable"
-                        className="flex h-12 items-center justify-center rounded-2xl bg-red-500 px-3 text-xs font-semibold text-white shadow-[0_14px_30px_rgba(220,38,38,0.22)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="flex h-12 items-center justify-center rounded-2xl bg-amber-500 px-3 text-xs font-semibold text-white shadow-[0_14px_30px_rgba(245,158,11,0.24)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Absent
+                      </button>
+                    )}
+
+                    {isNavigating && (
+                      <button
+                        type="button"
+                        onClick={handleMarkCurrentDeliveryRefused}
+                        disabled={isLoadingRefus || isStartingTournee || isValidatingCodPayment || !currentDelivery}
+                        title="Client refuse la commande"
+                        className={cn(
+                          "flex h-12 items-center justify-center rounded-2xl bg-red-600 px-3 text-xs font-semibold text-white shadow-[0_14px_30px_rgba(220,38,38,0.24)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60",
+                          isLoadingRefus && "opacity-50"
+                        )}
+                      >
+                        {isLoadingRefus ? "Traitement..." : "Refus client"}
                       </button>
                     )}
 
