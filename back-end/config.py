@@ -42,10 +42,7 @@ engine = create_engine(
     pool_timeout=30,
     pool_pre_ping=True,
     connect_args={"connect_timeout": DB_CONNECT_TIMEOUT},
-)
-
-)
- # type: ignore
+)  # type: ignore
 # Session locale — à utiliser dans chaque route / service
 LocalSession = sessionmaker(bind=engine)
 
