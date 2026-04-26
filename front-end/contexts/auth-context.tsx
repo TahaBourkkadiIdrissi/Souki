@@ -43,6 +43,7 @@ const wait = (ms: number) =>
   new Promise((resolve) => {
     window.setTimeout(resolve, ms)
   })
+
 const isRequestTimeoutError = (error: unknown) =>
   error instanceof DOMException && error.name === "AbortError"
 
@@ -74,9 +75,13 @@ async function readErrorDetail(response: Response) {
   }
 }
 
-async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit) {
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+  timeoutMs = AUTH_REQUEST_TIMEOUT_MS
+) {
   const controller = new AbortController()
-  const timeoutHandle = window.setTimeout(() => controller.abort(), AUTH_REQUEST_TIMEOUT_MS)
+  const timeoutHandle = window.setTimeout(() => controller.abort(), timeoutMs)
 
   try {
     return await fetch(input, {
@@ -117,10 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const validateTokenWithBackend = async (
     tok: string
   ): Promise<{ user: User | null; networkError: boolean }> => {
-    let timeoutId: number | undefined
     try {
-      const controller = new AbortController()
-      timeoutId = window.setTimeout(() => controller.abort(), NETWORK_TIMEOUT_MS)
       const response = await fetchWithTimeout(`${API_BASE_URL}/auth/me`, {
         method: "GET",
         headers: {
@@ -129,8 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         mode: "cors",
         credentials: "omit",
-        signal: controller.signal,
-      })
+      }, NETWORK_TIMEOUT_MS)
 
       if (!response.ok) {
         return { user: null, networkError: false }
@@ -153,10 +154,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         error instanceof Error ? error.message : String(error)
       )
       return { user: null, networkError: false }
-    } finally {
-      if (timeoutId) {
-        window.clearTimeout(timeoutId)
-      }
     }
   }
 
@@ -245,13 +242,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const authenticate = async (endpoint: string, payload: Record<string, unknown>) => {
     try {
-      const response = await fetchWithTimeout(`${API_BASE_URL}${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        mode: "cors",
-        credentials: "omit",
-      })
+      let response: Response | null = null
+
+      for (let attempt = 1; attempt <= NETWORK_RETRY_ATTEMPTS; attempt += 1) {
+        try {
+          response = await fetchWithTimeout(`${API_BASE_URL}${endpoint}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            mode: "cors",
+            credentials: "omit",
+          }, NETWORK_TIMEOUT_MS)
+          break
+        } catch (error) {
+          const isTimeout = isRequestTimeoutError(error)
+          if ((isTimeout || isNetworkFetchError(error)) && attempt < NETWORK_RETRY_ATTEMPTS) {
+            await wait(NETWORK_RETRY_DELAY_MS)
+            continue
+          }
+
+          if (isTimeout || isNetworkFetchError(error)) {
+            throw new Error("Le serveur backend ne repond pas encore. Attends 2 a 3 secondes puis reessaie.")
+          }
+
+          throw error
+        }
+      }
+
+      if (!response) {
+        throw new Error("Le serveur backend est indisponible.")
+      }
 
       if (!response.ok) {
         const errorDetail = await readErrorDetail(response)
