@@ -39,12 +39,10 @@ const NETWORK_TIMEOUT_MS = 5000
 const isNetworkFetchError = (error: unknown) =>
   error instanceof TypeError && error.message.toLowerCase().includes("fetch")
 
-<<<<<<< HEAD
 const wait = (ms: number) =>
   new Promise((resolve) => {
     window.setTimeout(resolve, ms)
   })
-=======
 const isRequestTimeoutError = (error: unknown) =>
   error instanceof DOMException && error.name === "AbortError"
 
@@ -89,7 +87,6 @@ async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit) {
     window.clearTimeout(timeoutHandle)
   }
 }
->>>>>>> main
 
 function normalizeUser(payload: any): User {
   const roles = Array.isArray(payload?.roles) ? payload.roles.map((value: string) => String(value).toUpperCase()) : []
@@ -122,13 +119,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ): Promise<{ user: User | null; networkError: boolean }> => {
     let timeoutId: number | undefined
     try {
-<<<<<<< HEAD
       const controller = new AbortController()
       timeoutId = window.setTimeout(() => controller.abort(), NETWORK_TIMEOUT_MS)
-      const response = await fetch(`${API_BASE_URL}/auth/me`, {
-=======
       const response = await fetchWithTimeout(`${API_BASE_URL}/auth/me`, {
->>>>>>> main
         method: "GET",
         headers: {
           Authorization: `Bearer ${tok}`,
@@ -147,17 +140,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(userData)
       return { user: userData, networkError: false }
     } catch (error) {
-<<<<<<< HEAD
-      if (error instanceof DOMException && error.name === "AbortError") {
-        console.warn("Backend trop lent pour la validation du token.")
-        return { user: null, networkError: true }
-      }
-      if (isNetworkFetchError(error)) {
-        console.warn("Backend temporairement indisponible pour la validation du token.")
-=======
       if (isRequestTimeoutError(error)) {
         console.warn(buildRequestTimeoutMessage())
->>>>>>> main
         return { user: null, networkError: true }
       }
       if (isNetworkFetchError(error)) {
@@ -261,46 +245,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const authenticate = async (endpoint: string, payload: Record<string, unknown>) => {
     try {
-<<<<<<< HEAD
-      let response: Response | null = null
-
-      for (let attempt = 1; attempt <= NETWORK_RETRY_ATTEMPTS; attempt += 1) {
-        let timeoutId: number | undefined
-        try {
-          const controller = new AbortController()
-          timeoutId = window.setTimeout(() => controller.abort(), NETWORK_TIMEOUT_MS)
-          response = await fetch(`${API_BASE_URL}${endpoint}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-            mode: "cors",
-            credentials: "omit",
-            signal: controller.signal,
-          })
-          break
-        } catch (error) {
-          const isTimeout = error instanceof DOMException && error.name === "AbortError"
-          if ((isTimeout || isNetworkFetchError(error)) && attempt < NETWORK_RETRY_ATTEMPTS) {
-            await wait(NETWORK_RETRY_DELAY_MS)
-            continue
-          }
-
-          if (isTimeout || isNetworkFetchError(error)) {
-            throw new Error("Le serveur backend ne repond pas encore. Attends 2 a 3 secondes puis reessaie.")
-          }
-
-          throw error
-        } finally {
-          if (timeoutId) {
-            window.clearTimeout(timeoutId)
-          }
-        }
-      }
-
-      if (!response) {
-        throw new Error("Le serveur backend est indisponible.")
-      }
-=======
       const response = await fetchWithTimeout(`${API_BASE_URL}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -308,7 +252,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         mode: "cors",
         credentials: "omit",
       })
->>>>>>> main
 
       if (!response.ok) {
         const errorDetail = await readErrorDetail(response)

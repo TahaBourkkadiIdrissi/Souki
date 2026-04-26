@@ -146,6 +146,17 @@ Content-Type: audio/wav
 ### ─────────────────────────────────────────────
 ### 🚀 SYSTÈME JIT - TESTS D'INTÉGRATION
 ### ─────────────────────────────────────────────
+### ⚠️ GUIDE D'EXÉCUTION:
+### 
+### 1. Exécutez d'abord: admin_register → ÉTAPE 1
+### 2. Puis exécutez: admin_login → ÉTAPE 2
+### 3. Copiez le token admin dans les autres requêtes
+### 4. Exécutez les tests dans cet ordre: 1.0 → 1.1 → 1.2 → 1.3
+### 5. Testez la sécurité: TEST 2.1 → 2.2 → 2.3 → 2.4 → 2.5
+### 
+### ✅ TOUS LES TESTS UTILISENT LE MÊME TOKEN ADMIN
+### ✅ ENDPOINTS RETOURNENT DES ERREURS SI RÔLE ≠ ADMIN
+### ─────────────────────────────────────────────
 ### Tâches:
 ### 1. ✅ Valider atomicité transaction après fix
 ### 2. ✅ Vérifier démarrage scheduler sans deprecation
@@ -153,30 +164,29 @@ Content-Type: audio/wav
 ### 4. ✅ Vérifier admin gates sur endpoints JIT
 ### ─────────────────────────────────────────────
 
-## ÉTAPE 1: Créer un compte ADMIN pour les tests
+## ÉTAPE 1: Créer un compte ADMIN
 # @name admin_register
 POST {{BASE_URL}}/auth/register
 Content-Type: application/json
 
 {
-  "email": "admin_jit@souki.ma",
+  "email": "admin@souki.local",
   "phone": "+212699999911",
-  "password": "AdminJIT@123",
+  "password": "Admin123456",
   "role": "ADMIN"
 }
 
-## ÉTAPE 2: Se connecter en tant qu'ADMIN
+### ÉTAPE 2: Se connecter en tant qu'ADMIN (endpoint correct!)
 # @name admin_login
-POST {{BASE_URL}}/auth/login
+POST {{BASE_URL}}/auth/admin/login
 Content-Type: application/json
 
 {
-  "login_id": "admin_jit@souki.ma",
-  "password": "AdminJIT@123",
-  "role": "ADMIN"
+  "login_id": "admin@souki.local",
+  "password": "Admin123456"
 }
 
-@admin_token = {{admin_login.response.body.access_token}}
+@admin_token =eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2NCIsInJvbGUiOiJBRE1JTiIsImxlZ2FjeV9yb2xlIjoiQURNSU4iLCJkZWZhdWx0X2Rhc2hib2FyZCI6Ii9hZG1pbiIsImV4cCI6MTc3NzQwMzk4MX0.OGxgFuEkuK1bm5mveJVRbvROG9jCVqrvl-DW3B43TYE
 
 ### ─────────────────────────────────────────────
 ### 📋 TÂCHE 1: Atomicité des transactions
@@ -185,6 +195,17 @@ Content-Type: application/json
 ### ✓ Si toutes les étapes réussissent → commit complet
 ### ✓ Si une étape échoue → rollback complet
 ### ✓ Les 4 étapes sont atomiques (tout ou rien)
+
+### TEST 1.0: Agrégation des commandes (étape 1 du JIT)
+# Instructions:
+# 1. Vérifiez que des commandes existent en base (status="en_attente" ou "Confirmée")
+# 2. Attendez HTTP 200 avec résultat d'agrégation
+# Vérifications:
+# ✓ Nombre de commandes agrégées
+# ✓ Volume total calculé
+#@name jit_agreguer
+POST {{BASE_URL}}/api/jit/agreguer
+Authorization: Bearer {{admin_token}}
 
 ### TEST 1.1: Exécuter le job JIT complet (SUCCESS PATH)
 # Instructions:
@@ -197,7 +218,7 @@ Content-Type: application/json
 # ✓ log.volume_total > 0
 # ✓ Commandes en DB ont statut "Verrouillée"
 # ✓ Email envoyé au fondateur
-@name jit_execute_success
+#@name jit_execute_success
 POST {{BASE_URL}}/api/jit/executer
 Authorization: Bearer {{admin_token}}
 Content-Type: application/json
@@ -211,7 +232,7 @@ Authorization: Bearer {{admin_token}}
 
 ### TEST 1.3: Consulter les logs sur une période (atomicité validée)
 # Attendu: Tous les logs doivent avoir des données cohérentes
-GET {{BASE_URL}}/api/jit/logs/2026-04-20?fin=2026-04-21
+GET {{BASE_URL}}/api/jit/logs/2026-04-20/2026-04-21
 Authorization: Bearer {{admin_token}}
 
 
@@ -260,7 +281,7 @@ Content-Type: application/json
 
 ### TEST 2.2: CLIENT tente de lire les logs → 403 Forbidden ❌
 # Résultat attendu: 403 Forbidden
-POST {{BASE_URL}}/api/jit/logs/dernier
+GET {{BASE_URL}}/api/jit/logs/dernier
 Authorization: Bearer {{client_token}}
 
 ### TEST 2.3: Sans token du tout → 401 Unauthorized ❌

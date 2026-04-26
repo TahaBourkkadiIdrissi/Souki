@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 
 const ADMIN_PATH_PERMISSIONS: Record<string, string> = {
+  "/admin/orders": "orders.read",
   "/admin/produits": "products.manage",
 }
 

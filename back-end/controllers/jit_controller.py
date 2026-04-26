@@ -14,10 +14,9 @@ router_jit = APIRouter(prefix="/api/jit", tags=["JIT-Aggregation"])
 def get_admin_user(user=Depends(get_current_user)):
     """
     Dépendance pour vérifier que l'utilisateur est ADMIN.
-    Leève une exception 403 si ce n'est pas un admin.
+    Lève une exception 403 si ce n'est pas un admin.
     """
-    # user est le payload JWT: {"sub": user_id, "role": "ADMIN", ...}
-    if not user or user.get("role") != "ADMIN":
+    if not user or user.primary_role != "ADMIN":
         raise HTTPException(
             status_code=403,
             detail="Accès refusé. Seul l'administrateur peut accéder à ce endpoint."
@@ -80,6 +79,36 @@ async def executer_job_jit(
         raise HTTPException(status_code=500, detail=f"Erreur lors de l'exécution JIT: {str(e)}")
 
 
+@router_jit.post("/deverrouiller")
+async def deverrouiller_commandes_jit(
+    admin_user=Depends(get_admin_user),
+    service: JITService = Depends(get_jit_service)
+):
+    """
+    Deverrouille les commandes verrouillees par le JIT.
+
+    ADMIN ONLY - Authentification requise
+    """
+    session = LocalSession()
+    try:
+        resultat = service.deverrouiller_commandes(session)
+        nombre_deverrouillees = resultat.get("nombre_deverrouillees", 0)
+        session.commit()
+
+        return {
+            "nombre_commandes": nombre_deverrouillees,
+            "nombre_deverrouillees": nombre_deverrouillees,
+            "commandes": resultat.get("commandes", []),
+            "statut": "succes",
+            "message": f"{nombre_deverrouillees} commande(s) deverrouillee(s).",
+        }
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Erreur lors du deverrouillage JIT: {str(e)}")
+    finally:
+        session.close()
+
+
 @router_jit.get("/logs/dernier", response_model=JITLogDTO)
 async def get_dernier_log(admin_user=Depends(get_admin_user)):
     """
@@ -97,6 +126,8 @@ async def get_dernier_log(admin_user=Depends(get_admin_user)):
             raise HTTPException(status_code=404, detail="Aucun log JIT trouvé")
         
         return log
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
 
