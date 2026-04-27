@@ -1,15 +1,18 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Fragment, type ReactNode, useEffect, useState } from "react"
 import Link from "next/link"
 import {
   ArrowLeft,
+  ChevronDown,
+  ChevronUp,
   Eye,
   Lock,
   RefreshCw,
   Rocket,
   TriangleAlert,
   Unlock,
+  UserRound,
 } from "lucide-react"
 
 import {
@@ -36,7 +39,10 @@ import { cn } from "@/lib/utils"
 import {
   ApiError,
   apiCall,
+  getFicheClient,
+  type CommandeHistoriqueDTO,
   type DetailProduitJIT,
+  type FicheClientDTO,
   type JITCommandeDeverrouillee,
   type JITDeverrouillerResponse,
   type JITLogDTO,
@@ -58,6 +64,7 @@ interface OrderLineLike {
 
 interface AdminOrderRow {
   id: string
+  clientId: number | null
   dateCommande: string | null
   client: string
   produits: string
@@ -243,6 +250,11 @@ function normalizeOrders(payload: unknown): AdminOrderRow[] {
               getString(item.commande_id) ??
               "—"
           ),
+        clientId:
+          getNumber(item.client_id) ??
+          getNumber(item.clientId) ??
+          getNumber(item.user_id) ??
+          getNumber(item.userId),
         dateCommande: getString(item.date_commande),
         client:
           getString(item.client) ||
@@ -530,6 +542,293 @@ function UnlockDetailsTable({ details }: { details: JITCommandeDeverrouillee[] }
   )
 }
 
+type ClientBlockKey =
+  | "identity"
+  | "orders"
+  | "voice"
+  | "sessions"
+  | "notifications"
+  | "subscription"
+  | "payments"
+
+function emptyValue(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") {
+    return "Aucune donnée disponible"
+  }
+
+  return String(value)
+}
+
+function formatBool(value: boolean | null | undefined) {
+  if (value === null || value === undefined) {
+    return "Aucune donnée disponible"
+  }
+
+  return value ? "Oui" : "Non"
+}
+
+function ClientInfoGrid({ items }: { items: { label: string; value: string | number | null | undefined }[] }) {
+  return (
+    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {items.map((item) => (
+        <div key={item.label} className="rounded-xl bg-gray-50 px-4 py-3">
+          <p className="text-xs font-semibold uppercase text-[#8A8A8A]">{item.label}</p>
+          <p className="mt-1 text-sm font-medium text-[#3D3D3D]">{emptyValue(item.value)}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function EmptyClientBlock() {
+  return (
+    <div className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-[#8A8A8A]">
+      Aucune donnée disponible
+    </div>
+  )
+}
+
+function ClientSheetBlock({
+  title,
+  count,
+  isOpen,
+  onToggle,
+  children,
+}: {
+  title: string
+  count?: number
+  isOpen: boolean
+  onToggle: () => void
+  children: ReactNode
+}) {
+  return (
+    <div className="rounded-2xl border border-gray-100 overflow-hidden bg-white">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-gray-50"
+      >
+        <span className="font-semibold text-[#3D3D3D]">
+          {title}
+          {typeof count === "number" ? <span className="ml-2 text-sm font-normal text-[#8A8A8A]">({count})</span> : null}
+        </span>
+        {isOpen ? <ChevronUp className="w-4 h-4 text-[#8A8A8A]" /> : <ChevronDown className="w-4 h-4 text-[#8A8A8A]" />}
+      </button>
+
+      {isOpen && <div className="border-t border-gray-100 p-4">{children}</div>}
+    </div>
+  )
+}
+
+function CommandeClientCard({ commande }: { commande: CommandeHistoriqueDTO }) {
+  const badge = statusBadge(commande.statut || "")
+
+  return (
+    <div className="rounded-xl border border-gray-100 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold text-[#1E8A3C]">Commande #{commande.id}</p>
+          <p className="text-sm text-[#8A8A8A]">{formatShortDateTime(commande.date_commande)}</p>
+        </div>
+        <span className={cn("inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium", badge.className)}>
+          {badge.locked && <Lock className="w-3 h-3" />}
+          {badge.label}
+        </span>
+      </div>
+
+      <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="rounded-xl bg-gray-50 px-3 py-2">
+          <p className="text-xs uppercase text-[#8A8A8A]">Montant</p>
+          <p className="font-semibold text-[#F07C00]">{formatMoney(commande.montant_total)}</p>
+        </div>
+        <div className="rounded-xl bg-gray-50 px-3 py-2">
+          <p className="text-xs uppercase text-[#8A8A8A]">Paiement</p>
+          <p className="font-medium text-[#3D3D3D]">{emptyValue(commande.mode_paiement)}</p>
+        </div>
+        <div className="rounded-xl bg-gray-50 px-3 py-2">
+          <p className="text-xs uppercase text-[#8A8A8A]">Validé</p>
+          <p className="font-medium text-[#3D3D3D]">{formatBool(commande.payment_validated)}</p>
+        </div>
+        <div className="rounded-xl bg-gray-50 px-3 py-2">
+          <p className="text-xs uppercase text-[#8A8A8A]">À encaisser</p>
+          <p className="font-semibold text-[#3D3D3D]">{formatMoney(commande.montant_a_encaisser)}</p>
+        </div>
+      </div>
+
+      <ClientInfoGrid
+        items={[
+          { label: "Créneau", value: commande.creneau_livraison },
+          { label: "En route", value: formatShortDateTime(commande.enroute_at) },
+          { label: "Livrée", value: formatShortDateTime(commande.delivered_at) },
+          { label: "Absent", value: formatShortDateTime(commande.absent_at) },
+        ]}
+      />
+
+      <div className="mt-4">
+        <p className="mb-2 text-xs font-semibold uppercase text-[#8A8A8A]">Produits</p>
+        {commande.produits.length === 0 ? (
+          <EmptyClientBlock />
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {commande.produits.map((produit, index) => (
+              <span key={`${produit.nom_fr}-${index}`} className="rounded-full border border-[#1E8A3C]/20 bg-[#F0FAF1] px-3 py-1 text-xs font-medium text-[#1E8A3C]">
+                {produit.nom_fr} · {formatWeight(produit.quantite_kg)}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function FicheClientPanel({
+  fiche,
+  openBlocks,
+  onToggleBlock,
+}: {
+  fiche: FicheClientDTO
+  openBlocks: Record<string, boolean>
+  onToggleBlock: (blockKey: ClientBlockKey) => void
+}) {
+  const isOpen = (blockKey: ClientBlockKey) => openBlocks[`${fiche.id}:${blockKey}`] ?? blockKey === "identity"
+  const paiements = fiche.commandes.filter((commande) => commande.paiement)
+
+  return (
+    <div className="space-y-4 rounded-2xl border border-[#1E8A3C]/10 bg-[#F0FAF1] p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-bold text-[#3D3D3D]">Fiche client #{fiche.id}</h3>
+          <p className="text-sm text-[#8A8A8A]">{fiche.email || fiche.phone || "Aucune donnée disponible"}</p>
+        </div>
+        <span className={cn("inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium", fiche.is_active ? "bg-[#1E8A3C]/10 text-[#1E8A3C] border-[#1E8A3C]" : "bg-gray-100 text-gray-600 border-gray-300")}>
+          {fiche.is_active ? "Actif" : "Inactif"}
+        </span>
+      </div>
+
+      <ClientSheetBlock title="Identité client" isOpen={isOpen("identity")} onToggle={() => onToggleBlock("identity")}>
+        <ClientInfoGrid
+          items={[
+            { label: "Email", value: fiche.email },
+            { label: "Téléphone", value: fiche.phone },
+            { label: "Inscription", value: formatDateTime(fiche.created_at) },
+            { label: "Dernière connexion", value: formatDateTime(fiche.last_login_at) },
+            { label: "Provider", value: fiche.auth_provider },
+            { label: "Email vérifié", value: formatBool(fiche.is_email_verified) },
+            { label: "Téléphone vérifié", value: formatBool(fiche.is_phone_verified) },
+            { label: "Blacklisted", value: formatBool(fiche.is_blacklisted) },
+          ]}
+        />
+      </ClientSheetBlock>
+
+      <ClientSheetBlock title="Historique commandes" count={fiche.commandes.length} isOpen={isOpen("orders")} onToggle={() => onToggleBlock("orders")}>
+        {fiche.commandes.length === 0 ? (
+          <EmptyClientBlock />
+        ) : (
+          <div className="space-y-3">
+            {fiche.commandes.map((commande) => (
+              <CommandeClientCard key={commande.id} commande={commande} />
+            ))}
+          </div>
+        )}
+      </ClientSheetBlock>
+
+      <ClientSheetBlock title="Commandes vocales" count={fiche.commandes_vocales.length} isOpen={isOpen("voice")} onToggle={() => onToggleBlock("voice")}>
+        {fiche.commandes_vocales.length === 0 ? (
+          <EmptyClientBlock />
+        ) : (
+          <div className="space-y-3">
+            {fiche.commandes_vocales.map((commande) => (
+              <div key={commande.id} className="rounded-xl border border-gray-100 p-4">
+                <p className="font-semibold text-[#1E8A3C]">Commande vocale #{commande.id}</p>
+                <p className="text-sm text-[#8A8A8A]">{formatShortDateTime(commande.created_at)} · {emptyValue(commande.langue_detectee)}</p>
+                <p className="mt-2 text-sm text-[#3D3D3D]">{emptyValue(commande.transcription_brute)}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </ClientSheetBlock>
+
+      <ClientSheetBlock title="Sessions actives" count={fiche.sessions.length} isOpen={isOpen("sessions")} onToggle={() => onToggleBlock("sessions")}>
+        {fiche.sessions.length === 0 ? (
+          <EmptyClientBlock />
+        ) : (
+          <div className="space-y-3">
+            {fiche.sessions.map((session, index) => (
+              <ClientInfoGrid
+                key={`${session.ip || "session"}-${index}`}
+                items={[
+                  { label: "Appareil", value: session.device_name },
+                  { label: "Navigateur", value: session.browser },
+                  { label: "Localisation", value: session.location },
+                  { label: "IP", value: session.ip },
+                  { label: "Dernière activité", value: formatDateTime(session.last_active) },
+                  { label: "Créée le", value: formatDateTime(session.created_at) },
+                  { label: "Active", value: formatBool(session.is_active) },
+                ]}
+              />
+            ))}
+          </div>
+        )}
+      </ClientSheetBlock>
+
+      <ClientSheetBlock title="Préférences notifications" isOpen={isOpen("notifications")} onToggle={() => onToggleBlock("notifications")}>
+        {!fiche.notifications ? (
+          <EmptyClientBlock />
+        ) : (
+          <ClientInfoGrid
+            items={[
+              { label: "Email", value: formatBool(fiche.notifications.email) },
+              { label: "Push", value: formatBool(fiche.notifications.push) },
+              { label: "SMS", value: formatBool(fiche.notifications.sms) },
+              { label: "Commandes", value: formatBool(fiche.notifications.order_updates) },
+              { label: "Promotions", value: formatBool(fiche.notifications.promotions) },
+              { label: "Newsletter", value: formatBool(fiche.notifications.newsletter) },
+            ]}
+          />
+        )}
+      </ClientSheetBlock>
+
+      <ClientSheetBlock title="Abonnement" isOpen={isOpen("subscription")} onToggle={() => onToggleBlock("subscription")}>
+        {!fiche.abonnement ? (
+          <EmptyClientBlock />
+        ) : (
+          <ClientInfoGrid
+            items={[
+              { label: "Poids garanti", value: fiche.abonnement.poids_garanti !== null && fiche.abonnement.poids_garanti !== undefined ? formatWeight(fiche.abonnement.poids_garanti) : null },
+              { label: "Fréquence", value: fiche.abonnement.frequence },
+              { label: "Mensuel", value: fiche.abonnement.montant_mensuel !== null && fiche.abonnement.montant_mensuel !== undefined ? formatMoney(fiche.abonnement.montant_mensuel) : null },
+              { label: "Actif", value: formatBool(fiche.abonnement.actif) },
+            ]}
+          />
+        )}
+      </ClientSheetBlock>
+
+      <ClientSheetBlock title="Paiements" count={paiements.length} isOpen={isOpen("payments")} onToggle={() => onToggleBlock("payments")}>
+        {paiements.length === 0 ? (
+          <EmptyClientBlock />
+        ) : (
+          <div className="space-y-3">
+            {paiements.map((commande) => (
+              <ClientInfoGrid
+                key={`paiement-${commande.id}`}
+                items={[
+                  { label: "Commande", value: `#${commande.id}` },
+                  { label: "Méthode", value: commande.paiement?.methode },
+                  { label: "Montant", value: formatMoney(commande.paiement?.montant) },
+                  { label: "Validé", value: formatBool(commande.paiement?.valide) },
+                  { label: "Frais CMI", value: formatMoney(commande.paiement?.frais_cmi) },
+                  { label: "Montant net", value: formatMoney(commande.paiement?.montant_net) },
+                ]}
+              />
+            ))}
+          </div>
+        )}
+      </ClientSheetBlock>
+    </div>
+  )
+}
+
 export default function AdminOrdersPage() {
   const { token, isLoading: isAuthLoading } = useAuth()
   const [orders, setOrders] = useState<AdminOrderRow[]>([])
@@ -557,6 +856,11 @@ export default function AdminOrdersPage() {
   const [logError, setLogError] = useState<string | null>(null)
   const [isLogLoading, setIsLogLoading] = useState(true)
   const [showDetails, setShowDetails] = useState(false)
+  const [openClientId, setOpenClientId] = useState<number | null>(null)
+  const [clientSheets, setClientSheets] = useState<Record<number, FicheClientDTO>>({})
+  const [clientSheetErrors, setClientSheetErrors] = useState<Record<number, string>>({})
+  const [clientSheetLoadingId, setClientSheetLoadingId] = useState<number | null>(null)
+  const [openClientBlocks, setOpenClientBlocks] = useState<Record<string, boolean>>({})
 
   async function loadOrders(nextToken: string, showLoader = true, signal?: AbortSignal) {
     if (showLoader) {
@@ -604,6 +908,45 @@ export default function AdminOrdersPage() {
         setIsLogLoading(false)
       }
     }
+  }
+
+  async function handleToggleClientSheet(order: AdminOrderRow) {
+    if (!token || !order.clientId) {
+      return
+    }
+
+    const clientId = order.clientId
+
+    if (openClientId === clientId) {
+      setOpenClientId(null)
+      return
+    }
+
+    setOpenClientId(clientId)
+
+    if (clientSheets[clientId]) {
+      return
+    }
+
+    setClientSheetLoadingId(clientId)
+    setClientSheetErrors((current) => ({ ...current, [clientId]: "" }))
+
+    try {
+      const fiche = await getFicheClient(token, clientId)
+      setClientSheets((current) => ({ ...current, [clientId]: fiche }))
+    } catch (error) {
+      setClientSheetErrors((current) => ({
+        ...current,
+        [clientId]: error instanceof Error ? error.message : "Impossible de charger la fiche client.",
+      }))
+    } finally {
+      setClientSheetLoadingId(null)
+    }
+  }
+
+  function toggleClientBlock(clientId: number, blockKey: ClientBlockKey) {
+    const key = `${clientId}:${blockKey}`
+    setOpenClientBlocks((current) => ({ ...current, [key]: !(current[key] ?? blockKey === "identity") }))
   }
 
   useEffect(() => {
@@ -817,32 +1160,74 @@ export default function AdminOrdersPage() {
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Volume kg</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Montant</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Statut</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {orders.map((order) => {
                     const badge = statusBadge(order.statut)
+                    const isClientOpen = order.clientId !== null && openClientId === order.clientId
+                    const fiche = order.clientId ? clientSheets[order.clientId] : null
+                    const ficheError = order.clientId ? clientSheetErrors[order.clientId] : null
+                    const isFicheLoading = clientSheetLoadingId === order.clientId
 
                     return (
-                      <tr key={order.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 font-medium text-[#1E8A3C]">{order.id}</td>
-                        <td className="px-6 py-4 text-sm text-[#3D3D3D]">{formatShortDateTime(order.dateCommande)}</td>
-                        <td className="px-6 py-4 text-[#3D3D3D]">{order.client}</td>
-                        <td className="px-6 py-4 text-sm text-[#8A8A8A] max-w-[320px] whitespace-normal">{order.produits}</td>
-                        <td className="px-6 py-4 text-[#3D3D3D]">{formatWeight(order.volumeKg)}</td>
-                        <td className="px-6 py-4 font-semibold text-[#F07C00]">{formatMoney(order.montant)}</td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={cn(
-                              "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium",
-                              badge.className
-                            )}
-                          >
-                            {badge.locked && <Lock className="w-3 h-3" />}
-                            {badge.label}
-                          </span>
-                        </td>
-                      </tr>
+                      <Fragment key={order.id}>
+                        <tr className="hover:bg-gray-50">
+                          <td className="px-6 py-4 font-medium text-[#1E8A3C]">{order.id}</td>
+                          <td className="px-6 py-4 text-sm text-[#3D3D3D]">{formatShortDateTime(order.dateCommande)}</td>
+                          <td className="px-6 py-4 text-[#3D3D3D]">{order.client}</td>
+                          <td className="px-6 py-4 text-sm text-[#8A8A8A] max-w-[320px] whitespace-normal">{order.produits}</td>
+                          <td className="px-6 py-4 text-[#3D3D3D]">{formatWeight(order.volumeKg)}</td>
+                          <td className="px-6 py-4 font-semibold text-[#F07C00]">{formatMoney(order.montant)}</td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium",
+                                badge.className
+                              )}
+                            >
+                              {badge.locked && <Lock className="w-3 h-3" />}
+                              {badge.label}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <button
+                              type="button"
+                              onClick={() => void handleToggleClientSheet(order)}
+                              disabled={!order.clientId || isFicheLoading}
+                              className="px-4 py-2 border border-gray-200 rounded-xl font-medium text-[#3D3D3D] hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                            >
+                              {isFicheLoading ? <Spinner className="size-4 text-[#1E8A3C]" /> : <UserRound className="w-4 h-4 text-[#1A4F8A]" />}
+                              {isClientOpen ? "Masquer fiche" : "👤 Fiche client"}
+                            </button>
+                          </td>
+                        </tr>
+                        {isClientOpen && (
+                          <tr className="bg-[#F8FBF8]">
+                            <td colSpan={8} className="px-6 py-4">
+                              {isFicheLoading ? (
+                                <div className="rounded-2xl border border-gray-100 bg-white px-6 py-8 text-center">
+                                  <Spinner className="mx-auto size-6 text-[#1E8A3C]" />
+                                  <p className="mt-3 text-sm text-[#8A8A8A]">Chargement de la fiche clientâ€¦</p>
+                                </div>
+                              ) : ficheError ? (
+                                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                                  {ficheError}
+                                </div>
+                              ) : fiche ? (
+                                <FicheClientPanel
+                                  fiche={fiche}
+                                  openBlocks={openClientBlocks}
+                                  onToggleBlock={(blockKey) => toggleClientBlock(fiche.id, blockKey)}
+                                />
+                              ) : (
+                                <EmptyClientBlock />
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     )
                   })}
                 </tbody>

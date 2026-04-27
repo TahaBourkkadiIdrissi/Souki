@@ -150,6 +150,86 @@ export interface CodValidationResponse {
   message: string
 }
 
+export interface ProduitCommandeJourDTO {
+  nom_fr: string
+  quantite_kg: number
+}
+
+export interface PaiementDTO {
+  methode?: string | null
+  montant?: number | null
+  valide?: boolean | null
+  frais_cmi?: number | null
+  montant_net?: number | null
+}
+
+export interface SessionClientDTO {
+  device_name?: string | null
+  browser?: string | null
+  location?: string | null
+  ip?: string | null
+  last_active?: string | null
+  created_at?: string | null
+  is_active?: boolean | null
+}
+
+export interface NotificationPrefsDTO {
+  email?: boolean | null
+  push?: boolean | null
+  sms?: boolean | null
+  order_updates?: boolean | null
+  promotions?: boolean | null
+  newsletter?: boolean | null
+}
+
+export interface AbonnementClientDTO {
+  poids_garanti?: number | null
+  frequence?: string | null
+  montant_mensuel?: number | null
+  actif?: boolean | null
+}
+
+export interface CommandeVocaleClientDTO {
+  id: number
+  created_at?: string | null
+  langue_detectee?: string | null
+  transcription_brute?: string | null
+}
+
+export interface CommandeHistoriqueDTO {
+  id: number
+  date_commande?: string | null
+  statut?: string | null
+  montant_total?: number | null
+  mode_paiement?: string | null
+  payment_validated?: boolean | null
+  montant_a_encaisser?: number | null
+  creneau_livraison?: string | null
+  enroute_at?: string | null
+  delivered_at?: string | null
+  absent_at?: string | null
+  produits: ProduitCommandeJourDTO[]
+  paiement?: PaiementDTO | null
+}
+
+export interface FicheClientDTO {
+  id: number
+  email?: string | null
+  phone?: string | null
+  created_at?: string | null
+  last_login_at?: string | null
+  is_active?: boolean | null
+  is_blacklisted?: boolean | null
+  auth_provider?: string | null
+  is_email_verified?: boolean | null
+  is_phone_verified?: boolean | null
+  commandes: CommandeHistoriqueDTO[]
+  commandes_vocales: CommandeVocaleClientDTO[]
+  sessions: SessionClientDTO[]
+  notifications?: NotificationPrefsDTO | null
+  abonnement?: AbonnementClientDTO | null
+}
+
 export async function apiCall<T = any>(endpoint: string, options: ApiOptions = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`
   const headers: Record<string, string> = {
@@ -258,4 +338,8 @@ export async function jitLogsParPlage(token: string, dateDebut: string, dateFin:
     `/api/jit/logs/${encodeURIComponent(dateDebut)}/${encodeURIComponent(dateFin)}`,
     { token }
   )
+}
+
+export async function getFicheClient(token: string, clientId: number) {
+  return apiCall<FicheClientDTO>(`/api/commandes/clients/${clientId}`, { token })
 }
