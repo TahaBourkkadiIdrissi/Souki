@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from auth_dependencies import require_auth, require_permission
 from controllers.auth_controller import get_current_user
 from dependencies import get_voice_service
-from dto.commande_dto import CommandeCheckoutDTO, CommandeJourDTO, TextBasketRequest, VoiceBasketResponseDTO
+from dto.commande_dto import CommandeCheckoutDTO, CommandeJourDTO, FicheClientDTO, TextBasketRequest, VoiceBasketResponseDTO
 from interfaces.commande_service_interface import ICommandeVocaleService
 
 router_voice = APIRouter(prefix="/api", tags=["Voice AI"])
@@ -78,6 +78,29 @@ def get_commandes_du_jour(
             return service.get_commandes_du_jour(service.session)  # type: ignore
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors du chargement des commandes du jour: {str(e)}")
+
+
+@router_voice.get("/commandes/clients/{client_id}", response_model=FicheClientDTO)
+def get_fiche_client(
+    client_id: int,
+    admin_user=Depends(get_admin_user),
+    service: ICommandeVocaleService = Depends(get_voice_service)
+):
+    """
+    Retourne la fiche complete d'un client.
+
+    ADMIN ONLY - Authentification requise
+    """
+    try:
+        with service:
+            fiche = service.get_fiche_client(service.session, client_id)  # type: ignore
+            if not fiche:
+                raise HTTPException(status_code=404, detail="Client non trouve")
+            return fiche
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors du chargement de la fiche client: {str(e)}")
 
 
 @router_voice.get("/commandes/{commande_id}", response_model=CommandeCheckoutDTO)
