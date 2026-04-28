@@ -97,6 +97,13 @@ class CommandeHistoriqueDTO(BaseModel):
     produits: List[ProduitCommandeJourDTO] = []
     paiement: Optional[PaiementDTO] = None
 
+class AdresseClientDTO(BaseModel):
+    neighborhood: Optional[str] = None
+    street: Optional[str] = None
+    details: Optional[str] = None
+    ville: Optional[str] = None
+    is_default: Optional[bool] = None
+
 class FicheClientDTO(BaseModel):
     id: int
     email: Optional[str] = None
@@ -108,6 +115,7 @@ class FicheClientDTO(BaseModel):
     auth_provider: Optional[str] = None
     is_email_verified: Optional[bool] = None
     is_phone_verified: Optional[bool] = None
+    adresses: List[AdresseClientDTO] = []
     commandes: List[CommandeHistoriqueDTO] = []
     commandes_vocales: List[CommandeVocaleClientDTO] = []
     sessions: List[SessionClientDTO] = []
@@ -121,6 +129,7 @@ class CommandeJourDTO(BaseModel):
     statut: Optional[str] = None
     client_nom: str
     client_phone: Optional[str] = None
+    is_blacklisted: Optional[bool] = None
     produits: List[ProduitCommandeJourDTO] = []
     volume_total_kg: float = 0.0
     montant_total: float = 0.0

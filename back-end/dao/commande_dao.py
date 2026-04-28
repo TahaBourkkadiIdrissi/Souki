@@ -5,6 +5,7 @@ from typing import Optional, List
 from interfaces.commande_dao_interface import ICommandeVocaleDao
 from dto.commande_dto import (
     AbonnementClientDTO,
+    AdresseClientDTO,
     CommandeHistoriqueDTO,
     CommandeJourDTO,
     CommandeVocaleClientDTO,
@@ -15,6 +16,7 @@ from dto.commande_dto import (
     SessionClientDTO,
 )
 from entities.abonnement_entity import Abonnement
+from entities.address_entity import Address
 from entities.commande_entity import Commande
 from entities.commande_vocale_entity import CommandeVocale, LigneCommandeVocale
 from entities.client_entity import Client
@@ -154,6 +156,7 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                     statut=str(commande.statut) if commande.statut else None,
                     client_nom=client_nom,
                     client_phone=client_phone,
+                    is_blacklisted=bool(commande.client.is_blacklisted) if commande.client and commande.client.is_blacklisted is not None else None,
                     produits=produits,
                     volume_total_kg=round(volume_total_kg, 2),
                     montant_total=float(commande.montant_total or 0.0),
@@ -186,6 +189,7 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                 joinedload(Commande.paiement),
             )
             .filter(Commande.client_id == client_id)
+            .filter(func.upper(func.coalesce(Commande.statut, "")) != "BROUILLON")
             .order_by(Commande.date_commande.desc(), Commande.id.desc())
             .all()
         )
@@ -316,6 +320,28 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
         except Exception:
             abonnement_dto = None
 
+        adresses_dto = []
+        try:
+            adresses = (
+                session.query(Address)
+                .join(User, User.id == Address.user_id)
+                .filter(User.id == client_id)
+                .order_by(Address.is_default.desc(), Address.id.desc())
+                .all()
+            )
+            adresses_dto = [
+                AdresseClientDTO(
+                    neighborhood=str(adresse.neighborhood) if adresse.neighborhood else None,
+                    street=str(adresse.street) if adresse.street else None,
+                    details=str(adresse.details) if adresse.details else None,
+                    ville=str(adresse.ville) if adresse.ville else None,
+                    is_default=bool(adresse.is_default) if adresse.is_default is not None else None,
+                )
+                for adresse in adresses
+            ]
+        except Exception:
+            adresses_dto = []
+
         return FicheClientDTO(
             id=int(client.user_id),  # type: ignore
             email=str(user.email) if user and user.email else None,
@@ -327,6 +353,7 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
             auth_provider=str(user.auth_provider) if user and user.auth_provider else None,
             is_email_verified=bool(user.is_email_verified) if user and user.is_email_verified is not None else None,
             is_phone_verified=bool(user.is_phone_verified) if user and user.is_phone_verified is not None else None,
+            adresses=adresses_dto,
             commandes=commandes_dto,
             commandes_vocales=commandes_vocales_dto,
             sessions=sessions_dto,

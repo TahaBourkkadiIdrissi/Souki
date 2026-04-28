@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, type ReactNode, useEffect, useState } from "react"
+import { Fragment, type ReactNode, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import {
   ArrowLeft,
@@ -12,7 +12,6 @@ import {
   Rocket,
   TriangleAlert,
   Unlock,
-  UserRound,
 } from "lucide-react"
 
 import {
@@ -67,10 +66,24 @@ interface AdminOrderRow {
   clientId: number | null
   dateCommande: string | null
   client: string
+  clientPhone: string | null
   produits: string
   volumeKg: number | null
   montant: number | null
   statut: string
+  creneauLivraison: string | null
+  isBlacklisted: boolean | null
+}
+
+interface ClientGroupDTO {
+  key: string
+  clientId: number | null
+  client: string
+  clientPhone: string | null
+  commandes: AdminOrderRow[]
+  volumeTotal: number
+  montantTotal: number
+  isBlacklisted: boolean | null
 }
 
 function isRecord(value: unknown): value is RawRecord {
@@ -94,6 +107,24 @@ function getNumber(value: unknown): number | null {
   if (typeof value === "string") {
     const parsed = Number(value)
     return Number.isFinite(parsed) ? parsed : null
+  }
+
+  return null
+}
+
+function getBoolean(value: unknown): boolean | null {
+  if (typeof value === "boolean") {
+    return value
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase()
+    if (["true", "1", "oui", "yes"].includes(normalized)) {
+      return true
+    }
+    if (["false", "0", "non", "no"].includes(normalized)) {
+      return false
+    }
   }
 
   return null
@@ -262,6 +293,10 @@ function normalizeOrders(payload: unknown): AdminOrderRow[] {
           getString(item.client_label) ||
           getString(item.nom_client) ||
           "Client inconnu",
+        clientPhone:
+          getString(item.client_phone) ||
+          getString(item.phone) ||
+          getString(item.telephone),
         produits:
           getString(item.produits_label) ||
           getString(item.produits) ||
@@ -281,9 +316,42 @@ function normalizeOrders(payload: unknown): AdminOrderRow[] {
           getString(item.statut) ||
           getString(item.status) ||
           "en_attente",
+        creneauLivraison:
+          getString(item.creneau_livraison) ||
+          getString(item.delivery_slot),
+        isBlacklisted: getBoolean(item.is_blacklisted),
       }
     })
     .filter((order): order is AdminOrderRow => order !== null)
+    .filter((order) => normalizeStatus(order.statut) !== "brouillon")
+}
+
+function groupOrdersByClient(orders: AdminOrderRow[]): ClientGroupDTO[] {
+  const groupes = orders.reduce((acc, order) => {
+    const key = order.clientId !== null ? `client-${order.clientId}` : order.client
+
+    if (!acc[key]) {
+      acc[key] = {
+        key,
+        clientId: order.clientId,
+        client: order.client,
+        clientPhone: order.clientPhone,
+        commandes: [],
+        volumeTotal: 0,
+        montantTotal: 0,
+        isBlacklisted: order.isBlacklisted,
+      }
+    }
+
+    acc[key].commandes.push(order)
+    acc[key].volumeTotal += order.volumeKg || 0
+    acc[key].montantTotal += order.montant || 0
+    acc[key].isBlacklisted = acc[key].isBlacklisted || order.isBlacklisted
+
+    return acc
+  }, {} as Record<string, ClientGroupDTO>)
+
+  return Object.values(groupes)
 }
 
 function normalizeDetailProduit(value: unknown): DetailProduitJIT | null {
@@ -719,6 +787,30 @@ function FicheClientPanel({
             { label: "Blacklisted", value: formatBool(fiche.is_blacklisted) },
           ]}
         />
+        <div className="mt-4">
+          <p className="mb-2 text-xs font-semibold uppercase text-[#8A8A8A]">Adresses</p>
+          {(fiche.adresses || []).length === 0 ? (
+            <EmptyClientBlock />
+          ) : (
+            <div className="space-y-3">
+              {(fiche.adresses || []).map((adresse, index) => (
+                <div key={`${adresse.neighborhood || "adresse"}-${index}`} className="rounded-xl bg-gray-50 px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-medium text-[#3D3D3D]">
+                      {[adresse.neighborhood, adresse.street, adresse.ville].filter(Boolean).join(", ") || "Adresse sans libellé"}
+                    </p>
+                    {adresse.is_default ? (
+                      <span className="inline-flex items-center rounded-full border border-[#1E8A3C] bg-[#1E8A3C]/10 px-3 py-1 text-xs font-medium text-[#1E8A3C]">
+                        Principale
+                      </span>
+                    ) : null}
+                  </div>
+                  {adresse.details ? <p className="mt-1 text-sm text-[#8A8A8A]">{adresse.details}</p> : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </ClientSheetBlock>
 
       <ClientSheetBlock title="Historique commandes" count={fiche.commandes.length} isOpen={isOpen("orders")} onToggle={() => onToggleBlock("orders")}>
@@ -857,6 +949,7 @@ export default function AdminOrdersPage() {
   const [isLogLoading, setIsLogLoading] = useState(true)
   const [showDetails, setShowDetails] = useState(false)
   const [openClientId, setOpenClientId] = useState<number | null>(null)
+  const [openOrdersClientKey, setOpenOrdersClientKey] = useState<string | null>(null)
   const [clientSheets, setClientSheets] = useState<Record<number, FicheClientDTO>>({})
   const [clientSheetErrors, setClientSheetErrors] = useState<Record<number, string>>({})
   const [clientSheetLoadingId, setClientSheetLoadingId] = useState<number | null>(null)
@@ -1057,6 +1150,7 @@ export default function AdminOrdersPage() {
   }
 
   const todayLabel = formatShortDate(new Date())
+  const clientGroups = useMemo(() => groupOrdersByClient(orders), [orders])
 
   if (isAuthLoading) {
     return (
@@ -1125,8 +1219,8 @@ export default function AdminOrdersPage() {
             </div>
 
             <div className="px-4 py-2 bg-[#F0FAF1] rounded-xl">
-              <p className="text-sm text-[#8A8A8A]">Commandes visibles</p>
-              <p className="text-2xl font-bold text-[#1E8A3C]">{orders.length}</p>
+              <p className="text-sm text-[#8A8A8A]">Clients visibles</p>
+              <p className="text-2xl font-bold text-[#1E8A3C]">{clientGroups.length}</p>
             </div>
           </div>
 
@@ -1153,59 +1247,143 @@ export default function AdminOrdersPage() {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Date</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Client</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Produits</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Volume kg</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Montant</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Statut</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Téléphone</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Nb commandes</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Statuts</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Volume total</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Montant total</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {orders.map((order) => {
-                    const badge = statusBadge(order.statut)
-                    const isClientOpen = order.clientId !== null && openClientId === order.clientId
-                    const fiche = order.clientId ? clientSheets[order.clientId] : null
-                    const ficheError = order.clientId ? clientSheetErrors[order.clientId] : null
-                    const isFicheLoading = clientSheetLoadingId === order.clientId
+                  {clientGroups.map((group) => {
+                    const firstOrder = group.commandes[0]
+                    const isOrdersOpen = openOrdersClientKey === group.key
+                    const isClientOpen = group.clientId !== null && openClientId === group.clientId
+                    const fiche = group.clientId ? clientSheets[group.clientId] : null
+                    const ficheError = group.clientId ? clientSheetErrors[group.clientId] : null
+                    const isFicheLoading = clientSheetLoadingId === group.clientId
+                    const statuses = Array.from(new Set(group.commandes.map((order) => order.statut)))
 
                     return (
-                      <Fragment key={order.id}>
-                        <tr className="hover:bg-gray-50">
-                          <td className="px-6 py-4 font-medium text-[#1E8A3C]">{order.id}</td>
-                          <td className="px-6 py-4 text-sm text-[#3D3D3D]">{formatShortDateTime(order.dateCommande)}</td>
-                          <td className="px-6 py-4 text-[#3D3D3D]">{order.client}</td>
-                          <td className="px-6 py-4 text-sm text-[#8A8A8A] max-w-[320px] whitespace-normal">{order.produits}</td>
-                          <td className="px-6 py-4 text-[#3D3D3D]">{formatWeight(order.volumeKg)}</td>
-                          <td className="px-6 py-4 font-semibold text-[#F07C00]">{formatMoney(order.montant)}</td>
-                          <td className="px-6 py-4">
-                            <span
-                              className={cn(
-                                "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium",
-                                badge.className
-                              )}
-                            >
-                              {badge.locked && <Lock className="w-3 h-3" />}
-                              {badge.label}
-                            </span>
+                      <Fragment key={group.key}>
+                        <tr
+                          className="hover:bg-gray-50 cursor-pointer"
+                          onClick={() => setOpenOrdersClientKey(isOrdersOpen ? null : group.key)}
+                        >
+                          <td className="px-6 py-4 text-[#3D3D3D]">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span>{group.client}</span>
+                              {group.isBlacklisted ? (
+                                <span className="inline-flex items-center rounded-full border border-red-400 bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                                  Blacklisté
+                                </span>
+                              ) : null}
+                            </div>
                           </td>
+                          <td className="px-6 py-4 text-sm text-[#3D3D3D]">{emptyValue(group.clientPhone)}</td>
+                          <td className="px-6 py-4 font-semibold text-[#1E8A3C]">{group.commandes.length}</td>
                           <td className="px-6 py-4">
+                            <div className="flex flex-wrap gap-2">
+                              {statuses.map((status) => {
+                                const badge = statusBadge(status)
+
+                                return (
+                                  <span
+                                    key={status}
+                                    className={cn(
+                                      "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium",
+                                      badge.className
+                                    )}
+                                  >
+                                    {badge.locked && <Lock className="w-3 h-3" />}
+                                    {badge.label}
+                                  </span>
+                                )
+                              })}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-[#3D3D3D]">{formatWeight(group.volumeTotal)}</td>
+                          <td className="px-6 py-4 font-semibold text-[#F07C00]">{formatMoney(group.montantTotal)}</td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  setOpenOrdersClientKey(isOrdersOpen ? null : group.key)
+                                }}
+                                className="cursor-pointer px-4 py-2 border border-[#1A4F8A]/20 bg-[#1A4F8A]/10 rounded-xl font-medium text-[#1A4F8A] hover:bg-[#1A4F8A]/15 flex items-center gap-2 whitespace-nowrap"
+                              >
+                                {isOrdersOpen ? "Masquer commandes" : "Voir commandes"}
+                              </button>
                             <button
                               type="button"
-                              onClick={() => void handleToggleClientSheet(order)}
-                              disabled={!order.clientId || isFicheLoading}
-                              className="px-4 py-2 border border-gray-200 rounded-xl font-medium text-[#3D3D3D] hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                void handleToggleClientSheet(firstOrder)
+                              }}
+                              disabled={!group.clientId || isFicheLoading}
+                              className="cursor-pointer px-4 py-2 border border-[#1E8A3C]/20 bg-[#F0FAF1] rounded-xl font-medium text-[#1E8A3C] hover:bg-[#E7F5E8] disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
                             >
-                              {isFicheLoading ? <Spinner className="size-4 text-[#1E8A3C]" /> : <UserRound className="w-4 h-4 text-[#1A4F8A]" />}
-                              {isClientOpen ? "Masquer fiche" : "👤 Fiche client"}
+                              {isFicheLoading && <Spinner className="size-4 text-[#1E8A3C]" />}
+                              {isClientOpen ? "Masquer fiche" : "Fiche client"}
                             </button>
+                            </div>
                           </td>
                         </tr>
+                        {isOrdersOpen && (
+                          <tr className="bg-gray-50">
+                            <td colSpan={7} className="px-6 py-4">
+                              <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white">
+                                <table className="w-full">
+                                  <thead className="bg-gray-50">
+                                    <tr>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">ID</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Date</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Produits</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Volume kg</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Montant</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Statut</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Créneau</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-100">
+                                    {group.commandes.map((order) => {
+                                      const badge = statusBadge(order.statut)
+
+                                      return (
+                                        <tr key={order.id} className="hover:bg-gray-50">
+                                          <td className="px-4 py-3 font-medium text-[#1E8A3C]">{order.id}</td>
+                                          <td className="px-4 py-3 text-sm text-[#3D3D3D]">{formatShortDateTime(order.dateCommande)}</td>
+                                          <td className="px-4 py-3 text-sm text-[#8A8A8A] max-w-[320px] whitespace-normal">{order.produits}</td>
+                                          <td className="px-4 py-3 text-[#3D3D3D]">{formatWeight(order.volumeKg)}</td>
+                                          <td className="px-4 py-3 font-semibold text-[#F07C00]">{formatMoney(order.montant)}</td>
+                                          <td className="px-4 py-3">
+                                            <span
+                                              className={cn(
+                                                "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium",
+                                                badge.className
+                                              )}
+                                            >
+                                              {badge.locked && <Lock className="w-3 h-3" />}
+                                              {badge.label}
+                                            </span>
+                                          </td>
+                                          <td className="px-4 py-3 text-sm text-[#3D3D3D]">{emptyValue(order.creneauLivraison)}</td>
+                                        </tr>
+                                      )
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
                         {isClientOpen && (
                           <tr className="bg-[#F8FBF8]">
-                            <td colSpan={8} className="px-6 py-4">
+                            <td colSpan={7} className="px-6 py-4">
                               {isFicheLoading ? (
                                 <div className="rounded-2xl border border-gray-100 bg-white px-6 py-8 text-center">
                                   <Spinner className="mx-auto size-6 text-[#1E8A3C]" />
@@ -1255,7 +1433,7 @@ export default function AdminOrdersPage() {
                 className="px-4 py-2 border border-gray-200 rounded-xl font-medium text-[#3D3D3D] hover:bg-gray-50 disabled:opacity-70 flex items-center gap-2"
               >
                 {isPreviewLoading ? <Spinner className="size-4 text-[#1E8A3C]" /> : <Eye className="w-4 h-4 text-[#1A4F8A]" />}
-                👁 Prévisualiser
+                Prévisualiser
               </button>
 
               <AlertDialog open={isExecuteDialogOpen} onOpenChange={setIsExecuteDialogOpen}>
@@ -1265,7 +1443,7 @@ export default function AdminOrdersPage() {
                     className="px-4 py-2 bg-[#1E8A3C] text-white rounded-xl font-medium hover:bg-[#176B2E] disabled:opacity-70 flex items-center gap-2"
                   >
                     {isExecuteLoading ? <Spinner className="size-4" /> : <Rocket className="w-4 h-4" />}
-                    🚀 Lancer le JIT maintenant
+                    Lancer le JIT maintenant
                   </button>
                 </AlertDialogTrigger>
                 <AlertDialogContent className="rounded-2xl">
@@ -1374,7 +1552,7 @@ export default function AdminOrdersPage() {
                   className="px-4 py-2 border border-gray-200 rounded-xl font-medium text-[#3D3D3D] hover:bg-gray-50 disabled:opacity-70 flex items-center gap-2"
                 >
                   {isUnlocking ? <Spinner className="size-4 text-[#1E8A3C]" /> : <Unlock className="w-4 h-4 text-[#F07C00]" />}
-                  🔓 Déverrouiller
+                  Déverrouiller
                 </button>
               </AlertDialogTrigger>
               <AlertDialogContent className="rounded-2xl">

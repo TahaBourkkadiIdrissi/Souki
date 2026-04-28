@@ -212,6 +212,14 @@ export interface CommandeHistoriqueDTO {
   paiement?: PaiementDTO | null
 }
 
+export interface AdresseClientDTO {
+  neighborhood: string | null
+  street: string | null
+  details: string | null
+  ville: string | null
+  is_default: boolean | null
+}
+
 export interface FicheClientDTO {
   id: number
   email?: string | null
@@ -223,6 +231,7 @@ export interface FicheClientDTO {
   auth_provider?: string | null
   is_email_verified?: boolean | null
   is_phone_verified?: boolean | null
+  adresses: AdresseClientDTO[]
   commandes: CommandeHistoriqueDTO[]
   commandes_vocales: CommandeVocaleClientDTO[]
   sessions: SessionClientDTO[]
