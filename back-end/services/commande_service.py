@@ -6,7 +6,7 @@ from interfaces.commande_service_interface import ICommandeVocaleService
 from interfaces.product_dao_interface import IProductDao
 from interfaces.commande_dao_interface import ICommandeVocaleDao
 from services.catalogue_service import CatalogueService
-from dto.commande_dto import VoiceBasketResponseDTO, CommandeCheckoutDTO, LigneCheckoutDTO, CommandeJourDTO
+from dto.commande_dto import VoiceBasketResponseDTO, CommandeCheckoutDTO, LigneCheckoutDTO, CommandeJourDTO, FicheClientDTO
 from api.algorithms import call_gemini, build_audio_parts, build_text_parts
 
 
@@ -113,3 +113,6 @@ class CommandeVocaleService(ICommandeVocaleService):
 
     def get_commandes_du_jour(self, session: Session) -> List[CommandeJourDTO]:
         return self.commande_dao.get_commandes_du_jour(session)
+
+    def get_fiche_client(self, session: Session, client_id: int) -> Optional[FicheClientDTO]:
+        return self.commande_dao.get_fiche_client(session, client_id)
