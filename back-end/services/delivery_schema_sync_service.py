@@ -13,6 +13,7 @@ ALLOWED_COMMANDE_STATUSES = (
     "LIVRE",
     "ABSENT",
     "REFUS",
+    "ANNULEE",
 )
 
 
@@ -40,7 +41,8 @@ class DeliverySchemaSyncService:
                         WHEN upper(btrim(statut)) IN ('EN_ROUTE', 'EN ROUTE', 'EN_COURS_DE_LIVRAISON') THEN 'EN_ROUTE'
                         WHEN upper(btrim(statut)) IN ('LIVRE', 'LIVREE', 'LIVRÉE', 'LIVRÃ‰E', 'DELIVERED') THEN 'LIVRE'
                         WHEN upper(btrim(statut)) = 'ABSENT' THEN 'ABSENT'
-                        WHEN upper(btrim(statut)) IN ('REFUS', 'REFUSE', 'REFUSÉ', 'REFUSÃ‰') THEN 'REFUS'
+                        WHEN upper(btrim(statut)) IN ('REFUS', 'REFUSE', 'REFUSÉ', 'REFUSÉE', 'REFUSÃ‰', 'REFUSÃ‰E', 'REFUSED') THEN 'REFUS'
+                        WHEN upper(btrim(statut)) IN ('ANNULE', 'ANNULEE', 'ANNULÉ', 'ANNULÉE', 'ANNULÃ‰', 'ANNULÃ‰E', 'CANCELLED', 'CANCELED') THEN 'ANNULEE'
                         ELSE upper(replace(btrim(statut), ' ', '_'))
                     END
                     """
@@ -123,9 +125,21 @@ class DeliverySchemaSyncService:
             connection.execute(
                 text(
                     f"""
-                    ALTER TABLE t_commandes
-                    ADD CONSTRAINT ck_t_commandes_statut_allowed
-                    CHECK (statut IN ({allowed_statuses_sql}))
+                    DO $$
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1
+                            FROM pg_constraint
+                            WHERE conname = 'ck_t_commandes_statut_allowed'
+                        ) THEN
+                            ALTER TABLE t_commandes
+                            DROP CONSTRAINT ck_t_commandes_statut_allowed;
+                        END IF;
+
+                        ALTER TABLE t_commandes
+                            ADD CONSTRAINT ck_t_commandes_statut_allowed
+                            CHECK (statut IN ({allowed_statuses_sql}));
+                    END $$;
                     """
                 )
             )
