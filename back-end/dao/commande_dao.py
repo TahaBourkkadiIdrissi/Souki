@@ -1,7 +1,7 @@
 from datetime import date, datetime, time
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
-from typing import Optional, List
+from typing import Any, Optional, List
 from interfaces.commande_dao_interface import ICommandeVocaleDao
 from dto.commande_dto import (
     AbonnementClientDTO,
@@ -96,9 +96,7 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
         }
 
     def get_commandes_du_jour(self, session: Session) -> List[CommandeJourDTO]:
-        today = date.today()
-        start_of_day = datetime.combine(today, time.min)
-        end_of_day = datetime.combine(today, time.max)
+        start_of_day, end_of_day = self._today_bounds()
 
         commandes = (
             session.query(Commande)
@@ -361,6 +359,91 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
             abonnement=abonnement_dto,
         )
 
+    def get_commandes_cod_verrouillees(self, session: Session) -> List[dict[str, Any]]:
+        start_of_day, end_of_day = self._today_bounds()
+
+        commandes = (
+            session.query(Commande)
+            .join(Client, Client.user_id == Commande.client_id)
+            .options(joinedload(Commande.client).joinedload(Client.user))
+            .filter(
+                Commande.date_commande >= start_of_day,
+                Commande.date_commande <= end_of_day,
+                func.upper(func.coalesce(Commande.statut, "")) == "VERROUILLEE",
+            )
+            .order_by(Commande.creneau_livraison.asc(), Commande.id.asc())
+            .all()
+        )
+
+        rows: List[dict[str, Any]] = []
+        for commande in commandes:
+            mode_paiement = str(commande.mode_paiement) if commande.mode_paiement else None
+            if not self._is_cod_mode(mode_paiement):
+                continue
+
+            user = commande.client.user if commande.client else None
+            rows.append(
+                {
+                    "id": int(commande.id),  # type: ignore
+                    "nom_client": self._build_client_label(commande),
+                    "telephone": str(user.phone) if user and user.phone else None,
+                    "adresse": self._get_client_address(session, int(commande.client_id)) if commande.client_id else None,
+                    "montant": float(commande.montant_total or 0.0),
+                    "creneau_livraison": str(commande.creneau_livraison) if commande.creneau_livraison else None,
+                }
+            )
+
+        return rows
+
+    def get_commande_for_cod_update(self, session: Session, commande_id: int) -> Optional[Commande]:
+        return (
+            session.query(Commande)
+            .filter(Commande.id == commande_id)
+            .with_for_update(of=Commande)
+            .first()
+        )
+
+    def annuler_commande_cod(self, session: Session, commande: Commande) -> None:
+        commande.statut = "ANNULEE"
+        commande.livreur_id = None
+        commande.status_version = int(commande.status_version or 1) + 1
+        session.flush()
+
     def _is_cod_mode(self, mode_paiement: Optional[str]) -> bool:
         normalized_mode = (mode_paiement or "").strip().casefold()
         return normalized_mode in {"cod", "cash", "especes", "especes_livraison", "cash_on_delivery"}
+
+    def _today_bounds(self) -> tuple[datetime, datetime]:
+        today = date.today()
+        return datetime.combine(today, time.min), datetime.combine(today, time.max)
+
+    def _build_client_label(self, commande: Commande) -> str:
+        user = commande.client.user if commande.client else None
+        if user and user.email:
+            return str(user.email)
+        if user and user.phone:
+            return str(user.phone)
+        if commande.client_id:
+            return f"Client #{commande.client_id}"
+        return "Client inconnu"
+
+    def _get_client_address(self, session: Session, client_id: int) -> Optional[str]:
+        adresse = (
+            session.query(Address)
+            .filter(Address.user_id == client_id)
+            .order_by(Address.is_default.desc(), Address.id.desc())
+            .first()
+        )
+        if not adresse:
+            return None
+
+        parts = [
+            str(part).strip()
+            for part in [adresse.street, adresse.neighborhood, adresse.ville]
+            if part and str(part).strip()
+        ]
+        full_address = ", ".join(parts)
+        details = str(adresse.details).strip() if adresse.details else ""
+        if details:
+            return f"{full_address} ({details})" if full_address else details
+        return full_address or None

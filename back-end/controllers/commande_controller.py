@@ -4,8 +4,18 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from auth_dependencies import require_auth, require_permission
 from controllers.auth_controller import get_current_user
-from dependencies import get_voice_service
-from dto.commande_dto import CommandeCheckoutDTO, CommandeJourDTO, FicheClientDTO, TextBasketRequest, VoiceBasketResponseDTO
+from dependencies import get_cod_confirmation_service, get_voice_service
+from dto.commande_dto import (
+    CommandeCODDemainDTO,
+    CommandeCheckoutDTO,
+    CommandeJourDTO,
+    ConfirmationCODResponseDTO,
+    FicheClientDTO,
+    TextBasketRequest,
+    UpdateConfirmationCODDTO,
+    VoiceBasketResponseDTO,
+)
+from interfaces.cod_confirmation_service_interface import ICODConfirmationService
 from interfaces.commande_service_interface import ICommandeVocaleService
 
 router_voice = APIRouter(prefix="/api", tags=["Voice AI"])
@@ -101,6 +111,31 @@ def get_fiche_client(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors du chargement de la fiche client: {str(e)}")
+
+
+@router_voice.get("/commandes/cod/demain", response_model=list[CommandeCODDemainDTO])
+def get_commandes_cod_demain(
+    principal=Depends(require_permission("admin.panel.access", "orders.read")),
+    service: ICODConfirmationService = Depends(get_cod_confirmation_service),
+):
+    _ = principal
+    with service:
+        return service.get_commandes_cod_demain()
+
+
+@router_voice.patch("/commandes/cod/{commande_id}/confirmation", response_model=ConfirmationCODResponseDTO)
+def update_confirmation_cod(
+    commande_id: int,
+    payload: UpdateConfirmationCODDTO,
+    principal=Depends(require_permission("admin.panel.access", "orders.read")),
+    service: ICODConfirmationService = Depends(get_cod_confirmation_service),
+):
+    with service:
+        return service.update_confirmation_cod(
+            commande_id=commande_id,
+            statut=payload.statut,
+            admin_id=principal.user_id,
+        )
 
 
 @router_voice.get("/commandes/{commande_id}", response_model=CommandeCheckoutDTO)

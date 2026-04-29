@@ -6,12 +6,15 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronUp,
+  CheckCircle2,
   Eye,
   Lock,
   RefreshCw,
   Rocket,
+  Search,
   TriangleAlert,
   Unlock,
+  XCircle,
 } from "lucide-react"
 
 import {
@@ -38,7 +41,10 @@ import { cn } from "@/lib/utils"
 import {
   ApiError,
   apiCall,
+  getCommandesCODDemain,
   getFicheClient,
+  updateConfirmationCOD,
+  type CommandeCODDemainDTO,
   type CommandeHistoriqueDTO,
   type DetailProduitJIT,
   type FicheClientDTO,
@@ -455,6 +461,29 @@ function statusBadge(status: string) {
     label: status || "Inconnu",
     className: "bg-gray-100 text-gray-600 border-gray-300",
     locked: false,
+  }
+}
+
+function codConfirmationBadge(status: string) {
+  const normalized = normalizeStatus(status).toUpperCase()
+
+  if (normalized === "CONFIRMEE_PAR_APPEL") {
+    return {
+      label: "Confirmee par appel",
+      className: "bg-[#1E8A3C]/10 text-[#1E8A3C] border-[#1E8A3C]",
+    }
+  }
+
+  if (normalized === "ANNULEE") {
+    return {
+      label: "Annulee",
+      className: "bg-red-100 text-red-700 border-red-300",
+    }
+  }
+
+  return {
+    label: "Non confirmee",
+    className: "bg-[#F5C400]/20 text-[#8B6A00] border-[#F5C400]",
   }
 }
 
@@ -927,6 +956,12 @@ export default function AdminOrdersPage() {
   const [ordersError, setOrdersError] = useState<string | null>(null)
   const [isOrdersLoading, setIsOrdersLoading] = useState(true)
   const [lastOrdersRefresh, setLastOrdersRefresh] = useState<string | null>(null)
+  const [codOrders, setCodOrders] = useState<CommandeCODDemainDTO[]>([])
+  const [codSearch, setCodSearch] = useState("")
+  const [codError, setCodError] = useState<string | null>(null)
+  const [codFeedback, setCodFeedback] = useState<string | null>(null)
+  const [isCodLoading, setIsCodLoading] = useState(true)
+  const [codActionId, setCodActionId] = useState<number | null>(null)
 
   const [jitResult, setJitResult] = useState<ResultatAgregationJIT | null>(null)
   const [jitResultSource, setJitResultSource] = useState<"preview" | "execute" | null>(null)
@@ -975,6 +1010,29 @@ export default function AdminOrdersPage() {
     } finally {
       if (showLoader) {
         setIsOrdersLoading(false)
+      }
+    }
+  }
+
+  async function loadCodOrders(nextToken: string, showLoader = true, signal?: AbortSignal) {
+    if (showLoader) {
+      setIsCodLoading(true)
+    }
+
+    try {
+      const payload = await getCommandesCODDemain(nextToken, signal)
+      setCodOrders(payload)
+      setCodError(null)
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        return
+      }
+
+      setCodError(error instanceof Error ? error.message : "Impossible de charger les commandes COD.")
+      setCodOrders([])
+    } finally {
+      if (showLoader) {
+        setIsCodLoading(false)
       }
     }
   }
@@ -1050,6 +1108,7 @@ export default function AdminOrdersPage() {
     if (!token) {
       setIsOrdersLoading(false)
       setIsLogLoading(false)
+      setIsCodLoading(false)
       return
     }
 
@@ -1057,10 +1116,12 @@ export default function AdminOrdersPage() {
     let intervalId = 0
 
     void loadOrders(token, true, controller.signal)
+    void loadCodOrders(token, true, controller.signal)
     void loadLastLog(token, true)
 
     intervalId = window.setInterval(() => {
       void loadOrders(token, false)
+      void loadCodOrders(token, false)
     }, 30000)
 
     return () => {
@@ -1149,8 +1210,66 @@ export default function AdminOrdersPage() {
     }
   }
 
+  async function handleCodConfirmation(
+    commandeId: number,
+    statut: "CONFIRMEE_PAR_APPEL" | "ANNULEE"
+  ) {
+    if (!token || codActionId !== null) {
+      return
+    }
+
+    setCodActionId(commandeId)
+    setCodError(null)
+    setCodFeedback(null)
+
+    try {
+      const response = await updateConfirmationCOD(token, commandeId, statut)
+      if (statut === "ANNULEE") {
+        setCodOrders((current) => current.filter((order) => order.id !== commandeId))
+      } else {
+        setCodOrders((current) =>
+          current.map((order) =>
+            order.id === commandeId
+              ? { ...order, statut_confirmation_cod: response.statut_confirmation_cod }
+              : order
+          )
+        )
+      }
+      setCodFeedback(response.message)
+      await loadOrders(token, false)
+    } catch (error) {
+      setCodError(error instanceof Error ? error.message : "Impossible de mettre a jour la confirmation COD.")
+    } finally {
+      setCodActionId(null)
+    }
+  }
+
   const todayLabel = formatShortDate(new Date())
   const clientGroups = useMemo(() => groupOrdersByClient(orders), [orders])
+  const isAfterCodAlertTime = new Date().getHours() >= 18
+  const hasUnconfirmedCodOrders = codOrders.some(
+    (order) => normalizeStatus(order.statut_confirmation_cod).toUpperCase() === "NON_CONFIRMEE"
+  )
+  const filteredCodOrders = useMemo(() => {
+    const query = codSearch.trim().toLowerCase()
+    if (!query) {
+      return codOrders
+    }
+
+    return codOrders.filter((order) =>
+      [
+        order.id,
+        order.nom_client,
+        order.telephone,
+        order.adresse,
+        order.montant,
+        order.creneau_livraison,
+        order.statut_confirmation_cod,
+      ]
+        .map((value) => String(value ?? "").toLowerCase())
+        .some((value) => value.includes(query))
+    )
+  }, [codOrders, codSearch])
 
   if (isAuthLoading) {
     return (
@@ -1195,13 +1314,14 @@ export default function AdminOrdersPage() {
             onClick={() => {
               if (token) {
                 void loadOrders(token, true)
+                void loadCodOrders(token, true)
                 void loadLastLog(token, true)
               }
             }}
             className="px-4 py-2 bg-[#F07C00] text-white rounded-xl font-medium flex items-center gap-2 hover:bg-[#D66B00] disabled:opacity-70"
-            disabled={!token || isOrdersLoading || isLogLoading}
+            disabled={!token || isOrdersLoading || isCodLoading || isLogLoading}
           >
-            {isOrdersLoading || isLogLoading ? <Spinner className="size-4" /> : <RefreshCw className="w-4 h-4" />}
+            {isOrdersLoading || isCodLoading || isLogLoading ? <Spinner className="size-4" /> : <RefreshCw className="w-4 h-4" />}
             Actualiser
           </button>
         </div>
@@ -1406,6 +1526,142 @@ export default function AdminOrdersPage() {
                           </tr>
                         )}
                       </Fragment>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <section className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-gray-100 flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-[#3D3D3D]">Commandes COD à confirmer pour demain</h2>
+              <p className="text-sm text-[#8A8A8A] mt-1">
+                Commandes verrouillées par le JIT, à valider par appel avant la tournée.
+              </p>
+            </div>
+
+            <div className="px-4 py-2 bg-[#F07C00]/5 rounded-xl">
+              <p className="text-sm text-[#8A8A8A]">COD verrouillées</p>
+              <p className="text-2xl font-bold text-[#F07C00]">{codOrders.length}</p>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-4">
+            {isAfterCodAlertTime && hasUnconfirmedCodOrders && (
+              <div className="rounded-xl border border-[#F5C400]/40 bg-[#F5C400]/10 px-4 py-3 text-sm font-medium text-[#8B6A00] flex items-start gap-3">
+                <TriangleAlert className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>⚠️ Certaines commandes COD de demain ne sont pas encore confirmées par appel.</span>
+              </div>
+            )}
+
+            {codError && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {codError}
+              </div>
+            )}
+
+            {codFeedback && (
+              <div className="rounded-xl border border-[#4CB84A]/20 bg-[#F0FAF1] px-4 py-3 text-sm text-[#1E8A3C]">
+                {codFeedback}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <label className="relative block w-full md:max-w-md">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8A8A8A]" />
+                <input
+                  value={codSearch}
+                  onChange={(event) => setCodSearch(event.target.value)}
+                  placeholder="Filtrer par client, téléphone, adresse, créneau..."
+                  className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm text-[#3D3D3D] outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={() => token && void loadCodOrders(token, true)}
+                disabled={!token || isCodLoading}
+                className="px-4 py-2 border border-gray-200 rounded-xl font-medium text-[#3D3D3D] hover:bg-gray-50 disabled:opacity-70 flex items-center gap-2"
+              >
+                {isCodLoading ? <Spinner className="size-4 text-[#1E8A3C]" /> : <RefreshCw className="w-4 h-4 text-[#1A4F8A]" />}
+                Rafraîchir COD
+              </button>
+            </div>
+          </div>
+
+          {isCodLoading ? (
+            <div className="px-6 py-12 text-center">
+              <Spinner className="mx-auto size-6 text-[#1E8A3C]" />
+              <p className="mt-3 text-sm text-[#8A8A8A]">Chargement des commandes COD...</p>
+            </div>
+          ) : filteredCodOrders.length === 0 ? (
+            <div className="px-6 pb-12 text-center">
+              <p className="text-lg font-semibold text-[#3D3D3D]">Aucune commande COD à confirmer.</p>
+              <p className="mt-2 text-sm text-[#8A8A8A]">
+                {codSearch ? "Aucun résultat ne correspond au filtre actuel." : "Aucune commande COD verrouillée par le JIT pour le moment."}
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Client</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Téléphone</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Adresse</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Montant</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Créneau</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Statut confirmation</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredCodOrders.map((order) => {
+                    const badge = codConfirmationBadge(order.statut_confirmation_cod)
+                    const isUpdating = codActionId === order.id
+                    const isConfirmed = normalizeStatus(order.statut_confirmation_cod).toUpperCase() === "CONFIRMEE_PAR_APPEL"
+
+                    return (
+                      <tr key={order.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 text-[#3D3D3D]">
+                          <p className="font-medium">{emptyValue(order.nom_client)}</p>
+                          <p className="text-xs text-[#8A8A8A]">Commande #{order.id}</p>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-[#3D3D3D]">{emptyValue(order.telephone)}</td>
+                        <td className="px-6 py-4 text-sm text-[#3D3D3D] max-w-[320px] whitespace-normal">{emptyValue(order.adresse)}</td>
+                        <td className="px-6 py-4 font-semibold text-[#F07C00]">{formatMoney(order.montant ?? null)}</td>
+                        <td className="px-6 py-4 text-sm text-[#3D3D3D]">{emptyValue(order.creneau_livraison)}</td>
+                        <td className="px-6 py-4">
+                          <span className={cn("inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium", badge.className)}>
+                            {badge.label}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void handleCodConfirmation(order.id, "CONFIRMEE_PAR_APPEL")}
+                              disabled={isUpdating || isConfirmed}
+                              className="px-4 py-2 border border-[#1E8A3C]/20 bg-[#F0FAF1] rounded-xl font-medium text-[#1E8A3C] hover:bg-[#E7F5E8] disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                            >
+                              {isUpdating ? <Spinner className="size-4 text-[#1E8A3C]" /> : <CheckCircle2 className="w-4 h-4" />}
+                              Confirmée par appel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleCodConfirmation(order.id, "ANNULEE")}
+                              disabled={isUpdating}
+                              className="px-4 py-2 border border-red-200 bg-red-50 rounded-xl font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                            >
+                              {isUpdating ? <Spinner className="size-4 text-red-700" /> : <XCircle className="w-4 h-4" />}
+                              Annulée
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
                     )
                   })}
                 </tbody>
