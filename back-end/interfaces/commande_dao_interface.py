@@ -35,6 +35,11 @@ class ICommandeVocaleDao(ABC):
         pass
 
     @abstractmethod
+    def get_historique_client(self, session: Session, client_id: int) -> List[CommandeHistoriqueDTO]:
+        """Retourne l'historique des commandes validees du client connecte"""
+        pass
+
+    @abstractmethod
     def get_fiche_client(self, session: Session, client_id: int) -> Optional[FicheClientDTO]:
         """Retourne la fiche complète d'un client"""
         pass

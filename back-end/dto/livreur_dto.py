@@ -10,6 +10,7 @@ class DeliveryTargetStatus(str, Enum):
     EN_ROUTE = "EN_ROUTE"
     LIVRE = "LIVRE"
     ABSENT = "ABSENT"
+    REFUS = "REFUS"
 
 
 class TourneeItemDTO(BaseModel):

@@ -165,6 +165,23 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
 
         return commandes_dto
 
+    def get_historique_client(self, session: Session, client_id: int) -> List[CommandeHistoriqueDTO]:
+        commandes = (
+            session.query(Commande)
+            .options(
+                joinedload(Commande.panier)
+                .joinedload(Panier.lignes)
+                .joinedload(LignePanier.produit),
+                joinedload(Commande.paiement),
+            )
+            .filter(Commande.client_id == client_id)
+            .filter(func.upper(func.coalesce(Commande.statut, "")) != "BROUILLON")
+            .order_by(Commande.date_commande.desc(), Commande.id.desc())
+            .all()
+        )
+
+        return [self._build_commande_historique_dto(commande) for commande in commandes]
+
     def get_fiche_client(self, session: Session, client_id: int) -> Optional[FicheClientDTO]:
         client = (
             session.query(Client)

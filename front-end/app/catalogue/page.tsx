@@ -1,15 +1,19 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   ChevronDown,
   Clock,
+  AlertCircle,
   Filter,
+  History,
   Leaf,
   Menu,
   MessageCircle,
+  PackageCheck,
+  ReceiptText,
   Search,
   ShoppingCart,
   Trash2,
@@ -22,6 +26,7 @@ import {
 import { AIModals } from "@/components/souki/ai-modals"
 import { ProductCard } from "@/components/souki/product-card"
 import { useAuth } from "@/hooks/useAuth"
+import type { CommandeHistoriqueDTO } from "@/lib/api"
 import {
   BasketSelection,
   CatalogueProduct,
@@ -29,6 +34,7 @@ import {
   DELIVERY_FEE,
   fetchCommandeCheckout,
   fetchCatalogueProducts,
+  fetchOrderHistory,
   fetchPanierDetails,
   formatQuantity,
   loadStoredCart,
@@ -55,6 +61,63 @@ const sortOptions = [
   { id: "name", label: "Ordre alphabetique" },
 ] as const
 
+const formatOrderDate = (value?: string | null) => {
+  if (!value) {
+    return "Date non disponible"
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return "Date non disponible"
+  }
+
+  return new Intl.DateTimeFormat("fr-MA", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date)
+}
+
+const getOrderStatusLabel = (status?: string | null) => {
+  const normalizedStatus = (status || "").toUpperCase()
+  const labels: Record<string, string> = {
+    EN_ATTENTE: "En attente",
+    EN_ROUTE: "En route",
+    LIVRE: "Livree",
+    ABSENT: "Absent",
+    REFUS: "Refusee",
+    ANNULE: "Annulee",
+  }
+  return labels[normalizedStatus] || status || "Statut inconnu"
+}
+
+const getOrderStatusClassName = (status?: string | null) => {
+  const normalizedStatus = (status || "").toUpperCase()
+  if (normalizedStatus === "LIVRE") {
+    return "border-[#BFE6C4] bg-[#EAF8EC] text-[#1E8A3C]"
+  }
+  if (normalizedStatus === "EN_ROUTE") {
+    return "border-[#B9D7F2] bg-[#EEF7FF] text-[#1A5F96]"
+  }
+  if (normalizedStatus === "ABSENT" || normalizedStatus === "REFUS" || normalizedStatus === "ANNULE") {
+    return "border-[#F1C6C6] bg-[#FFF1F1] text-[#B42318]"
+  }
+  return "border-[#F5D7B8] bg-[#FFF7EE] text-[#9A5C11]"
+}
+
+const formatPaymentMode = (mode?: string | null) => {
+  const normalizedMode = (mode || "").toLowerCase()
+  const labels: Record<string, string> = {
+    cod: "Cash a la livraison",
+    cash: "Cash a la livraison",
+    wallet: "Wallet SOUKI",
+    cmi: "Carte bancaire CMI",
+  }
+  return labels[normalizedMode] || mode || "Paiement non precise"
+}
+
 export default function CataloguePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -72,6 +135,34 @@ export default function CataloguePage() {
   const [isFetching, setIsFetching] = useState(true)
   const [error, setError] = useState("")
   const [isSubmittingCart, setIsSubmittingCart] = useState(false)
+  const [orderHistory, setOrderHistory] = useState<CommandeHistoriqueDTO[]>([])
+  const [isFetchingHistory, setIsFetchingHistory] = useState(false)
+  const [historyError, setHistoryError] = useState("")
+  const [showOrderHistory, setShowOrderHistory] = useState(false)
+  const [successMessage, setSuccessMessage] = useState("")
+
+  const loadOrderHistory = useCallback(async (showLoader = true) => {
+    if (!isAuthenticated) {
+      setOrderHistory([])
+      setHistoryError("")
+      return
+    }
+
+    try {
+      if (showLoader) {
+        setIsFetchingHistory(true)
+      }
+      const history = await fetchOrderHistory()
+      setOrderHistory(history)
+      setHistoryError("")
+    } catch (fetchError) {
+      setHistoryError("Impossible de charger votre historique pour le moment.")
+    } finally {
+      if (showLoader) {
+        setIsFetchingHistory(false)
+      }
+    }
+  }, [isAuthenticated])
 
   useEffect(() => {
     let isMounted = true
@@ -113,6 +204,31 @@ export default function CataloguePage() {
   useEffect(() => {
     saveStoredCart(cart)
   }, [cart])
+
+  useEffect(() => {
+    if (isLoading) {
+      return
+    }
+
+    if (!isAuthenticated) {
+      setOrderHistory([])
+      setHistoryError("")
+      return
+    }
+
+    void loadOrderHistory()
+  }, [isAuthenticated, isLoading, loadOrderHistory])
+
+  useEffect(() => {
+    const validatedOrderId = searchParams.get("commande_validee")
+    if (!validatedOrderId) {
+      return
+    }
+
+    setSuccessMessage(`Votre commande N-${validatedOrderId} a ete enregistree avec succes.`)
+    setShowOrderHistory(true)
+    router.replace("/catalogue")
+  }, [router, searchParams])
 
   useEffect(() => {
     const assistantMode = searchParams.get("assistant")
@@ -267,8 +383,6 @@ export default function CataloguePage() {
 
       setIsSubmittingCart(true)
       try {
-        const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-        
         const result = await submitManualBasket(cart)
         
         if (result && result.panier_id) {
@@ -433,6 +547,26 @@ export default function CataloguePage() {
               </p>
             </div>
 
+            {isAuthenticated && (
+              <button
+                onClick={() => setShowOrderHistory((value) => !value)}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-3xl border px-5 py-4 text-left transition-colors",
+                  showOrderHistory
+                    ? "border-[#BFE6C4] bg-[#EAF8EC] text-[#1E8A3C]"
+                    : "border-[#D7EBD9] bg-white text-[#264129] hover:bg-[#F0FAF1]"
+                )}
+              >
+                <span className="flex items-center gap-3 font-semibold">
+                  <History className="h-5 w-5" />
+                  Historique commandes
+                </span>
+                <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[#F07C00]">
+                  {orderHistory.length}
+                </span>
+              </button>
+            )}
+
             {!isAuthenticated && !isLoading && (
               <div className="rounded-3xl border border-[#F3D8B2] bg-[#FFF7EE] p-5">
                 <p className="text-sm font-semibold text-[#9A5C11]">
@@ -483,6 +617,13 @@ export default function CataloguePage() {
                   <Zap className="h-5 w-5" />
                   Panier intelligent
                 </button>
+                <button
+                  onClick={() => requireAuth("/catalogue", () => setShowOrderHistory((value) => !value))}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-[#CFE6D2] bg-white px-5 py-3 font-semibold text-[#264129] transition-colors hover:bg-[#F0FAF1]"
+                >
+                  <History className="h-5 w-5" />
+                  Historique
+                </button>
               </div>
             </div>
 
@@ -509,6 +650,146 @@ export default function CataloguePage() {
               </div>
             </div>
           </div>
+
+          {successMessage && (
+            <div className="mb-6 rounded-2xl border border-[#BFE6C4] bg-[#EAF8EC] px-5 py-4 text-sm font-semibold text-[#1E8A3C]">
+              {successMessage}
+            </div>
+          )}
+
+          {isAuthenticated && showOrderHistory && (
+            <section className="mb-8">
+              <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                <div>
+                  <div className="flex items-center gap-2 text-[#1E8A3C]">
+                    <ReceiptText className="h-5 w-5" />
+                    <h2 className="text-xl font-black">Historique des commandes</h2>
+                  </div>
+                  <p className="mt-1 text-sm text-[#6F8070]">
+                    Retrouvez les commandes validees depuis le checkout.
+                  </p>
+                </div>
+                <button
+                  onClick={() => void loadOrderHistory()}
+                  disabled={isFetchingHistory}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#CFE6D2] bg-white px-4 py-3 text-sm font-semibold text-[#1E8A3C] transition-colors hover:bg-[#F0FAF1] disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  <History className="h-4 w-4" />
+                  {isFetchingHistory ? "Actualisation..." : "Actualiser"}
+                </button>
+              </div>
+
+              {isFetchingHistory && (
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {Array.from({ length: 2 }).map((_, index) => (
+                    <div
+                      key={index}
+                      className="h-44 animate-pulse rounded-[24px] bg-gradient-to-br from-[#F3F7F3] to-[#EAF3EB]"
+                    />
+                  ))}
+                </div>
+              )}
+
+              {!isFetchingHistory && historyError && (
+                <div className="rounded-[24px] border border-red-200 bg-red-50 p-5 text-sm font-semibold text-red-600">
+                  {historyError}
+                </div>
+              )}
+
+              {!isFetchingHistory && !historyError && orderHistory.length === 0 && (
+                <div className="rounded-[24px] border border-[#E6EFE7] bg-white p-8 text-center">
+                  <PackageCheck className="mx-auto mb-3 h-10 w-10 text-[#B8C9BA]" />
+                  <p className="font-semibold text-[#264129]">Aucune commande validee pour le moment.</p>
+                  <p className="mt-1 text-sm text-[#6F8070]">
+                    Vos prochaines commandes apparaitront ici apres validation.
+                  </p>
+                </div>
+              )}
+
+              {!isFetchingHistory && !historyError && orderHistory.length > 0 && (
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {orderHistory.map((order) => (
+                    <article
+                      key={order.id}
+                      className="rounded-[24px] border border-[#E6F0E7] bg-white p-5 shadow-sm"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#7B8B7D]">
+                            Commande N-{order.id}
+                          </p>
+                          <h3 className="mt-1 text-lg font-black text-[#264129]">
+                            {formatOrderDate(order.date_commande)}
+                          </h3>
+                        </div>
+                        <span
+                          className={cn(
+                            "rounded-full border px-3 py-1 text-xs font-bold",
+                            getOrderStatusClassName(order.statut)
+                          )}
+                        >
+                          {getOrderStatusLabel(order.statut)}
+                        </span>
+                      </div>
+
+                      <div className="mt-4 space-y-2">
+                        {order.produits.slice(0, 3).map((product, index) => (
+                          <div
+                            key={`${order.id}-${product.nom_fr}-${index}`}
+                            className="flex items-center justify-between gap-3 rounded-2xl bg-[#F7FCF7] px-4 py-2 text-sm"
+                          >
+                            <span className="truncate font-semibold text-[#264129]">
+                              {product.nom_fr}
+                            </span>
+                            <span className="shrink-0 text-[#6F8070]">
+                              {formatQuantity(product.quantite_kg, "kg")}
+                            </span>
+                          </div>
+                        ))}
+                        {order.produits.length > 3 && (
+                          <p className="text-sm font-semibold text-[#6F8070]">
+                            +{order.produits.length - 3} autre{order.produits.length - 3 > 1 ? "s" : ""} produit
+                            {order.produits.length - 3 > 1 ? "s" : ""}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                        <div className="rounded-2xl bg-[#FBFDF9] p-3">
+                          <p className="text-[#7B8B7D]">Paiement</p>
+                          <p className="mt-1 font-bold text-[#264129]">
+                            {formatPaymentMode(order.mode_paiement)}
+                          </p>
+                        </div>
+                        <div className="rounded-2xl bg-[#FFF7EE] p-3">
+                          <p className="text-[#9A5C11]">Total</p>
+                          <p className="mt-1 text-lg font-black text-[#F07C00]">
+                            {(order.montant_total || 0).toFixed(2)} DH
+                          </p>
+                        </div>
+                      </div>
+
+                      {order.creneau_livraison && (
+                        <p className="mt-3 text-sm text-[#6F8070]">
+                          Creneau: <span className="font-semibold text-[#264129]">{order.creneau_livraison}</span>
+                        </p>
+                      )}
+
+                      <button
+                        onClick={() =>
+                          alert("Le signalement de probleme sera disponible prochainement.")
+                        }
+                        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#F3D8B2] bg-[#FFF7EE] px-4 py-3 text-sm font-bold text-[#9A5C11] transition-colors hover:bg-[#FFEBD6]"
+                      >
+                        <AlertCircle className="h-4 w-4" />
+                        Signaler un probleme
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
 
           {isFetching && (
             <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
