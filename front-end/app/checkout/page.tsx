@@ -267,7 +267,7 @@ function CheckoutContent() {
       if (res.ok) {
         const data = await res.json()
         alert(`Succès ! Votre commande définitive N°${data.commande_id} a été enregistrée.`)
-        window.location.href = "/"
+        router.push(`/catalogue?commande_validee=${data.commande_id}`)
       } else {
         const errData = await res.json().catch(() => ({}))
         alert(errData.detail || "Erreur lors de la validation de la commande.")
