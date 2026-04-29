@@ -1,3 +1,4 @@
+import type { CommandeHistoriqueDTO } from "@/lib/api"
 import { apiCall } from "@/lib/api"
 
 export type CatalogueCategory = "legumes" | "fruits" | "herbes"
@@ -442,4 +443,11 @@ export async function fetchCommandeCheckout(commandeId: number): Promise<Command
   return apiCall(`/api/commandes/${commandeId}`, {
     ...(token ? { token } : {}),
   }) as Promise<CommandeCheckoutResponse>
+}
+
+export async function fetchOrderHistory(): Promise<CommandeHistoriqueDTO[]> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+  return apiCall("/api/commandes/historique", {
+    ...(token ? { token } : {}),
+  }) as Promise<CommandeHistoriqueDTO[]>
 }

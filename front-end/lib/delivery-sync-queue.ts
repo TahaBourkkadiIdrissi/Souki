@@ -1,7 +1,7 @@
 export interface DeliverySyncQueueItem {
   clientEventId: string
   commandeId: string
-  targetStatus: "EN_ROUTE" | "LIVRE" | "ABSENT"
+  targetStatus: "EN_ROUTE" | "LIVRE" | "ABSENT" | "REFUS"
   deviceTimestamp: string
   expectedVersion: number
   createdAt: number

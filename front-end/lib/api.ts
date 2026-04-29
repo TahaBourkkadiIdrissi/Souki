@@ -117,7 +117,7 @@ export interface JITLogsParPlageResponse {
 }
 
 export interface DeliveryEventRequest {
-  target_status: "EN_ROUTE" | "LIVRE" | "ABSENT"
+  target_status: "EN_ROUTE" | "LIVRE" | "ABSENT" | "REFUS"
   client_event_id: string
   device_timestamp: string
   expected_version?: number

@@ -116,6 +116,14 @@ class DeliverySchemaSyncService:
 
             connection.execute(
                 text(
+                    """
+                    ALTER TABLE t_commandes
+                    DROP CONSTRAINT IF EXISTS ck_t_commandes_statut_allowed
+                    """
+                )
+            )
+            connection.execute(
+                text(
                     f"""
                     DO $$
                     BEGIN
