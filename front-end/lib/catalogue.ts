@@ -451,3 +451,35 @@ export async function fetchOrderHistory(): Promise<CommandeHistoriqueDTO[]> {
     ...(token ? { token } : {}),
   }) as Promise<CommandeHistoriqueDTO[]>
 }
+
+export type ClaimReason =
+  | "abime"
+  | "poids_incorrect"
+  | "erreur_produit"
+  | "produit_manquant"
+  | "qualite"
+  | "autre"
+
+export interface ClaimCreatePayload {
+  commande_id: number
+  items: Array<{
+    ligne_panier_id: number
+    quantity_claimed: number
+    reason: ClaimReason
+  }>
+}
+
+export interface ClaimResponse {
+  status: string
+  amount_refunded: string | number
+  new_wallet_balance: string | number
+}
+
+export async function submitClaim(payload: ClaimCreatePayload): Promise<ClaimResponse> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+  return apiCall("/api/v1/claims", {
+    method: "POST",
+    ...(token ? { token } : {}),
+    body: payload,
+  }) as Promise<ClaimResponse>
+}

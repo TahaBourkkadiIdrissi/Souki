@@ -13,6 +13,7 @@ from config import Base, engine
 from controllers.admin_controller import admin_router
 from controllers.auth_controller import auth_router
 from controllers.catalogue_controller import router_catalogue
+from controllers.claim_controller import claim_router
 from controllers.checkout_controller import router_checkout
 from controllers.commande_controller import router_voice
 from controllers.jit_controller import router_jit
@@ -21,14 +22,18 @@ from controllers.panier_controller import router_panier
 from controllers.profile_controller import profile_router
 from controllers.settings_controller import settings_router
 from services.catalogue_bootstrap_service import CatalogueBootstrapService
+from services.delivery_schema_sync_service import DeliverySchemaSyncService
 from services.rbac_bootstrap_service import RBACBootstrapService
 from services.scheduler_service import start_scheduler, stop_scheduler
 from services.supabase_storage_service import avatar_storage_service
+from services.wallet_schema_sync_service import WalletSchemaSyncService
 
 
 def initialize_application() -> None:
     try:
         Base.metadata.create_all(bind=engine)
+        WalletSchemaSyncService.sync()
+        DeliverySchemaSyncService.sync()
         avatar_storage_service.ensure_avatar_column()
     except OperationalError as exc:
         raise RuntimeError(
@@ -45,13 +50,10 @@ def initialize_application() -> None:
         ) from exc
 
     avatar_storage_service.bootstrap_avatar_storage()
-from services.catalogue_bootstrap_service import CatalogueBootstrapService
-from services.delivery_schema_sync_service import DeliverySchemaSyncService
-from services.rbac_bootstrap_service import RBACBootstrapService
-from services.scheduler_service import start_scheduler, stop_scheduler
 
 
 Base.metadata.create_all(bind=engine)
+WalletSchemaSyncService.sync()
 DeliverySchemaSyncService.sync()
 RBACBootstrapService().sync_rbac()
 CatalogueBootstrapService().sync_catalogue()
@@ -120,6 +122,7 @@ app.include_router(router_catalogue)
 app.include_router(router_voice)
 app.include_router(router_panier)
 app.include_router(router_checkout)
+app.include_router(claim_router)
 app.include_router(router_jit)
 app.include_router(router_livreur)
 app.include_router(admin_router)

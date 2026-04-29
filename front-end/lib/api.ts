@@ -151,8 +151,11 @@ export interface CodValidationResponse {
 }
 
 export interface ProduitCommandeJourDTO {
+  ligne_panier_id?: number | null
+  product_id?: number | null
   nom_fr: string
   quantite_kg: number
+  sous_total?: number | null
 }
 
 export interface PaiementDTO {

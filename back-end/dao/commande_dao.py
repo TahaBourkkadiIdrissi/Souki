@@ -143,8 +143,11 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                     volume_total_kg += quantite_kg
                     produits.append(
                         ProduitCommandeJourDTO(
+                            ligne_panier_id=int(ligne.id) if ligne.id is not None else None,
+                            product_id=int(ligne.produit_id) if ligne.produit_id is not None else None,
                             nom_fr=str(produit.nom_fr) if produit else "Produit supprime",
                             quantite_kg=quantite_kg,
+                            sous_total=float(ligne.sous_total) if ligne.sous_total is not None else None,
                         )
                     )
 
@@ -218,8 +221,11 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                     produit = ligne.produit
                     produits.append(
                         ProduitCommandeJourDTO(
+                            ligne_panier_id=int(ligne.id) if ligne.id is not None else None,
+                            product_id=int(ligne.produit_id) if ligne.produit_id is not None else None,
                             nom_fr=str(produit.nom_fr) if produit else "Produit supprime",
                             quantite_kg=float(ligne.quantite_kg or 0.0),
+                            sous_total=float(ligne.sous_total) if ligne.sous_total is not None else None,
                         )
                     )
 
@@ -378,6 +384,27 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
             abonnement=abonnement_dto,
         )
 
+    def get_commande_for_claim(
+        self,
+        session: Session,
+        *,
+        user_id: int,
+        commande_id: int,
+        for_update: bool = False,
+    ) -> Optional[Commande]:
+        query = (
+            session.query(Commande)
+            .options(
+                joinedload(Commande.panier)
+                .joinedload(Panier.lignes)
+                .joinedload(LignePanier.produit),
+            )
+            .filter(Commande.id == commande_id, Commande.client_id == user_id)
+        )
+        if for_update:
+            query = query.with_for_update(of=Commande)
+        return query.first()
+
     def _build_commande_historique_dto(self, commande: Commande) -> CommandeHistoriqueDTO:
         produits = []
         if commande.panier:
@@ -385,8 +412,11 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                 produit = ligne.produit
                 produits.append(
                     ProduitCommandeJourDTO(
+                        ligne_panier_id=int(ligne.id) if ligne.id is not None else None,
+                        product_id=int(ligne.produit_id) if ligne.produit_id is not None else None,
                         nom_fr=str(produit.nom_fr) if produit else "Produit supprime",
                         quantite_kg=float(ligne.quantite_kg or 0.0),
+                        sous_total=float(ligne.sous_total) if ligne.sous_total is not None else None,
                     )
                 )
 

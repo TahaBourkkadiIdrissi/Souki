@@ -18,3 +18,4 @@ class SoukiWallet(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     user = relationship("User", back_populates="souki_wallet")
+    transactions = relationship("TransactionWallet", back_populates="wallet")

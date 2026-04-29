@@ -10,6 +10,7 @@ from entities.ligne_panier_entity import LignePanier
 from entities.commande_entity import Commande
 from entities.delivery_event_entity import DeliveryEvent
 from entities.notification_outbox_entity import NotificationOutbox
+from entities.claim_entity import Claim
 from entities.paiement_entity import Paiement
 from entities.wallet_entity import Wallet
 from entities.souki_wallet_entity import SoukiWallet
@@ -39,6 +40,7 @@ __all__ = [
     "Commande",
     "DeliveryEvent",
     "NotificationOutbox",
+    "Claim",
     "Paiement",
     "Wallet",
     "SoukiWallet",
