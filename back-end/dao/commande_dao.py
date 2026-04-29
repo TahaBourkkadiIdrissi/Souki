@@ -385,6 +385,7 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
             rows.append(
                 {
                     "id": int(commande.id),  # type: ignore
+                    "client_id": int(commande.client_id) if commande.client_id else None,
                     "nom_client": self._build_client_label(commande),
                     "telephone": str(user.phone) if user and user.phone else None,
                     "adresse": self._get_client_address(session, int(commande.client_id)) if commande.client_id else None,

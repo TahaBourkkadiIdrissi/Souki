@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Iterable
+from typing import Dict, Iterable, Optional
 
 from sqlalchemy.orm import Session
 
@@ -25,4 +25,12 @@ class ICODConfirmationLogDao(ABC):
         session: Session,
         commande_ids: Iterable[int],
     ) -> Dict[int, CODConfirmationLog]:
+        pass
+
+    @abstractmethod
+    def get_latest_log(
+        self,
+        session: Session,
+        commande_id: int,
+    ) -> Optional[CODConfirmationLog]:
         pass

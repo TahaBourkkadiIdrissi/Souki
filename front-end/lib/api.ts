@@ -243,6 +243,7 @@ export type StatutConfirmationCOD = "NON_CONFIRMEE" | "CONFIRMEE_PAR_APPEL" | "A
 
 export interface CommandeCODDemainDTO {
   id: number
+  client_id?: number | null
   nom_client?: string | null
   telephone?: string | null
   adresse?: string | null

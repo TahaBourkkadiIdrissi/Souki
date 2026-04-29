@@ -138,6 +138,7 @@ class CommandeJourDTO(BaseModel):
 
 class CommandeCODDemainDTO(BaseModel):
     id: int
+    client_id: Optional[int] = None
     nom_client: Optional[str] = None
     telephone: Optional[str] = None
     adresse: Optional[str] = None

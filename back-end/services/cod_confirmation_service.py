@@ -62,6 +62,7 @@ class CODConfirmationService(ICODConfirmationService):
             commandes.append(
                 CommandeCODDemainDTO(
                     id=row["id"],
+                    client_id=row.get("client_id"),
                     nom_client=row.get("nom_client"),
                     telephone=row.get("telephone"),
                     adresse=row.get("adresse"),
@@ -101,7 +102,14 @@ class CODConfirmationService(ICODConfirmationService):
                     detail="Seules les commandes COD verrouillees par le JIT peuvent etre traitees ici.",
                 )
 
-            if current_status == "ANNULEE" and normalized_statut != ANNULEE:
+            latest_log = self.cod_confirmation_log_dao.get_latest_log(session, commande_id)
+            if latest_log and str(latest_log.statut).upper() in {CONFIRMEE_PAR_APPEL, ANNULEE}:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Cette commande a deja ete traitee par un autre operateur.",
+                )
+
+            if current_status == "ANNULEE":
                 raise HTTPException(status_code=409, detail="Cette commande COD est deja annulee.")
 
             if normalized_statut == ANNULEE:

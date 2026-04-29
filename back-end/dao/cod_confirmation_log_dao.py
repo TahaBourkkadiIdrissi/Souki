@@ -1,4 +1,4 @@
-from typing import Dict, Iterable
+from typing import Dict, Iterable, Optional
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -53,3 +53,15 @@ class CODConfirmationLogDaoBD(ICODConfirmationLogDao):
         )
 
         return {int(log.commande_id): log for log in logs}
+
+    def get_latest_log(
+        self,
+        session: Session,
+        commande_id: int,
+    ) -> Optional[CODConfirmationLog]:
+        return (
+            session.query(CODConfirmationLog)
+            .filter(CODConfirmationLog.commande_id == commande_id)
+            .order_by(CODConfirmationLog.id.desc())
+            .first()
+        )
