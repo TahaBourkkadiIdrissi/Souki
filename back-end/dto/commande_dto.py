@@ -135,3 +135,23 @@ class CommandeJourDTO(BaseModel):
     montant_total: float = 0.0
     mode_paiement: Optional[str] = None
     creneau_livraison: Optional[str] = None
+
+class CommandeCODDemainDTO(BaseModel):
+    id: int
+    client_id: Optional[int] = None
+    nom_client: Optional[str] = None
+    telephone: Optional[str] = None
+    adresse: Optional[str] = None
+    montant: Optional[float] = None
+    creneau_livraison: Optional[str] = None
+    statut_confirmation_cod: str = "NON_CONFIRMEE"
+
+class UpdateConfirmationCODDTO(BaseModel):
+    statut: str
+
+class ConfirmationCODResponseDTO(BaseModel):
+    commande_id: int
+    statut_confirmation_cod: str
+    commande_statut: Optional[str] = None
+    logged_at: Optional[datetime] = None
+    message: str
