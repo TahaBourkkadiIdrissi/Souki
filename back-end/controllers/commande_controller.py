@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from auth_dependencies import require_auth, require_permission
 from controllers.auth_controller import get_current_user
 from dependencies import get_voice_service
-from dto.commande_dto import CommandeCheckoutDTO, CommandeJourDTO, FicheClientDTO, TextBasketRequest, VoiceBasketResponseDTO
+from dto.commande_dto import CommandeCheckoutDTO, CommandeHistoriqueDTO, CommandeJourDTO, FicheClientDTO, TextBasketRequest, VoiceBasketResponseDTO
 from interfaces.commande_service_interface import ICommandeVocaleService
 
 router_voice = APIRouter(prefix="/api", tags=["Voice AI"])
@@ -101,6 +101,18 @@ def get_fiche_client(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors du chargement de la fiche client: {str(e)}")
+
+
+@router_voice.get("/commandes/historique", response_model=list[CommandeHistoriqueDTO])
+def get_historique_commandes_client(
+    principal=Depends(require_permission("orders.read_self")),
+    service: ICommandeVocaleService = Depends(get_voice_service)
+):
+    try:
+        with service:
+            return service.get_historique_client(principal.user_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors du chargement de l'historique des commandes: {str(e)}")
 
 
 @router_voice.get("/commandes/{commande_id}", response_model=CommandeCheckoutDTO)

@@ -167,6 +167,23 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
 
         return commandes_dto
 
+    def get_historique_client(self, session: Session, client_id: int) -> List[CommandeHistoriqueDTO]:
+        commandes = (
+            session.query(Commande)
+            .options(
+                joinedload(Commande.panier)
+                .joinedload(Panier.lignes)
+                .joinedload(LignePanier.produit),
+                joinedload(Commande.paiement),
+            )
+            .filter(Commande.client_id == client_id)
+            .filter(func.upper(func.coalesce(Commande.statut, "")) != "BROUILLON")
+            .order_by(Commande.date_commande.desc(), Commande.id.desc())
+            .all()
+        )
+
+        return [self._build_commande_historique_dto(commande) for commande in commandes]
+
     def get_fiche_client(self, session: Session, client_id: int) -> Optional[FicheClientDTO]:
         client = (
             session.query(Client)
@@ -359,6 +376,50 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
             sessions=sessions_dto,
             notifications=notifications_dto,
             abonnement=abonnement_dto,
+        )
+
+    def _build_commande_historique_dto(self, commande: Commande) -> CommandeHistoriqueDTO:
+        produits = []
+        if commande.panier:
+            for ligne in commande.panier.lignes:
+                produit = ligne.produit
+                produits.append(
+                    ProduitCommandeJourDTO(
+                        nom_fr=str(produit.nom_fr) if produit else "Produit supprime",
+                        quantite_kg=float(ligne.quantite_kg or 0.0),
+                    )
+                )
+
+        paiement = commande.paiement
+        paiement_dto = None
+        if paiement:
+            paiement_dto = PaiementDTO(
+                methode=str(paiement.methode) if paiement.methode else None,
+                montant=float(paiement.montant) if paiement.montant is not None else None,
+                valide=bool(paiement.valide) if paiement.valide is not None else None,
+                frais_cmi=float(paiement.frais_cmi) if paiement.frais_cmi is not None else None,
+                montant_net=float(paiement.montant_net) if paiement.montant_net is not None else None,
+            )
+
+        payment_validated = bool(commande.payment_validated or (paiement and paiement.valide))
+        mode_paiement = str(commande.mode_paiement) if commande.mode_paiement else None
+        montant_total = float(commande.montant_total or 0.0)
+        montant_a_encaisser = montant_total if self._is_cod_mode(mode_paiement) and not payment_validated else 0.0
+
+        return CommandeHistoriqueDTO(
+            id=int(commande.id),  # type: ignore
+            date_commande=commande.date_commande,  # type: ignore
+            statut=str(commande.statut) if commande.statut else None,
+            montant_total=montant_total,
+            mode_paiement=mode_paiement,
+            payment_validated=payment_validated,
+            montant_a_encaisser=montant_a_encaisser,
+            creneau_livraison=str(commande.creneau_livraison) if commande.creneau_livraison else None,
+            enroute_at=commande.enroute_at,  # type: ignore
+            delivered_at=commande.delivered_at,  # type: ignore
+            absent_at=commande.absent_at,  # type: ignore
+            produits=produits,
+            paiement=paiement_dto,
         )
 
     def _is_cod_mode(self, mode_paiement: Optional[str]) -> bool:
