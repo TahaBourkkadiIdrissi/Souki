@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from sqlalchemy.orm import Session
 from typing import Optional, List
-from dto.commande_dto import CommandeJourDTO, FicheClientDTO
+from dto.commande_dto import CommandeHistoriqueDTO, CommandeJourDTO, FicheClientDTO
 from entities.commande_vocale_entity import CommandeVocale
 
 
@@ -31,6 +31,11 @@ class ICommandeVocaleDao(ABC):
     @abstractmethod
     def get_commandes_du_jour(self, session: Session) -> List[CommandeJourDTO]:
         """Retourne toutes les commandes du jour"""
+        pass
+
+    @abstractmethod
+    def get_historique_client(self, session: Session, client_id: int) -> List[CommandeHistoriqueDTO]:
+        """Retourne l'historique des commandes validees du client connecte"""
         pass
 
     @abstractmethod
