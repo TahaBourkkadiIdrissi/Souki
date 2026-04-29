@@ -4,7 +4,7 @@ import os
 from config import LocalSession
 from controllers.auth_controller import get_current_user
 from dao.jit_dao import JITDaoBD
-from services.jit_service import JITService
+from services.jit_service import JITAlreadyExecutedError, JITService
 from dto.jit_dto import ResultatAgregationJIT, JITLogDTO
 
 
@@ -56,28 +56,28 @@ async def executer_job_jit(
     service: JITService = Depends(get_jit_service)
 ):
     """
-    Exécute le job JIT complet:
-    1. Agrège les commandes
+    Execute le job JIT complet:
+    1. Agrege les commandes
     2. Verrouille les commandes
     3. Envoie la liste d'achats par email
-    4. Crée un log
+    4. Cree un log
 
-    ⚠️ À NE DÉCLENCHER QU'À 20h00
-    🔒 ADMIN ONLY - Authentification requise
+    ADMIN ONLY - Authentification requise
     """
+    session = LocalSession()
     try:
-        session = LocalSession()
         log = service.executer_job_jit(session)
-        # ❌ ENLEVER session.commit() - Le Service le fait déjà!
-        session.close()
-        
-        if not log:
-            raise HTTPException(status_code=500, detail="Impossible de créer le log JIT")
-        
-        return log
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur lors de l'exécution JIT: {str(e)}")
 
+        if not log:
+            raise HTTPException(status_code=500, detail="Impossible de creer le log JIT")
+
+        return log
+    except JITAlreadyExecutedError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de l'execution JIT: {str(e)}")
+    finally:
+        session.close()
 
 @router_jit.post("/deverrouiller")
 async def deverrouiller_commandes_jit(

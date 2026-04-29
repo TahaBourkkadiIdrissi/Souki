@@ -18,11 +18,32 @@ LOCKED_JIT_STATUS = "VERROUILLEE"
 UNLOCKED_JIT_STATUS = "CONFIRMEE"
 
 
+class JITAlreadyExecutedError(Exception):
+    """Raised when the daily JIT has already locked orders."""
+
+
 class JITService(IJITService):
     """Service pour l'agregation JIT des commandes."""
 
     def __init__(self, jit_dao: IJITDao) -> None:
         self.jit_dao = jit_dao
+
+    def _today_bounds(self) -> tuple[datetime, datetime]:
+        today = date.today()
+        return datetime.combine(today, time.min), datetime.combine(today, time.max)
+
+    def _count_locked_commandes_today(self, session: Session) -> int:
+        start_of_day, end_of_day = self._today_bounds()
+
+        return (
+            session.query(Commande)
+            .filter(
+                Commande.statut == LOCKED_JIT_STATUS,
+                Commande.date_commande >= start_of_day,
+                Commande.date_commande <= end_of_day,
+            )
+            .count()
+        )
 
     def agreger_commandes(self, session: Session) -> ResultatAgregationJIT:
         """
@@ -30,9 +51,7 @@ class JITService(IJITService):
         Calcule les volumes avec buffer 10% et arrondit a la caisse entiere.
         """
         volumes_par_produit: Dict[int, Dict] = {}
-        today = date.today()
-        start_of_day = datetime.combine(today, time.min)
-        end_of_day = datetime.combine(today, time.max)
+        start_of_day, end_of_day = self._today_bounds()
 
         commandes = (
             session.query(Commande)
@@ -132,9 +151,7 @@ class JITService(IJITService):
         Retourne le nombre de commandes verrouillees.
         """
         try:
-            today = date.today()
-            start_of_day = datetime.combine(today, time.min)
-            end_of_day = datetime.combine(today, time.max)
+            start_of_day, end_of_day = self._today_bounds()
 
             commandes = (
                 session.query(Commande)
@@ -163,9 +180,7 @@ class JITService(IJITService):
         Retourne le nombre et le detail des commandes rouvertes.
         """
         try:
-            today = date.today()
-            start_of_day = datetime.combine(today, time.min)
-            end_of_day = datetime.combine(today, time.max)
+            start_of_day, end_of_day = self._today_bounds()
 
             commandes = (
                 session.query(Commande)
@@ -206,6 +221,13 @@ class JITService(IJITService):
         2. Verrouiller les commandes
         3. Creer un log avec la liste d'achats en base
         """
+        locked_count = self._count_locked_commandes_today(session)
+        if locked_count > 0:
+            raise JITAlreadyExecutedError(
+                f"Le JIT du jour est deja lance: {locked_count} commande(s) verrouillee(s). "
+                "Deverrouillez le JIT avant de le relancer."
+            )
+
         try:
             print("Demarrage du job JIT d'agregation des commandes...")
 

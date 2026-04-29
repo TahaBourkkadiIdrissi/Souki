@@ -18,3 +18,5 @@ Action future :
 - Verifier si ce service doit rester actif au demarrage.
 - Decider si les changements de schema doivent etre deplaces vers des migrations SQL.
 - Documenter clairement les statuts autorises et leur cycle de vie.
+
+blabla

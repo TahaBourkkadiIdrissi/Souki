@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from sqlalchemy.orm import Session
-from typing import Optional, List
-from dto.commande_dto import CommandeHistoriqueDTO, CommandeJourDTO, FicheClientDTO
+from typing import Any, Optional, List
+from dto.commande_dto import CommandeJourDTO, FicheClientDTO
+from entities.commande_entity import Commande
 from entities.commande_vocale_entity import CommandeVocale
 
 
@@ -41,4 +42,19 @@ class ICommandeVocaleDao(ABC):
     @abstractmethod
     def get_fiche_client(self, session: Session, client_id: int) -> Optional[FicheClientDTO]:
         """Retourne la fiche complète d'un client"""
+        pass
+
+    @abstractmethod
+    def get_commandes_cod_verrouillees(self, session: Session) -> List[dict[str, Any]]:
+        """Retourne les commandes COD verrouillees par le JIT."""
+        pass
+
+    @abstractmethod
+    def get_commande_for_cod_update(self, session: Session, commande_id: int) -> Optional[Commande]:
+        """Retourne une commande pour l'action de confirmation COD."""
+        pass
+
+    @abstractmethod
+    def annuler_commande_cod(self, session: Session, commande: Commande) -> None:
+        """Annule une commande COD et la retire de la tournee."""
         pass
