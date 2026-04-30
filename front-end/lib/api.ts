@@ -5,7 +5,7 @@ export const API_BASE_URL = (
 ).replace(/\/$/, "")
 
 interface ApiOptions {
-  method?: "GET" | "POST" | "PUT" | "DELETE"
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
   headers?: Record<string, string>
   body?: unknown
   token?: string
@@ -242,6 +242,27 @@ export interface FicheClientDTO {
   abonnement?: AbonnementClientDTO | null
 }
 
+export type StatutConfirmationCOD = "NON_CONFIRMEE" | "CONFIRMEE_PAR_APPEL" | "ANNULEE"
+
+export interface CommandeCODDemainDTO {
+  id: number
+  client_id?: number | null
+  nom_client?: string | null
+  telephone?: string | null
+  adresse?: string | null
+  montant?: number | null
+  creneau_livraison?: string | null
+  statut_confirmation_cod: StatutConfirmationCOD | string
+}
+
+export interface ConfirmationCODResponseDTO {
+  commande_id: number
+  statut_confirmation_cod: StatutConfirmationCOD | string
+  commande_statut?: string | null
+  logged_at?: string | null
+  message: string
+}
+
 export async function apiCall<T = any>(endpoint: string, options: ApiOptions = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`
   const headers: Record<string, string> = {
@@ -354,4 +375,20 @@ export async function jitLogsParPlage(token: string, dateDebut: string, dateFin:
 
 export async function getFicheClient(token: string, clientId: number) {
   return apiCall<FicheClientDTO>(`/api/commandes/clients/${clientId}`, { token })
+}
+
+export async function getCommandesCODDemain(token: string, signal?: AbortSignal) {
+  return apiCall<CommandeCODDemainDTO[]>("/api/commandes/cod/demain", { token, signal })
+}
+
+export async function updateConfirmationCOD(
+  token: string,
+  commandeId: number,
+  statut: Exclude<StatutConfirmationCOD, "NON_CONFIRMEE">
+) {
+  return apiCall<ConfirmationCODResponseDTO>(`/api/commandes/cod/${commandeId}/confirmation`, {
+    method: "PATCH",
+    token,
+    body: { statut },
+  })
 }

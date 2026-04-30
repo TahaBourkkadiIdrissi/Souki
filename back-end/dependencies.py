@@ -2,6 +2,7 @@ from fastapi import Depends
 
 from dao.claim_dao import ClaimDaoBD
 from dao.checkout_dao import CheckoutDaoBD
+from dao.cod_confirmation_log_dao import CODConfirmationLogDaoBD
 from dao.commande_dao import CommandeVocaleDaoBD
 from dao.notification_outbox_dao import NotificationOutboxDaoBD
 from dao.panier_dao import PanierDaoBD
@@ -13,6 +14,8 @@ from interfaces.claim_dao_interface import IClaimDao
 from interfaces.claim_service_interface import IClaimService
 from interfaces.checkout_dao_interface import ICheckoutDao
 from interfaces.checkout_service_interface import ICheckoutService
+from interfaces.cod_confirmation_log_dao_interface import ICODConfirmationLogDao
+from interfaces.cod_confirmation_service_interface import ICODConfirmationService
 from interfaces.commande_dao_interface import ICommandeVocaleDao
 from interfaces.commande_service_interface import ICommandeVocaleService
 from interfaces.livreur_dao_interface import ILivreurDao
@@ -27,6 +30,7 @@ from interfaces.souki_wallet_service_interface import ISoukiWalletService
 from services.catalogue_service import CatalogueService
 from services.claim_service import ClaimService
 from services.checkout_service import CheckoutService
+from services.cod_confirmation_service import CODConfirmationService
 from services.commande_service import CommandeVocaleService
 from services.livreur_service import LivreurService
 from services.notification_outbox_service import NotificationOutboxService
@@ -44,6 +48,10 @@ def get_claim_dao() -> IClaimDao:
 
 def get_commande_dao() -> ICommandeVocaleDao:
     return CommandeVocaleDaoBD()
+
+
+def get_cod_confirmation_log_dao() -> ICODConfirmationLogDao:
+    return CODConfirmationLogDaoBD()
 
 
 def get_checkout_dao() -> ICheckoutDao:
@@ -83,6 +91,13 @@ def get_voice_service(
     commande_dao: ICommandeVocaleDao = Depends(get_commande_dao)
 ) -> ICommandeVocaleService:
     return CommandeVocaleService(product_dao, commande_dao)
+
+
+def get_cod_confirmation_service(
+    commande_dao: ICommandeVocaleDao = Depends(get_commande_dao),
+    cod_confirmation_log_dao: ICODConfirmationLogDao = Depends(get_cod_confirmation_log_dao),
+) -> ICODConfirmationService:
+    return CODConfirmationService(commande_dao, cod_confirmation_log_dao)
 
 
 def get_checkout_service(

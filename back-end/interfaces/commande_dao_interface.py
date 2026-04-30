@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -56,4 +56,19 @@ class ICommandeVocaleDao(ABC):
         for_update: bool = False,
     ) -> Optional[Commande]:
         """Retourne une commande finale du client avec son panier pour traitement SAV."""
+        pass
+
+    @abstractmethod
+    def get_commandes_cod_verrouillees(self, session: Session) -> List[dict[str, Any]]:
+        """Retourne les commandes COD verrouillees par le JIT."""
+        pass
+
+    @abstractmethod
+    def get_commande_for_cod_update(self, session: Session, commande_id: int) -> Optional[Commande]:
+        """Retourne une commande pour l'action de confirmation COD."""
+        pass
+
+    @abstractmethod
+    def annuler_commande_cod(self, session: Session, commande: Commande) -> None:
+        """Annule une commande COD et la retire de la tournee."""
         pass
