@@ -4,14 +4,20 @@ import { Fragment, type ReactNode, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import {
   ArrowLeft,
+  Banknote,
+  CalendarDays,
   ChevronDown,
   ChevronUp,
   CheckCircle2,
+  ClipboardList,
   Eye,
   Lock,
+  Package,
+  PhoneCall,
   RefreshCw,
   Rocket,
   Search,
+  Scale,
   TriangleAlert,
   Unlock,
   XCircle,
@@ -35,15 +41,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/hooks/useAuth"
 import { cn } from "@/lib/utils"
 import {
   ApiError,
   apiCall,
-  getCommandesCODDemain,
+  batchConfirmationCOD,
+  getAlerteCOD18h,
+  getCommandesCODVerouillees,
   getFicheClient,
   updateConfirmationCOD,
+  type AlerteCOD18hDTO,
   type CommandeCODDemainDTO,
   type CommandeHistoriqueDTO,
   type DetailProduitJIT,
@@ -493,31 +504,71 @@ function statusBadge(status: string) {
 
   if (normalized === "en_attente") {
     return {
-      label: "en_attente",
-      className: "bg-[#F5C400]/20 text-[#B8860B] border-[#F5C400]",
+      label: "En attente",
+      className: "bg-amber-50 text-amber-800 border-amber-200",
       locked: false,
     }
   }
 
   if (normalized === "confirmee") {
     return {
-      label: "Confirmée",
-      className: "bg-[#1A4F8A]/10 text-[#1A4F8A] border-[#1A4F8A]",
+      label: "Confirmee",
+      className: "bg-blue-50 text-blue-800 border-blue-200",
       locked: false,
     }
   }
 
   if (normalized === "verrouillee") {
     return {
-      label: "Verrouillée",
-      className: "bg-gray-100 text-gray-600 border-gray-300",
+      label: "Verrouillee",
+      className: "bg-slate-100 text-slate-800 border-slate-200",
       locked: true,
+    }
+  }
+
+  if (normalized === "a_livrer") {
+    return {
+      label: "A livrer",
+      className: "bg-indigo-50 text-indigo-900 border-indigo-200",
+      locked: false,
+    }
+  }
+
+  if (normalized === "en_route") {
+    return {
+      label: "En route",
+      className: "bg-violet-50 text-violet-900 border-violet-200",
+      locked: false,
+    }
+  }
+
+  if (normalized === "livre" || normalized === "livree") {
+    return {
+      label: "Livre",
+      className: "bg-emerald-50 text-emerald-900 border-emerald-200",
+      locked: false,
+    }
+  }
+
+  if (normalized === "absent") {
+    return {
+      label: "Absent",
+      className: "bg-orange-50 text-orange-900 border-orange-200",
+      locked: false,
+    }
+  }
+
+  if (normalized === "annulee" || normalized === "annule") {
+    return {
+      label: "Annulee",
+      className: "bg-red-50 text-red-900 border-red-200",
+      locked: false,
     }
   }
 
   return {
     label: status || "Inconnu",
-    className: "bg-gray-100 text-gray-600 border-gray-300",
+    className: "bg-gray-50 text-gray-700 border-gray-200",
     locked: false,
   }
 }
@@ -528,23 +579,22 @@ function codConfirmationBadge(status: string) {
   if (normalized === "CONFIRMEE_PAR_APPEL") {
     return {
       label: "Confirmee par appel",
-      className: "bg-[#1E8A3C]/10 text-[#1E8A3C] border-[#1E8A3C]",
+      className: "bg-emerald-50 text-emerald-800 border-emerald-200",
     }
   }
 
   if (normalized === "ANNULEE") {
     return {
       label: "Annulee",
-      className: "bg-red-100 text-red-700 border-red-300",
+      className: "bg-red-50 text-red-800 border-red-200",
     }
   }
 
   return {
     label: "Non confirmee",
-    className: "bg-[#F5C400]/20 text-[#8B6A00] border-[#F5C400]",
+    className: "bg-amber-50 text-amber-800 border-amber-200 animate-pulse",
   }
 }
-
 function jitLogBadge(status: string) {
   const normalized = normalizeStatus(status)
 
@@ -557,6 +607,88 @@ function jitLogBadge(status: string) {
   }
 
   return "bg-red-100 text-red-600 border-red-400"
+}
+
+function DashboardStatCard({
+  icon: Icon,
+  label,
+  value,
+  tone = "green",
+  helper,
+}: {
+  icon: typeof Package
+  label: string
+  value: string | number
+  tone?: "green" | "orange" | "blue" | "slate"
+  helper?: string
+}) {
+  const toneClasses = {
+    green: "bg-emerald-50 text-[#1E8A3C] border-emerald-100",
+    orange: "bg-orange-50 text-[#F07C00] border-orange-100",
+    blue: "bg-blue-50 text-[#1A4F8A] border-blue-100",
+    slate: "bg-slate-50 text-slate-700 border-slate-100",
+  }
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-gray-500">{label}</p>
+          <p className="mt-2 text-2xl font-bold tracking-tight text-gray-950">{value}</p>
+          {helper ? <p className="mt-1 text-xs text-gray-400">{helper}</p> : null}
+        </div>
+        <div className={cn("rounded-xl border p-2.5", toneClasses[tone])}>
+          <Icon className="h-5 w-5" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SectionShell({
+  children,
+  className,
+}: {
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <section className={cn("overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm", className)}>
+      {children}
+    </section>
+  )
+}
+
+function TableSkeleton({ rows = 5, columns = 6 }: { rows?: number; columns?: number }) {
+  return (
+    <div className="space-y-3 p-6">
+      {Array.from({ length: rows }).map((_, rowIndex) => (
+        <div key={rowIndex} className="grid gap-3" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+          {Array.from({ length: columns }).map((__, columnIndex) => (
+            <Skeleton key={columnIndex} className="h-9 rounded-xl bg-gray-200" />
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function EmptyState({
+  title,
+  description,
+}: {
+  title: string
+  description: string
+}) {
+  return (
+    <div className="px-6 py-14 text-center">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F0FAF1] text-[#1E8A3C]">
+        <ClipboardList className="h-6 w-6" />
+      </div>
+      <p className="mt-4 text-base font-semibold text-gray-950">{title}</p>
+      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-500">{description}</p>
+    </div>
+  )
 }
 
 function ProductDetailsTable({ details }: { details: DetailProduitJIT[] }) {
@@ -846,94 +978,125 @@ function FicheClientPanel({
   openBlocks: Record<string, boolean>
   onToggleBlock: (blockKey: ClientBlockKey) => void
 }) {
-  const isOpen = (blockKey: ClientBlockKey) => openBlocks[`${fiche.id}:${blockKey}`] ?? blockKey === "identity"
+  const blockOrder: ClientBlockKey[] = ["identity", "orders", "voice", "sessions", "notifications", "subscription"]
+  const activeBlock = blockOrder.find((blockKey) => openBlocks[`${fiche.id}:${blockKey}`]) || "identity"
   const paiements = fiche.commandes.filter((commande) => commande.paiement)
 
   return (
-    <div className="space-y-4 rounded-2xl border border-[#1E8A3C]/10 bg-[#F0FAF1] p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="rounded-2xl border border-[#1E8A3C]/20 bg-white shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
         <div>
-          <h3 className="text-base font-bold text-[#3D3D3D]">Fiche client #{fiche.id}</h3>
-          <p className="text-sm text-[#8A8A8A]">{fiche.email || fiche.phone || "Aucune donnée disponible"}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#1E8A3C]">Fiche client</p>
+          <h3 className="mt-1 text-base font-bold text-gray-950">Client #{fiche.id}</h3>
+          <p className="mt-1 text-sm text-gray-500">{fiche.email || fiche.phone || "Aucune donnee disponible"}</p>
         </div>
-        <span className={cn("inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium", fiche.is_active ? "bg-[#1E8A3C]/10 text-[#1E8A3C] border-[#1E8A3C]" : "bg-gray-100 text-gray-600 border-gray-300")}>
+        <span className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium", fiche.is_active ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-gray-200 bg-gray-50 text-gray-600")}>
           {fiche.is_active ? "Actif" : "Inactif"}
         </span>
       </div>
 
-      <ClientSheetBlock title="Identité client" isOpen={isOpen("identity")} onToggle={() => onToggleBlock("identity")}>
-        <ClientInfoGrid
-          items={[
-            { label: "Email", value: fiche.email },
-            { label: "Téléphone", value: fiche.phone },
-            { label: "Inscription", value: formatDateTime(fiche.created_at) },
-            { label: "Dernière connexion", value: formatDateTime(fiche.last_login_at) },
-            { label: "Provider", value: fiche.auth_provider },
-            { label: "Email vérifié", value: formatBool(fiche.is_email_verified) },
-            { label: "Téléphone vérifié", value: formatBool(fiche.is_phone_verified) },
-            { label: "Blacklisted", value: formatBool(fiche.is_blacklisted) },
-          ]}
-        />
-        <div className="mt-4">
-          <p className="mb-2 text-xs font-semibold uppercase text-[#8A8A8A]">Adresses</p>
-          {(fiche.adresses || []).length === 0 ? (
+      <Tabs defaultValue={activeBlock} onValueChange={(value) => onToggleBlock(value as ClientBlockKey)} className="p-5">
+        <TabsList className="mb-5 flex h-auto w-full flex-wrap justify-start gap-2 rounded-xl bg-gray-100 p-1">
+          <TabsTrigger value="identity" className="rounded-lg px-3 py-2 text-xs data-[state=active]:bg-white data-[state=active]:text-[#1E8A3C]">Identite</TabsTrigger>
+          <TabsTrigger value="orders" className="rounded-lg px-3 py-2 text-xs data-[state=active]:bg-white data-[state=active]:text-[#1E8A3C]">Commandes</TabsTrigger>
+          <TabsTrigger value="voice" className="rounded-lg px-3 py-2 text-xs data-[state=active]:bg-white data-[state=active]:text-[#1E8A3C]">Vocal</TabsTrigger>
+          <TabsTrigger value="sessions" className="rounded-lg px-3 py-2 text-xs data-[state=active]:bg-white data-[state=active]:text-[#1E8A3C]">Sessions</TabsTrigger>
+          <TabsTrigger value="notifications" className="rounded-lg px-3 py-2 text-xs data-[state=active]:bg-white data-[state=active]:text-[#1E8A3C]">Notifs</TabsTrigger>
+          <TabsTrigger value="subscription" className="rounded-lg px-3 py-2 text-xs data-[state=active]:bg-white data-[state=active]:text-[#1E8A3C]">Abonnement</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="identity" className="space-y-4">
+          <ClientInfoGrid
+            items={[
+              { label: "Email", value: fiche.email },
+              { label: "Telephone", value: fiche.phone },
+              { label: "Inscription", value: formatDateTime(fiche.created_at) },
+              { label: "Derniere connexion", value: formatDateTime(fiche.last_login_at) },
+              { label: "Provider", value: fiche.auth_provider },
+              { label: "Email verifie", value: formatBool(fiche.is_email_verified) },
+              { label: "Telephone verifie", value: formatBool(fiche.is_phone_verified) },
+              { label: "Blacklisted", value: formatBool(fiche.is_blacklisted) },
+            ]}
+          />
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Adresses</p>
+            {(fiche.adresses || []).length === 0 ? (
+              <EmptyClientBlock />
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                {(fiche.adresses || []).map((adresse, index) => (
+                  <div key={`${adresse.neighborhood || "adresse"}-${index}`} className="rounded-xl border border-gray-100 bg-slate-50 px-4 py-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-medium text-gray-950">
+                        {[adresse.neighborhood, adresse.street, adresse.ville].filter(Boolean).join(", ") || "Adresse sans libelle"}
+                      </p>
+                      {adresse.is_default ? (
+                        <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
+                          Principale
+                        </span>
+                      ) : null}
+                    </div>
+                    {adresse.details ? <p className="mt-1 text-sm text-gray-500">{adresse.details}</p> : null}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="orders" className="space-y-4">
+          {fiche.commandes.length === 0 ? (
             <EmptyClientBlock />
           ) : (
-            <div className="space-y-3">
-              {(fiche.adresses || []).map((adresse, index) => (
-                <div key={`${adresse.neighborhood || "adresse"}-${index}`} className="rounded-xl bg-gray-50 px-4 py-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-medium text-[#3D3D3D]">
-                      {[adresse.neighborhood, adresse.street, adresse.ville].filter(Boolean).join(", ") || "Adresse sans libellé"}
-                    </p>
-                    {adresse.is_default ? (
-                      <span className="inline-flex items-center rounded-full border border-[#1E8A3C] bg-[#1E8A3C]/10 px-3 py-1 text-xs font-medium text-[#1E8A3C]">
-                        Principale
-                      </span>
-                    ) : null}
-                  </div>
-                  {adresse.details ? <p className="mt-1 text-sm text-[#8A8A8A]">{adresse.details}</p> : null}
-                </div>
+            <div className="grid gap-3">
+              {fiche.commandes.map((commande) => (
+                <CommandeClientCard key={commande.id} commande={commande} />
               ))}
             </div>
           )}
-        </div>
-      </ClientSheetBlock>
-
-      <ClientSheetBlock title="Historique commandes" count={fiche.commandes.length} isOpen={isOpen("orders")} onToggle={() => onToggleBlock("orders")}>
-        {fiche.commandes.length === 0 ? (
-          <EmptyClientBlock />
-        ) : (
-          <div className="space-y-3">
-            {fiche.commandes.map((commande) => (
-              <CommandeClientCard key={commande.id} commande={commande} />
-            ))}
-          </div>
-        )}
-      </ClientSheetBlock>
-
-      <ClientSheetBlock title="Commandes vocales" count={fiche.commandes_vocales.length} isOpen={isOpen("voice")} onToggle={() => onToggleBlock("voice")}>
-        {fiche.commandes_vocales.length === 0 ? (
-          <EmptyClientBlock />
-        ) : (
-          <div className="space-y-3">
-            {fiche.commandes_vocales.map((commande) => (
-              <div key={commande.id} className="rounded-xl border border-gray-100 p-4">
-                <p className="font-semibold text-[#1E8A3C]">Commande vocale #{commande.id}</p>
-                <p className="text-sm text-[#8A8A8A]">{formatShortDateTime(commande.created_at)} · {emptyValue(commande.langue_detectee)}</p>
-                <p className="mt-2 text-sm text-[#3D3D3D]">{emptyValue(commande.transcription_brute)}</p>
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Paiements</p>
+            {paiements.length === 0 ? (
+              <EmptyClientBlock />
+            ) : (
+              <div className="space-y-3">
+                {paiements.map((commande) => (
+                  <ClientInfoGrid
+                    key={`paiement-${commande.id}`}
+                    items={[
+                      { label: "Commande", value: `#${commande.id}` },
+                      { label: "Methode", value: commande.paiement?.methode },
+                      { label: "Montant", value: formatMoney(commande.paiement?.montant) },
+                      { label: "Valide", value: formatBool(commande.paiement?.valide) },
+                      { label: "Frais CMI", value: formatMoney(commande.paiement?.frais_cmi) },
+                      { label: "Montant net", value: formatMoney(commande.paiement?.montant_net) },
+                    ]}
+                  />
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
-      </ClientSheetBlock>
+        </TabsContent>
 
-      <ClientSheetBlock title="Sessions actives" count={fiche.sessions.length} isOpen={isOpen("sessions")} onToggle={() => onToggleBlock("sessions")}>
-        {fiche.sessions.length === 0 ? (
-          <EmptyClientBlock />
-        ) : (
-          <div className="space-y-3">
-            {fiche.sessions.map((session, index) => (
+        <TabsContent value="voice" className="space-y-3">
+          {fiche.commandes_vocales.length === 0 ? (
+            <EmptyClientBlock />
+          ) : (
+            fiche.commandes_vocales.map((commande) => (
+              <div key={commande.id} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                <p className="font-semibold text-[#1E8A3C]">Commande vocale #{commande.id}</p>
+                <p className="text-sm text-gray-500">{formatShortDateTime(commande.created_at)} - {emptyValue(commande.langue_detectee)}</p>
+                <p className="mt-2 text-sm text-gray-700">{emptyValue(commande.transcription_brute)}</p>
+              </div>
+            ))
+          )}
+        </TabsContent>
+
+        <TabsContent value="sessions" className="space-y-3">
+          {fiche.sessions.length === 0 ? (
+            <EmptyClientBlock />
+          ) : (
+            fiche.sessions.map((session, index) => (
               <ClientInfoGrid
                 key={`${session.ip || "session"}-${index}`}
                 items={[
@@ -941,73 +1104,50 @@ function FicheClientPanel({
                   { label: "Navigateur", value: session.browser },
                   { label: "Localisation", value: session.location },
                   { label: "IP", value: session.ip },
-                  { label: "Dernière activité", value: formatDateTime(session.last_active) },
-                  { label: "Créée le", value: formatDateTime(session.created_at) },
+                  { label: "Derniere activite", value: formatDateTime(session.last_active) },
+                  { label: "Creee le", value: formatDateTime(session.created_at) },
                   { label: "Active", value: formatBool(session.is_active) },
                 ]}
               />
-            ))}
-          </div>
-        )}
-      </ClientSheetBlock>
+            ))
+          )}
+        </TabsContent>
 
-      <ClientSheetBlock title="Préférences notifications" isOpen={isOpen("notifications")} onToggle={() => onToggleBlock("notifications")}>
-        {!fiche.notifications ? (
-          <EmptyClientBlock />
-        ) : (
-          <ClientInfoGrid
-            items={[
-              { label: "Email", value: formatBool(fiche.notifications.email) },
-              { label: "Push", value: formatBool(fiche.notifications.push) },
-              { label: "SMS", value: formatBool(fiche.notifications.sms) },
-              { label: "Commandes", value: formatBool(fiche.notifications.order_updates) },
-              { label: "Promotions", value: formatBool(fiche.notifications.promotions) },
-              { label: "Newsletter", value: formatBool(fiche.notifications.newsletter) },
-            ]}
-          />
-        )}
-      </ClientSheetBlock>
+        <TabsContent value="notifications">
+          {!fiche.notifications ? (
+            <EmptyClientBlock />
+          ) : (
+            <ClientInfoGrid
+              items={[
+                { label: "Email", value: formatBool(fiche.notifications.email) },
+                { label: "Push", value: formatBool(fiche.notifications.push) },
+                { label: "SMS", value: formatBool(fiche.notifications.sms) },
+                { label: "Commandes", value: formatBool(fiche.notifications.order_updates) },
+                { label: "Promotions", value: formatBool(fiche.notifications.promotions) },
+                { label: "Newsletter", value: formatBool(fiche.notifications.newsletter) },
+              ]}
+            />
+          )}
+        </TabsContent>
 
-      <ClientSheetBlock title="Abonnement" isOpen={isOpen("subscription")} onToggle={() => onToggleBlock("subscription")}>
-        {!fiche.abonnement ? (
-          <EmptyClientBlock />
-        ) : (
-          <ClientInfoGrid
-            items={[
-              { label: "Poids garanti", value: fiche.abonnement.poids_garanti !== null && fiche.abonnement.poids_garanti !== undefined ? formatWeight(fiche.abonnement.poids_garanti) : null },
-              { label: "Fréquence", value: fiche.abonnement.frequence },
-              { label: "Mensuel", value: fiche.abonnement.montant_mensuel !== null && fiche.abonnement.montant_mensuel !== undefined ? formatMoney(fiche.abonnement.montant_mensuel) : null },
-              { label: "Actif", value: formatBool(fiche.abonnement.actif) },
-            ]}
-          />
-        )}
-      </ClientSheetBlock>
-
-      <ClientSheetBlock title="Paiements" count={paiements.length} isOpen={isOpen("payments")} onToggle={() => onToggleBlock("payments")}>
-        {paiements.length === 0 ? (
-          <EmptyClientBlock />
-        ) : (
-          <div className="space-y-3">
-            {paiements.map((commande) => (
-              <ClientInfoGrid
-                key={`paiement-${commande.id}`}
-                items={[
-                  { label: "Commande", value: `#${commande.id}` },
-                  { label: "Méthode", value: commande.paiement?.methode },
-                  { label: "Montant", value: formatMoney(commande.paiement?.montant) },
-                  { label: "Validé", value: formatBool(commande.paiement?.valide) },
-                  { label: "Frais CMI", value: formatMoney(commande.paiement?.frais_cmi) },
-                  { label: "Montant net", value: formatMoney(commande.paiement?.montant_net) },
-                ]}
-              />
-            ))}
-          </div>
-        )}
-      </ClientSheetBlock>
+        <TabsContent value="subscription">
+          {!fiche.abonnement ? (
+            <EmptyClientBlock />
+          ) : (
+            <ClientInfoGrid
+              items={[
+                { label: "Poids garanti", value: fiche.abonnement.poids_garanti !== null && fiche.abonnement.poids_garanti !== undefined ? formatWeight(fiche.abonnement.poids_garanti) : null },
+                { label: "Frequence", value: fiche.abonnement.frequence },
+                { label: "Mensuel", value: fiche.abonnement.montant_mensuel !== null && fiche.abonnement.montant_mensuel !== undefined ? formatMoney(fiche.abonnement.montant_mensuel) : null },
+                { label: "Actif", value: formatBool(fiche.abonnement.actif) },
+              ]}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
-
 export default function AdminOrdersPage() {
   const { token, isLoading: isAuthLoading } = useAuth()
   const [orders, setOrders] = useState<AdminOrderRow[]>([])
@@ -1021,6 +1161,13 @@ export default function AdminOrdersPage() {
   const [isCodLoading, setIsCodLoading] = useState(true)
   const [codActionId, setCodActionId] = useState<number | null>(null)
   const [codGroupActionKey, setCodGroupActionKey] = useState<string | null>(null)
+  const [codAlerte18h, setCodAlerte18h] = useState<AlerteCOD18hDTO | null>(null)
+  const [pendingCodCancellation, setPendingCodCancellation] = useState<{
+    commande_ids: number[]
+    montant_total: number
+    nb_commandes: number
+  } | null>(null)
+  const [isCodCancellationSubmitting, setIsCodCancellationSubmitting] = useState(false)
 
   const [jitResult, setJitResult] = useState<ResultatAgregationJIT | null>(null)
   const [jitResultSource, setJitResultSource] = useState<"preview" | "execute" | null>(null)
@@ -1080,7 +1227,7 @@ export default function AdminOrdersPage() {
     }
 
     try {
-      const payload = await getCommandesCODDemain(nextToken, signal)
+      const payload = await getCommandesCODVerouillees(nextToken, signal)
       setCodOrders(payload)
       setCodError(null)
     } catch (error) {
@@ -1094,6 +1241,15 @@ export default function AdminOrdersPage() {
       if (showLoader) {
         setIsCodLoading(false)
       }
+    }
+  }
+
+  async function loadAlerteCOD18h(nextToken: string) {
+    try {
+      const payload = await getAlerteCOD18h(nextToken)
+      setCodAlerte18h(payload)
+    } catch {
+      setCodAlerte18h(null)
     }
   }
 
@@ -1169,24 +1325,31 @@ export default function AdminOrdersPage() {
       setIsOrdersLoading(false)
       setIsLogLoading(false)
       setIsCodLoading(false)
+      setCodAlerte18h(null)
       return
     }
 
     const controller = new AbortController()
     let intervalId = 0
+    let alertIntervalId = 0
 
     void loadOrders(token, true, controller.signal)
     void loadCodOrders(token, true, controller.signal)
+    void loadAlerteCOD18h(token)
     void loadLastLog(token, true)
 
     intervalId = window.setInterval(() => {
       void loadOrders(token, false)
       void loadCodOrders(token, false)
     }, 30000)
+    alertIntervalId = window.setInterval(() => {
+      void loadAlerteCOD18h(token)
+    }, 300000)
 
     return () => {
       controller.abort()
       window.clearInterval(intervalId)
+      window.clearInterval(alertIntervalId)
     }
   }, [isAuthLoading, token])
 
@@ -1279,7 +1442,15 @@ export default function AdminOrdersPage() {
     commandeId: number,
     statut: "CONFIRMEE_PAR_APPEL" | "ANNULEE"
   ) {
-    if (!token || codActionId !== null || codGroupActionKey !== null) {
+    if (statut === "ANNULEE") {
+      const order = codOrders.find((item) => item.id === commandeId)
+      if (order) {
+        openCodCancellation([order])
+      }
+      return
+    }
+
+    if (!token || codActionId !== null || codGroupActionKey !== null || isCodCancellationSubmitting) {
       return
     }
 
@@ -1289,17 +1460,13 @@ export default function AdminOrdersPage() {
 
     try {
       const response = await updateConfirmationCOD(token, commandeId, statut)
-      if (statut === "ANNULEE") {
-        setCodOrders((current) => current.filter((order) => order.id !== commandeId))
-      } else {
-        setCodOrders((current) =>
-          current.map((order) =>
-            order.id === commandeId
-              ? { ...order, statut_confirmation_cod: response.statut_confirmation_cod }
-              : order
-          )
+      setCodOrders((current) =>
+        current.map((order) =>
+          order.id === commandeId
+            ? { ...order, statut_confirmation_cod: response.statut_confirmation_cod }
+            : order
         )
-      }
+      )
       setCodFeedback(response.message)
       await loadOrders(token, false)
     } catch (error) {
@@ -1309,11 +1476,63 @@ export default function AdminOrdersPage() {
     }
   }
 
+  function openCodCancellation(commandes: CommandeCODDemainDTO[]) {
+    const targets = commandes.filter(
+      (order) => normalizeStatus(order.statut_confirmation_cod).toUpperCase() !== "CONFIRMEE_PAR_APPEL"
+    )
+
+    if (targets.length === 0) {
+      return
+    }
+
+    setPendingCodCancellation({
+      commande_ids: targets.map((order) => order.id),
+      montant_total: targets.reduce((sum, order) => sum + (order.montant || 0), 0),
+      nb_commandes: targets.length,
+    })
+  }
+
+  async function confirmPendingCodCancellation() {
+    if (!token || !pendingCodCancellation || isCodCancellationSubmitting) {
+      return
+    }
+
+    setIsCodCancellationSubmitting(true)
+    setCodError(null)
+    setCodFeedback(null)
+
+    try {
+      const response = await batchConfirmationCOD(token, {
+        commande_ids: pendingCodCancellation.commande_ids,
+        statut: "ANNULEE",
+      })
+      const successIds = new Set(response.success)
+      setCodOrders((current) => current.filter((order) => !successIds.has(order.id)))
+      setCodFeedback(
+        response.failed.length > 0
+          ? `${response.message} IDs en echec: ${response.failed.join(", ")}.`
+          : response.message
+      )
+      setPendingCodCancellation(null)
+      await loadOrders(token, false)
+      await loadCodOrders(token, false)
+    } catch (error) {
+      setCodError(error instanceof Error ? error.message : "Impossible d'annuler les commandes COD.")
+    } finally {
+      setIsCodCancellationSubmitting(false)
+    }
+  }
+
   async function handleCodGroupConfirmation(
     group: CODClientGroupDTO,
     statut: "CONFIRMEE_PAR_APPEL" | "ANNULEE"
   ) {
-    if (!token || codActionId !== null || codGroupActionKey !== null) {
+    if (statut === "ANNULEE") {
+      openCodCancellation(group.commandes)
+      return
+    }
+
+    if (!token || codActionId !== null || codGroupActionKey !== null || isCodCancellationSubmitting) {
       return
     }
 
@@ -1330,30 +1549,22 @@ export default function AdminOrdersPage() {
     setCodFeedback(null)
 
     try {
-      const responses = []
-      for (const order of targets) {
-        responses.push(await updateConfirmationCOD(token, order.id, statut))
-      }
-
-      const targetIds = new Set(targets.map((order) => order.id))
-
-      if (statut === "ANNULEE") {
-        setCodOrders((current) => current.filter((order) => !targetIds.has(order.id)))
-      } else {
-        setCodOrders((current) =>
-          current.map((order) =>
-            targetIds.has(order.id)
-              ? { ...order, statut_confirmation_cod: "CONFIRMEE_PAR_APPEL" }
-              : order
-          )
+      const response = await batchConfirmationCOD(token, {
+        commande_ids: targets.map((order) => order.id),
+        statut,
+      })
+      const successIds = new Set(response.success)
+      setCodOrders((current) =>
+        current.map((order) =>
+          successIds.has(order.id)
+            ? { ...order, statut_confirmation_cod: "CONFIRMEE_PAR_APPEL" }
+            : order
         )
-      }
-
-      const actionLabel = statut === "ANNULEE" ? "annulee(s)" : "confirmee(s) par appel"
+      )
       setCodFeedback(
-        responses.length === 1
-          ? responses[0]?.message || `1 commande COD ${actionLabel}.`
-          : `${responses.length} commande(s) COD ${actionLabel} pour ${group.client}.`
+        response.failed.length > 0
+          ? `${response.message} IDs en echec: ${response.failed.join(", ")}.`
+          : `${response.message} Client: ${group.client}.`
       )
       await loadOrders(token, false)
     } catch (error) {
@@ -1376,6 +1587,9 @@ export default function AdminOrdersPage() {
   const codCalledClientsCount = codGroups.filter((group) => group.commandes.every(isCodOrderCalled)).length
   const codUncalledClientsCount = codGroups.filter((group) => group.commandes.some((order) => !isCodOrderCalled(order))).length
   const codTotalAmount = codOrders.reduce((sum, order) => sum + (order.montant || 0), 0)
+  const ordersTotalVolume = orders.reduce((sum, order) => sum + (order.volumeKg || 0), 0)
+  const ordersTotalAmount = orders.reduce((sum, order) => sum + (order.montant || 0), 0)
+  const lockedOrdersCount = orders.filter((order) => normalizeStatus(order.statut) === "verrouillee").length
   const filteredCodGroups = useMemo(() => {
     const query = codSearch.trim().toLowerCase()
     const filteredOrders = query
@@ -1412,11 +1626,11 @@ export default function AdminOrdersPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F0]">
-      <header className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm">
-        <div className="flex items-center justify-between px-4 lg:px-6 h-16 gap-4">
+      <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 shadow-sm backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 lg:px-8">
           <div className="flex items-center gap-4 min-w-0">
-            <Link href="/admin" className="flex items-center gap-2 text-[#3D3D3D] hover:text-[#1E8A3C]">
-              <ArrowLeft className="w-5 h-5" />
+            <Link href="/admin" className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-[#1E8A3C]">
+              <ArrowLeft className="w-4 h-4" />
               <span className="font-medium hidden sm:inline">Retour</span>
             </Link>
 
@@ -1432,7 +1646,7 @@ export default function AdminOrdersPage() {
                 </div>
               </Link>
               <div className="w-px h-6 bg-gray-200" />
-              <span className="font-bold text-[#1E8A3C] truncate">Pilotage Commandes & JIT</span>
+              <span className="font-bold text-[#1E8A3C] truncate">SOUKI Operations</span>
             </div>
           </div>
 
@@ -1444,7 +1658,7 @@ export default function AdminOrdersPage() {
                 void loadLastLog(token, true)
               }
             }}
-            className="px-4 py-2 bg-[#F07C00] text-white rounded-xl font-medium flex items-center gap-2 hover:bg-[#D66B00] disabled:opacity-70"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#1E8A3C] px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#166d30] disabled:cursor-not-allowed disabled:opacity-60"
             disabled={!token || isOrdersLoading || isCodLoading || isLogLoading}
           >
             {isOrdersLoading || isCodLoading || isLogLoading ? <Spinner className="size-4" /> : <RefreshCw className="w-4 h-4" />}
@@ -1453,8 +1667,50 @@ export default function AdminOrdersPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-4 lg:p-8 space-y-8">
-        <section className="bg-white rounded-2xl shadow-sm overflow-hidden">
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 lg:px-8 lg:py-8">
+        <section className="overflow-hidden rounded-3xl border border-[#DDE7DE] bg-white shadow-sm">
+          <div className="relative p-6 lg:p-8">
+            <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-[#1E8A3C]/10 blur-3xl" />
+            <div className="absolute bottom-0 right-20 h-24 w-24 rounded-full bg-[#F07C00]/10 blur-3xl" />
+            <div className="relative flex flex-wrap items-start justify-between gap-5">
+              <div>
+                <p className="inline-flex items-center rounded-full border border-[#1E8A3C]/15 bg-[#F0FAF1] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#1E8A3C]">
+                  Back-office commandes
+                </p>
+                <h1 className="mt-4 text-3xl font-bold tracking-tight text-gray-950 lg:text-4xl">Gestion des Commandes</h1>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-500">
+                  Pilotage des commandes du jour, verrouillage JIT et validation COD depuis un dashboard operationnel unique.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-right shadow-sm">
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Aujourd'hui</p>
+                <p className="mt-1 text-lg font-semibold text-gray-950">{todayLabel}</p>
+                {lastOrdersRefresh ? <p className="mt-1 text-xs text-gray-400">MAJ {lastOrdersRefresh}</p> : null}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <DashboardStatCard icon={Package} label="Commandes du jour" value={orders.length} tone="green" helper={`${clientGroups.length} client(s)`} />
+          <DashboardStatCard icon={Scale} label="Volume total" value={formatWeight(ordersTotalVolume)} tone="blue" helper={`${lockedOrdersCount} verrouillee(s)`} />
+          <DashboardStatCard icon={Banknote} label="Montant total" value={formatMoney(ordersTotalAmount)} tone="orange" helper="Estimation commandes" />
+          <DashboardStatCard icon={PhoneCall} label="COD confirmes" value={`${codCalledClientsCount} / ${codGroups.length}`} tone="slate" helper={`${codOrders.length} commande(s) COD`} />
+        </section>
+
+        {codAlerte18h?.alerte_active && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-800 shadow-sm">
+            <div className="flex items-start gap-3">
+              <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+              <span>{codAlerte18h.nb_non_confirmees} commandes COD non confirmees. Il est passe 18h00, priorisez les appels avant la tournee.</span>
+            </div>
+          </div>
+        )}
+
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
+          <div className="min-w-0 space-y-6">
+        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           <div className="p-6 border-b border-gray-100 flex flex-wrap items-start justify-between gap-4">
             <div>
               <h2 className="text-lg font-bold text-[#3D3D3D]">Commandes du jour</h2>
@@ -1477,17 +1733,12 @@ export default function AdminOrdersPage() {
           )}
 
           {isOrdersLoading ? (
-            <div className="px-6 py-12 text-center">
-              <Spinner className="mx-auto size-6 text-[#1E8A3C]" />
-              <p className="mt-3 text-sm text-[#8A8A8A]">Chargement des commandes en cours…</p>
-            </div>
+            <TableSkeleton rows={6} columns={7} />
           ) : orders.length === 0 ? (
-            <div className="px-6 py-12 text-center">
-              <p className="text-lg font-semibold text-[#3D3D3D]">Aucune commande à afficher.</p>
-              <p className="mt-2 text-sm text-[#8A8A8A]">
-                La liste dépend du backend admin et sera actualisée automatiquement.
-              </p>
-            </div>
+            <EmptyState
+              title="Aucune commande aujourd'hui"
+              description="La liste depend du backend admin et sera actualisee automatiquement."
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -1660,7 +1911,10 @@ export default function AdminOrdersPage() {
           )}
         </section>
 
-        <section className="bg-white rounded-2xl shadow-sm p-6">
+          </div>
+
+          <aside className="space-y-6 xl:sticky xl:top-24 xl:self-start">
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between gap-4 mb-6">
             <div>
               <h2 className="text-lg font-bold text-[#3D3D3D]">Agrégation JIT</h2>
@@ -1789,7 +2043,7 @@ export default function AdminOrdersPage() {
           </div>
         </section>
 
-        <section className="bg-white rounded-2xl shadow-sm p-6">
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h2 className="text-lg font-bold text-[#3D3D3D]">Déverrouillage JIT</h2>
@@ -1867,14 +2121,84 @@ export default function AdminOrdersPage() {
           )}
         </section>
 
-        <section className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
+            <div>
+              <h2 className="text-base font-semibold text-gray-950">Dernier log JIT</h2>
+              <p className="mt-1 text-sm text-gray-500">Cycle JIT le plus recent.</p>
+            </div>
+
+            <button
+              onClick={() => setShowDetails(!showDetails)}
+              disabled={!lastLog}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Eye className="h-3.5 w-3.5 text-[#1A4F8A]" />
+              {showDetails ? "Masquer" : "Details"}
+            </button>
+          </div>
+
+          {logError && (
+            <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
+              {logError}
+            </div>
+          )}
+
+          {isLogLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-10 rounded-xl bg-gray-200" />
+              <Skeleton className="h-10 rounded-xl bg-gray-200" />
+              <Skeleton className="h-10 rounded-xl bg-gray-200" />
+            </div>
+          ) : lastLog ? (
+            <div className="grid gap-3">
+              <div className="rounded-xl bg-gray-50 p-3">
+                <p className="text-xs text-gray-500">Date</p>
+                <p className="mt-1 font-semibold text-gray-950">{formatDateTime(lastLog.date_execution)}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl bg-gray-50 p-3">
+                  <p className="text-xs text-gray-500">Commandes</p>
+                  <p className="mt-1 text-xl font-bold text-[#1E8A3C]">{lastLog.nombre_commandes}</p>
+                </div>
+                <div className="rounded-xl bg-gray-50 p-3">
+                  <p className="text-xs text-gray-500">Volume</p>
+                  <p className="mt-1 text-xl font-bold text-[#F07C00]">{formatWeight(lastLog.volume_total)}</p>
+                </div>
+              </div>
+              <span className={cn("inline-flex w-fit items-center rounded-full border px-2.5 py-0.5 text-xs font-medium", jitLogBadge(lastLog.statut))}>
+                {lastLog.statut}
+              </span>
+            </div>
+          ) : null}
+
+          {lastLog?.message_alerte && (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <div className="flex gap-2">
+                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{lastLog.message_alerte}</span>
+              </div>
+            </div>
+          )}
+
+          {showDetails && (
+            <div className="mt-5 overflow-hidden rounded-xl border border-gray-200">
+              <JITLogDetailsTable log={lastLog} />
+            </div>
+          )}
+        </section>
+
+          </aside>
+        </div>
+
+        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           <div className="p-6 border-b border-gray-100 space-y-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <div className="inline-flex items-center rounded-full border border-[#F07C00]/20 bg-[#F07C00]/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#B15B00]">
                   Validation COD
                 </div>
-                <h2 className="mt-3 text-lg font-bold text-[#3D3D3D]">Commandes COD à confirmer pour demain</h2>
+                <h2 className="mt-3 text-lg font-bold text-[#3D3D3D]">Commandes COD verrouillees par le JIT</h2>
                 <p className="text-sm text-[#8A8A8A] mt-1">
                   Une ligne par client pour appeler une seule fois, puis traiter toutes ses commandes COD verrouillées.
                 </p>
@@ -1911,10 +2235,17 @@ export default function AdminOrdersPage() {
             </div>
           </div>
           <div className="p-6 space-y-4">
+            {codAlerte18h?.alerte_active && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 flex items-start gap-3">
+                <TriangleAlert className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{codAlerte18h.nb_non_confirmees} commandes COD non confirmees - Il est passe 18h00</span>
+              </div>
+            )}
+
             {isAfterCodAlertTime && hasUnconfirmedCodOrders && (
               <div className="rounded-xl border border-[#F5C400]/40 bg-[#F5C400]/10 px-4 py-3 text-sm font-medium text-[#8B6A00] flex items-start gap-3">
                 <TriangleAlert className="w-4 h-4 mt-0.5 shrink-0" />
-                <span>Certaines commandes COD de demain ne sont pas encore confirmées par appel.</span>
+                <span>Certaines commandes COD verrouillees par le JIT ne sont pas encore confirmees par appel.</span>
               </div>
             )}
 
@@ -1945,17 +2276,12 @@ export default function AdminOrdersPage() {
           </div>
 
           {isCodLoading ? (
-            <div className="px-6 py-12 text-center">
-              <Spinner className="mx-auto size-6 text-[#1E8A3C]" />
-              <p className="mt-3 text-sm text-[#8A8A8A]">Chargement des commandes COD...</p>
-            </div>
+            <TableSkeleton rows={5} columns={8} />
           ) : filteredCodGroups.length === 0 ? (
-            <div className="px-6 pb-12 text-center">
-              <p className="text-lg font-semibold text-[#3D3D3D]">Aucune commande COD à confirmer.</p>
-              <p className="mt-2 text-sm text-[#8A8A8A]">
-                {codSearch ? "Aucun résultat ne correspond au filtre actuel." : "Aucune commande COD verrouillée par le JIT pour le moment."}
-              </p>
-            </div>
+            <EmptyState
+              title="Aucune commande COD a confirmer"
+              description={codSearch ? "Aucun resultat ne correspond au filtre actuel." : "Aucune commande COD verrouillee par le JIT pour le moment."}
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -2027,7 +2353,7 @@ export default function AdminOrdersPage() {
                               <button
                                 type="button"
                                 onClick={() => void handleCodGroupConfirmation(group, "CONFIRMEE_PAR_APPEL")}
-                                disabled={isGroupUpdating || codActionId !== null || allConfirmed}
+                                disabled={isGroupUpdating || codActionId !== null || isCodCancellationSubmitting || allConfirmed}
                                 className="px-4 py-2 border border-[#1E8A3C]/20 bg-[#F0FAF1] rounded-xl font-medium text-[#1E8A3C] hover:bg-[#E7F5E8] disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
                               >
                                 {isGroupUpdating ? <Spinner className="size-4 text-[#1E8A3C]" /> : <CheckCircle2 className="w-4 h-4" />}
@@ -2036,7 +2362,7 @@ export default function AdminOrdersPage() {
                               <button
                                 type="button"
                                 onClick={() => void handleCodGroupConfirmation(group, "ANNULEE")}
-                                disabled={isGroupUpdating || codActionId !== null || allConfirmed}
+                                disabled={isGroupUpdating || codActionId !== null || isCodCancellationSubmitting || allConfirmed}
                                 className="px-4 py-2 border border-red-200 bg-red-50 rounded-xl font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
                               >
                                 {isGroupUpdating ? <Spinner className="size-4 text-red-700" /> : <XCircle className="w-4 h-4" />}
@@ -2086,7 +2412,7 @@ export default function AdminOrdersPage() {
                                               <button
                                                 type="button"
                                                 onClick={() => void handleCodConfirmation(order.id, "CONFIRMEE_PAR_APPEL")}
-                                                disabled={isUpdating || isConfirmed}
+                                                disabled={isUpdating || isCodCancellationSubmitting || isConfirmed}
                                                 className="px-4 py-2 border border-[#1E8A3C]/20 bg-[#F0FAF1] rounded-xl font-medium text-[#1E8A3C] hover:bg-[#E7F5E8] disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
                                               >
                                                 {isUpdating ? <Spinner className="size-4 text-[#1E8A3C]" /> : <CheckCircle2 className="w-4 h-4" />}
@@ -2095,7 +2421,7 @@ export default function AdminOrdersPage() {
                                               <button
                                                 type="button"
                                                 onClick={() => void handleCodConfirmation(order.id, "ANNULEE")}
-                                                disabled={isUpdating || isConfirmed}
+                                                disabled={isUpdating || isCodCancellationSubmitting || isConfirmed}
                                                 className="px-4 py-2 border border-red-200 bg-red-50 rounded-xl font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
                                               >
                                                 {isUpdating ? <Spinner className="size-4 text-red-700" /> : <XCircle className="w-4 h-4" />}
@@ -2121,7 +2447,7 @@ export default function AdminOrdersPage() {
           )}
         </section>
 
-        <section className="bg-white rounded-2xl shadow-sm p-6">
+        <section className="hidden">
           <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
             <div>
               <h2 className="text-lg font-bold text-[#3D3D3D]">Dernier log JIT</h2>
@@ -2192,6 +2518,42 @@ export default function AdminOrdersPage() {
             </div>
           )}
         </section>
+
+        <AlertDialog
+          open={pendingCodCancellation !== null}
+          onOpenChange={(open) => {
+            if (!open && !isCodCancellationSubmitting) {
+              setPendingCodCancellation(null)
+            }
+          }}
+        >
+          <AlertDialogContent className="rounded-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Annulation de {pendingCodCancellation?.nb_commandes ?? 0} commande(s)
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Montant total impacte : {formatMoney(pendingCodCancellation?.montant_total ?? 0)}. Cette action est irreversible.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="rounded-xl" disabled={isCodCancellationSubmitting}>
+                Annuler
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(event) => {
+                  event.preventDefault()
+                  void confirmPendingCodCancellation()
+                }}
+                className="rounded-xl bg-red-600 hover:bg-red-700"
+                disabled={isCodCancellationSubmitting}
+              >
+                {isCodCancellationSubmitting ? <Spinner className="size-4" /> : <XCircle className="w-4 h-4" />}
+                Confirmer l'annulation
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <Dialog open={isUnlockDetailsOpen} onOpenChange={setIsUnlockDetailsOpen}>
           <DialogContent className="max-w-4xl rounded-2xl p-0 overflow-hidden">

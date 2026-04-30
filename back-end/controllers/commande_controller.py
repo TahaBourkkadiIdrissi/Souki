@@ -6,6 +6,8 @@ from auth_dependencies import require_auth, require_permission
 from controllers.auth_controller import get_current_user
 from dependencies import get_cod_confirmation_service, get_voice_service
 from dto.commande_dto import (
+    BatchConfirmationCODDTO,
+    BatchConfirmationCODResponseDTO,
     CommandeCODDemainDTO,
     CommandeCheckoutDTO,
     CommandeJourDTO,
@@ -17,6 +19,7 @@ from dto.commande_dto import (
 )
 from interfaces.cod_confirmation_service_interface import ICODConfirmationService
 from interfaces.commande_service_interface import ICommandeVocaleService
+from services.scheduler_service import cod_alerte_18h_state
 
 router_voice = APIRouter(prefix="/api", tags=["Voice AI"])
 
@@ -113,8 +116,9 @@ def get_fiche_client(
         raise HTTPException(status_code=500, detail=f"Erreur lors du chargement de la fiche client: {str(e)}")
 
 
-@router_voice.get("/commandes/cod/demain", response_model=list[CommandeCODDemainDTO])
-def get_commandes_cod_demain(
+@router_voice.get("/commandes/cod/verouillees", response_model=list[CommandeCODDemainDTO])
+@router_voice.get("/commandes/cod/demain", response_model=list[CommandeCODDemainDTO])  # DEPRECATED - utiliser /verouillees
+def get_commandes_cod_verouillees(
     principal=Depends(require_permission("admin.panel.access", "orders.read")),
     service: ICODConfirmationService = Depends(get_cod_confirmation_service),
 ):
@@ -127,7 +131,7 @@ def get_commandes_cod_demain(
 def update_confirmation_cod(
     commande_id: int,
     payload: UpdateConfirmationCODDTO,
-    principal=Depends(require_permission("admin.panel.access", "orders.read")),
+    principal=Depends(require_permission("admin.panel.access")),
     service: ICODConfirmationService = Depends(get_cod_confirmation_service),
 ):
     with service:
@@ -136,6 +140,27 @@ def update_confirmation_cod(
             statut=payload.statut,
             admin_id=principal.user_id,
         )
+
+
+@router_voice.post("/commandes/cod/batch-confirmation", response_model=BatchConfirmationCODResponseDTO)
+def batch_confirmation_cod(
+    payload: BatchConfirmationCODDTO,
+    principal=Depends(require_permission("admin.panel.access")),
+    service: ICODConfirmationService = Depends(get_cod_confirmation_service),
+):
+    with service:
+        return service.batch_confirmation_cod(
+            payload=payload,
+            admin_id=principal.user_id,
+        )
+
+
+@router_voice.get("/commandes/cod/alerte-18h")
+def get_alerte_cod_18h(
+    principal=Depends(require_permission("admin.panel.access")),
+):
+    _ = principal
+    return cod_alerte_18h_state
 
 
 @router_voice.get("/commandes/{commande_id}", response_model=CommandeCheckoutDTO)
