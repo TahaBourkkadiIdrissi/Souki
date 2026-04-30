@@ -1371,12 +1371,10 @@ export default function AdminOrdersPage() {
     (order) => normalizeStatus(order.statut_confirmation_cod).toUpperCase() === "NON_CONFIRMEE"
   )
   const codGroups = useMemo(() => groupCodOrdersByClient(codOrders), [codOrders])
-  const codPendingOrdersCount = codOrders.filter(
-    (order) => normalizeStatus(order.statut_confirmation_cod).toUpperCase() !== "CONFIRMEE_PAR_APPEL"
-  ).length
-  const codPendingClientsCount = codGroups.filter((group) =>
-    group.commandes.some((order) => normalizeStatus(order.statut_confirmation_cod).toUpperCase() !== "CONFIRMEE_PAR_APPEL")
-  ).length
+  const isCodOrderCalled = (order: CommandeCODDemainDTO) =>
+    normalizeStatus(order.statut_confirmation_cod).toUpperCase() === "CONFIRMEE_PAR_APPEL"
+  const codCalledClientsCount = codGroups.filter((group) => group.commandes.every(isCodOrderCalled)).length
+  const codUncalledClientsCount = codGroups.filter((group) => group.commandes.some((order) => !isCodOrderCalled(order))).length
   const codTotalAmount = codOrders.reduce((sum, order) => sum + (order.montant || 0), 0)
   const filteredCodGroups = useMemo(() => {
     const query = codSearch.trim().toLowerCase()
@@ -1895,16 +1893,16 @@ export default function AdminOrdersPage() {
 
             <div className="grid gap-3 md:grid-cols-4">
               <div className="rounded-2xl border border-[#1E8A3C]/10 bg-[#F0FAF1] px-4 py-3">
-                <p className="text-xs font-semibold uppercase text-[#1E8A3C]">Clients à appeler</p>
-                <p className="mt-2 text-2xl font-bold text-[#1E8A3C]">{codPendingClientsCount}</p>
+                <p className="text-xs font-semibold uppercase text-[#1E8A3C]">Clients appelés</p>
+                <p className="mt-2 text-2xl font-bold text-[#1E8A3C]">{codCalledClientsCount}</p>
               </div>
               <div className="rounded-2xl border border-[#F07C00]/10 bg-[#F07C00]/5 px-4 py-3">
                 <p className="text-xs font-semibold uppercase text-[#B15B00]">Commandes COD</p>
                 <p className="mt-2 text-2xl font-bold text-[#F07C00]">{codOrders.length}</p>
               </div>
               <div className="rounded-2xl border border-[#F5C400]/20 bg-[#F5C400]/10 px-4 py-3">
-                <p className="text-xs font-semibold uppercase text-[#8B6A00]">Non confirmées</p>
-                <p className="mt-2 text-2xl font-bold text-[#8B6A00]">{codPendingOrdersCount}</p>
+                <p className="text-xs font-semibold uppercase text-[#8B6A00]">Clients non appelés</p>
+                <p className="mt-2 text-2xl font-bold text-[#8B6A00]">{codUncalledClientsCount}</p>
               </div>
               <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
                 <p className="text-xs font-semibold uppercase text-[#8A8A8A]">Montant COD</p>
