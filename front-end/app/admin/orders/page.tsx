@@ -1156,6 +1156,7 @@ export default function AdminOrdersPage() {
   const [lastOrdersRefresh, setLastOrdersRefresh] = useState<string | null>(null)
   const [codOrders, setCodOrders] = useState<CommandeCODDemainDTO[]>([])
   const [codSearch, setCodSearch] = useState("")
+  const [codStatusFilter, setCodStatusFilter] = useState("tous")
   const [codError, setCodError] = useState<string | null>(null)
   const [codFeedback, setCodFeedback] = useState<string | null>(null)
   const [isCodLoading, setIsCodLoading] = useState(true)
@@ -1196,6 +1197,9 @@ export default function AdminOrdersPage() {
   const [clientSheetErrors, setClientSheetErrors] = useState<Record<number, string>>({})
   const [clientSheetLoadingId, setClientSheetLoadingId] = useState<number | null>(null)
   const [openClientBlocks, setOpenClientBlocks] = useState<Record<string, boolean>>({})
+  const [activeSection, setActiveSection] = useState<"overview" | "commandes" | "jit" | "cod" | "logs">("overview")
+  const [ordersSearch, setOrdersSearch] = useState("")
+  const [ordersStatusFilter, setOrdersStatusFilter] = useState("tous")
 
   async function loadOrders(nextToken: string, showLoader = true, signal?: AbortSignal) {
     if (showLoader) {
@@ -1590,11 +1594,41 @@ export default function AdminOrdersPage() {
   const ordersTotalVolume = orders.reduce((sum, order) => sum + (order.volumeKg || 0), 0)
   const ordersTotalAmount = orders.reduce((sum, order) => sum + (order.montant || 0), 0)
   const lockedOrdersCount = orders.filter((order) => normalizeStatus(order.statut) === "verrouillee").length
+  const orderStatuses = useMemo(
+    () => Array.from(new Set(orders.map((order) => normalizeStatus(order.statut)).filter(Boolean))),
+    [orders]
+  )
+  const codStatuses = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          codOrders
+            .map((order) => normalizeStatus(order.statut_confirmation_cod || "NON_CONFIRMEE").toUpperCase())
+            .filter(Boolean)
+        )
+      ),
+    [codOrders]
+  )
+  const filteredClientGroups = useMemo(() => {
+    const query = ordersSearch.trim().toLowerCase()
+    const filteredOrders = orders.filter((order) => {
+      const matchesQuery = query
+        ? [order.id, order.client, order.clientPhone, order.produits, order.creneauLivraison]
+            .map((value) => String(value ?? "").toLowerCase())
+            .some((value) => value.includes(query))
+        : true
+      const matchesStatus = ordersStatusFilter === "tous" || normalizeStatus(order.statut) === ordersStatusFilter
+
+      return matchesQuery && matchesStatus
+    })
+
+    return groupOrdersByClient(filteredOrders)
+  }, [orders, ordersSearch, ordersStatusFilter])
   const filteredCodGroups = useMemo(() => {
     const query = codSearch.trim().toLowerCase()
-    const filteredOrders = query
-      ? codOrders.filter((order) =>
-          [
+    const filteredOrders = codOrders.filter((order) => {
+      const matchesQuery = query
+        ? [
             order.id,
             order.nom_client,
             order.telephone,
@@ -1605,11 +1639,22 @@ export default function AdminOrdersPage() {
           ]
             .map((value) => String(value ?? "").toLowerCase())
             .some((value) => value.includes(query))
-        )
-      : codOrders
+        : true
+      const normalizedCodStatus = normalizeStatus(order.statut_confirmation_cod || "NON_CONFIRMEE").toUpperCase()
+      const matchesStatus = codStatusFilter === "tous" || normalizedCodStatus === codStatusFilter
+
+      return matchesQuery && matchesStatus
+    })
 
     return groupCodOrdersByClient(filteredOrders)
-  }, [codOrders, codSearch])
+  }, [codOrders, codSearch, codStatusFilter])
+  const sidebarItems = [
+    { id: "overview" as const, label: "Vue generale", icon: "📊", count: null },
+    { id: "commandes" as const, label: "Commandes du jour", icon: "📦", count: orders.length },
+    { id: "jit" as const, label: "JIT", icon: "⚡", count: null },
+    { id: "cod" as const, label: "COD", icon: "📞", count: codUncalledClientsCount },
+    { id: "logs" as const, label: "Logs", icon: "📋", count: null },
+  ]
 
   if (isAuthLoading) {
     return (
@@ -1645,30 +1690,119 @@ export default function AdminOrdersPage() {
                   />
                 </div>
               </Link>
-              <div className="w-px h-6 bg-gray-200" />
-              <span className="font-bold text-[#1E8A3C] truncate">SOUKI Operations</span>
+              <div className="hidden h-6 w-px bg-gray-200 sm:block" />
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="truncate text-xl font-semibold tracking-tight text-gray-900">Gestion des Commandes</h1>
+                  <span className="hidden text-xs font-medium text-gray-400 md:inline">{todayLabel}</span>
+                </div>
+                <p className="hidden text-xs text-gray-500 md:block">Vue d&apos;ensemble operationnelle</p>
+              </div>
             </div>
           </div>
 
-          <button
-            onClick={() => {
-              if (token) {
-                void loadOrders(token, true)
-                void loadCodOrders(token, true)
-                void loadLastLog(token, true)
-              }
-            }}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#1E8A3C] px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#166d30] disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={!token || isOrdersLoading || isCodLoading || isLogLoading}
-          >
-            {isOrdersLoading || isCodLoading || isLogLoading ? <Spinner className="size-4" /> : <RefreshCw className="w-4 h-4" />}
-            Actualiser
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => void handlePreview()}
+              disabled={!token || isPreviewLoading || isExecuteLoading}
+              className="hidden items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-all duration-150 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 sm:inline-flex"
+            >
+              {isPreviewLoading ? <Spinner className="size-4 text-[#1E8A3C]" /> : <Eye className="w-4 h-4 text-[#1A4F8A]" />}
+              Prévisualiser
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsExecuteDialogOpen(true)}
+              disabled={!token || isPreviewLoading || isExecuteLoading || hasLockedOrdersToday}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#1E8A3C] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[#166d30] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isExecuteLoading ? <Spinner className="size-4" /> : <Rocket className="w-4 h-4" />}
+              Lancer JIT
+            </button>
+
+            <button
+              onClick={() => {
+                if (token) {
+                  void loadOrders(token, true)
+                  void loadCodOrders(token, true)
+                  void loadLastLog(token, true)
+                }
+              }}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-all duration-150 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!token || isOrdersLoading || isCodLoading || isLogLoading}
+            >
+              {isOrdersLoading || isCodLoading || isLogLoading ? <Spinner className="size-4 text-[#1E8A3C]" /> : <RefreshCw className="w-4 h-4" />}
+              <span className="hidden lg:inline">Actualiser</span>
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 lg:px-8 lg:py-8">
-        <section className="overflow-hidden rounded-3xl border border-[#DDE7DE] bg-white shadow-sm">
+      {codAlerte18h?.alerte_active && (
+        <div className="sticky top-16 z-30 border-b border-amber-200 bg-amber-50 px-6 py-2 text-sm font-medium text-amber-800 lg:pl-72">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>⚠️ {codAlerte18h.nb_non_confirmees} commandes COD non confirmées — Il est passé 18h00</span>
+            <button type="button" onClick={() => setActiveSection("cod")} className="text-xs font-semibold text-[#1E8A3C] hover:underline">
+              Voir COD →
+            </button>
+          </div>
+        </div>
+      )}
+
+      <aside className="fixed left-0 top-16 z-20 hidden h-[calc(100vh-4rem)] w-64 flex-col border-r border-gray-200 bg-white lg:flex">
+        <nav className="flex-1 space-y-1 overflow-y-auto p-4">
+          {sidebarItems.map((item) => {
+            const isActive = activeSection === item.id
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setActiveSection(item.id)}
+                className={cn(
+                  "inline-flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
+                  isActive ? "bg-[#F0FDF4] text-[#1E8A3C]" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                )}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <span aria-hidden="true">{item.icon}</span>
+                  {item.label}
+                </span>
+                {typeof item.count === "number" ? (
+                  <span className={cn("rounded-full px-2 py-0.5 text-xs", isActive ? "bg-white text-[#1E8A3C]" : "bg-gray-100 text-gray-500")}>
+                    {item.count}
+                  </span>
+                ) : null}
+              </button>
+            )
+          })}
+        </nav>
+
+        <div className="mt-auto border-t border-gray-100 p-4">
+          <p className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-400">KPI rapides</p>
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs text-gray-400">Commandes</p>
+              <p className="text-sm font-semibold text-gray-900">{orders.length}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Volume</p>
+              <p className="text-sm font-semibold text-gray-900">{formatWeight(ordersTotalVolume)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Montant</p>
+              <p className="text-sm font-semibold text-gray-900">{formatMoney(ordersTotalAmount)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">COD</p>
+              <p className="text-sm font-semibold text-gray-900">{codCalledClientsCount}/{codGroups.length} confirmés</p>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 lg:ml-64 lg:px-8 lg:py-8">
+        <section className={cn("overflow-hidden rounded-3xl border border-[#DDE7DE] bg-white shadow-sm", activeSection !== "overview" && "hidden")}>
           <div className="relative p-6 lg:p-8">
             <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-[#1E8A3C]/10 blur-3xl" />
             <div className="absolute bottom-0 right-20 h-24 w-24 rounded-full bg-[#F07C00]/10 blur-3xl" />
@@ -1692,14 +1826,61 @@ export default function AdminOrdersPage() {
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <section className={cn("grid gap-4 md:grid-cols-2 xl:grid-cols-4", activeSection !== "overview" && "hidden")}>
           <DashboardStatCard icon={Package} label="Commandes du jour" value={orders.length} tone="green" helper={`${clientGroups.length} client(s)`} />
           <DashboardStatCard icon={Scale} label="Volume total" value={formatWeight(ordersTotalVolume)} tone="blue" helper={`${lockedOrdersCount} verrouillee(s)`} />
           <DashboardStatCard icon={Banknote} label="Montant total" value={formatMoney(ordersTotalAmount)} tone="orange" helper="Estimation commandes" />
           <DashboardStatCard icon={PhoneCall} label="COD confirmes" value={`${codCalledClientsCount} / ${codGroups.length}`} tone="slate" helper={`${codOrders.length} commande(s) COD`} />
         </section>
 
-        {codAlerte18h?.alerte_active && (
+        <section className={cn("grid gap-4 md:grid-cols-2", activeSection !== "overview" && "hidden")}>
+          <button
+            type="button"
+            onClick={() => setActiveSection("commandes")}
+            className="rounded-xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all duration-150 hover:border-[#1E8A3C]/30 hover:shadow-md"
+          >
+            <p className="text-xs font-medium uppercase tracking-wider text-gray-500">📦 Commandes du jour</p>
+            <p className="mt-3 text-2xl font-bold text-gray-900">{orders.length} commandes</p>
+            <p className="mt-1 text-sm text-gray-500">{clientGroups.length} clients uniques, {orderStatuses.length} statut(s)</p>
+            <p className="mt-5 text-sm font-semibold text-[#1E8A3C]">Voir commandes →</p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSection("jit")}
+            className="rounded-xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all duration-150 hover:border-[#1E8A3C]/30 hover:shadow-md"
+          >
+            <p className="text-xs font-medium uppercase tracking-wider text-gray-500">⚡ JIT</p>
+            <p className="mt-3 text-2xl font-bold text-gray-900">{lastLog ? formatWeight(lastLog.volume_total) : "Aucun log"}</p>
+            <p className="mt-1 text-sm text-gray-500">{lastLog ? `Derniere exec: ${formatShortDateTime(lastLog.date_execution)}` : "Pret pour aggregation"}</p>
+            <p className="mt-5 text-sm font-semibold text-[#1E8A3C]">Gerer JIT →</p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSection("cod")}
+            className="relative rounded-xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all duration-150 hover:border-[#1E8A3C]/30 hover:shadow-md"
+          >
+            {codUncalledClientsCount > 0 ? <span className="absolute right-4 top-4 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">{codUncalledClientsCount} a appeler</span> : null}
+            <p className="text-xs font-medium uppercase tracking-wider text-gray-500">📞 COD</p>
+            <p className="mt-3 text-2xl font-bold text-gray-900">{codOrders.length} commandes COD</p>
+            <p className="mt-1 text-sm text-gray-500">{codCalledClientsCount} clients appeles, {formatMoney(codTotalAmount)} a encaisser</p>
+            <p className="mt-5 text-sm font-semibold text-[#1E8A3C]">Gerer COD →</p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSection("logs")}
+            className="rounded-xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all duration-150 hover:border-[#1E8A3C]/30 hover:shadow-md"
+          >
+            <p className="text-xs font-medium uppercase tracking-wider text-gray-500">📋 Logs</p>
+            <p className="mt-3 text-2xl font-bold text-gray-900">{lastLog?.statut || "Aucun log"}</p>
+            <p className="mt-1 text-sm text-gray-500">{lastLog ? `${lastLog.nombre_commandes} commandes - ${formatShortDateTime(lastLog.date_execution)}` : "Dernier cycle indisponible"}</p>
+            <p className="mt-5 text-sm font-semibold text-[#1E8A3C]">Voir logs →</p>
+          </button>
+        </section>
+
+        {activeSection === "overview" && codAlerte18h?.alerte_active && (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-800 shadow-sm">
             <div className="flex items-start gap-3">
               <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
@@ -1708,8 +1889,8 @@ export default function AdminOrdersPage() {
           </div>
         )}
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
-          <div className="min-w-0 space-y-6">
+        <div className={cn("grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]", !["commandes", "jit"].includes(activeSection) && "hidden", activeSection === "commandes" && "xl:grid-cols-1", activeSection === "jit" && "xl:grid-cols-1")}>
+          <div className={cn("min-w-0 space-y-6", activeSection !== "commandes" && "hidden")}>
         <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           <div className="p-6 border-b border-gray-100 flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -1722,7 +1903,7 @@ export default function AdminOrdersPage() {
 
             <div className="px-4 py-2 bg-[#F0FAF1] rounded-xl">
               <p className="text-sm text-[#8A8A8A]">Clients visibles</p>
-              <p className="text-2xl font-bold text-[#1E8A3C]">{clientGroups.length}</p>
+              <p className="text-2xl font-bold text-[#1E8A3C]">{filteredClientGroups.length}</p>
             </div>
           </div>
 
@@ -1732,9 +1913,42 @@ export default function AdminOrdersPage() {
             </div>
           )}
 
+          <div className="border-b border-gray-100 px-6 py-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <label className="relative block w-full lg:max-w-md">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input
+                  value={ordersSearch}
+                  onChange={(event) => setOrdersSearch(event.target.value)}
+                  placeholder="Rechercher un client, telephone, produit..."
+                  className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm text-gray-900 outline-none transition-all duration-150 focus:border-[#1E8A3C] focus:ring-4 focus:ring-[#1E8A3C]/10"
+                />
+              </label>
+
+              <div className="flex flex-wrap gap-2">
+                <select
+                  value={ordersStatusFilter}
+                  onChange={(event) => setOrdersStatusFilter(event.target.value)}
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 outline-none transition-all duration-150 hover:bg-gray-50 focus:border-[#1E8A3C] focus:ring-4 focus:ring-[#1E8A3C]/10"
+                >
+                  <option value="tous">Tous statuts</option>
+                  {orderStatuses.map((status) => (
+                    <option key={status} value={status}>{status}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-all duration-150 hover:bg-gray-50"
+                >
+                  Exporter
+                </button>
+              </div>
+            </div>
+          </div>
+
           {isOrdersLoading ? (
             <TableSkeleton rows={6} columns={7} />
-          ) : orders.length === 0 ? (
+          ) : filteredClientGroups.length === 0 ? (
             <EmptyState
               title="Aucune commande aujourd'hui"
               description="La liste depend du backend admin et sera actualisee automatiquement."
@@ -1754,7 +1968,7 @@ export default function AdminOrdersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {clientGroups.map((group) => {
+                  {filteredClientGroups.map((group) => {
                     const firstOrder = group.commandes[0]
                     const isOrdersOpen = openOrdersClientKey === group.key
                     const isClientOpen = group.clientId !== null && openClientId === group.clientId
@@ -1913,7 +2127,7 @@ export default function AdminOrdersPage() {
 
           </div>
 
-          <aside className="space-y-6 xl:sticky xl:top-24 xl:self-start">
+          <aside className={cn("space-y-6 xl:sticky xl:top-24 xl:self-start", activeSection !== "jit" && "hidden")}>
         <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between gap-4 mb-6">
             <div>
@@ -1935,40 +2149,15 @@ export default function AdminOrdersPage() {
                 {isPreviewLoading ? <Spinner className="size-4 text-[#1E8A3C]" /> : <Eye className="w-4 h-4 text-[#1A4F8A]" />}
                 Prévisualiser
               </button>
-
-              <AlertDialog open={isExecuteDialogOpen} onOpenChange={setIsExecuteDialogOpen}>
-                <AlertDialogTrigger asChild>
-                  <button
-                    disabled={!token || isPreviewLoading || isExecuteLoading || hasLockedOrdersToday}
-                    className="px-4 py-2 bg-[#1E8A3C] text-white rounded-xl font-medium hover:bg-[#176B2E] disabled:opacity-70 flex items-center gap-2"
-                  >
-                    {isExecuteLoading ? <Spinner className="size-4" /> : <Rocket className="w-4 h-4" />}
-                    Lancer le JIT maintenant
-                  </button>
-                </AlertDialogTrigger>
-                <AlertDialogContent className="rounded-2xl">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Confirmer l&apos;exécution JIT</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Cette action agrège les commandes en attente, verrouille les commandes confirmées
-                      et enregistre un log JIT.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-xl">Annuler</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={(event) => {
-                        event.preventDefault()
-                        void handleExecute()
-                      }}
-                      className="rounded-xl bg-[#1E8A3C] hover:bg-[#176B2E]"
-                    >
-                      {isExecuteLoading ? <Spinner className="size-4" /> : <Rocket className="w-4 h-4" />}
-                      Confirmer
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+            <button
+              type="button"
+              onClick={() => setIsExecuteDialogOpen(true)}
+              disabled={!token || isPreviewLoading || isExecuteLoading || hasLockedOrdersToday}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#1E8A3C] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[#166d30] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isExecuteLoading ? <Spinner className="size-4" /> : <Rocket className="w-4 h-4" />}
+              Lancer JIT
+            </button>
             </div>
           </div>
 
@@ -2191,7 +2380,7 @@ export default function AdminOrdersPage() {
           </aside>
         </div>
 
-        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <section className={cn("overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm", activeSection !== "cod" && "hidden")}>
           <div className="p-6 border-b border-gray-100 space-y-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
@@ -2272,6 +2461,16 @@ export default function AdminOrdersPage() {
                 />
               </label>
 
+              <select
+                value={codStatusFilter}
+                onChange={(event) => setCodStatusFilter(event.target.value)}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 outline-none transition-all duration-150 hover:bg-gray-50 focus:border-[#1E8A3C] focus:ring-4 focus:ring-[#1E8A3C]/10"
+              >
+                <option value="tous">Tous statuts COD</option>
+                {codStatuses.map((status) => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -2280,7 +2479,7 @@ export default function AdminOrdersPage() {
           ) : filteredCodGroups.length === 0 ? (
             <EmptyState
               title="Aucune commande COD a confirmer"
-              description={codSearch ? "Aucun resultat ne correspond au filtre actuel." : "Aucune commande COD verrouillee par le JIT pour le moment."}
+              description={codSearch || codStatusFilter !== "tous" ? "Aucun resultat ne correspond aux filtres actuels." : "Aucune commande COD verrouillee par le JIT pour le moment."}
             />
           ) : (
             <div className="overflow-x-auto">
@@ -2447,7 +2646,7 @@ export default function AdminOrdersPage() {
           )}
         </section>
 
-        <section className="hidden">
+        <section className={cn("rounded-2xl border border-gray-200 bg-white p-6 shadow-sm", activeSection !== "logs" && "hidden")}>
           <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
             <div>
               <h2 className="text-lg font-bold text-[#3D3D3D]">Dernier log JIT</h2>
@@ -2518,6 +2717,31 @@ export default function AdminOrdersPage() {
             </div>
           )}
         </section>
+
+        <AlertDialog open={isExecuteDialogOpen} onOpenChange={setIsExecuteDialogOpen}>
+          <AlertDialogContent className="rounded-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmer l&apos;exécution JIT</AlertDialogTitle>
+              <AlertDialogDescription>
+                Cette action agrège les commandes en attente, verrouille les commandes confirmées
+                et enregistre un log JIT.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="rounded-xl">Annuler</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(event) => {
+                  event.preventDefault()
+                  void handleExecute()
+                }}
+                className="rounded-xl bg-[#1E8A3C] hover:bg-[#166d30]"
+              >
+                {isExecuteLoading ? <Spinner className="size-4" /> : <Rocket className="w-4 h-4" />}
+                Confirmer
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <AlertDialog
           open={pendingCodCancellation !== null}
