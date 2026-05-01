@@ -55,6 +55,63 @@ export interface TourneeResponse {
   items: TourneeItem[]
 }
 
+export interface AdminDispatchAddress {
+  street: string | null
+  neighborhood: string | null
+  details: string | null
+  ville: string | null
+  latitude: number | null
+  longitude: number | null
+  full_address: string | null
+}
+
+export interface AdminDispatchCommande {
+  id: number
+  client_id: number | null
+  client_nom: string
+  client_phone: string | null
+  statut: string
+  ordre_passage: number | null
+  creneau_livraison: string | null
+  montant_total: number
+  date_commande: string | null
+  mode_paiement: string | null
+  adresse: AdminDispatchAddress | null
+}
+
+export interface AdminDispatchLivreur {
+  user_id: number | null
+  nom: string
+  email: string | null
+  phone: string | null
+  vehicule: string | null
+  disponible: boolean | null
+  note_moyenne: number | null
+}
+
+export interface AdminDispatchTournee {
+  id: number
+  date_tournee: string | null
+  statut: string
+  distance_totale_km: number | null
+  created_at: string | null
+  livreur: AdminDispatchLivreur
+  commandes: AdminDispatchCommande[]
+}
+
+export interface AdminDispatchTourneesResponse {
+  status: string
+  target_date: string
+  tournees: AdminDispatchTournee[]
+}
+
+export interface ReassignDispatchResponse {
+  status: string
+  commande_id: number
+  nouvelle_tournee_id: number
+  ordre_passage: number
+}
+
 export interface DemarrerTourneeResponse {
   status: string
   updated_count: number
@@ -379,6 +436,33 @@ export async function getFicheClient(token: string, clientId: number) {
 
 export async function getCommandesCODDemain(token: string, signal?: AbortSignal) {
   return apiCall<CommandeCODDemainDTO[]>("/api/commandes/cod/demain", { token, signal })
+}
+
+export async function getAdminDispatchTournees(
+  token: string,
+  targetDate?: string,
+  signal?: AbortSignal
+) {
+  const query = targetDate ? `?date=${encodeURIComponent(targetDate)}` : ""
+  return apiCall<AdminDispatchTourneesResponse>(`/api/v1/admin/dispatch/tournees${query}`, {
+    token,
+    signal,
+  })
+}
+
+export async function reassignAdminDispatchCommande(
+  token: string,
+  commandeId: number,
+  nouvelleTourneeId: number
+) {
+  return apiCall<ReassignDispatchResponse>(
+    `/api/v1/admin/dispatch/commandes/${commandeId}/reassign`,
+    {
+      method: "PUT",
+      token,
+      body: { nouvelle_tournee_id: nouvelleTourneeId },
+    }
+  )
 }
 
 export async function updateConfirmationCOD(

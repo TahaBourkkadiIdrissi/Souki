@@ -3,6 +3,7 @@ from services.profile_service import ProfileService
 from services.catalogue_service import CatalogueService
 from services.claim_service import ClaimService
 from services.commande_service import CommandeVocaleService
+from services.dispatch_service import DispatchService
 from services.livreur_service import LivreurService
 from services.notification_outbox_service import NotificationOutboxService
 from services.authorization_service import AuthorizationService
@@ -15,6 +16,7 @@ __all__ = [
     "CatalogueService",
     "ClaimService",
     "CommandeVocaleService",
+    "DispatchService",
     "LivreurService",
     "NotificationOutboxService",
     "AuthorizationService",

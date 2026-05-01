@@ -5,6 +5,7 @@ from entities.commande_vocale_entity import CommandeVocale, LigneCommandeVocale
 from entities.client_entity import Client
 from entities.parent_entity import Parent
 from entities.livreur_entity import Livreur
+from entities.tournee_entity import Tournee
 from entities.panier_entity import Panier
 from entities.ligne_panier_entity import LignePanier
 from entities.commande_entity import Commande
@@ -36,6 +37,7 @@ __all__ = [
     "Client",
     "Parent",
     "Livreur",
+    "Tournee",
     "Panier",
     "LignePanier",
     "Commande",

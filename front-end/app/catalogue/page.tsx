@@ -26,6 +26,7 @@ import {
 import { AIModals } from "@/components/souki/ai-modals"
 import { ProductCard } from "@/components/souki/product-card"
 import { useAuth } from "@/hooks/useAuth"
+import { useOrderLock } from "@/hooks/useOrderLock"
 import type { CommandeHistoriqueDTO } from "@/lib/api"
 import {
   BasketSelection,
@@ -168,6 +169,7 @@ export default function CataloguePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { isAuthenticated, isLoading } = useAuth()
+  const orderLock = useOrderLock()
 
   const [products, setProducts] = useState<CatalogueProduct[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
@@ -388,6 +390,11 @@ export default function CataloguePage() {
 
   const handleAddToCart = (id: number | string, quantity: number) => {
     requireAuth("/catalogue", () => {
+      if (orderLock.isLocked) {
+        alert(orderLock.message)
+        return
+      }
+
       const normalizedId = Number(id)
       const product = products.find((item) => item.id === normalizedId)
       if (!product) {
@@ -400,12 +407,21 @@ export default function CataloguePage() {
 
   const handleApplySelections = (selections: BasketSelection[]) => {
     requireAuth("/catalogue", () => {
+      if (orderLock.isLocked) {
+        alert(orderLock.message)
+        return
+      }
+
       setCart((currentCart) => mergeSelectionsIntoCart(currentCart, products, selections))
       setShowCart(true)
     })
   }
 
   const updateCartQuantity = (id: number, delta: number) => {
+    if (orderLock.isLocked) {
+      return
+    }
+
     setCart((currentCart) =>
       currentCart
         .map((item) => {
@@ -508,6 +524,11 @@ export default function CataloguePage() {
 
   const handleCheckout = () => {
     requireAuth("/checkout", async () => {
+      if (orderLock.isLocked) {
+        alert(orderLock.message)
+        return
+      }
+
       if (cart.length === 0) {
         alert("Votre panier est vide.")
         return
@@ -576,8 +597,15 @@ export default function CataloguePage() {
 
   return (
     <div className="min-h-screen bg-[#FBFDF9]">
-      <div className="bg-[#F07C00] px-4 py-3 text-center text-sm font-semibold text-white">
-        Commandes acceptees jusqu'a 20h00 - Livraison demain pour garnatir la fraicheur
+      <div
+        className={cn(
+          "px-4 py-3 text-center text-sm font-semibold text-white",
+          orderLock.isLocked ? "bg-[#B45309]" : "bg-[#F07C00]"
+        )}
+      >
+        {orderLock.isLocked
+          ? orderLock.message
+          : "Commandes acceptees de 08h00 a 21h30 - Livraison demain pour garantir la fraicheur"}
       </div>
 
       <nav className="sticky top-0 z-40 border-b border-[#E7F0E8] bg-white/90 backdrop-blur">
@@ -677,10 +705,12 @@ export default function CataloguePage() {
             <div className="rounded-3xl border border-[#D7EBD9] bg-white p-5">
               <div className="flex items-center gap-3 text-[#1E8A3C]">
                 <Clock className="h-5 w-5" />
-                <span className="font-semibold">Commandez avant 20h00</span>
+                <span className="font-semibold">
+                  {orderLock.isLocked ? "Commandes fermees" : "Commandez avant 21h30"}
+                </span>
               </div>
               <p className="mt-2 text-sm text-[#718272]">
-                Livraison demain pour garantir la fraicheur.
+                {orderLock.isLocked ? orderLock.message : "Livraison demain pour garantir la fraicheur."}
               </p>
             </div>
 
@@ -742,14 +772,16 @@ export default function CataloguePage() {
               <div className="flex flex-col gap-3 sm:flex-row">
                 <button
                   onClick={() => requireAuth("/catalogue", () => setActiveModal("voice"))}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-[#CFE6D2] bg-white px-5 py-3 font-semibold text-[#1E8A3C] transition-colors hover:bg-[#F0FAF1]"
+                  disabled={orderLock.isLocked}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-[#CFE6D2] bg-white px-5 py-3 font-semibold text-[#1E8A3C] transition-colors hover:bg-[#F0FAF1] disabled:cursor-not-allowed disabled:opacity-55"
                 >
                   <MessageCircle className="h-5 w-5" />
                   Assistant vocale IA
                 </button>
                 <button
                   onClick={() => requireAuth("/catalogue", () => setActiveModal("smart"))}
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-[#F07C00] px-5 py-3 font-semibold text-white transition-colors hover:bg-[#D66B00]"
+                  disabled={orderLock.isLocked}
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-[#F07C00] px-5 py-3 font-semibold text-white transition-colors hover:bg-[#D66B00] disabled:cursor-not-allowed disabled:bg-gray-300"
                 >
                   <Zap className="h-5 w-5" />
                   Panier intelligent
@@ -791,6 +823,12 @@ export default function CataloguePage() {
           {successMessage && (
             <div className="mb-6 rounded-2xl border border-[#BFE6C4] bg-[#EAF8EC] px-5 py-4 text-sm font-semibold text-[#1E8A3C]">
               {successMessage}
+            </div>
+          )}
+
+          {orderLock.isLocked && (
+            <div className="mb-6 rounded-2xl border border-[#F5D7B8] bg-[#FFF7EE] px-5 py-4 text-sm font-semibold text-[#9A5C11]">
+              {orderLock.message}
             </div>
           )}
 
@@ -968,6 +1006,8 @@ export default function CataloguePage() {
                     displayUnit={product.displayUnit}
                     quantityStep={product.quantityStep}
                     stock={product.stock}
+                    disabled={orderLock.isLocked}
+                    disabledLabel="Commandes fermees"
                     onAddToCart={handleAddToCart}
                   />
                 ))}
@@ -1057,7 +1097,8 @@ export default function CataloguePage() {
                         <div className="flex shrink-0 items-center rounded-full border border-[#CDE8D0] bg-white">
                           <button
                             onClick={() => updateCartQuantity(item.id, -item.quantityStep)}
-                            className="p-2 text-[#2E5A33] transition-colors hover:bg-[#E7F5E8]"
+                            disabled={orderLock.isLocked}
+                            className="p-2 text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             <Minus className="h-3 w-3" />
                           </button>
@@ -1066,7 +1107,8 @@ export default function CataloguePage() {
                           </span>
                           <button
                             onClick={() => updateCartQuantity(item.id, item.quantityStep)}
-                            className="p-2 text-[#2E5A33] transition-colors hover:bg-[#E7F5E8]"
+                            disabled={orderLock.isLocked}
+                            className="p-2 text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             <Plus className="h-3 w-3" />
                           </button>
@@ -1102,10 +1144,14 @@ export default function CataloguePage() {
 
               <button
                 onClick={handleCheckout}
-                disabled={isSubmittingCart}
+                disabled={isSubmittingCart || orderLock.isLocked}
                 className="mt-5 w-full rounded-2xl bg-[#F07C00] px-4 py-3 font-semibold text-white transition-colors hover:bg-[#D66B00] disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {isSubmittingCart ? "Validation en cours..." : "Valider la commande"}
+                {orderLock.isLocked
+                  ? "Commandes fermees jusqu'a 08h00"
+                  : isSubmittingCart
+                    ? "Validation en cours..."
+                    : "Valider la commande"}
               </button>
 
               <p className="mt-3 text-center text-xs text-[#6F8070]">
@@ -1132,6 +1178,8 @@ export default function CataloguePage() {
         mode={activeModal}
         products={products}
         onApplySelections={handleApplySelections}
+        isOrderLocked={orderLock.isLocked}
+        orderLockMessage={orderLock.message}
       />
 
       {claimOrder && (

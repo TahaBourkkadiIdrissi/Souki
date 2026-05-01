@@ -1,20 +1,27 @@
 """
 Service to manage cron jobs and scheduled tasks.
-Uses APScheduler to schedule the JIT job every day at 20:00.
+Uses APScheduler to schedule the JIT job and daily dispatch jobs.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.base import SchedulerAlreadyRunningError
 from apscheduler.triggers.cron import CronTrigger
 
 from config import LocalSession
+from dao.commande_dao import CommandeVocaleDaoBD
 from dao.jit_dao import JITDaoBD
+from dao.livreur_dao import LivreurDaoBD
+from dao.tournee_dao import TourneeDaoBD
+from services.dispatch_service import DispatchService
 from services.jit_service import JITService
 
 
-scheduler = BackgroundScheduler(daemon=True)
+MOROCCO_TIMEZONE = ZoneInfo("Africa/Casablanca")
+
+scheduler = BackgroundScheduler(daemon=True, timezone=MOROCCO_TIMEZONE)
 
 
 def job_agregation_jit():
@@ -44,9 +51,45 @@ def job_agregation_jit():
         print(f"{'=' * 80}\n")
 
 
+def job_dispatch_daily():
+    """
+    Scheduled task for daily dispatch at 21:35 Morocco time.
+    Builds tomorrow's delivery routes after the ordering cut-off.
+    """
+    session = None
+    try:
+        print(f"\n{'=' * 80}")
+        print(f"[DISPATCH] Declenchement du dispatch a {datetime.now(MOROCCO_TIMEZONE).isoformat()}")
+        print(f"{'=' * 80}\n")
+
+        session = LocalSession()
+        service = DispatchService(
+            commande_dao=CommandeVocaleDaoBD(),
+            livreur_dao=LivreurDaoBD(),
+            tournee_dao=TourneeDaoBD(),
+            session=session,
+        )
+        target_date = datetime.now(MOROCCO_TIMEZONE).date() + timedelta(days=1)
+        result = service.generate_daily_routes(target_date)
+
+        print(f"\n{'=' * 80}")
+        print(f"[DISPATCH] Job termine. Resultat: {result}")
+        print(f"{'=' * 80}\n")
+
+    except Exception as exc:
+        if session is not None:
+            session.rollback()
+        print(f"\n{'=' * 80}")
+        print(f"[DISPATCH] ERREUR lors du job: {exc}")
+        print(f"{'=' * 80}\n")
+    finally:
+        if session is not None:
+            session.close()
+
+
 def start_scheduler():
     """
-    Start the cron scheduler and register the 20:00 JIT job.
+    Start the cron scheduler and register the daily logistics jobs.
     """
     try:
         if not scheduler.running:
@@ -57,10 +100,18 @@ def start_scheduler():
                 name="Agregation JIT des commandes a 20h00",
                 replace_existing=True,
             )
+            scheduler.add_job(
+                job_dispatch_daily,
+                CronTrigger(hour=21, minute=35, second=0, timezone=MOROCCO_TIMEZONE),
+                id="dispatch_daily_21h35",
+                name="Generation automatique des tournees a 21h35",
+                replace_existing=True,
+            )
 
             scheduler.start()
             print("[SCHEDULER] Scheduler demarre")
             print("[SCHEDULER] Job JIT configure a 20h00 chaque jour")
+            print("[SCHEDULER] Job dispatch configure a 21h35 chaque jour")
 
     except SchedulerAlreadyRunningError:
         print("[SCHEDULER] Scheduler deja en cours d'execution")

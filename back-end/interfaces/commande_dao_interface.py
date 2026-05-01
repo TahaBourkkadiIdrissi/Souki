@@ -59,6 +59,39 @@ class ICommandeVocaleDao(ABC):
         pass
 
     @abstractmethod
+    def get_commandes_non_assignees(self, session: Session) -> List[Commande]:
+        """Retourne les commandes confirmees non rattachees a une tournee."""
+        pass
+
+    @abstractmethod
+    def bulk_update_commandes_tournee(self, session: Session, updates: List[dict[str, Any]]) -> None:
+        """Assigne plusieurs commandes a des tournees et met a jour leur ordre de passage."""
+        pass
+
+    @abstractmethod
+    def get_commande_for_reassign(
+        self,
+        session: Session,
+        commande_id: int,
+        for_update: bool = False,
+    ) -> Optional[Commande]:
+        """Retourne une commande pour reassignation logistique."""
+        pass
+
+    @abstractmethod
+    def reassign_commande_to_tournee(
+        self,
+        session: Session,
+        *,
+        commande: Commande,
+        tournee_id: int,
+        livreur_id: int,
+        ordre_passage: int,
+    ) -> None:
+        """Reassigne une commande a une tournee existante."""
+        pass
+
+    @abstractmethod
     def get_commandes_cod_verrouillees(self, session: Session) -> List[dict[str, Any]]:
         """Retourne les commandes COD verrouillees par le JIT."""
         pass

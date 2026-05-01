@@ -8,6 +8,7 @@ from dao.livreur_dao import LivreurDaoBD
 from dao.notification_outbox_dao import NotificationOutboxDaoBD
 from dao.authorization_dao import AuthorizationDao
 from dao.souki_wallet_dao import SoukiWalletDaoBD
+from dao.tournee_dao import TourneeDaoBD
 
 __all__ = [
     "UserDao",
@@ -20,4 +21,5 @@ __all__ = [
     "NotificationOutboxDaoBD",
     "AuthorizationDao",
     "SoukiWalletDaoBD",
+    "TourneeDaoBD",
 ]

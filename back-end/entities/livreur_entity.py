@@ -13,4 +13,5 @@ class Livreur(Base):
 
     user = relationship("User", back_populates="livreur_profile")
     commandes = relationship("Commande", back_populates="livreur")
+    tournees = relationship("Tournee", back_populates="livreur")
     delivery_events = relationship("DeliveryEvent", back_populates="livreur")

@@ -9,6 +9,7 @@ from dao.panier_dao import PanierDaoBD
 from dao.livreur_dao import LivreurDaoBD
 from dao.product_dao import ProductDaoBD
 from dao.souki_wallet_dao import SoukiWalletDaoBD
+from dao.tournee_dao import TourneeDaoBD
 from interfaces.catalogue_service_interface import ICatalogueService
 from interfaces.claim_dao_interface import IClaimDao
 from interfaces.claim_service_interface import IClaimService
@@ -18,6 +19,7 @@ from interfaces.cod_confirmation_log_dao_interface import ICODConfirmationLogDao
 from interfaces.cod_confirmation_service_interface import ICODConfirmationService
 from interfaces.commande_dao_interface import ICommandeVocaleDao
 from interfaces.commande_service_interface import ICommandeVocaleService
+from interfaces.dispatch_service_interface import IDispatchService
 from interfaces.livreur_dao_interface import ILivreurDao
 from interfaces.livreur_service_interface import ILivreurService
 from interfaces.notification_outbox_dao_interface import INotificationOutboxDao
@@ -27,11 +29,13 @@ from interfaces.panier_service_interface import IPanierService
 from interfaces.product_dao_interface import IProductDao
 from interfaces.souki_wallet_dao_interface import ISoukiWalletDao
 from interfaces.souki_wallet_service_interface import ISoukiWalletService
+from interfaces.tournee_dao_interface import ITourneeDao
 from services.catalogue_service import CatalogueService
 from services.claim_service import ClaimService
 from services.checkout_service import CheckoutService
 from services.cod_confirmation_service import CODConfirmationService
 from services.commande_service import CommandeVocaleService
+from services.dispatch_service import DispatchService
 from services.livreur_service import LivreurService
 from services.notification_outbox_service import NotificationOutboxService
 from services.panier_service import PanierService
@@ -72,6 +76,10 @@ def get_panier_dao() -> IPanierDao:
 
 def get_souki_wallet_dao() -> ISoukiWalletDao:
     return SoukiWalletDaoBD()
+
+
+def get_tournee_dao() -> ITourneeDao:
+    return TourneeDaoBD()
 
 
 def get_catalogue_service(
@@ -135,4 +143,16 @@ def get_claim_service(
         souki_wallet_service=souki_wallet_service,
         commande_dao=commande_dao,
         notification_outbox_service=notification_outbox_service,
+    )
+
+
+def get_dispatch_service(
+    commande_dao: ICommandeVocaleDao = Depends(get_commande_dao),
+    livreur_dao: ILivreurDao = Depends(get_livreur_dao),
+    tournee_dao: ITourneeDao = Depends(get_tournee_dao),
+) -> IDispatchService:
+    return DispatchService(
+        commande_dao=commande_dao,
+        livreur_dao=livreur_dao,
+        tournee_dao=tournee_dao,
     )

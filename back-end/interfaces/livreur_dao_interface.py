@@ -5,6 +5,8 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from entities.livreur_entity import Livreur
+
 
 class ILivreurDao(ABC):
 
@@ -15,6 +17,10 @@ class ILivreurDao(ABC):
         livreur_id: int,
         visible_statuses: Iterable[str],
     ) -> list[dict[str, Any]]:
+        pass
+
+    @abstractmethod
+    def get_available_livreurs(self, session: Session) -> list[Livreur]:
         pass
 
     @abstractmethod

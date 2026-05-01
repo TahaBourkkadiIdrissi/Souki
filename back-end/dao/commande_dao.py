@@ -1,6 +1,6 @@
 from datetime import date, datetime, time
-from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, update as sqlalchemy_update
+from sqlalchemy.orm import Session, joinedload, selectinload, with_loader_criteria
 from typing import Any, Optional, List
 from interfaces.commande_dao_interface import ICommandeVocaleDao
 from dto.commande_dto import (
@@ -403,6 +403,73 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
             query = query.with_for_update(of=Commande)
         return query.first()
 
+    def get_commandes_non_assignees(self, session: Session) -> List[Commande]:
+        return (
+            session.query(Commande)
+            .options(
+                joinedload(Commande.client)
+                .joinedload(Client.user)
+                .selectinload(User.addresses),
+                selectinload(Commande.panier).selectinload(Panier.lignes),
+                with_loader_criteria(Address, Address.is_default.is_(True), include_aliases=True),
+            )
+            .filter(
+                func.upper(func.coalesce(Commande.statut, "")) == "CONFIRMEE",
+                Commande.tournee_id.is_(None),
+            )
+            .order_by(Commande.date_commande.asc(), Commande.id.asc())
+            .all()
+        )
+
+    def bulk_update_commandes_tournee(self, session: Session, updates: List[dict[str, Any]]) -> None:
+        for update_data in updates:
+            commande_id = update_data.get("commande_id", update_data.get("id"))
+            if commande_id is None:
+                raise ValueError("commande_id est obligatoire pour assigner une tournee.")
+
+            values = {
+                "tournee_id": update_data["tournee_id"],
+                "ordre_passage": update_data["ordre_passage"],
+                "statut": update_data.get("statut", "A_LIVRER"),
+                "status_version": func.coalesce(Commande.status_version, 1) + 1,
+            }
+            if "livreur_id" in update_data:
+                values["livreur_id"] = update_data["livreur_id"]
+
+            session.execute(
+                sqlalchemy_update(Commande)
+                .where(Commande.id == int(commande_id))
+                .values(**values)
+                .execution_options(synchronize_session=False)
+            )
+        session.flush()
+
+    def get_commande_for_reassign(
+        self,
+        session: Session,
+        commande_id: int,
+        for_update: bool = False,
+    ) -> Optional[Commande]:
+        query = session.query(Commande).filter(Commande.id == commande_id)
+        if for_update:
+            query = query.with_for_update(of=Commande)
+        return query.first()
+
+    def reassign_commande_to_tournee(
+        self,
+        session: Session,
+        *,
+        commande: Commande,
+        tournee_id: int,
+        livreur_id: int,
+        ordre_passage: int,
+    ) -> None:
+        commande.tournee_id = tournee_id
+        commande.livreur_id = livreur_id
+        commande.ordre_passage = ordre_passage
+        commande.status_version = int(commande.status_version or 1) + 1
+        session.flush()
+
     def _build_commande_historique_dto(self, commande: Commande) -> CommandeHistoriqueDTO:
         produits = []
         if commande.panier:
@@ -498,6 +565,8 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
     def annuler_commande_cod(self, session: Session, commande: Commande) -> None:
         commande.statut = "ANNULEE"
         commande.livreur_id = None
+        commande.tournee_id = None
+        commande.ordre_passage = None
         commande.status_version = int(commande.status_version or 1) + 1
         session.flush()
 
