@@ -9,6 +9,7 @@ from google.oauth2 import id_token
 from config import GOOGLE_CLIENT_ID, LocalSession
 from dao.user_dao import UserDao
 from entities.client_entity import Client
+from entities.client_blacklist_log_entity import ClientBlacklistLog
 from entities.livreur_entity import Livreur
 from entities.parent_entity import Parent
 from entities.user_entity import User
@@ -42,6 +43,9 @@ class AuthService:
                     )
 
             if data.phone:
+                if self._is_phone_currently_blacklisted(db, data.phone):
+                    raise HTTPException(status_code=400, detail="Ce numero n'est pas autorise.")
+
                 existing_phone = _dao.find_by_identifier(db, data.phone)
                 if existing_phone and existing_phone.is_verified:
                     raise HTTPException(status_code=400, detail="Ce numero de telephone est deja utilise.")
@@ -341,6 +345,15 @@ class AuthService:
             .order_by(VerificationCode.created_at.desc(), VerificationCode.id.desc())
             .first()
         )
+
+    def _is_phone_currently_blacklisted(self, db, phone: str) -> bool:
+        latest_log = (
+            db.query(ClientBlacklistLog)
+            .filter(ClientBlacklistLog.phone_snapshot == phone)
+            .order_by(ClientBlacklistLog.created_at.desc(), ClientBlacklistLog.id.desc())
+            .first()
+        )
+        return bool(latest_log and latest_log.action == "BLACKLISTED")
 
     def _resolve_channel(self, user: User) -> str:
         if user.email:

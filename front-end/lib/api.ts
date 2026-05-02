@@ -348,6 +348,52 @@ export interface AlerteCOD18hDTO {
   depuis: string | null
 }
 
+export interface ClientBlacklistDTO {
+  client_id: number
+  email: string | null
+  phone: string | null
+  is_blacklisted: boolean
+  date_blacklist: string | null
+  motif: string | null
+  source: string | null
+  livreur_nom: string | null
+  commande_id: number | null
+  admin_nom: string | null
+}
+
+export interface BlacklistParClientDTO {
+  client_id: number
+  email: string | null
+  phone: string | null
+  nb_refus: number
+  montant_perdu: number
+}
+
+export interface BlacklistParLivreurDTO {
+  livreur_id: number
+  livreur_nom: string | null
+  nb_refus: number
+}
+
+export interface BlacklistParQuartierDTO {
+  quartier: string | null
+  nb_refus: number
+  montant_perdu: number
+}
+
+export interface BlacklistReportDTO {
+  mois: number
+  annee: number
+  total_refus: number
+  par_client: BlacklistParClientDTO[]
+  par_livreur: BlacklistParLivreurDTO[]
+  par_quartier: BlacklistParQuartierDTO[]
+}
+
+export interface LiftBlacklistDTO {
+  reason?: string
+}
+
 export async function apiCall<T = any>(endpoint: string, options: ApiOptions = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`
   const headers: Record<string, string> = {
@@ -530,4 +576,31 @@ export async function batchConfirmationCOD(
 
 export async function getAlerteCOD18h(token: string) {
   return apiCall<AlerteCOD18hDTO>("/api/commandes/cod/alerte-18h", { token })
+}
+
+export async function getBlacklistedClients(token: string) {
+  return apiCall<ClientBlacklistDTO[]>("/admin/blacklist", { token })
+}
+
+export async function liftBlacklist(
+  token: string,
+  clientId: number,
+  reason?: string
+) {
+  return apiCall(`/admin/blacklist/${clientId}/lift`, {
+    method: "PATCH",
+    token,
+    body: { reason },
+  })
+}
+
+export async function getBlacklistMonthlyReport(
+  token: string,
+  year: number,
+  month: number
+) {
+  return apiCall<BlacklistReportDTO>(
+    `/admin/blacklist/report/monthly?year=${year}&month=${month}`,
+    { token }
+  )
 }
