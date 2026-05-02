@@ -15,6 +15,7 @@ from entities.address_entity import Address
 from entities.client_blacklist_log_entity import ClientBlacklistLog
 from entities.client_entity import Client
 from entities.commande_entity import Commande
+from entities.livreur_entity import Livreur
 from entities.user_entity import User
 from interfaces.client_blacklist_dao_interface import IClientBlacklistDao
 
@@ -77,10 +78,15 @@ class ClientBlacklistDaoBD(IClientBlacklistDao):
                 admin_user.email.label("admin_email"),
                 admin_user.phone.label("admin_phone"),
             )
-            .join(Client, Client.user_id == latest_blacklisted_subquery.c.client_id)
-            .join(ClientBlacklistLog, ClientBlacklistLog.id == latest_blacklisted_subquery.c.latest_log_id)
+            .select_from(ClientBlacklistLog)
+            .join(
+                latest_blacklisted_subquery,
+                latest_blacklisted_subquery.c.latest_log_id == ClientBlacklistLog.id,
+            )
+            .join(Client, Client.user_id == ClientBlacklistLog.client_id)
             .join(User, User.id == Client.user_id)
-            .outerjoin(livreur_user, livreur_user.id == ClientBlacklistLog.livreur_id)
+            .outerjoin(Livreur, Livreur.user_id == ClientBlacklistLog.livreur_id)
+            .outerjoin(livreur_user, livreur_user.id == Livreur.user_id)
             .outerjoin(admin_user, admin_user.id == ClientBlacklistLog.admin_id)
             .filter(Client.is_blacklisted.is_(True))
             .order_by(ClientBlacklistLog.created_at.desc(), ClientBlacklistLog.id.desc())
@@ -129,6 +135,7 @@ class ClientBlacklistDaoBD(IClientBlacklistDao):
                 func.count(ClientBlacklistLog.id).label("nb_refus"),
                 func.coalesce(func.sum(Commande.montant_total), 0).label("montant_perdu"),
             )
+            .select_from(ClientBlacklistLog)
             .join(User, User.id == ClientBlacklistLog.client_id)
             .outerjoin(Commande, Commande.id == ClientBlacklistLog.commande_id)
             .filter(*base_filters)
@@ -145,7 +152,9 @@ class ClientBlacklistDaoBD(IClientBlacklistDao):
                 livreur_user.phone.label("livreur_phone"),
                 func.count(ClientBlacklistLog.id).label("nb_refus"),
             )
-            .outerjoin(livreur_user, livreur_user.id == ClientBlacklistLog.livreur_id)
+            .select_from(ClientBlacklistLog)
+            .outerjoin(Livreur, Livreur.user_id == ClientBlacklistLog.livreur_id)
+            .outerjoin(livreur_user, livreur_user.id == Livreur.user_id)
             .filter(*base_filters)
             .group_by(ClientBlacklistLog.livreur_id, livreur_user.email, livreur_user.phone)
             .order_by(func.count(ClientBlacklistLog.id).desc(), ClientBlacklistLog.livreur_id.asc())
@@ -167,6 +176,7 @@ class ClientBlacklistDaoBD(IClientBlacklistDao):
                 func.count(ClientBlacklistLog.id).label("nb_refus"),
                 func.coalesce(func.sum(Commande.montant_total), 0).label("montant_perdu"),
             )
+            .select_from(ClientBlacklistLog)
             .outerjoin(Commande, Commande.id == ClientBlacklistLog.commande_id)
             .outerjoin(address_subquery, address_subquery.c.user_id == ClientBlacklistLog.client_id)
             .outerjoin(Address, Address.id == address_subquery.c.address_id)
