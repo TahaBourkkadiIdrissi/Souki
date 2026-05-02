@@ -54,6 +54,8 @@ interface AIModalsProps {
   mode: "voice" | "smart" | null
   products?: CatalogueProduct[]
   onApplySelections?: (selections: BasketSelection[]) => void
+  isOrderLocked?: boolean
+  orderLockMessage?: string
 }
 
 export function AIModals({
@@ -62,6 +64,8 @@ export function AIModals({
   mode,
   products = [],
   onApplySelections,
+  isOrderLocked = false,
+  orderLockMessage = "Les commandes sont fermees pour preparer les livraisons. Reouverture a 08h00.",
 }: AIModalsProps) {
   const router = useRouter()
   const { token } = useAuth()
@@ -148,6 +152,11 @@ export function AIModals({
     setError(null)
     setResult(null)
 
+    if (isOrderLocked) {
+      setError(orderLockMessage)
+      return
+    }
+
     if (!token) {
       setError("Connectez-vous d'abord pour utiliser l'assistant vocal.")
       return
@@ -230,6 +239,11 @@ export function AIModals({
   }
 
   const handleApplySmartBasket = () => {
+    if (isOrderLocked) {
+      setError(orderLockMessage)
+      return
+    }
+
     if (smartSelections.length === 0) {
       setError("Generez d'abord un panier intelligent.")
       return
@@ -344,12 +358,18 @@ export function AIModals({
                 Darija et francais pris en charge.
               </p>
 
+              {isOrderLocked && (
+                <div className="mx-auto mt-5 max-w-xs rounded-2xl border border-orange-400/30 bg-orange-400/10 p-3 text-xs font-semibold text-orange-200">
+                  {orderLockMessage}
+                </div>
+              )}
+
               <button
                 onClick={handleVoiceInteraction}
-                disabled={isSending}
+                disabled={isSending || isOrderLocked}
                 className={cn(
                   "mx-auto mt-8 flex w-full max-w-[220px] flex-col items-center justify-center rounded-3xl bg-white/5 px-6 py-5 transition-all duration-300 hover:bg-white/10",
-                  isSending && "cursor-not-allowed opacity-50"
+                  (isSending || isOrderLocked) && "cursor-not-allowed opacity-50"
                 )}
               >
                 <div
@@ -496,10 +516,10 @@ export function AIModals({
                     closeModal()
                     router.push(`/checkout?commande_id=${result.commande_id}`)
                   }}
-                  disabled={editedBasket.length === 0}
+                  disabled={editedBasket.length === 0 || isOrderLocked}
                   className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-[#1E8A3C] py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#176B2E] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Aller au checkout
+                  {isOrderLocked ? "Commandes fermees" : "Aller au checkout"}
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </div>
@@ -566,8 +586,9 @@ export function AIModals({
               </div>
 
               <div className="rounded-2xl bg-[#FFF5EB] p-4 text-sm text-[#C96A00]">
-                IA-SOUKI compose un panier simple avec les produits les plus utiles du jour
-                selon votre budget.
+                {isOrderLocked
+                  ? orderLockMessage
+                  : "IA-SOUKI compose un panier simple avec les produits les plus utiles du jour selon votre budget."}
               </div>
 
               {error && (
@@ -615,15 +636,15 @@ export function AIModals({
                 </button>
                 <button
                   onClick={handleApplySmartBasket}
-                  disabled={smartSelections.length === 0}
+                  disabled={smartSelections.length === 0 || isOrderLocked}
                   className={cn(
                     "flex items-center justify-center gap-2 rounded-2xl px-4 py-3 font-semibold text-white transition-colors",
-                    smartSelections.length === 0
+                    smartSelections.length === 0 || isOrderLocked
                       ? "cursor-not-allowed bg-gray-300"
                       : "bg-[#F07C00] hover:bg-[#D66B00]"
                   )}
                 >
-                  Ajouter au panier
+                  {isOrderLocked ? "Commandes fermees" : "Ajouter au panier"}
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </div>

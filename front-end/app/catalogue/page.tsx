@@ -26,26 +26,32 @@ import {
 import { AIModals } from "@/components/souki/ai-modals"
 import { ProductCard } from "@/components/souki/product-card"
 import { useAuth } from "@/hooks/useAuth"
+import { useOrderLock } from "@/hooks/useOrderLock"
 import type { CommandeHistoriqueDTO } from "@/lib/api"
 import {
   BasketSelection,
   CatalogueProduct,
+  ClaimReason,
   CartItem,
   DELIVERY_FEE,
+  deleteOrderFromHistory,
   fetchCommandeCheckout,
   fetchCatalogueProducts,
   fetchOrderHistory,
   fetchPanierDetails,
   formatQuantity,
+  getCataloguePresentation,
   loadStoredCart,
   mergeSelectionsIntoCart,
   saveStoredCart,
+  submitClaim,
   submitManualBasket,
   upsertCartItem,
 } from "@/lib/catalogue"
 import { cn } from "@/lib/utils"
 
 const CATALOGUE_REFRESH_INTERVAL_MS = 5 * 60 * 1000
+const CLAIM_WINDOW_MS = 24 * 60 * 60 * 1000
 
 const categories = [
   { id: "tous", label: "Tous" },
@@ -60,6 +66,15 @@ const sortOptions = [
   { id: "price-desc", label: "Prix decroissant" },
   { id: "name", label: "Ordre alphabetique" },
 ] as const
+
+const claimReasonOptions: Array<{ id: ClaimReason; label: string }> = [
+  { id: "abime", label: "Produit abime" },
+  { id: "poids_incorrect", label: "Poids incorrect" },
+  { id: "erreur_produit", label: "Erreur de produit" },
+  { id: "produit_manquant", label: "Produit manquant" },
+  { id: "qualite", label: "Qualite insuffisante" },
+  { id: "autre", label: "Autre probleme" },
+]
 
 const formatOrderDate = (value?: string | null) => {
   if (!value) {
@@ -118,10 +133,45 @@ const formatPaymentMode = (mode?: string | null) => {
   return labels[normalizedMode] || mode || "Paiement non precise"
 }
 
+const formatDh = (value: string | number) => `${Number(value || 0).toFixed(2)} DH`
+
+const parseDate = (value?: string | null) => {
+  if (!value) {
+    return null
+  }
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+const canClaimOrder = (order: CommandeHistoriqueDTO) => {
+  if ((order.statut || "").toUpperCase() !== "LIVRE") {
+    return false
+  }
+  const deliveredAt = parseDate(order.delivered_at)
+  if (!deliveredAt) {
+    return false
+  }
+  const elapsedMs = Date.now() - deliveredAt.getTime()
+  return elapsedMs >= 0 && elapsedMs <= CLAIM_WINDOW_MS
+}
+
+const getClaimWindowLabel = (order: CommandeHistoriqueDTO) => {
+  const deliveredAt = parseDate(order.delivered_at)
+  if (!deliveredAt) {
+    return "Disponible apres livraison"
+  }
+  const deadline = new Date(deliveredAt.getTime() + CLAIM_WINDOW_MS)
+  if (Date.now() > deadline.getTime()) {
+    return "Delai SAV expire"
+  }
+  return `SAV ouvert jusqu'au ${formatOrderDate(deadline.toISOString())}`
+}
+
 export default function CataloguePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { isAuthenticated, isLoading } = useAuth()
+  const orderLock = useOrderLock()
 
   const [products, setProducts] = useState<CatalogueProduct[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
@@ -140,6 +190,13 @@ export default function CataloguePage() {
   const [historyError, setHistoryError] = useState("")
   const [showOrderHistory, setShowOrderHistory] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
+  const [claimOrder, setClaimOrder] = useState<CommandeHistoriqueDTO | null>(null)
+  const [claimLineId, setClaimLineId] = useState<number | null>(null)
+  const [claimQuantity, setClaimQuantity] = useState("1")
+  const [claimReason, setClaimReason] = useState<ClaimReason>("abime")
+  const [claimError, setClaimError] = useState("")
+  const [isSubmittingClaim, setIsSubmittingClaim] = useState(false)
+  const [deletingOrderId, setDeletingOrderId] = useState<number | null>(null)
 
   const loadOrderHistory = useCallback(async (showLoader = true) => {
     if (!isAuthenticated) {
@@ -336,6 +393,11 @@ export default function CataloguePage() {
 
   const handleAddToCart = (id: number | string, quantity: number) => {
     requireAuth("/catalogue", () => {
+      if (orderLock.isLocked) {
+        alert(orderLock.message)
+        return
+      }
+
       const normalizedId = Number(id)
       const product = products.find((item) => item.id === normalizedId)
       if (!product) {
@@ -348,12 +410,21 @@ export default function CataloguePage() {
 
   const handleApplySelections = (selections: BasketSelection[]) => {
     requireAuth("/catalogue", () => {
+      if (orderLock.isLocked) {
+        alert(orderLock.message)
+        return
+      }
+
       setCart((currentCart) => mergeSelectionsIntoCart(currentCart, products, selections))
       setShowCart(true)
     })
   }
 
   const updateCartQuantity = (id: number, delta: number) => {
+    if (orderLock.isLocked) {
+      return
+    }
+
     setCart((currentCart) =>
       currentCart
         .map((item) => {
@@ -374,8 +445,115 @@ export default function CataloguePage() {
     setCart((currentCart) => currentCart.filter((item) => item.id !== id))
   }
 
+  const openClaimModal = (order: CommandeHistoriqueDTO) => {
+    const claimableLines = order.produits.filter(
+      (product) => typeof product.ligne_panier_id === "number" && product.quantite_kg > 0
+    )
+    if (!canClaimOrder(order)) {
+      alert(getClaimWindowLabel(order))
+      return
+    }
+    if (claimableLines.length === 0) {
+      alert("Cette commande ne contient aucune ligne eligible au SAV.")
+      return
+    }
+    const firstLine = claimableLines[0]
+    setClaimOrder(order)
+    setClaimLineId(firstLine.ligne_panier_id ?? null)
+    setClaimQuantity(String(Math.min(1, firstLine.quantite_kg)))
+    setClaimReason("abime")
+    setClaimError("")
+  }
+
+  const closeClaimModal = () => {
+    if (isSubmittingClaim) {
+      return
+    }
+    setClaimOrder(null)
+    setClaimLineId(null)
+    setClaimError("")
+  }
+
+  const handleSubmitClaim = async () => {
+    if (!claimOrder || claimLineId === null) {
+      return
+    }
+    const selectedLine = claimOrder.produits.find((product) => product.ligne_panier_id === claimLineId)
+    if (!selectedLine || typeof selectedLine.ligne_panier_id !== "number") {
+      setClaimError("Selection de produit invalide.")
+      return
+    }
+    const normalizedQuantity = Number(claimQuantity.replace(",", "."))
+    if (!Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) {
+      setClaimError("La quantite reclamee doit etre positive.")
+      return
+    }
+    if (normalizedQuantity > selectedLine.quantite_kg) {
+      setClaimError("La quantite reclamee depasse la quantite commandee.")
+      return
+    }
+
+    setIsSubmittingClaim(true)
+    setClaimError("")
+    try {
+      const result = await submitClaim({
+        commande_id: claimOrder.id,
+        items: [
+          {
+            ligne_panier_id: selectedLine.ligne_panier_id,
+            quantity_claimed: normalizedQuantity,
+            reason: claimReason,
+          },
+        ],
+      })
+      setSuccessMessage(
+        `Reclamation envoyee. ${formatDh(result.amount_refunded)} ont ete credites sur votre wallet SOUKI. Nouveau solde: ${formatDh(result.new_wallet_balance)}.`
+      )
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("souki-wallet-updated", {
+            detail: { balance: result.new_wallet_balance },
+          })
+        )
+      }
+      setClaimOrder(null)
+      await loadOrderHistory(false)
+    } catch (error) {
+      setClaimError(error instanceof Error ? error.message : "Impossible d'envoyer la reclamation.")
+    } finally {
+      setIsSubmittingClaim(false)
+    }
+  }
+
+  const handleDeleteOrderHistory = async (commandeId: number) => {
+    const confirmed = window.confirm(
+      `Supprimer la commande N-${commandeId} de votre historique ?`
+    )
+    if (!confirmed) {
+      return
+    }
+
+    setDeletingOrderId(commandeId)
+    try {
+      const result = await deleteOrderFromHistory(commandeId)
+      setOrderHistory((currentHistory) => currentHistory.filter((order) => order.id !== commandeId))
+      setSuccessMessage(result.message || `Commande N-${commandeId} supprimee de l'historique.`)
+    } catch (error) {
+      setHistoryError(
+        error instanceof Error ? error.message : "Impossible de supprimer cette commande de l'historique."
+      )
+    } finally {
+      setDeletingOrderId(null)
+    }
+  }
+
   const handleCheckout = () => {
     requireAuth("/checkout", async () => {
+      if (orderLock.isLocked) {
+        alert(orderLock.message)
+        return
+      }
+
       if (cart.length === 0) {
         alert("Votre panier est vide.")
         return
@@ -436,11 +614,30 @@ export default function CataloguePage() {
 
   const cartSubtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const cartTotal = cartSubtotal + DELIVERY_FEE
+  const claimableLines =
+    claimOrder?.produits.filter(
+      (product) => typeof product.ligne_panier_id === "number" && product.quantite_kg > 0
+    ) ?? []
+  const selectedClaimLine = claimableLines.find((product) => product.ligne_panier_id === claimLineId)
+  const resolveOrderProductImage = (product: CommandeHistoriqueDTO["produits"][number]) => {
+    if (product.image) {
+      return product.image
+    }
+    const catalogueProduct = products.find((item) => item.id === product.product_id)
+    return catalogueProduct?.image || getCataloguePresentation(product.nom_fr).image
+  }
 
   return (
     <div className="min-h-screen bg-[#FBFDF9]">
-      <div className="bg-[#F07C00] px-4 py-3 text-center text-sm font-semibold text-white">
-        Commandes acceptees jusqu'a 20h00 - Livraison demain pour garnatir la fraicheur
+      <div
+        className={cn(
+          "px-4 py-3 text-center text-sm font-semibold text-white",
+          orderLock.isLocked ? "bg-[#B45309]" : "bg-[#F07C00]"
+        )}
+      >
+        {orderLock.isLocked
+          ? orderLock.message
+          : "Commandes acceptees de 08h00 a 21h30 - Livraison demain pour garantir la fraicheur"}
       </div>
 
       <nav className="sticky top-0 z-40 border-b border-[#E7F0E8] bg-white/90 backdrop-blur">
@@ -540,16 +737,18 @@ export default function CataloguePage() {
             <div className="rounded-3xl border border-[#D7EBD9] bg-white p-5">
               <div className="flex items-center gap-3 text-[#1E8A3C]">
                 <Clock className="h-5 w-5" />
-                <span className="font-semibold">Commandez avant 20h00</span>
+                <span className="font-semibold">
+                  {orderLock.isLocked ? "Commandes fermees" : "Commandez avant 21h30"}
+                </span>
               </div>
               <p className="mt-2 text-sm text-[#718272]">
-                Livraison demain pour garantir la fraicheur.
+                {orderLock.isLocked ? orderLock.message : "Livraison demain pour garantir la fraicheur."}
               </p>
             </div>
 
             {isAuthenticated && (
               <button
-                onClick={() => setShowOrderHistory((value) => !value)}
+                onClick={() => setShowOrderHistory(true)}
                 className={cn(
                   "flex w-full items-center justify-between rounded-3xl border px-5 py-4 text-left transition-colors",
                   showOrderHistory
@@ -605,55 +804,83 @@ export default function CataloguePage() {
               <div className="flex flex-col gap-3 sm:flex-row">
                 <button
                   onClick={() => requireAuth("/catalogue", () => setActiveModal("voice"))}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-[#CFE6D2] bg-white px-5 py-3 font-semibold text-[#1E8A3C] transition-colors hover:bg-[#F0FAF1]"
+                  disabled={orderLock.isLocked}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-[#CFE6D2] bg-white px-5 py-3 font-semibold text-[#1E8A3C] transition-colors hover:bg-[#F0FAF1] disabled:cursor-not-allowed disabled:opacity-55"
                 >
                   <MessageCircle className="h-5 w-5" />
                   Assistant vocale IA
                 </button>
                 <button
                   onClick={() => requireAuth("/catalogue", () => setActiveModal("smart"))}
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-[#F07C00] px-5 py-3 font-semibold text-white transition-colors hover:bg-[#D66B00]"
+                  disabled={orderLock.isLocked}
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-[#F07C00] px-5 py-3 font-semibold text-white transition-colors hover:bg-[#D66B00] disabled:cursor-not-allowed disabled:bg-gray-300"
                 >
                   <Zap className="h-5 w-5" />
                   Panier intelligent
-                </button>
-                <button
-                  onClick={() => requireAuth("/catalogue", () => setShowOrderHistory((value) => !value))}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-[#CFE6D2] bg-white px-5 py-3 font-semibold text-[#264129] transition-colors hover:bg-[#F0FAF1]"
-                >
-                  <History className="h-5 w-5" />
-                  Historique
                 </button>
               </div>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-4">
               <p className="text-sm text-[#6F8070]">
-                {filteredProducts.length} produit{filteredProducts.length > 1 ? "s" : ""} affiche
-                {filteredProducts.length > 1 ? "s" : ""}
+                {showOrderHistory
+                  ? `${orderHistory.length} commande${orderHistory.length > 1 ? "s" : ""} dans l'historique`
+                  : `${filteredProducts.length} produit${filteredProducts.length > 1 ? "s" : ""} affiche${filteredProducts.length > 1 ? "s" : ""}`}
               </p>
-              <div className="relative">
-                <select
-                  value={sortBy}
-                  onChange={(event) =>
-                    setSortBy(event.target.value as (typeof sortOptions)[number]["id"])
-                  }
-                  className="appearance-none rounded-2xl border border-[#DDE7DE] bg-white px-4 py-3 pr-10 text-sm font-medium text-[#264129] outline-none transition-colors focus:border-[#4CB84A]"
-                >
-                  {sortOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7B8B7D]" />
-              </div>
+              {!showOrderHistory && (
+                <div className="relative">
+                  <select
+                    value={sortBy}
+                    onChange={(event) =>
+                      setSortBy(event.target.value as (typeof sortOptions)[number]["id"])
+                    }
+                    className="appearance-none rounded-2xl border border-[#DDE7DE] bg-white px-4 py-3 pr-10 text-sm font-medium text-[#264129] outline-none transition-colors focus:border-[#4CB84A]"
+                  >
+                    {sortOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7B8B7D]" />
+                </div>
+              )}
             </div>
           </div>
 
           {successMessage && (
             <div className="mb-6 rounded-2xl border border-[#BFE6C4] bg-[#EAF8EC] px-5 py-4 text-sm font-semibold text-[#1E8A3C]">
               {successMessage}
+            </div>
+          )}
+
+          {orderLock.isLocked && (
+            <div className="mb-6 rounded-2xl border border-[#F5D7B8] bg-[#FFF7EE] px-5 py-4 text-sm font-semibold text-[#9A5C11]">
+              {orderLock.message}
+            </div>
+          )}
+
+          {isAuthenticated && showOrderHistory && (
+            <div className="mb-6 flex items-center gap-2 border-b border-[#DDEBDD]">
+              <button
+                onClick={() => setShowOrderHistory(false)}
+                className="rounded-t-2xl border border-b-0 border-[#DDEBDD] bg-[#F7FCF7] px-4 py-3 text-sm font-bold text-[#607061] transition-colors hover:bg-white"
+              >
+                Catalogue
+              </button>
+              <div className="flex items-center gap-3 rounded-t-2xl border border-b-0 border-[#1E8A3C] bg-[#1E8A3C] px-4 py-3 text-sm font-bold text-white">
+                <span className="inline-flex items-center gap-2">
+                  <History className="h-4 w-4" />
+                  Historique commandes
+                </span>
+                <button
+                  onClick={() => setShowOrderHistory(false)}
+                  className="rounded-full p-1 text-white/80 transition-colors hover:bg-white/15 hover:text-white"
+                  aria-label="Fermer l'onglet historique"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           )}
 
@@ -669,14 +896,23 @@ export default function CataloguePage() {
                     Retrouvez les commandes validees depuis le checkout.
                   </p>
                 </div>
-                <button
-                  onClick={() => void loadOrderHistory()}
-                  disabled={isFetchingHistory}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#CFE6D2] bg-white px-4 py-3 text-sm font-semibold text-[#1E8A3C] transition-colors hover:bg-[#F0FAF1] disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  <History className="h-4 w-4" />
-                  {isFetchingHistory ? "Actualisation..." : "Actualiser"}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => void loadOrderHistory()}
+                    disabled={isFetchingHistory}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#CFE6D2] bg-white px-4 py-3 text-sm font-semibold text-[#1E8A3C] transition-colors hover:bg-[#F0FAF1] disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    <History className="h-4 w-4" />
+                    {isFetchingHistory ? "Actualisation..." : "Actualiser"}
+                  </button>
+                  <button
+                    onClick={() => setShowOrderHistory(false)}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#E5E8E3] bg-white px-4 py-3 text-sm font-semibold text-[#607061] transition-colors hover:bg-[#F7F8F5]"
+                  >
+                    <X className="h-4 w-4" />
+                    Fermer
+                  </button>
+                </div>
               </div>
 
               {isFetchingHistory && (
@@ -722,36 +958,52 @@ export default function CataloguePage() {
                             {formatOrderDate(order.date_commande)}
                           </h3>
                         </div>
-                        <span
-                          className={cn(
-                            "rounded-full border px-3 py-1 text-xs font-bold",
-                            getOrderStatusClassName(order.statut)
-                          )}
-                        >
-                          {getOrderStatusLabel(order.statut)}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              "rounded-full border px-3 py-1 text-xs font-bold",
+                              getOrderStatusClassName(order.statut)
+                            )}
+                          >
+                            {getOrderStatusLabel(order.statut)}
+                          </span>
+                          <button
+                            onClick={() => void handleDeleteOrderHistory(order.id)}
+                            disabled={deletingOrderId === order.id}
+                            className="rounded-full border border-red-100 bg-red-50 p-2 text-red-500 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            aria-label="Supprimer de l'historique"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="mt-4 space-y-2">
-                        {order.produits.slice(0, 3).map((product, index) => (
+                      <div className="mt-4 space-y-3">
+                        {order.produits.map((product, index) => (
                           <div
                             key={`${order.id}-${product.nom_fr}-${index}`}
-                            className="flex items-center justify-between gap-3 rounded-2xl bg-[#F7FCF7] px-4 py-2 text-sm"
+                            className="flex items-center gap-3 rounded-2xl bg-[#F7FCF7] p-3 text-sm"
                           >
-                            <span className="truncate font-semibold text-[#264129]">
-                              {product.nom_fr}
-                            </span>
-                            <span className="shrink-0 text-[#6F8070]">
-                              {formatQuantity(product.quantite_kg, "kg")}
+                            <img
+                              src={resolveOrderProductImage(product)}
+                              alt={product.nom_fr}
+                              className="h-12 w-12 shrink-0 rounded-xl object-cover"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-semibold text-[#264129]">
+                                {product.nom_fr}
+                              </p>
+                              <p className="text-xs font-semibold text-[#6F8070]">
+                                {formatQuantity(product.quantite_kg, "kg")}
+                              </p>
+                            </div>
+                            <span className="shrink-0 text-sm font-bold text-[#F07C00]">
+                              {typeof product.sous_total === "number"
+                                ? `${product.sous_total.toFixed(2)} DH`
+                                : ""}
                             </span>
                           </div>
                         ))}
-                        {order.produits.length > 3 && (
-                          <p className="text-sm font-semibold text-[#6F8070]">
-                            +{order.produits.length - 3} autre{order.produits.length - 3 > 1 ? "s" : ""} produit
-                            {order.produits.length - 3 > 1 ? "s" : ""}
-                          </p>
-                        )}
                       </div>
 
                       <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
@@ -760,30 +1012,64 @@ export default function CataloguePage() {
                           <p className="mt-1 font-bold text-[#264129]">
                             {formatPaymentMode(order.mode_paiement)}
                           </p>
+                          <p className="mt-1 text-xs font-semibold text-[#6F8070]">
+                            {order.payment_validated ? "Paiement valide" : "Paiement non valide"}
+                          </p>
                         </div>
                         <div className="rounded-2xl bg-[#FFF7EE] p-3">
                           <p className="text-[#9A5C11]">Total</p>
                           <p className="mt-1 text-lg font-black text-[#F07C00]">
                             {(order.montant_total || 0).toFixed(2)} DH
                           </p>
+                          {order.montant_a_encaisser ? (
+                            <p className="mt-1 text-xs font-semibold text-[#9A5C11]">
+                              A encaisser: {order.montant_a_encaisser.toFixed(2)} DH
+                            </p>
+                          ) : null}
                         </div>
                       </div>
 
-                      {order.creneau_livraison && (
-                        <p className="mt-3 text-sm text-[#6F8070]">
-                          Creneau: <span className="font-semibold text-[#264129]">{order.creneau_livraison}</span>
-                        </p>
-                      )}
+                      <div className="mt-4 grid gap-2 text-xs font-semibold text-[#6F8070] sm:grid-cols-2">
+                        {order.creneau_livraison && (
+                          <p>
+                            Creneau: <span className="text-[#264129]">{order.creneau_livraison}</span>
+                          </p>
+                        )}
+                        {order.enroute_at && (
+                          <p>
+                            En route: <span className="text-[#264129]">{formatOrderDate(order.enroute_at)}</span>
+                          </p>
+                        )}
+                        {order.delivered_at && (
+                          <p>
+                            Livree: <span className="text-[#264129]">{formatOrderDate(order.delivered_at)}</span>
+                          </p>
+                        )}
+                        {order.absent_at && (
+                          <p>
+                            Absent: <span className="text-[#264129]">{formatOrderDate(order.absent_at)}</span>
+                          </p>
+                        )}
+                      </div>
 
-                      <button
-                        onClick={() =>
-                          alert("Le signalement de probleme sera disponible prochainement.")
-                        }
-                        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#F3D8B2] bg-[#FFF7EE] px-4 py-3 text-sm font-bold text-[#9A5C11] transition-colors hover:bg-[#FFEBD6]"
-                      >
-                        <AlertCircle className="h-4 w-4" />
-                        Signaler un probleme
-                      </button>
+                      <div className="mt-4 space-y-2">
+                        <button
+                          onClick={() => openClaimModal(order)}
+                          disabled={!canClaimOrder(order)}
+                          className={cn(
+                            "inline-flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-bold transition-colors",
+                            canClaimOrder(order)
+                              ? "border-[#F3D8B2] bg-[#FFF7EE] text-[#9A5C11] hover:bg-[#FFEBD6]"
+                              : "cursor-not-allowed border-[#E5E8E3] bg-[#F7F8F5] text-[#9AA49B]"
+                          )}
+                        >
+                          <AlertCircle className="h-4 w-4" />
+                          Signaler un probleme
+                        </button>
+                        <p className="text-center text-xs font-semibold text-[#7B8B7D]">
+                          {getClaimWindowLabel(order)}
+                        </p>
+                      </div>
                     </article>
                   ))}
                 </div>
@@ -791,7 +1077,7 @@ export default function CataloguePage() {
             </section>
           )}
 
-          {isFetching && (
+          {!showOrderHistory && isFetching && (
             <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
               {Array.from({ length: 6 }).map((_, index) => (
                 <div
@@ -802,13 +1088,13 @@ export default function CataloguePage() {
             </div>
           )}
 
-          {!isFetching && error && (
+          {!showOrderHistory && !isFetching && error && (
             <div className="rounded-[28px] border border-red-200 bg-red-50 p-6 text-red-600">
               {error}
             </div>
           )}
 
-          {!isFetching && !error && (
+          {!showOrderHistory && !isFetching && !error && (
             <>
               <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                 {filteredProducts.map((product) => (
@@ -822,6 +1108,8 @@ export default function CataloguePage() {
                     displayUnit={product.displayUnit}
                     quantityStep={product.quantityStep}
                     stock={product.stock}
+                    disabled={orderLock.isLocked}
+                    disabledLabel="Commandes fermees"
                     onAddToCart={handleAddToCart}
                   />
                 ))}
@@ -911,7 +1199,8 @@ export default function CataloguePage() {
                         <div className="flex shrink-0 items-center rounded-full border border-[#CDE8D0] bg-white">
                           <button
                             onClick={() => updateCartQuantity(item.id, -item.quantityStep)}
-                            className="p-2 text-[#2E5A33] transition-colors hover:bg-[#E7F5E8]"
+                            disabled={orderLock.isLocked}
+                            className="p-2 text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             <Minus className="h-3 w-3" />
                           </button>
@@ -920,7 +1209,8 @@ export default function CataloguePage() {
                           </span>
                           <button
                             onClick={() => updateCartQuantity(item.id, item.quantityStep)}
-                            className="p-2 text-[#2E5A33] transition-colors hover:bg-[#E7F5E8]"
+                            disabled={orderLock.isLocked}
+                            className="p-2 text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             <Plus className="h-3 w-3" />
                           </button>
@@ -956,10 +1246,14 @@ export default function CataloguePage() {
 
               <button
                 onClick={handleCheckout}
-                disabled={isSubmittingCart}
+                disabled={isSubmittingCart || orderLock.isLocked}
                 className="mt-5 w-full rounded-2xl bg-[#F07C00] px-4 py-3 font-semibold text-white transition-colors hover:bg-[#D66B00] disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {isSubmittingCart ? "Validation en cours..." : "Valider la commande"}
+                {orderLock.isLocked
+                  ? "Commandes fermees jusqu'a 08h00"
+                  : isSubmittingCart
+                    ? "Validation en cours..."
+                    : "Valider la commande"}
               </button>
 
               <p className="mt-3 text-center text-xs text-[#6F8070]">
@@ -986,7 +1280,122 @@ export default function CataloguePage() {
         mode={activeModal}
         products={products}
         onApplySelections={handleApplySelections}
+        isOrderLocked={orderLock.isLocked}
+        orderLockMessage={orderLock.message}
       />
+
+      {claimOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#122018]/55 px-4 py-6 backdrop-blur-sm">
+          <div className="w-full max-w-xl rounded-[28px] border border-[#DDEBDD] bg-white p-5 shadow-[0_30px_90px_rgba(18,32,24,0.25)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#F07C00]">
+                  SAV Wallet
+                </p>
+                <h3 className="mt-1 text-2xl font-black text-[#264129]">
+                  Signaler un probleme
+                </h3>
+                <p className="mt-1 text-sm text-[#6F8070]">
+                  Commande N-{claimOrder.id} · remboursement credite sur votre wallet SOUKI.
+                </p>
+              </div>
+              <button
+                onClick={closeClaimModal}
+                disabled={isSubmittingClaim}
+                className="rounded-2xl border border-[#E4ECE4] p-2 text-[#6F8070] transition-colors hover:bg-[#F7FCF7] disabled:opacity-60"
+                aria-label="Fermer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <label className="block">
+                <span className="text-sm font-bold text-[#264129]">Produit concerne</span>
+                <select
+                  value={claimLineId ?? ""}
+                  onChange={(event) => {
+                    const nextLineId = Number(event.target.value)
+                    const nextLine = claimableLines.find((line) => line.ligne_panier_id === nextLineId)
+                    setClaimLineId(Number.isFinite(nextLineId) ? nextLineId : null)
+                    setClaimQuantity(nextLine ? String(Math.min(1, nextLine.quantite_kg)) : "1")
+                  }}
+                  className="mt-2 w-full rounded-2xl border border-[#DDE7DE] bg-white px-4 py-3 text-sm font-semibold text-[#264129] outline-none focus:border-[#4CB84A]"
+                >
+                  {claimableLines.map((line) => (
+                    <option key={line.ligne_panier_id} value={line.ligne_panier_id ?? ""}>
+                      {line.nom_fr} · {formatQuantity(line.quantite_kg, "kg")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="text-sm font-bold text-[#264129]">Quantite a rembourser</span>
+                  <input
+                    type="number"
+                    min="0.001"
+                    max={selectedClaimLine?.quantite_kg ?? undefined}
+                    step="0.001"
+                    value={claimQuantity}
+                    onChange={(event) => setClaimQuantity(event.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-[#DDE7DE] bg-white px-4 py-3 text-sm font-semibold text-[#264129] outline-none focus:border-[#4CB84A]"
+                  />
+                  {selectedClaimLine && (
+                    <p className="mt-1 text-xs font-semibold text-[#7B8B7D]">
+                      Maximum: {formatQuantity(selectedClaimLine.quantite_kg, "kg")}
+                    </p>
+                  )}
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-bold text-[#264129]">Raison</span>
+                  <select
+                    value={claimReason}
+                    onChange={(event) => setClaimReason(event.target.value as ClaimReason)}
+                    className="mt-2 w-full rounded-2xl border border-[#DDE7DE] bg-white px-4 py-3 text-sm font-semibold text-[#264129] outline-none focus:border-[#4CB84A]"
+                  >
+                    {claimReasonOptions.map((reason) => (
+                      <option key={reason.id} value={reason.id}>
+                        {reason.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="rounded-2xl border border-[#F3D8B2] bg-[#FFF7EE] p-4 text-sm text-[#7A4C0E]">
+                Le remboursement est automatiquement credite sur votre wallet SOUKI. Aucun remboursement CB ou cash
+                n'est propose pour ce parcours.
+              </div>
+
+              {claimError && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+                  {claimError}
+                </div>
+              )}
+
+              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  onClick={closeClaimModal}
+                  disabled={isSubmittingClaim}
+                  className="rounded-2xl border border-[#DDE7DE] px-5 py-3 text-sm font-bold text-[#607061] transition-colors hover:bg-[#F7FCF7] disabled:opacity-60"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={() => void handleSubmitClaim()}
+                  disabled={isSubmittingClaim || !selectedClaimLine}
+                  className="rounded-2xl bg-[#1E8A3C] px-5 py-3 text-sm font-black text-white transition-colors hover:bg-[#176B2E] disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isSubmittingClaim ? "Envoi en cours..." : "Crediter mon wallet"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

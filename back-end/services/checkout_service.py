@@ -1,5 +1,8 @@
+from datetime import datetime, time
 from typing import Optional
+from zoneinfo import ZoneInfo
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from config import LocalSession
@@ -9,6 +12,18 @@ from interfaces.checkout_service_interface import ICheckoutService
 
 
 DELIVERY_FEE = 10.0
+MOROCCO_TIMEZONE = ZoneInfo("Africa/Casablanca")
+ORDER_CUTOFF_START = time(21, 30)
+ORDER_CUTOFF_END = time(8, 0)
+ORDER_CUTOFF_MESSAGE = "Les commandes sont actuellement fermees."
+
+
+def is_order_cutoff_active(now: Optional[datetime] = None) -> bool:
+    current_datetime = now or datetime.now(MOROCCO_TIMEZONE)
+    if current_datetime.tzinfo is None:
+        current_datetime = current_datetime.replace(tzinfo=MOROCCO_TIMEZONE)
+    current_time = current_datetime.astimezone(MOROCCO_TIMEZONE).time()
+    return current_time >= ORDER_CUTOFF_START or current_time < ORDER_CUTOFF_END
 
 
 class CheckoutService(ICheckoutService):
@@ -42,6 +57,9 @@ class CheckoutService(ICheckoutService):
     def create_checkout(
         self, user_id: int, payload: CheckoutRequestDTO
     ) -> CheckoutResponseDTO:
+        if is_order_cutoff_active():
+            raise HTTPException(status_code=403, detail=ORDER_CUTOFF_MESSAGE)
+
         if not payload.items:
             raise ValueError("Votre panier est vide.")
 
@@ -52,6 +70,27 @@ class CheckoutService(ICheckoutService):
             client = self.checkout_dao.get_or_create_client(session, user_id)
             if bool(client.is_blacklisted):
                 raise ValueError("Ce compte ne peut pas valider de commande pour le moment.")
+
+            contact_phone = (payload.contact_phone or "").strip()
+            delivery_address = (payload.delivery_address or "").strip()
+            delivery_city = (payload.delivery_city or "").strip()
+            delivery_instructions = (payload.delivery_instructions or "").strip() or None
+
+            if not contact_phone:
+                raise ValueError("Le numero de telephone est obligatoire pour valider la commande.")
+            if not delivery_address:
+                raise ValueError("L'adresse de livraison est obligatoire pour valider la commande.")
+            if not delivery_city:
+                raise ValueError("La ville de livraison est obligatoire pour valider la commande.")
+
+            self.checkout_dao.update_user_phone(session, user_id, contact_phone)
+            self.checkout_dao.upsert_user_delivery_address(
+                session=session,
+                user_id=user_id,
+                street=delivery_address,
+                city=delivery_city,
+                details=delivery_instructions,
+            )
 
             product_ids = [item.product_id for item in payload.items]
             products = self.checkout_dao.get_products_by_ids(session, product_ids)

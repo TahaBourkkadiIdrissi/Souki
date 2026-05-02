@@ -1,9 +1,10 @@
 """
 Service to manage cron jobs and scheduled tasks.
-Uses APScheduler to schedule the JIT job every day at 20:00.
+Uses APScheduler to schedule the JIT, COD alert, and daily dispatch jobs.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.base import SchedulerAlreadyRunningError
@@ -13,42 +14,20 @@ from config import LocalSession
 from dao.cod_confirmation_log_dao import CODConfirmationLogDaoBD
 from dao.commande_dao import CommandeVocaleDaoBD
 from dao.jit_dao import JITDaoBD
+from dao.livreur_dao import LivreurDaoBD
+from dao.tournee_dao import TourneeDaoBD
+from services.dispatch_service import DispatchService
 from services.jit_service import JITService
 
 
-scheduler = BackgroundScheduler(daemon=True)
+MOROCCO_TIMEZONE = ZoneInfo("Africa/Casablanca")
+
+scheduler = BackgroundScheduler(daemon=True, timezone=MOROCCO_TIMEZONE)
 cod_alerte_18h_state = {
     "alerte_active": False,
     "nb_non_confirmees": 0,
     "depuis": None,
 }
-
-
-def job_agregation_jit():
-    """
-    Scheduled task for JIT aggregation at 20:00.
-    Runs every day at 20:00:00.
-    """
-    try:
-        print(f"\n{'=' * 80}")
-        print(f"[JIT] Declenchement du job d'agregation a {datetime.now().isoformat()}")
-        print(f"{'=' * 80}\n")
-
-        session = LocalSession()
-        jit_dao = JITDaoBD()
-        service = JITService(jit_dao)
-
-        log = service.executer_job_jit(session)
-        session.close()
-
-        print(f"\n{'=' * 80}")
-        print(f"[JIT] Job termine. Statut: {log.statut if log else 'ERREUR'}")
-        print(f"{'=' * 80}\n")
-
-    except Exception as exc:
-        print(f"\n{'=' * 80}")
-        print(f"[JIT] ERREUR lors du job: {exc}")
-        print(f"{'=' * 80}\n")
 
 
 def job_alerte_cod_18h():
@@ -60,7 +39,7 @@ def job_alerte_cod_18h():
     session = None
     try:
         print(f"\n{'=' * 80}")
-        print(f"[COD] Verification des confirmations COD a {datetime.now().isoformat()}")
+        print(f"[COD] Verification des confirmations COD a {datetime.now(MOROCCO_TIMEZONE).isoformat()}")
         print(f"{'=' * 80}\n")
 
         session = LocalSession()
@@ -83,7 +62,7 @@ def job_alerte_cod_18h():
             {
                 "alerte_active": nb_non_confirmees > 0,
                 "nb_non_confirmees": nb_non_confirmees,
-                "depuis": datetime.now().isoformat() if nb_non_confirmees > 0 else None,
+                "depuis": datetime.now(MOROCCO_TIMEZONE).isoformat() if nb_non_confirmees > 0 else None,
             }
         )
 
@@ -100,31 +79,105 @@ def job_alerte_cod_18h():
             session.close()
 
 
+def job_agregation_jit():
+    """
+    Scheduled task for JIT aggregation at 20:00.
+    Runs every day at 20:00:00.
+    """
+    session = None
+    try:
+        print(f"\n{'=' * 80}")
+        print(f"[JIT] Declenchement du job d'agregation a {datetime.now(MOROCCO_TIMEZONE).isoformat()}")
+        print(f"{'=' * 80}\n")
+
+        session = LocalSession()
+        jit_dao = JITDaoBD()
+        service = JITService(jit_dao)
+
+        log = service.executer_job_jit(session)
+
+        print(f"\n{'=' * 80}")
+        print(f"[JIT] Job termine. Statut: {log.statut if log else 'ERREUR'}")
+        print(f"{'=' * 80}\n")
+
+    except Exception as exc:
+        print(f"\n{'=' * 80}")
+        print(f"[JIT] ERREUR lors du job: {exc}")
+        print(f"{'=' * 80}\n")
+    finally:
+        if session is not None:
+            session.close()
+
+
+def job_dispatch_daily():
+    """
+    Scheduled task for daily dispatch at 21:35 Morocco time.
+    Builds tomorrow's delivery routes after the ordering cut-off.
+    """
+    session = None
+    try:
+        print(f"\n{'=' * 80}")
+        print(f"[DISPATCH] Declenchement du dispatch a {datetime.now(MOROCCO_TIMEZONE).isoformat()}")
+        print(f"{'=' * 80}\n")
+
+        session = LocalSession()
+        service = DispatchService(
+            commande_dao=CommandeVocaleDaoBD(),
+            livreur_dao=LivreurDaoBD(),
+            tournee_dao=TourneeDaoBD(),
+            session=session,
+        )
+        target_date = datetime.now(MOROCCO_TIMEZONE).date() + timedelta(days=1)
+        result = service.generate_daily_routes(target_date)
+
+        print(f"\n{'=' * 80}")
+        print(f"[DISPATCH] Job termine. Resultat: {result}")
+        print(f"{'=' * 80}\n")
+
+    except Exception as exc:
+        if session is not None:
+            session.rollback()
+        print(f"\n{'=' * 80}")
+        print(f"[DISPATCH] ERREUR lors du job: {exc}")
+        print(f"{'=' * 80}\n")
+    finally:
+        if session is not None:
+            session.close()
+
+
 def start_scheduler():
     """
-    Start the cron scheduler and register the 20:00 JIT job.
+    Start the cron scheduler and register the daily logistics jobs.
     """
     try:
         if not scheduler.running:
             scheduler.add_job(
+                job_alerte_cod_18h,
+                CronTrigger(hour=18, minute=0, second=0, timezone=MOROCCO_TIMEZONE),
+                id="cod_alerte_18h00",
+                name="Alerte COD non confirmees a 18h00",
+                replace_existing=True,
+            )
+            scheduler.add_job(
                 job_agregation_jit,
-                CronTrigger(hour=20, minute=0, second=0),
+                CronTrigger(hour=20, minute=0, second=0, timezone=MOROCCO_TIMEZONE),
                 id="jit_agregation_20h00",
                 name="Agregation JIT des commandes a 20h00",
                 replace_existing=True,
             )
             scheduler.add_job(
-                job_alerte_cod_18h,
-                CronTrigger(hour=18, minute=0, second=0),
-                id="cod_alerte_18h00",
-                name="Alerte COD non confirmees a 18h00",
+                job_dispatch_daily,
+                CronTrigger(hour=21, minute=35, second=0, timezone=MOROCCO_TIMEZONE),
+                id="dispatch_daily_21h35",
+                name="Generation automatique des tournees a 21h35",
                 replace_existing=True,
             )
 
             scheduler.start()
             print("[SCHEDULER] Scheduler demarre")
-            print("[SCHEDULER] Job JIT configure a 20h00 chaque jour")
             print("[SCHEDULER] Job alerte COD configure a 18h00 chaque jour")
+            print("[SCHEDULER] Job JIT configure a 20h00 chaque jour")
+            print("[SCHEDULER] Job dispatch configure a 21h35 chaque jour")
 
     except SchedulerAlreadyRunningError:
         print("[SCHEDULER] Scheduler deja en cours d'execution")

@@ -15,6 +15,8 @@ interface ProductCardProps {
   displayUnit?: string
   quantityStep?: number
   stock?: number
+  disabled?: boolean
+  disabledLabel?: string
   onAddToCart?: (id: number | string, quantity: number) => void
 }
 
@@ -27,6 +29,8 @@ export function ProductCard({
   displayUnit,
   quantityStep = unit === "kg" ? 0.5 : 1,
   stock,
+  disabled = false,
+  disabledLabel = "Indisponible",
   onAddToCart,
 }: ProductCardProps) {
   const [quantity, setQuantity] = useState(quantityStep)
@@ -34,7 +38,7 @@ export function ProductCard({
   const resolvedDisplayUnit = displayUnit || unit
 
   const isOutOfStock = typeof stock === "number" && stock <= 0
-  const isLowStock = typeof stock === "number" && unit === "kg" && stock > 0 && stock < 5
+  const isUnavailable = isOutOfStock || disabled
 
   const getUnitHint = () => {
     if (resolvedDisplayUnit === "250g") {
@@ -50,7 +54,7 @@ export function ProductCard({
   }
 
   const handleAdd = () => {
-    if (isOutOfStock) {
+    if (isUnavailable) {
       return
     }
     onAddToCart?.(id, quantity)
@@ -70,7 +74,7 @@ export function ProductCard({
     <article
       className={cn(
         "group flex h-full flex-col overflow-hidden rounded-3xl border border-[#DDEFE0] bg-white shadow-[0_18px_45px_-22px_rgba(30,138,60,0.25)] transition-all duration-300",
-        isOutOfStock
+        isUnavailable
           ? "opacity-65 grayscale-[0.55]"
           : "hover:-translate-y-1 hover:shadow-[0_22px_55px_-20px_rgba(30,138,60,0.28)]"
       )}
@@ -84,11 +88,6 @@ export function ProductCard({
         {isOutOfStock && (
           <span className="absolute left-4 top-4 rounded-full bg-red-500 px-3 py-1 text-xs font-semibold text-white">
             Rupture totale
-          </span>
-        )}
-        {isLowStock && (
-          <span className="absolute left-4 top-4 rounded-full bg-[#F07C00] px-3 py-1 text-xs font-semibold text-white">
-            Rupture imminente
           </span>
         )}
         {isOutOfStock && <div className="absolute inset-0 bg-white/35" />}
@@ -114,7 +113,7 @@ export function ProductCard({
             <button
               onClick={decrement}
               className="flex h-11 w-11 shrink-0 items-center justify-center text-[#2E5A33] transition-colors hover:bg-[#E7F5E8]"
-              disabled={isOutOfStock}
+              disabled={isUnavailable}
             >
               <Minus className="h-4 w-4" />
             </button>
@@ -124,40 +123,26 @@ export function ProductCard({
             <button
               onClick={increment}
               className="flex h-11 w-11 shrink-0 items-center justify-center text-[#2E5A33] transition-colors hover:bg-[#E7F5E8]"
-              disabled={isOutOfStock}
+              disabled={isUnavailable}
             >
               <Plus className="h-4 w-4" />
             </button>
           </div>
-          {typeof stock === "number" && (
-            <span
-              className={cn(
-                "block text-xs",
-                isOutOfStock
-                  ? "font-semibold text-red-600"
-                  : isLowStock
-                    ? "font-semibold text-[#C66B00]"
-                    : "text-[#7C8A7D]"
-              )}
-            >
-              Stock: {formatQuantity(stock, unit)}
-            </span>
-          )}
         </div>
 
         <button
           onClick={handleAdd}
-          disabled={isOutOfStock}
+          disabled={isUnavailable}
           className={cn(
             "mt-auto flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 font-semibold transition-all",
-            isOutOfStock
+            isUnavailable
               ? "cursor-not-allowed bg-gray-200 text-gray-500"
               : "bg-[#1E8A3C] text-white hover:bg-[#176B2E]",
             isAdded && "animate-pop"
           )}
         >
           <ShoppingCart className="h-4 w-4" />
-          Ajouter au panier
+          {disabled ? disabledLabel : "Ajouter au panier"}
         </button>
       </div>
     </article>

@@ -33,34 +33,49 @@ model User {
 }
 
 model Wallet {
-  id           Int                 @id @default(autoincrement())
-  userId       Int                 @unique @map("user_id")
-  solde        Float?              @default(0) @map("solde")
-  user         User                @relation(fields: [userId], references: [id])
-  transactions WalletTransaction[]
+  id     Int    @id @default(autoincrement())
+  userId Int    @unique @map("user_id")
+  solde  Float? @default(0) @map("solde")
+  user   User   @relation(fields: [userId], references: [id])
 
   @@map("t_wallets")
 }
 
 model WalletTransaction {
-  id       Int      @id @default(autoincrement())
-  walletId Int      @map("wallet_id")
+  id       Int         @id @default(autoincrement())
+  walletId String      @map("wallet_id") @db.Uuid
   type     String
-  montant  Float?   @default(0) @map("montant")
-  date     DateTime @default(now())
-  wallet   Wallet   @relation(fields: [walletId], references: [id])
+  montant  Float?      @default(0) @map("montant")
+  date     DateTime    @default(now())
+  wallet   SoukiWallet @relation(fields: [walletId], references: [id])
 
   @@map("t_transactions_wallet")
 }
 
+model Claim {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @map("user_id")
+  commandeId      Int      @map("commande_id")
+  lignePanierId   Int      @map("ligne_panier_id")
+  reason          String
+  quantityClaimed Decimal  @map("quantity_claimed") @db.Decimal(12, 3)
+  amountRefunded  Decimal  @map("amount_refunded") @db.Decimal(12, 2)
+  status          String   @default("REFUNDED")
+  isSuspect       Boolean  @default(false) @map("is_suspect")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("t_claims")
+}
+
 model SoukiWallet {
-  id           String   @id @db.Uuid
-  userId       Int      @unique @map("user_id")
-  walletCode   String   @unique @map("wallet_code")
-  passwordHash String   @map("password_hash")
-  balance      Decimal  @default(0) @db.Decimal(12, 2)
-  createdAt    DateTime @default(now()) @map("created_at")
-  user         User     @relation(fields: [userId], references: [id])
+  id           String              @id @db.Uuid
+  userId       Int                 @unique @map("user_id")
+  walletCode   String              @unique @map("wallet_code")
+  passwordHash String              @map("password_hash")
+  balance      Decimal             @default(0) @db.Decimal(12, 2)
+  createdAt    DateTime            @default(now()) @map("created_at")
+  user         User                @relation(fields: [userId], references: [id])
+  transactions WalletTransaction[]
 
   @@map("wallets")
 }

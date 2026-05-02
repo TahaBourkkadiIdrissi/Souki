@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth"
 
 const ADMIN_PATH_PERMISSIONS: Record<string, string> = {
   "/admin/orders": "orders.read",
+  "/admin/livreur": "admin.panel.access",
   "/admin/produits": "products.manage",
 }
 
