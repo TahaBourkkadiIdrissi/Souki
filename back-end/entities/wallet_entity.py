@@ -12,4 +12,3 @@ class Wallet(Base):
     solde = Column(Float, default=0)
 
     user = relationship("User", back_populates="wallet")
-    transactions = relationship("TransactionWallet", back_populates="wallet")

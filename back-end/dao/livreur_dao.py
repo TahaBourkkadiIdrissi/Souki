@@ -9,6 +9,7 @@ from entities.client_entity import Client
 from entities.commande_entity import Commande
 from entities.delivery_event_entity import DeliveryEvent
 from entities.ligne_panier_entity import LignePanier
+from entities.livreur_entity import Livreur
 from entities.notification_outbox_entity import NotificationOutbox
 from entities.paiement_entity import Paiement
 from entities.user_entity import User
@@ -123,6 +124,16 @@ class LivreurDaoBD(ILivreurDao):
         )
 
         return [dict(row._mapping) for row in session.execute(statement).all()]
+
+    def get_available_livreurs(self, session: Session) -> list[Livreur]:
+        return (
+            session.query(Livreur)
+            .join(User, User.id == Livreur.user_id)
+            .filter(Livreur.disponible.is_(True))
+            .filter(func.upper(func.coalesce(User.role, "")) == "LIVREUR")
+            .order_by(Livreur.user_id.asc())
+            .all()
+        )
 
     def count_by_statuses(
         self,

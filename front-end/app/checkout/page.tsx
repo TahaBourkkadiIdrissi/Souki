@@ -23,6 +23,7 @@ import {
 import { API_BASE_URL } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { fetchCatalogueProducts, getCataloguePresentation } from "@/lib/catalogue"
+import { useOrderLock } from "@/hooks/useOrderLock"
 
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&h=300&fit=crop"
 
@@ -50,6 +51,7 @@ const paymentMethods = [
 function CheckoutContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const orderLock = useOrderLock()
   const commandeId = searchParams.get('commande_id')
   const panierId = searchParams.get('panier_id')
   const cartParam = searchParams.get('cart')
@@ -236,9 +238,16 @@ function CheckoutContent() {
   }
 
   const isWalletInsufficient = selectedPayment === "wallet" && walletBalance < total
+  const canSubmitOrder =
+    acceptTerms && cart.length > 0 && !isWalletInsufficient && !isSubmitting && !orderLock.isLocked
 
   const handleFinalSubmit = async () => {
-    if (!acceptTerms || cart.length === 0 || isWalletInsufficient || isSubmitting) return;
+    if (orderLock.isLocked) {
+      alert(orderLock.message)
+      return
+    }
+
+    if (!canSubmitOrder) return
 
     setIsSubmitting(true)
     try {
@@ -333,6 +342,12 @@ function CheckoutContent() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {orderLock.isLocked && (
+          <div className="mb-6 rounded-2xl border border-[#F5D7B8] bg-[#FFF7EE] px-5 py-4 text-sm font-semibold text-[#9A5C11]">
+            {orderLock.message}
+          </div>
+        )}
+
         <h1 className="text-2xl lg:text-3xl font-bold text-[#1E8A3C] mb-8">Finaliser ma commande</h1>
 
         {voiceData && (
@@ -513,10 +528,15 @@ function CheckoutContent() {
 
               <button
                 onClick={handleFinalSubmit}
-                disabled={!acceptTerms || cart.length === 0 || isWalletInsufficient || isSubmitting}
-                className={cn("w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all", acceptTerms && cart.length > 0 && !isWalletInsufficient && !isSubmitting ? "bg-[#F07C00] text-white hover:bg-[#D66B00] shadow-lg shadow-[#F07C00]/30" : "bg-gray-200 text-gray-500 cursor-not-allowed")}
+                disabled={!canSubmitOrder}
+                className={cn("w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all", canSubmitOrder ? "bg-[#F07C00] text-white hover:bg-[#D66B00] shadow-lg shadow-[#F07C00]/30" : "bg-gray-200 text-gray-500 cursor-not-allowed")}
               >
-                {isSubmitting ? (
+                {orderLock.isLocked ? (
+                  <>
+                    <Lock className="w-5 h-5" />
+                    Commandes fermees jusqu'a 08h00
+                  </>
+                ) : isSubmitting ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     Validation en cours...

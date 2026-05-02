@@ -1,5 +1,8 @@
+from datetime import datetime, time
 from typing import Optional
+from zoneinfo import ZoneInfo
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from config import LocalSession
@@ -9,6 +12,18 @@ from interfaces.checkout_service_interface import ICheckoutService
 
 
 DELIVERY_FEE = 10.0
+MOROCCO_TIMEZONE = ZoneInfo("Africa/Casablanca")
+ORDER_CUTOFF_START = time(21, 30)
+ORDER_CUTOFF_END = time(8, 0)
+ORDER_CUTOFF_MESSAGE = "Les commandes sont actuellement fermees."
+
+
+def is_order_cutoff_active(now: Optional[datetime] = None) -> bool:
+    current_datetime = now or datetime.now(MOROCCO_TIMEZONE)
+    if current_datetime.tzinfo is None:
+        current_datetime = current_datetime.replace(tzinfo=MOROCCO_TIMEZONE)
+    current_time = current_datetime.astimezone(MOROCCO_TIMEZONE).time()
+    return current_time >= ORDER_CUTOFF_START or current_time < ORDER_CUTOFF_END
 
 
 class CheckoutService(ICheckoutService):
@@ -42,6 +57,9 @@ class CheckoutService(ICheckoutService):
     def create_checkout(
         self, user_id: int, payload: CheckoutRequestDTO
     ) -> CheckoutResponseDTO:
+        if is_order_cutoff_active():
+            raise HTTPException(status_code=403, detail=ORDER_CUTOFF_MESSAGE)
+
         if not payload.items:
             raise ValueError("Votre panier est vide.")
 

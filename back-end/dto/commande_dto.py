@@ -43,8 +43,11 @@ class CommandeCheckoutDTO(BaseModel):
     total_dh: float
 
 class ProduitCommandeJourDTO(BaseModel):
+    ligne_panier_id: Optional[int] = None
+    product_id: Optional[int] = None
     nom_fr: str
     quantite_kg: float
+    sous_total: Optional[float] = None
 
 class PaiementDTO(BaseModel):
     methode: Optional[str] = None
