@@ -23,6 +23,7 @@ from entities.commande_entity import Commande
 from entities.delivery_event_entity import DeliveryEvent
 from interfaces.livreur_dao_interface import ILivreurDao
 from interfaces.livreur_service_interface import ILivreurService
+from interfaces.client_blacklist_service_interface import IClientBlacklistService
 
 TOURNEE_RELEASE_TIME = time(7, 0)
 LEGACY_PENDING_DELIVERY_STATUS = "EN_ATTENTE"
@@ -44,8 +45,14 @@ logger = logging.getLogger(__name__)
 
 class LivreurService(ILivreurService):
 
-    def __init__(self, livreur_dao: ILivreurDao, session: Optional[Session] = None) -> None:
+    def __init__(
+        self,
+        livreur_dao: ILivreurDao,
+        client_blacklist_service: IClientBlacklistService,
+        session: Optional[Session] = None,
+    ) -> None:
         self.livreur_dao = livreur_dao
+        self.client_blacklist_service = client_blacklist_service
         self.session = session
         self._owns_session = False
 
@@ -279,6 +286,7 @@ class LivreurService(ILivreurService):
             self._apply_refusal_blacklist(
                 session=session,
                 commande=commande,
+                livreur_id=livreur_id,
                 target_status=target_status,
             )
 
@@ -476,6 +484,7 @@ class LivreurService(ILivreurService):
         *,
         session: Session,
         commande: Commande,
+        livreur_id: int,
         target_status: str,
     ) -> None:
         if target_status != REFUSED_STATUS:
@@ -484,9 +493,12 @@ class LivreurService(ILivreurService):
         if commande.client_id is None:
             return
 
-        client = session.get(Client, int(commande.client_id))
-        if client is not None:
-            client.is_blacklisted = True
+        self.client_blacklist_service.blacklist_after_refusal(
+            session=session,
+            client_id=int(commande.client_id),
+            commande_id=int(commande.id),
+            livreur_id=livreur_id,
+        )
 
     def _queue_notifications(
         self,

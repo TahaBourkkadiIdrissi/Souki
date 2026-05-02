@@ -68,8 +68,14 @@ class CheckoutService(ICheckoutService):
 
         try:
             client = self.checkout_dao.get_or_create_client(session, user_id)
-            if bool(client.is_blacklisted):
-                raise ValueError("Ce compte ne peut pas valider de commande pour le moment.")
+            if bool(client.is_blacklisted) and self._is_cod_mode(payload.mode_paiement):
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        "Votre compte ne peut pas passer de commandes COD. "
+                        "Veuillez utiliser Wallet ou CMI."
+                    ),
+                )
 
             product_ids = [item.product_id for item in payload.items]
             products = self.checkout_dao.get_products_by_ids(session, product_ids)
@@ -150,3 +156,7 @@ class CheckoutService(ICheckoutService):
         finally:
             if auto_session:
                 self._close_owned_session()
+
+    def _is_cod_mode(self, mode_paiement: Optional[str]) -> bool:
+        normalized_mode = (mode_paiement or "").strip().casefold()
+        return normalized_mode in {"cod", "cash", "especes", "especes_livraison", "cash_on_delivery"}
