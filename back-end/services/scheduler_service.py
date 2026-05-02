@@ -1,6 +1,6 @@
 """
 Service to manage cron jobs and scheduled tasks.
-Uses APScheduler to schedule the JIT job and daily dispatch jobs.
+Uses APScheduler to schedule the JIT, COD alert, and daily dispatch jobs.
 """
 
 from datetime import datetime, timedelta
@@ -11,6 +11,7 @@ from apscheduler.schedulers.base import SchedulerAlreadyRunningError
 from apscheduler.triggers.cron import CronTrigger
 
 from config import LocalSession
+from dao.cod_confirmation_log_dao import CODConfirmationLogDaoBD
 from dao.commande_dao import CommandeVocaleDaoBD
 from dao.jit_dao import JITDaoBD
 from dao.livreur_dao import LivreurDaoBD
@@ -22,6 +23,60 @@ from services.jit_service import JITService
 MOROCCO_TIMEZONE = ZoneInfo("Africa/Casablanca")
 
 scheduler = BackgroundScheduler(daemon=True, timezone=MOROCCO_TIMEZONE)
+cod_alerte_18h_state = {
+    "alerte_active": False,
+    "nb_non_confirmees": 0,
+    "depuis": None,
+}
+
+
+def job_alerte_cod_18h():
+    """
+    Scheduled task for COD confirmation alert at 18:00.
+    Checks locked COD orders that are not confirmed by phone.
+    """
+    global cod_alerte_18h_state
+    session = None
+    try:
+        print(f"\n{'=' * 80}")
+        print(f"[COD] Verification des confirmations COD a {datetime.now(MOROCCO_TIMEZONE).isoformat()}")
+        print(f"{'=' * 80}\n")
+
+        session = LocalSession()
+        commande_dao = CommandeVocaleDaoBD()
+        cod_log_dao = CODConfirmationLogDaoBD()
+
+        commandes = commande_dao.get_commandes_cod_verrouillees(session)
+        latest_logs = cod_log_dao.get_latest_logs_by_commande_ids(
+            session,
+            [commande["id"] for commande in commandes],
+        )
+        nb_non_confirmees = sum(
+            1
+            for commande in commandes
+            if str(getattr(latest_logs.get(commande["id"]), "statut", "NON_CONFIRMEE")).upper()
+            != "CONFIRMEE_PAR_APPEL"
+        )
+
+        cod_alerte_18h_state.update(
+            {
+                "alerte_active": nb_non_confirmees > 0,
+                "nb_non_confirmees": nb_non_confirmees,
+                "depuis": datetime.now(MOROCCO_TIMEZONE).isoformat() if nb_non_confirmees > 0 else None,
+            }
+        )
+
+        print(f"\n{'=' * 80}")
+        print(f"[COD] Commandes non confirmees: {nb_non_confirmees}")
+        print(f"{'=' * 80}\n")
+
+    except Exception as exc:
+        print(f"\n{'=' * 80}")
+        print(f"[COD] ERREUR lors du job alerte 18h: {exc}")
+        print(f"{'=' * 80}\n")
+    finally:
+        if session is not None:
+            session.close()
 
 
 def job_agregation_jit():
@@ -29,9 +84,10 @@ def job_agregation_jit():
     Scheduled task for JIT aggregation at 20:00.
     Runs every day at 20:00:00.
     """
+    session = None
     try:
         print(f"\n{'=' * 80}")
-        print(f"[JIT] Declenchement du job d'agregation a {datetime.now().isoformat()}")
+        print(f"[JIT] Declenchement du job d'agregation a {datetime.now(MOROCCO_TIMEZONE).isoformat()}")
         print(f"{'=' * 80}\n")
 
         session = LocalSession()
@@ -39,7 +95,6 @@ def job_agregation_jit():
         service = JITService(jit_dao)
 
         log = service.executer_job_jit(session)
-        session.close()
 
         print(f"\n{'=' * 80}")
         print(f"[JIT] Job termine. Statut: {log.statut if log else 'ERREUR'}")
@@ -49,6 +104,9 @@ def job_agregation_jit():
         print(f"\n{'=' * 80}")
         print(f"[JIT] ERREUR lors du job: {exc}")
         print(f"{'=' * 80}\n")
+    finally:
+        if session is not None:
+            session.close()
 
 
 def job_dispatch_daily():
@@ -94,8 +152,15 @@ def start_scheduler():
     try:
         if not scheduler.running:
             scheduler.add_job(
+                job_alerte_cod_18h,
+                CronTrigger(hour=18, minute=0, second=0, timezone=MOROCCO_TIMEZONE),
+                id="cod_alerte_18h00",
+                name="Alerte COD non confirmees a 18h00",
+                replace_existing=True,
+            )
+            scheduler.add_job(
                 job_agregation_jit,
-                CronTrigger(hour=20, minute=0, second=0),
+                CronTrigger(hour=20, minute=0, second=0, timezone=MOROCCO_TIMEZONE),
                 id="jit_agregation_20h00",
                 name="Agregation JIT des commandes a 20h00",
                 replace_existing=True,
@@ -110,6 +175,7 @@ def start_scheduler():
 
             scheduler.start()
             print("[SCHEDULER] Scheduler demarre")
+            print("[SCHEDULER] Job alerte COD configure a 18h00 chaque jour")
             print("[SCHEDULER] Job JIT configure a 20h00 chaque jour")
             print("[SCHEDULER] Job dispatch configure a 21h35 chaque jour")
 

@@ -4,7 +4,12 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from config import LocalSession
-from dto.commande_dto import CommandeCODDemainDTO, ConfirmationCODResponseDTO
+from dto.commande_dto import (
+    BatchConfirmationCODDTO,
+    BatchConfirmationCODResponseDTO,
+    CommandeCODDemainDTO,
+    ConfirmationCODResponseDTO,
+)
 from interfaces.cod_confirmation_log_dao_interface import ICODConfirmationLogDao
 from interfaces.cod_confirmation_service_interface import ICODConfirmationService
 from interfaces.commande_dao_interface import ICommandeVocaleDao
@@ -87,39 +92,11 @@ class CODConfirmationService(ICODConfirmationService):
             raise HTTPException(status_code=400, detail="Statut de confirmation COD invalide.")
 
         try:
-            commande = self.commande_dao.get_commande_for_cod_update(session, commande_id)
-            if not commande:
-                raise HTTPException(status_code=404, detail="Commande introuvable.")
-
-            mode_paiement = str(commande.mode_paiement) if commande.mode_paiement else None
-            if not self._is_cod_mode(mode_paiement):
-                raise HTTPException(status_code=409, detail="Cette commande n'est pas en paiement a la livraison.")
-
-            current_status = str(commande.statut or "").strip().upper()
-            if current_status not in {"VERROUILLEE", "ANNULEE"}:
-                raise HTTPException(
-                    status_code=409,
-                    detail="Seules les commandes COD verrouillees par le JIT peuvent etre traitees ici.",
-                )
-
-            latest_log = self.cod_confirmation_log_dao.get_latest_log(session, commande_id)
-            if latest_log and str(latest_log.statut).upper() in {CONFIRMEE_PAR_APPEL, ANNULEE}:
-                raise HTTPException(
-                    status_code=409,
-                    detail="Cette commande a deja ete traitee par un autre operateur.",
-                )
-
-            if current_status == "ANNULEE":
-                raise HTTPException(status_code=409, detail="Cette commande COD est deja annulee.")
-
-            if normalized_statut == ANNULEE:
-                self.commande_dao.annuler_commande_cod(session, commande)
-
-            log = self.cod_confirmation_log_dao.create_log(
-                session,
+            commande, log = self._apply_confirmation_cod(
+                session=session,
                 commande_id=commande_id,
+                normalized_statut=normalized_statut,
                 admin_id=admin_id,
-                statut=normalized_statut,
             )
             session.commit()
 
@@ -140,6 +117,94 @@ class CODConfirmationService(ICODConfirmationService):
         except Exception as exc:
             session.rollback()
             raise HTTPException(status_code=500, detail="Erreur interne lors de la confirmation COD.") from exc
+
+    def batch_confirmation_cod(
+        self,
+        payload: BatchConfirmationCODDTO,
+        admin_id: int,
+    ) -> BatchConfirmationCODResponseDTO:
+        session = self._ensure_session()
+        normalized_statut = (payload.statut or "").strip().upper()
+
+        if normalized_statut not in {CONFIRMEE_PAR_APPEL, ANNULEE}:
+            raise HTTPException(status_code=400, detail="Statut de confirmation COD invalide.")
+
+        commande_ids = list(dict.fromkeys(int(commande_id) for commande_id in payload.commande_ids))
+        success: List[int] = []
+        failed: List[int] = []
+
+        try:
+            for commande_id in commande_ids:
+                try:
+                    self._apply_confirmation_cod(
+                        session=session,
+                        commande_id=commande_id,
+                        normalized_statut=normalized_statut,
+                        admin_id=admin_id,
+                    )
+                    success.append(commande_id)
+                except HTTPException:
+                    failed.append(commande_id)
+
+            session.commit()
+
+            return BatchConfirmationCODResponseDTO(
+                success=success,
+                failed=failed,
+                total=len(commande_ids),
+                message=(
+                    f"{len(success)} commande(s) COD traitee(s)."
+                    if not failed
+                    else f"{len(success)} commande(s) COD traitee(s), {len(failed)} en echec."
+                ),
+            )
+        except Exception as exc:
+            session.rollback()
+            raise HTTPException(status_code=500, detail="Erreur interne lors du batch COD.") from exc
+
+    def _apply_confirmation_cod(
+        self,
+        *,
+        session: Session,
+        commande_id: int,
+        normalized_statut: str,
+        admin_id: int,
+    ):
+        commande = self.commande_dao.get_commande_for_cod_update(session, commande_id)
+        if not commande:
+            raise HTTPException(status_code=404, detail="Commande introuvable.")
+
+        mode_paiement = str(commande.mode_paiement) if commande.mode_paiement else None
+        if not self._is_cod_mode(mode_paiement):
+            raise HTTPException(status_code=409, detail="Cette commande n'est pas en paiement a la livraison.")
+
+        current_status = str(commande.statut or "").strip().upper()
+        if current_status not in {"VERROUILLEE", "ANNULEE"}:
+            raise HTTPException(
+                status_code=409,
+                detail="Seules les commandes COD verrouillees par le JIT peuvent etre traitees ici.",
+            )
+
+        latest_log = self.cod_confirmation_log_dao.get_latest_log(session, commande_id)
+        if latest_log and str(latest_log.statut).upper() in {CONFIRMEE_PAR_APPEL, ANNULEE}:
+            raise HTTPException(
+                status_code=409,
+                detail="Cette commande a deja ete traitee par un autre operateur.",
+            )
+
+        if current_status == "ANNULEE":
+            raise HTTPException(status_code=409, detail="Cette commande COD est deja annulee.")
+
+        if normalized_statut == ANNULEE:
+            self.commande_dao.annuler_commande_cod(session, commande)
+
+        log = self.cod_confirmation_log_dao.create_log(
+            session,
+            commande_id=commande_id,
+            admin_id=admin_id,
+            statut=normalized_statut,
+        )
+        return commande, log
 
     def _is_cod_mode(self, mode_paiement: Optional[str]) -> bool:
         normalized_mode = (mode_paiement or "").strip().casefold()

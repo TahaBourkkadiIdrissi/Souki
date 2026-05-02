@@ -152,6 +152,16 @@ class CommandeCODDemainDTO(BaseModel):
 class UpdateConfirmationCODDTO(BaseModel):
     statut: str
 
+class BatchConfirmationCODDTO(BaseModel):
+    commande_ids: List[int]
+    statut: str
+
+class BatchConfirmationCODResponseDTO(BaseModel):
+    success: List[int]
+    failed: List[int]
+    total: int
+    message: str
+
 class ConfirmationCODResponseDTO(BaseModel):
     commande_id: int
     statut_confirmation_cod: str

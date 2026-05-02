@@ -329,6 +329,24 @@ export interface ConfirmationCODResponseDTO {
   message: string
 }
 
+export interface BatchConfirmationCODDTO {
+  commande_ids: number[]
+  statut: Exclude<StatutConfirmationCOD, "NON_CONFIRMEE">
+}
+
+export interface BatchConfirmationCODResponseDTO {
+  success: number[]
+  failed: number[]
+  total: number
+  message: string
+}
+
+export interface AlerteCOD18hDTO {
+  alerte_active: boolean
+  nb_non_confirmees: number
+  depuis: string | null
+}
+
 export async function apiCall<T = any>(endpoint: string, options: ApiOptions = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`
   const headers: Record<string, string> = {
@@ -443,6 +461,11 @@ export async function getFicheClient(token: string, clientId: number) {
   return apiCall<FicheClientDTO>(`/api/commandes/clients/${clientId}`, { token })
 }
 
+export async function getCommandesCODVerouillees(token: string, signal?: AbortSignal) {
+  return apiCall<CommandeCODDemainDTO[]>("/api/commandes/cod/verouillees", { token, signal })
+}
+
+// DEPRECATED - utiliser getCommandesCODVerouillees()
 export async function getCommandesCODDemain(token: string, signal?: AbortSignal) {
   return apiCall<CommandeCODDemainDTO[]>("/api/commandes/cod/demain", { token, signal })
 }
@@ -491,4 +514,19 @@ export async function updateConfirmationCOD(
     token,
     body: { statut },
   })
+}
+
+export async function batchConfirmationCOD(
+  token: string,
+  body: BatchConfirmationCODDTO
+) {
+  return apiCall<BatchConfirmationCODResponseDTO>("/api/commandes/cod/batch-confirmation", {
+    method: "POST",
+    token,
+    body,
+  })
+}
+
+export async function getAlerteCOD18h(token: string) {
+  return apiCall<AlerteCOD18hDTO>("/api/commandes/cod/alerte-18h", { token })
 }
