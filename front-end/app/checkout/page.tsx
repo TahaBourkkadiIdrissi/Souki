@@ -135,6 +135,57 @@ function CheckoutContent() {
     return DEFAULT_IMAGE
   }
 
+  const buildCartItems = (lines: any[]): CartItem[] => {
+    return lines
+      .map((line: any) => {
+        const productId = Number(line.id ?? line.product_id)
+        const productName = line.name || line.nom_produit || line.nom_fr || "Produit inconnu"
+        const price = Number(line.price ?? line.prix_unitaire ?? line.prix_kg ?? 0)
+        const quantity = Number(
+          line.quantity ?? line.quantite_effective ?? line.quantite_kg ?? 1
+        )
+        const unit = line.unit || line.unite || "kg"
+
+        if (!Number.isFinite(productId) || !Number.isFinite(quantity) || quantity <= 0) {
+          return null
+        }
+
+        return {
+          id: String(productId),
+          name: String(productName),
+          price: Number.isFinite(price) ? price : 0,
+          quantity,
+          unit: String(unit),
+          image: resolveCartItemImage(
+            line.image,
+            Number.isFinite(productId) ? productId : null,
+            String(productName)
+          ),
+        }
+      })
+      .filter((item: CartItem | null): item is CartItem => item !== null)
+  }
+
+  const getCartOverrideFromUrl = (): CartItem[] | null => {
+    if (!cartParam) {
+      return null
+    }
+
+    try {
+      const parsed = JSON.parse(cartParam)
+      const items = Array.isArray(parsed) ? buildCartItems(parsed) : []
+      return items.length > 0 ? items : null
+    } catch {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(cartParam))
+        const items = Array.isArray(parsed) ? buildCartItems(parsed) : []
+        return items.length > 0 ? items : null
+      } catch {
+        return null
+      }
+    }
+  }
+
   // Helper function to extract city from address string
   const extractCityFromAddress = (fullAddress: string): string => {
     // Try to extract city from formatted address (usually the first meaningful word after street)
@@ -218,6 +269,8 @@ function CheckoutContent() {
 
   // Récupération des données et INITIALISATION DU PANIER au bon moment
   useEffect(() => {
+    const cartOverride = getCartOverrideFromUrl()
+
     if (commandeId) {
       // Flux voix: récupérer CommandeCheckoutDTO
       fetch(`${API_BASE_URL}/api/commandes/${commandeId}`, {
@@ -230,24 +283,10 @@ function CheckoutContent() {
         .then(data => {
           setVoiceData(data)
           
-          if (data.lignes && data.lignes.length > 0) {
-            const realCart = data.lignes.map((l: any) => {
-              const productId = Number(l.product_id)
-              const productName = l.nom_produit || l.nom_fr || "Produit inconnu"
-              return {
-                id: String(l.product_id),
-                name: productName,
-                price: parseFloat(l.prix_unitaire || l.prix_kg || 0),
-                quantity: parseFloat(l.quantite_effective || l.quantite_kg || 1),
-                unit: l.unite || "kg",
-                image: resolveCartItemImage(
-                  l.image,
-                  Number.isFinite(productId) ? productId : null,
-                  productName
-                ),
-              }
-            })
-            setCart(realCart)
+          if (cartOverride) {
+            setCart(cartOverride)
+          } else if (data.lignes && data.lignes.length > 0) {
+            setCart(buildCartItems(data.lignes))
           }
           setIsLoading(false)
         })
@@ -268,23 +307,7 @@ function CheckoutContent() {
           setPanierData(data)
           
           if (data.lignes && data.lignes.length > 0) {
-            const realCart = data.lignes.map((l: any) => {
-              const productId = Number(l.product_id)
-              const productName = l.nom_produit || l.nom_fr || "Produit inconnu"
-              return {
-                id: String(l.product_id),
-                name: productName,
-                price: parseFloat(l.prix_unitaire || l.prix_kg || 0),
-                quantity: parseFloat(l.quantite_kg || 1),
-                unit: l.unite || "kg",
-                image: resolveCartItemImage(
-                  l.image,
-                  Number.isFinite(productId) ? productId : null,
-                  productName
-                ),
-              }
-            })
-            setCart(realCart)
+            setCart(buildCartItems(data.lignes))
           }
           setIsLoading(false)
         })
@@ -294,7 +317,7 @@ function CheckoutContent() {
         })
     } else if (cartParam) {
       // Si on vient de l'ancien système d'URL (sans voix)
-      setCart(JSON.parse(decodeURIComponent(cartParam)))
+      setCart(cartOverride ?? [])
     } else {
       // Faux panier par défaut si on accède à la page sans rien
       setCart([

@@ -141,6 +141,24 @@ export function AIModals({
     return editedBasket.length
   } // <-- J'AI AJOUTÉ CETTE ACCOLADE MANQUANTE
 
+  const handleVoiceCheckout = () => {
+    if (!result?.commande_id || editedBasket.length === 0) {
+      return
+    }
+
+    const checkoutCart = editedBasket.map((line) => ({
+      id: String(line.product_id),
+      name: line.nom_produit,
+      price: line.prix_unitaire,
+      quantity: line.quantite_effective,
+      unit: "kg",
+    }))
+    const encodedCart = encodeURIComponent(JSON.stringify(checkoutCart))
+
+    closeModal()
+    router.push(`/checkout?commande_id=${result.commande_id}&cart=${encodedCart}`)
+  }
+
   const stopListening = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop()
@@ -512,10 +530,7 @@ export function AIModals({
                 </div>
 
                 <button
-                  onClick={() => {
-                    closeModal()
-                    router.push(`/checkout?commande_id=${result.commande_id}`)
-                  }}
+                  onClick={handleVoiceCheckout}
                   disabled={editedBasket.length === 0 || isOrderLocked}
                   className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-[#1E8A3C] py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#176B2E] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
