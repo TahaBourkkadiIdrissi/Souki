@@ -57,10 +57,22 @@ class DeliverySchemaSyncService:
                     ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ NULL,
                     ADD COLUMN IF NOT EXISTS absent_at TIMESTAMPTZ NULL,
                     ADD COLUMN IF NOT EXISTS payment_validated BOOLEAN DEFAULT false,
+                    ADD COLUMN IF NOT EXISTS client_history_deleted BOOLEAN DEFAULT false,
                     ADD COLUMN IF NOT EXISTS status_version INTEGER
                     """
                 )
             )
+            connection.execute(
+                text(
+                    """
+                    UPDATE t_commandes
+                    SET client_history_deleted = false
+                    WHERE client_history_deleted IS NULL
+                    """
+                )
+            )
+            connection.execute(text("ALTER TABLE t_commandes ALTER COLUMN client_history_deleted SET DEFAULT false"))
+            connection.execute(text("ALTER TABLE t_commandes ALTER COLUMN client_history_deleted SET NOT NULL"))
             connection.execute(
                 text(
                     """

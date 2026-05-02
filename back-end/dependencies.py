@@ -1,6 +1,7 @@
 from fastapi import Depends
 
 from dao.claim_dao import ClaimDaoBD
+from dao.client_blacklist_dao import ClientBlacklistDaoBD
 from dao.checkout_dao import CheckoutDaoBD
 from dao.cod_confirmation_log_dao import CODConfirmationLogDaoBD
 from dao.commande_dao import CommandeVocaleDaoBD
@@ -13,6 +14,8 @@ from dao.tournee_dao import TourneeDaoBD
 from interfaces.catalogue_service_interface import ICatalogueService
 from interfaces.claim_dao_interface import IClaimDao
 from interfaces.claim_service_interface import IClaimService
+from interfaces.client_blacklist_dao_interface import IClientBlacklistDao
+from interfaces.client_blacklist_service_interface import IClientBlacklistService
 from interfaces.checkout_dao_interface import ICheckoutDao
 from interfaces.checkout_service_interface import ICheckoutService
 from interfaces.cod_confirmation_log_dao_interface import ICODConfirmationLogDao
@@ -32,6 +35,7 @@ from interfaces.souki_wallet_service_interface import ISoukiWalletService
 from interfaces.tournee_dao_interface import ITourneeDao
 from services.catalogue_service import CatalogueService
 from services.claim_service import ClaimService
+from services.client_blacklist_service import ClientBlacklistService
 from services.checkout_service import CheckoutService
 from services.cod_confirmation_service import CODConfirmationService
 from services.commande_service import CommandeVocaleService
@@ -48,6 +52,10 @@ def get_product_dao() -> IProductDao:
 
 def get_claim_dao() -> IClaimDao:
     return ClaimDaoBD()
+
+
+def get_blacklist_dao() -> IClientBlacklistDao:
+    return ClientBlacklistDaoBD()
 
 
 def get_commande_dao() -> ICommandeVocaleDao:
@@ -94,6 +102,12 @@ def get_notification_outbox_service(
     return NotificationOutboxService(notification_outbox_dao)
 
 
+def get_blacklist_service(
+    blacklist_dao: IClientBlacklistDao = Depends(get_blacklist_dao)
+) -> IClientBlacklistService:
+    return ClientBlacklistService(blacklist_dao)
+
+
 def get_voice_service(
     product_dao: IProductDao = Depends(get_product_dao),
     commande_dao: ICommandeVocaleDao = Depends(get_commande_dao)
@@ -115,9 +129,10 @@ def get_checkout_service(
 
 
 def get_livreur_service(
-    livreur_dao: ILivreurDao = Depends(get_livreur_dao)
+    livreur_dao: ILivreurDao = Depends(get_livreur_dao),
+    blacklist_service: IClientBlacklistService = Depends(get_blacklist_service),
 ) -> ILivreurService:
-    return LivreurService(livreur_dao)
+    return LivreurService(livreur_dao, blacklist_service)
 
 
 def get_panier_service(

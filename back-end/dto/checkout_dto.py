@@ -1,7 +1,6 @@
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel
-from typing import Optional
 
 
 class CheckoutItemDTO(BaseModel):
@@ -13,6 +12,10 @@ class CheckoutRequestDTO(BaseModel):
     items: List[CheckoutItemDTO]
     creneau_livraison: str = "Livraison demain"
     mode_paiement: str = "cash"
+    contact_phone: Optional[str] = None
+    delivery_address: Optional[str] = None
+    delivery_city: Optional[str] = None
+    delivery_instructions: Optional[str] = None
     brouillon_vocal_id: Optional[int] = None
 
 

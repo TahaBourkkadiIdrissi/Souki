@@ -68,8 +68,35 @@ class CheckoutService(ICheckoutService):
 
         try:
             client = self.checkout_dao.get_or_create_client(session, user_id)
-            if bool(client.is_blacklisted):
-                raise ValueError("Ce compte ne peut pas valider de commande pour le moment.")
+            if bool(client.is_blacklisted) and self._is_cod_mode(payload.mode_paiement):
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        "Votre compte ne peut pas passer de commandes COD. "
+                        "Veuillez utiliser Wallet ou CMI."
+                    ),
+                )
+
+            contact_phone = (payload.contact_phone or "").strip()
+            delivery_address = (payload.delivery_address or "").strip()
+            delivery_city = (payload.delivery_city or "").strip()
+            delivery_instructions = (payload.delivery_instructions or "").strip() or None
+
+            if not contact_phone:
+                raise ValueError("Le numero de telephone est obligatoire pour valider la commande.")
+            if not delivery_address:
+                raise ValueError("L'adresse de livraison est obligatoire pour valider la commande.")
+            if not delivery_city:
+                raise ValueError("La ville de livraison est obligatoire pour valider la commande.")
+
+            self.checkout_dao.update_user_phone(session, user_id, contact_phone)
+            self.checkout_dao.upsert_user_delivery_address(
+                session=session,
+                user_id=user_id,
+                street=delivery_address,
+                city=delivery_city,
+                details=delivery_instructions,
+            )
 
             product_ids = [item.product_id for item in payload.items]
             products = self.checkout_dao.get_products_by_ids(session, product_ids)
@@ -150,3 +177,7 @@ class CheckoutService(ICheckoutService):
         finally:
             if auto_session:
                 self._close_owned_session()
+
+    def _is_cod_mode(self, mode_paiement: Optional[str]) -> bool:
+        normalized_mode = (mode_paiement or "").strip().casefold()
+        return normalized_mode in {"cod", "cash", "especes", "especes_livraison", "cash_on_delivery"}

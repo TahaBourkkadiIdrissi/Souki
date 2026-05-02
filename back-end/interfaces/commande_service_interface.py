@@ -44,6 +44,11 @@ class ICommandeVocaleService(ABC):
         pass
 
     @abstractmethod
+    def delete_historique_commande(self, client_id: int, commande_id: int) -> bool:
+        """Masque une commande de l'historique du client connecte"""
+        pass
+
+    @abstractmethod
     def get_fiche_client(self, session: Session, client_id: int) -> Optional[FicheClientDTO]:
         """Retourne la fiche complète d'un client"""
         pass
