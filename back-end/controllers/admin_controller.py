@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from jose import JWTError, jwt
@@ -7,6 +8,9 @@ from jose import JWTError, jwt
 from auth_dependencies import require_permission
 from config import ALGORITHM, LocalSession, SECRET_KEY
 from dao.livreur_dao import LivreurDaoBD
+from dependencies import get_blacklist_service
+from dto.client_blacklist_dto import BlacklistReportDTO, ClientBlacklistDTO, LiftBlacklistDTO
+from interfaces.client_blacklist_service_interface import IClientBlacklistService
 from services.authorization_service import AuthorizationService
 
 admin_router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -101,6 +105,49 @@ def get_delivery_changes(
         }
     finally:
         db.close()
+
+
+@admin_router.get("/blacklist", response_model=List[ClientBlacklistDTO])
+def get_blacklisted_clients(
+    principal=Depends(require_permission("admin.panel.access", "clients.blacklist")),
+    service: IClientBlacklistService = Depends(get_blacklist_service),
+):
+    _ = principal
+    session = LocalSession()
+    try:
+        return service.get_blacklisted_clients(session)
+    finally:
+        session.close()
+
+
+@admin_router.get("/blacklist/report/monthly", response_model=BlacklistReportDTO)
+def get_monthly_report(
+    year: int,
+    month: int,
+    principal=Depends(require_permission("admin.panel.access", "clients.blacklist")),
+    service: IClientBlacklistService = Depends(get_blacklist_service),
+):
+    _ = principal
+    session = LocalSession()
+    try:
+        return service.get_monthly_report(session, year, month)
+    finally:
+        session.close()
+
+
+@admin_router.patch("/blacklist/{client_id}/lift")
+def lift_blacklist(
+    client_id: int,
+    payload: LiftBlacklistDTO,
+    principal=Depends(require_permission("admin.panel.access", "clients.blacklist")),
+    service: IClientBlacklistService = Depends(get_blacklist_service),
+):
+    session = LocalSession()
+    try:
+        service.lift_blacklist(session, client_id, principal.user_id, payload.reason)
+        return {"message": "Blacklist leve avec succes"}
+    finally:
+        session.close()
 
 
 @admin_router.websocket("/ws/deliveries")
