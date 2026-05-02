@@ -21,6 +21,7 @@ class Commande(Base):
     absent_at          = Column(DateTime(timezone=True), nullable=True)
     status_version     = Column(Integer, nullable=False, default=1, server_default="1")
     payment_validated  = Column(Boolean, nullable=True, default=False, server_default="false")
+    client_history_deleted = Column(Boolean, nullable=False, default=False, server_default="false")
     mode_paiement      = Column(String(50))
     montant_total      = Column(Float)
 

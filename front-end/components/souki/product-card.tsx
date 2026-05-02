@@ -38,7 +38,6 @@ export function ProductCard({
   const resolvedDisplayUnit = displayUnit || unit
 
   const isOutOfStock = typeof stock === "number" && stock <= 0
-  const isLowStock = typeof stock === "number" && unit === "kg" && stock > 0 && stock < 5
   const isUnavailable = isOutOfStock || disabled
 
   const getUnitHint = () => {
@@ -91,11 +90,6 @@ export function ProductCard({
             Rupture totale
           </span>
         )}
-        {isLowStock && (
-          <span className="absolute left-4 top-4 rounded-full bg-[#F07C00] px-3 py-1 text-xs font-semibold text-white">
-            Rupture imminente
-          </span>
-        )}
         {isOutOfStock && <div className="absolute inset-0 bg-white/35" />}
       </div>
 
@@ -134,20 +128,6 @@ export function ProductCard({
               <Plus className="h-4 w-4" />
             </button>
           </div>
-          {typeof stock === "number" && (
-            <span
-              className={cn(
-                "block text-xs",
-                isOutOfStock
-                  ? "font-semibold text-red-600"
-                  : isLowStock
-                    ? "font-semibold text-[#C66B00]"
-                    : "text-[#7C8A7D]"
-              )}
-            >
-              Stock: {formatQuantity(stock, unit)}
-            </span>
-          )}
         </div>
 
         <button

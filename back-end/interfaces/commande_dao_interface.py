@@ -42,6 +42,11 @@ class ICommandeVocaleDao(ABC):
         pass
 
     @abstractmethod
+    def hide_commande_from_client_history(self, session: Session, client_id: int, commande_id: int) -> bool:
+        """Masque une commande de l'historique du client sans supprimer la commande operationnelle."""
+        pass
+
+    @abstractmethod
     def get_fiche_client(self, session: Session, client_id: int) -> Optional[FicheClientDTO]:
         """Retourne la fiche complete d'un client."""
         pass

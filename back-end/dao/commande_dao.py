@@ -179,11 +179,24 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
             )
             .filter(Commande.client_id == client_id)
             .filter(func.upper(func.coalesce(Commande.statut, "")) != "BROUILLON")
+            .filter(func.coalesce(Commande.client_history_deleted, False).is_(False))
             .order_by(Commande.date_commande.desc(), Commande.id.desc())
             .all()
         )
 
         return [self._build_commande_historique_dto(commande) for commande in commandes]
+
+    def hide_commande_from_client_history(self, session: Session, client_id: int, commande_id: int) -> bool:
+        commande = (
+            session.query(Commande)
+            .filter(Commande.id == commande_id, Commande.client_id == client_id)
+            .first()
+        )
+        if commande is None:
+            return False
+        commande.client_history_deleted = True
+        session.flush()
+        return True
 
     def get_fiche_client(self, session: Session, client_id: int) -> Optional[FicheClientDTO]:
         client = (
@@ -577,8 +590,11 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                 produit = ligne.produit
                 produits.append(
                     ProduitCommandeJourDTO(
+                        ligne_panier_id=int(ligne.id) if ligne.id is not None else None,
+                        product_id=int(ligne.produit_id) if ligne.produit_id is not None else None,
                         nom_fr=str(produit.nom_fr) if produit else "Produit supprime",
                         quantite_kg=float(ligne.quantite_kg or 0.0),
+                        sous_total=float(ligne.sous_total) if ligne.sous_total is not None else None,
                     )
                 )
 

@@ -197,6 +197,21 @@ const normalizedPresentationEntries = new Map(
   Object.entries(productPresentation).map(([key, value]) => [normalizeProductName(key), value])
 )
 
+const excludedCatalogueNames = new Set(
+  [
+    "Test Supabase Lag",
+    "Panier Essentiel",
+    "Panier Essentiel V2",
+    "Panier Essentiel V3",
+    "Panier Epicerie",
+    "Panier Épicerie",
+    "Panier Ã‰picerie",
+    "Panier Ãƒâ€°picerie",
+    "Panier Fruits Bio",
+    "Panier Test",
+  ].map(normalizeProductName)
+)
+
 export function getCataloguePresentation(name: string) {
   const directMatch = productPresentation[name]
   if (directMatch) {
@@ -224,7 +239,7 @@ export function getCataloguePresentation(name: string) {
 
 export async function fetchCatalogueProducts(): Promise<CatalogueProduct[]> {
   const data = (await apiCall("/api/catalogue")) as ApiCatalogueProduct[]
-  return data.map((product) => {
+  return data.filter((product) => !excludedCatalogueNames.has(normalizeProductName(product.nom_fr))).map((product) => {
     const presentation = getCataloguePresentation(product.nom_fr)
 
     return {
@@ -450,6 +465,14 @@ export async function fetchOrderHistory(): Promise<CommandeHistoriqueDTO[]> {
   return apiCall("/api/commandes/historique", {
     ...(token ? { token } : {}),
   }) as Promise<CommandeHistoriqueDTO[]>
+}
+
+export async function deleteOrderFromHistory(commandeId: number): Promise<{ success: boolean; message?: string }> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+  return apiCall(`/api/commandes/historique/${commandeId}`, {
+    method: "DELETE",
+    ...(token ? { token } : {}),
+  }) as Promise<{ success: boolean; message?: string }>
 }
 
 export type ClaimReason =

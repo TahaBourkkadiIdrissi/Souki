@@ -34,11 +34,13 @@ import {
   ClaimReason,
   CartItem,
   DELIVERY_FEE,
+  deleteOrderFromHistory,
   fetchCommandeCheckout,
   fetchCatalogueProducts,
   fetchOrderHistory,
   fetchPanierDetails,
   formatQuantity,
+  getCataloguePresentation,
   loadStoredCart,
   mergeSelectionsIntoCart,
   saveStoredCart,
@@ -194,6 +196,7 @@ export default function CataloguePage() {
   const [claimReason, setClaimReason] = useState<ClaimReason>("abime")
   const [claimError, setClaimError] = useState("")
   const [isSubmittingClaim, setIsSubmittingClaim] = useState(false)
+  const [deletingOrderId, setDeletingOrderId] = useState<number | null>(null)
 
   const loadOrderHistory = useCallback(async (showLoader = true) => {
     if (!isAuthenticated) {
@@ -522,6 +525,28 @@ export default function CataloguePage() {
     }
   }
 
+  const handleDeleteOrderHistory = async (commandeId: number) => {
+    const confirmed = window.confirm(
+      `Supprimer la commande N-${commandeId} de votre historique ?`
+    )
+    if (!confirmed) {
+      return
+    }
+
+    setDeletingOrderId(commandeId)
+    try {
+      const result = await deleteOrderFromHistory(commandeId)
+      setOrderHistory((currentHistory) => currentHistory.filter((order) => order.id !== commandeId))
+      setSuccessMessage(result.message || `Commande N-${commandeId} supprimee de l'historique.`)
+    } catch (error) {
+      setHistoryError(
+        error instanceof Error ? error.message : "Impossible de supprimer cette commande de l'historique."
+      )
+    } finally {
+      setDeletingOrderId(null)
+    }
+  }
+
   const handleCheckout = () => {
     requireAuth("/checkout", async () => {
       if (orderLock.isLocked) {
@@ -594,6 +619,13 @@ export default function CataloguePage() {
       (product) => typeof product.ligne_panier_id === "number" && product.quantite_kg > 0
     ) ?? []
   const selectedClaimLine = claimableLines.find((product) => product.ligne_panier_id === claimLineId)
+  const resolveOrderProductImage = (product: CommandeHistoriqueDTO["produits"][number]) => {
+    if (product.image) {
+      return product.image
+    }
+    const catalogueProduct = products.find((item) => item.id === product.product_id)
+    return catalogueProduct?.image || getCataloguePresentation(product.nom_fr).image
+  }
 
   return (
     <div className="min-h-screen bg-[#FBFDF9]">
@@ -716,7 +748,7 @@ export default function CataloguePage() {
 
             {isAuthenticated && (
               <button
-                onClick={() => setShowOrderHistory((value) => !value)}
+                onClick={() => setShowOrderHistory(true)}
                 className={cn(
                   "flex w-full items-center justify-between rounded-3xl border px-5 py-4 text-left transition-colors",
                   showOrderHistory
@@ -786,37 +818,33 @@ export default function CataloguePage() {
                   <Zap className="h-5 w-5" />
                   Panier intelligent
                 </button>
-                <button
-                  onClick={() => requireAuth("/catalogue", () => setShowOrderHistory((value) => !value))}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-[#CFE6D2] bg-white px-5 py-3 font-semibold text-[#264129] transition-colors hover:bg-[#F0FAF1]"
-                >
-                  <History className="h-5 w-5" />
-                  Historique
-                </button>
               </div>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-4">
               <p className="text-sm text-[#6F8070]">
-                {filteredProducts.length} produit{filteredProducts.length > 1 ? "s" : ""} affiche
-                {filteredProducts.length > 1 ? "s" : ""}
+                {showOrderHistory
+                  ? `${orderHistory.length} commande${orderHistory.length > 1 ? "s" : ""} dans l'historique`
+                  : `${filteredProducts.length} produit${filteredProducts.length > 1 ? "s" : ""} affiche${filteredProducts.length > 1 ? "s" : ""}`}
               </p>
-              <div className="relative">
-                <select
-                  value={sortBy}
-                  onChange={(event) =>
-                    setSortBy(event.target.value as (typeof sortOptions)[number]["id"])
-                  }
-                  className="appearance-none rounded-2xl border border-[#DDE7DE] bg-white px-4 py-3 pr-10 text-sm font-medium text-[#264129] outline-none transition-colors focus:border-[#4CB84A]"
-                >
-                  {sortOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7B8B7D]" />
-              </div>
+              {!showOrderHistory && (
+                <div className="relative">
+                  <select
+                    value={sortBy}
+                    onChange={(event) =>
+                      setSortBy(event.target.value as (typeof sortOptions)[number]["id"])
+                    }
+                    className="appearance-none rounded-2xl border border-[#DDE7DE] bg-white px-4 py-3 pr-10 text-sm font-medium text-[#264129] outline-none transition-colors focus:border-[#4CB84A]"
+                  >
+                    {sortOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7B8B7D]" />
+                </div>
+              )}
             </div>
           </div>
 
@@ -833,6 +861,30 @@ export default function CataloguePage() {
           )}
 
           {isAuthenticated && showOrderHistory && (
+            <div className="mb-6 flex items-center gap-2 border-b border-[#DDEBDD]">
+              <button
+                onClick={() => setShowOrderHistory(false)}
+                className="rounded-t-2xl border border-b-0 border-[#DDEBDD] bg-[#F7FCF7] px-4 py-3 text-sm font-bold text-[#607061] transition-colors hover:bg-white"
+              >
+                Catalogue
+              </button>
+              <div className="flex items-center gap-3 rounded-t-2xl border border-b-0 border-[#1E8A3C] bg-[#1E8A3C] px-4 py-3 text-sm font-bold text-white">
+                <span className="inline-flex items-center gap-2">
+                  <History className="h-4 w-4" />
+                  Historique commandes
+                </span>
+                <button
+                  onClick={() => setShowOrderHistory(false)}
+                  className="rounded-full p-1 text-white/80 transition-colors hover:bg-white/15 hover:text-white"
+                  aria-label="Fermer l'onglet historique"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {isAuthenticated && showOrderHistory && (
             <section className="mb-8">
               <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                 <div>
@@ -844,14 +896,23 @@ export default function CataloguePage() {
                     Retrouvez les commandes validees depuis le checkout.
                   </p>
                 </div>
-                <button
-                  onClick={() => void loadOrderHistory()}
-                  disabled={isFetchingHistory}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#CFE6D2] bg-white px-4 py-3 text-sm font-semibold text-[#1E8A3C] transition-colors hover:bg-[#F0FAF1] disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  <History className="h-4 w-4" />
-                  {isFetchingHistory ? "Actualisation..." : "Actualiser"}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => void loadOrderHistory()}
+                    disabled={isFetchingHistory}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#CFE6D2] bg-white px-4 py-3 text-sm font-semibold text-[#1E8A3C] transition-colors hover:bg-[#F0FAF1] disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    <History className="h-4 w-4" />
+                    {isFetchingHistory ? "Actualisation..." : "Actualiser"}
+                  </button>
+                  <button
+                    onClick={() => setShowOrderHistory(false)}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#E5E8E3] bg-white px-4 py-3 text-sm font-semibold text-[#607061] transition-colors hover:bg-[#F7F8F5]"
+                  >
+                    <X className="h-4 w-4" />
+                    Fermer
+                  </button>
+                </div>
               </div>
 
               {isFetchingHistory && (
@@ -897,36 +958,52 @@ export default function CataloguePage() {
                             {formatOrderDate(order.date_commande)}
                           </h3>
                         </div>
-                        <span
-                          className={cn(
-                            "rounded-full border px-3 py-1 text-xs font-bold",
-                            getOrderStatusClassName(order.statut)
-                          )}
-                        >
-                          {getOrderStatusLabel(order.statut)}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              "rounded-full border px-3 py-1 text-xs font-bold",
+                              getOrderStatusClassName(order.statut)
+                            )}
+                          >
+                            {getOrderStatusLabel(order.statut)}
+                          </span>
+                          <button
+                            onClick={() => void handleDeleteOrderHistory(order.id)}
+                            disabled={deletingOrderId === order.id}
+                            className="rounded-full border border-red-100 bg-red-50 p-2 text-red-500 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            aria-label="Supprimer de l'historique"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="mt-4 space-y-2">
-                        {order.produits.slice(0, 3).map((product, index) => (
+                      <div className="mt-4 space-y-3">
+                        {order.produits.map((product, index) => (
                           <div
                             key={`${order.id}-${product.nom_fr}-${index}`}
-                            className="flex items-center justify-between gap-3 rounded-2xl bg-[#F7FCF7] px-4 py-2 text-sm"
+                            className="flex items-center gap-3 rounded-2xl bg-[#F7FCF7] p-3 text-sm"
                           >
-                            <span className="truncate font-semibold text-[#264129]">
-                              {product.nom_fr}
-                            </span>
-                            <span className="shrink-0 text-[#6F8070]">
-                              {formatQuantity(product.quantite_kg, "kg")}
+                            <img
+                              src={resolveOrderProductImage(product)}
+                              alt={product.nom_fr}
+                              className="h-12 w-12 shrink-0 rounded-xl object-cover"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-semibold text-[#264129]">
+                                {product.nom_fr}
+                              </p>
+                              <p className="text-xs font-semibold text-[#6F8070]">
+                                {formatQuantity(product.quantite_kg, "kg")}
+                              </p>
+                            </div>
+                            <span className="shrink-0 text-sm font-bold text-[#F07C00]">
+                              {typeof product.sous_total === "number"
+                                ? `${product.sous_total.toFixed(2)} DH`
+                                : ""}
                             </span>
                           </div>
                         ))}
-                        {order.produits.length > 3 && (
-                          <p className="text-sm font-semibold text-[#6F8070]">
-                            +{order.produits.length - 3} autre{order.produits.length - 3 > 1 ? "s" : ""} produit
-                            {order.produits.length - 3 > 1 ? "s" : ""}
-                          </p>
-                        )}
                       </div>
 
                       <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
@@ -935,20 +1012,45 @@ export default function CataloguePage() {
                           <p className="mt-1 font-bold text-[#264129]">
                             {formatPaymentMode(order.mode_paiement)}
                           </p>
+                          <p className="mt-1 text-xs font-semibold text-[#6F8070]">
+                            {order.payment_validated ? "Paiement valide" : "Paiement non valide"}
+                          </p>
                         </div>
                         <div className="rounded-2xl bg-[#FFF7EE] p-3">
                           <p className="text-[#9A5C11]">Total</p>
                           <p className="mt-1 text-lg font-black text-[#F07C00]">
                             {(order.montant_total || 0).toFixed(2)} DH
                           </p>
+                          {order.montant_a_encaisser ? (
+                            <p className="mt-1 text-xs font-semibold text-[#9A5C11]">
+                              A encaisser: {order.montant_a_encaisser.toFixed(2)} DH
+                            </p>
+                          ) : null}
                         </div>
                       </div>
 
-                      {order.creneau_livraison && (
-                        <p className="mt-3 text-sm text-[#6F8070]">
-                          Creneau: <span className="font-semibold text-[#264129]">{order.creneau_livraison}</span>
-                        </p>
-                      )}
+                      <div className="mt-4 grid gap-2 text-xs font-semibold text-[#6F8070] sm:grid-cols-2">
+                        {order.creneau_livraison && (
+                          <p>
+                            Creneau: <span className="text-[#264129]">{order.creneau_livraison}</span>
+                          </p>
+                        )}
+                        {order.enroute_at && (
+                          <p>
+                            En route: <span className="text-[#264129]">{formatOrderDate(order.enroute_at)}</span>
+                          </p>
+                        )}
+                        {order.delivered_at && (
+                          <p>
+                            Livree: <span className="text-[#264129]">{formatOrderDate(order.delivered_at)}</span>
+                          </p>
+                        )}
+                        {order.absent_at && (
+                          <p>
+                            Absent: <span className="text-[#264129]">{formatOrderDate(order.absent_at)}</span>
+                          </p>
+                        )}
+                      </div>
 
                       <div className="mt-4 space-y-2">
                         <button
@@ -975,7 +1077,7 @@ export default function CataloguePage() {
             </section>
           )}
 
-          {isFetching && (
+          {!showOrderHistory && isFetching && (
             <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
               {Array.from({ length: 6 }).map((_, index) => (
                 <div
@@ -986,13 +1088,13 @@ export default function CataloguePage() {
             </div>
           )}
 
-          {!isFetching && error && (
+          {!showOrderHistory && !isFetching && error && (
             <div className="rounded-[28px] border border-red-200 bg-red-50 p-6 text-red-600">
               {error}
             </div>
           )}
 
-          {!isFetching && !error && (
+          {!showOrderHistory && !isFetching && !error && (
             <>
               <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                 {filteredProducts.map((product) => (

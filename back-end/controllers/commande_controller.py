@@ -129,6 +129,24 @@ def get_historique_commandes_client(
         raise HTTPException(status_code=500, detail=f"Erreur lors du chargement de l'historique des commandes: {str(e)}")
 
 
+@router_voice.delete("/commandes/historique/{commande_id}")
+def delete_historique_commande_client(
+    commande_id: int,
+    principal=Depends(require_permission("orders.read_self")),
+    service: ICommandeVocaleService = Depends(get_voice_service)
+):
+    try:
+        with service:
+            deleted = service.delete_historique_commande(principal.user_id, commande_id)
+            if not deleted:
+                raise HTTPException(status_code=404, detail="Commande introuvable dans votre historique")
+            return {"success": True, "message": "Commande supprimee de l'historique."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la suppression de l'historique: {str(e)}")
+
+
 @router_voice.get("/commandes/cod/verouillees", response_model=list[CommandeCODDemainDTO])
 @router_voice.get("/commandes/cod/demain", response_model=list[CommandeCODDemainDTO])  # DEPRECATED - utiliser /verouillees
 def get_commandes_cod_verouillees(

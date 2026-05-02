@@ -117,5 +117,8 @@ class CommandeVocaleService(ICommandeVocaleService):
     def get_historique_client(self, client_id: int) -> List[CommandeHistoriqueDTO]:
         return self.commande_dao.get_historique_client(self.session, client_id)  # type: ignore
 
+    def delete_historique_commande(self, client_id: int, commande_id: int) -> bool:
+        return self.commande_dao.hide_commande_from_client_history(self.session, client_id, commande_id)  # type: ignore
+
     def get_fiche_client(self, session: Session, client_id: int) -> Optional[FicheClientDTO]:
         return self.commande_dao.get_fiche_client(session, client_id)
