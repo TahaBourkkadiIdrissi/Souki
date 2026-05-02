@@ -18,11 +18,14 @@ import {
   Lock,
   Shield,
   PartyPopper,
-  MessageCircle
+  MessageCircle,
+  Navigation,
+  AlertTriangle
 } from "lucide-react"
 import { API_BASE_URL } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { fetchCatalogueProducts, getCataloguePresentation } from "@/lib/catalogue"
+import { MapboxLocator } from "@/components/souki/mapbox-locator"
 
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&h=300&fit=crop"
 
@@ -35,16 +38,35 @@ interface CartItem {
   image: string
 }
 
+interface UserProfile {
+  prenom: string
+  nom: string
+  email: string
+  telephone: string
+  address: {
+    adresse: string
+    ville: string
+    code_postal: string
+  }
+}
+
+interface WalletState {
+  has_wallet: boolean
+  is_activated: boolean
+  balance_centimes: number
+}
+
+// Updated time slots
 const timeSlots = [
-  { id: "8-10", label: "8h-10h" },
-  { id: "10-12", label: "10h-12h" },
-  { id: "11-13", label: "11h-13h" },
+  { id: "8-10", label: "8h – 10h" },
+  { id: "11-13", label: "11h – 13h" },
+  { id: "14-16", label: "14h – 16h" },
 ]
 
 const paymentMethods = [
   { id: "cod", icon: Banknote, label: "Cash on Delivery", desc: "Payez à la porte, confirmation appel la veille" },
-  { id: "wallet", icon: Wallet, label: "Wallet SOUKI", desc: "Solde : 125,50 DH" },
-  { id: "cmi", icon: CreditCard, label: "Carte Bancaire CMI", desc: "Visa / Mastercard marocain — Frais 2% inclus" },
+  { id: "wallet", icon: Wallet, label: "Wallet SOUKI", desc: "" },
+  { id: "cmi", icon: CreditCard, label: "Carte Bancaire CMI", desc: "Visa / Mastercard marocain — Frais 2% inclus", disabled: true },
 ]
 
 function CheckoutContent() {
@@ -64,17 +86,25 @@ function CheckoutContent() {
   const [panierData, setPanierData] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(!!commandeId || !!panierId)
   const [voiceError, setVoiceError] = useState(false)
+  const [profileLoading, setProfileLoading] = useState(true)
   
   // On initialise le panier vide, on le remplira dynamiquement dans le useEffect
   const [cart, setCart] = useState<CartItem[]>([])
   
+  // Profile data
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [walletBalance, setWalletBalance] = useState(0)
+  const [phoneNumber, setPhoneNumber] = useState("")
+  
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("8-10")
   const [selectedPayment, setSelectedPayment] = useState("cod")
   const [acceptTerms, setAcceptTerms] = useState(false)
-  const [address, setAddress] = useState("123 Rue Ibn Battouta, Fès-Médina")
+  const [address, setAddress] = useState("")
+  const [city, setCity] = useState("")
   const [instructions, setInstructions] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [catalogueImages, setCatalogueImages] = useState<Record<number, string>>({})
+  const [mapboxModalOpen, setMapboxModalOpen] = useState(false)
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
 
   const isGenericImage = (imageUrl: string) =>
@@ -102,6 +132,66 @@ function CheckoutContent() {
     }
     return DEFAULT_IMAGE
   }
+
+  // Helper function to extract city from address string
+  const extractCityFromAddress = (fullAddress: string): string => {
+    // Try to extract city from formatted address (usually the first meaningful word after street)
+    // Format is typically: "Street Name, City" or similar
+    const parts = fullAddress.split(",").map(p => p.trim())
+    if (parts.length > 1) {
+      return parts[parts.length - 1] // Return the last part (usually the city)
+    }
+    return ""
+  }
+
+  // Fetch user profile on mount
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!token) {
+        setProfileLoading(false)
+        return
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/user/bootstrap`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        
+        if (!response.ok) {
+          throw new Error("Impossible de charger le profil")
+        }
+
+        const data = await response.json()
+        
+        // Set profile data
+        setUserProfile(data.profile)
+        
+        // Pre-fill address and city
+        if (data.profile.address?.adresse) {
+          setAddress(data.profile.address.adresse)
+          setCity(data.profile.address.ville || extractCityFromAddress(data.profile.address.adresse))
+        }
+
+        // Set phone number
+        if (data.profile.telephone) {
+          setPhoneNumber(data.profile.telephone)
+        }
+
+        // Set wallet balance (convert centimes to DH)
+        if (data.wallet?.balance_centimes !== undefined) {
+          setWalletBalance(data.wallet.balance_centimes / 100)
+        } else if (data.wallet?.solde_centimes !== undefined) {
+          setWalletBalance(data.wallet.solde_centimes / 100)
+        }
+      } catch (err) {
+        console.error("Erreur lors du chargement du profil:", err)
+      } finally {
+        setProfileLoading(false)
+      }
+    }
+
+    fetchProfile()
+  }, [token])
 
   useEffect(() => {
     let isMounted = true
@@ -213,7 +303,6 @@ function CheckoutContent() {
     }
   }, [commandeId, panierId, cartParam, catalogueImages, token])
 
-  const walletBalance = 125.50
   const merchantPrice = cart.reduce((sum, item) => sum + (item.price * 1.1) * item.quantity, 0)
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const deliveryFee = 10
@@ -233,6 +322,12 @@ function CheckoutContent() {
 
   const removeItem = (id: string) => {
     setCart(prev => prev.filter(item => item.id !== id))
+  }
+
+  // Handle address detection from Mapbox
+  const handleAddressDetected = (detectedAddress: string, detectedCity: string) => {
+    setAddress(detectedAddress)
+    setCity(detectedCity || extractCityFromAddress(detectedAddress))
   }
 
   const isWalletInsufficient = selectedPayment === "wallet" && walletBalance < total
@@ -432,12 +527,23 @@ function CheckoutContent() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Adresse</label>
-                  <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none" />
+                  <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Entrez votre adresse de livraison" className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none" />
                 </div>
+                
+                {/* "Me localiser" button with Mapbox */}
+                <button
+                  onClick={() => setMapboxModalOpen(true)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-[#1E8A3C] text-[#1E8A3C] rounded-xl font-semibold hover:bg-[#F0FAF1] transition-colors"
+                >
+                  <Navigation className="w-4 h-4" />
+                  Me localiser
+                </button>
+
                 <div>
                   <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Ville</label>
-                  <div className="px-4 py-3 bg-gray-100 rounded-xl text-[#3D3D3D]">Fès - Ville actuelle</div>
+                  <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Ville" className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none" />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Instructions livraison (optionnel)</label>
                   <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Ex: 2ème étage, code porte 1234..." rows={3} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none resize-none" />
@@ -466,40 +572,68 @@ function CheckoutContent() {
                 Méthode de Paiement
               </h3>
               <div className="space-y-3">
-                {paymentMethods.map(method => {
-                  const Icon = method.icon
-                  const isSelected = selectedPayment === method.id
-                  const isWallet = method.id === "wallet"
-                  const insufficient = isWallet && walletBalance < total
-
-                  return (
-                    <button key={method.id} onClick={() => setSelectedPayment(method.id)} className={cn("w-full p-4 rounded-xl border-2 text-left transition-all flex items-start gap-4", isSelected ? "border-[#F07C00] bg-[#F07C00]/5" : "border-gray-200 hover:border-gray-300")}>
-                      <div className={cn("p-2 rounded-lg", isSelected ? "bg-[#F07C00] text-white" : "bg-gray-100 text-[#3D3D3D]")}><Icon className="w-5 h-5" /></div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-[#3D3D3D]">{method.label}</p>
-                          {method.id === "cmi" && (
-                            <div className="flex items-center gap-1 ml-2">
-                              <div className="bg-white border border-gray-200 rounded-xl px-2.5 py-1.5 flex items-center justify-center shadow-sm">
-                                <img src="https://logos-world.net/wp-content/uploads/2020/04/Visa-Logo.png" alt="Visa" className="h-5 w-auto object-contain" />
-                              </div>
-                              <div className="bg-white border border-gray-200 rounded-xl px-2.5 py-1.5 flex items-center justify-center shadow-sm">
-                                <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard" className="h-5 w-auto object-contain" />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        <p className={cn("text-sm mt-1", isWallet && insufficient ? "text-red-500" : "text-[#8A8A8A]")}>
-                          {method.desc}
-                          {isWallet && insufficient && " - Solde insuffisant"}
-                        </p>
+                {/* Cash on Delivery */}
+                <button
+                  onClick={() => setSelectedPayment("cod")}
+                  className={cn("w-full p-4 rounded-xl border-2 text-left transition-all flex items-start gap-4", selectedPayment === "cod" ? "border-[#F07C00] bg-[#F07C00]/5" : "border-gray-200 hover:border-gray-300")}
+                >
+                  <div className={cn("p-2 rounded-lg", selectedPayment === "cod" ? "bg-[#F07C00] text-white" : "bg-gray-100 text-[#3D3D3D]")}><Banknote className="w-5 h-5" /></div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-[#3D3D3D]">Cash on Delivery</p>
+                    <p className="text-sm text-[#8A8A8A] mt-1">Payez à la porte, confirmation appel la veille</p>
+                    {selectedPayment === "cod" && phoneNumber && (
+                      <div className="mt-3 p-3 bg-white rounded-lg border-2 border-gray-200">
+                        <label className="block text-xs font-medium text-[#8A8A8A] mb-1">Numéro de téléphone</label>
+                        <input
+                          type="tel"
+                          value={phoneNumber}
+                          onChange={(e) => setPhoneNumber(e.target.value)}
+                          placeholder="+212..."
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-[#1E8A3C] focus:outline-none"
+                        />
                       </div>
-                      {isSelected && (
-                        <div className="w-6 h-6 rounded-full bg-[#F07C00] flex items-center justify-center"><Check className="w-4 h-4 text-white" /></div>
-                      )}
-                    </button>
-                  )
-                })}
+                    )}
+                  </div>
+                  {selectedPayment === "cod" && (
+                    <div className="w-6 h-6 rounded-full bg-[#F07C00] flex items-center justify-center"><Check className="w-4 h-4 text-white" /></div>
+                  )}
+                </button>
+
+                {/* Wallet */}
+                <button
+                  onClick={() => setSelectedPayment("wallet")}
+                  className={cn("w-full p-4 rounded-xl border-2 text-left transition-all flex items-start gap-4", selectedPayment === "wallet" ? "border-[#F07C00] bg-[#F07C00]/5" : "border-gray-200 hover:border-gray-300")}
+                >
+                  <div className={cn("p-2 rounded-lg", selectedPayment === "wallet" ? "bg-[#F07C00] text-white" : "bg-gray-100 text-[#3D3D3D]")}><Wallet className="w-5 h-5" /></div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-[#3D3D3D]">Wallet SOUKI</p>
+                    <p className={cn("text-sm mt-1", isWalletInsufficient ? "text-red-500 font-semibold" : "text-[#8A8A8A]")}>
+                      Solde : {walletBalance.toFixed(2)} DH
+                      {isWalletInsufficient && " — Crédit insuffisant"}
+                    </p>
+                  </div>
+                  {selectedPayment === "wallet" && (
+                    <div className="w-6 h-6 rounded-full bg-[#F07C00] flex items-center justify-center"><Check className="w-4 h-4 text-white" /></div>
+                  )}
+                </button>
+
+                {/* Card Payment - Disabled */}
+                <button
+                  disabled
+                  className="w-full p-4 rounded-xl border-2 border-gray-200 text-left transition-all flex items-start gap-4 opacity-60 cursor-not-allowed"
+                >
+                  <div className="p-2 rounded-lg bg-gray-100 text-[#8A8A8A]"><CreditCard className="w-5 h-5" /></div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-[#8A8A8A]">Carte Bancaire CMI</p>
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-200 text-[#8A8A8A] text-xs font-semibold rounded-lg">
+                        <AlertTriangle className="w-3 h-3" />
+                        Non disponible
+                      </span>
+                    </div>
+                    <p className="text-sm text-[#8A8A8A] mt-1">Visa / Mastercard marocain — Bientôt disponible</p>
+                  </div>
+                </button>
               </div>
             </div>
 
@@ -538,6 +672,13 @@ function CheckoutContent() {
           </div>
         </div>
       </main>
+
+      {/* Mapbox Locator Modal */}
+      <MapboxLocator
+        isOpen={mapboxModalOpen}
+        onClose={() => setMapboxModalOpen(false)}
+        onAddressDetected={handleAddressDetected}
+      />
     </div>
   )
 }
