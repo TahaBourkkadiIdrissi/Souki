@@ -13,6 +13,7 @@ from interfaces.tournee_dao_interface import ITourneeDao
 
 
 DISPATCH_TARGET_STATUS = "A_LIVRER"
+REASSIGNABLE_COMMANDE_STATUSES = {"A_LIVRER", "PLANIFIEE"}
 
 
 class DispatchServiceError(ValueError):
@@ -147,6 +148,12 @@ class DispatchService(IDispatchService):
                 )
                 if commande is None:
                     raise DispatchNotFoundError("Commande introuvable.")
+
+                current_status = str(commande.statut or "").strip().upper()
+                if current_status not in REASSIGNABLE_COMMANDE_STATUSES:
+                    raise DispatchServiceError(
+                        "Impossible de réassigner une commande qui est déjà en cours de traitement ou finalisée."
+                    )
 
                 tournee = self.tournee_dao.get_tournee_by_id(
                     session,

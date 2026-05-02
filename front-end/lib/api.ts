@@ -105,6 +105,15 @@ export interface AdminDispatchTourneesResponse {
   tournees: AdminDispatchTournee[]
 }
 
+export interface AdminDispatchRunDailyResponse {
+  status: string
+  target_date: string
+  count?: number
+  tournees_created?: number
+  commandes_assigned?: number
+  available_livreurs?: number
+}
+
 export interface ReassignDispatchResponse {
   status: string
   commande_id: number
@@ -447,6 +456,13 @@ export async function getAdminDispatchTournees(
   return apiCall<AdminDispatchTourneesResponse>(`/api/v1/admin/dispatch/tournees${query}`, {
     token,
     signal,
+  })
+}
+
+export async function runDailyAdminDispatch(token: string) {
+  return apiCall<AdminDispatchRunDailyResponse>("/api/v1/admin/dispatch/run-daily", {
+    method: "POST",
+    token,
   })
 }
 

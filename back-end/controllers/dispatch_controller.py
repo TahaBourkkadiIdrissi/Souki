@@ -19,7 +19,7 @@ class ReassignCommandeRequest(BaseModel):
 
 @dispatch_router.post("/run-daily")
 def run_daily_dispatch(
-    principal=Depends(require_permission("admin.panel.access", "orders.assign_livreur")),
+    principal=Depends(require_permission("admin.panel.access")),
     service: IDispatchService = Depends(get_dispatch_service),
 ):
     target_date = date.today() + timedelta(days=1)
@@ -35,7 +35,7 @@ def run_daily_dispatch(
 @dispatch_router.get("/tournees")
 def get_dispatch_tournees(
     target_date: Optional[date] = Query(default=None, alias="date"),
-    principal=Depends(require_permission("admin.panel.access", "orders.assign_livreur")),
+    principal=Depends(require_permission("admin.panel.access")),
     service: IDispatchService = Depends(get_dispatch_service),
 ):
     _ = principal
@@ -51,7 +51,7 @@ def get_dispatch_tournees(
 def reassign_dispatch_commande(
     commande_id: int,
     payload: ReassignCommandeRequest,
-    principal=Depends(require_permission("admin.panel.access", "orders.assign_livreur")),
+    principal=Depends(require_permission("admin.panel.access")),
     service: IDispatchService = Depends(get_dispatch_service),
 ):
     _ = principal

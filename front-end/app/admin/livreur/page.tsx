@@ -11,6 +11,7 @@ import {
   Package,
   RefreshCw,
   Route,
+  Zap,
   X,
 } from "lucide-react"
 
@@ -19,6 +20,7 @@ import {
   ApiError,
   getAdminDispatchTournees,
   reassignAdminDispatchCommande,
+  runDailyAdminDispatch,
   type AdminDispatchCommande,
   type AdminDispatchTournee,
 } from "@/lib/api"
@@ -75,12 +77,17 @@ function formatStatus(status: string) {
   return labels[status.toUpperCase()] || status || "Inconnu"
 }
 
+function isCommandeReassignable(status: string) {
+  return ["A_LIVRER", "PLANIFIEE"].includes(status.toUpperCase())
+}
+
 export default function AdminLivreurPage() {
   const { token } = useAuth()
   const [targetDate, setTargetDate] = useState(tomorrowAsInputDate)
   const [tournees, setTournees] = useState<AdminDispatchTournee[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isGeneratingDispatch, setIsGeneratingDispatch] = useState(false)
   const [error, setError] = useState("")
   const [toast, setToast] = useState("")
   const [reassignTarget, setReassignTarget] = useState<ReassignTarget>(null)
@@ -146,6 +153,34 @@ export default function AdminLivreurPage() {
     }
     setReassignTarget(null)
     setSelectedTourneeId("")
+  }
+
+  const generateDispatch = async () => {
+    if (!token) {
+      return
+    }
+
+    setIsGeneratingDispatch(true)
+    try {
+      const response = await runDailyAdminDispatch(token)
+      const assignedCount = response.commandes_assigned ?? response.count ?? 0
+      const tourneeCount = response.tournees_created ?? 0
+      setToast(
+        response.status === "no_orders"
+          ? "Aucune commande disponible pour generer un dispatch."
+          : `Dispatch genere: ${tourneeCount} tournee${tourneeCount > 1 ? "s" : ""}, ${assignedCount} commande${assignedCount > 1 ? "s" : ""} assignee${assignedCount > 1 ? "s" : ""}.`
+      )
+      setError("")
+      await loadTournees(false)
+    } catch (dispatchError) {
+      setError(
+        dispatchError instanceof ApiError || dispatchError instanceof Error
+          ? dispatchError.message
+          : "Impossible de generer le dispatch."
+      )
+    } finally {
+      setIsGeneratingDispatch(false)
+    }
   }
 
   const submitReassign = async () => {
@@ -232,14 +267,29 @@ export default function AdminLivreurPage() {
               />
             </label>
 
-            <button
-              onClick={() => void loadTournees(false)}
-              disabled={isRefreshing || isLoading}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#1E8A3C] px-5 py-3 font-bold text-white transition hover:bg-[#176B2E] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-              Rafraichir
-            </button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <button
+                onClick={() => void generateDispatch()}
+                disabled={isGeneratingDispatch || isRefreshing || isLoading}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#F07C00] px-5 py-3 font-bold text-white transition hover:bg-[#D66B00] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isGeneratingDispatch ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Zap className="h-4 w-4" />
+                )}
+                Generer le Dispatch
+              </button>
+
+              <button
+                onClick={() => void loadTournees(false)}
+                disabled={isRefreshing || isLoading || isGeneratingDispatch}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#1E8A3C] px-5 py-3 font-bold text-white transition hover:bg-[#176B2E] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+                Rafraichir
+              </button>
+            </div>
           </div>
         </section>
 
@@ -297,56 +347,62 @@ export default function AdminLivreurPage() {
                       Aucune commande assignee.
                     </div>
                   ) : (
-                    tournee.commandes.map((commande) => (
-                      <article
-                        key={commande.id}
-                        className="rounded-3xl border border-[#E6F0E7] bg-[#FAFCFA] p-4 transition hover:-translate-y-0.5 hover:shadow-md"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#8A9A8C]">
-                              Passage {commande.ordre_passage ?? "-"}
-                            </p>
-                            <h3 className="mt-1 font-black text-[#264129]">
-                              CMD-{commande.id}
-                            </h3>
+                    tournee.commandes.map((commande) => {
+                      const canReassign = isCommandeReassignable(commande.statut)
+
+                      return (
+                        <article
+                          key={commande.id}
+                          className="rounded-3xl border border-[#E6F0E7] bg-[#FAFCFA] p-4 transition hover:-translate-y-0.5 hover:shadow-md"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#8A9A8C]">
+                                Passage {commande.ordre_passage ?? "-"}
+                              </p>
+                              <h3 className="mt-1 font-black text-[#264129]">
+                                CMD-{commande.id}
+                              </h3>
+                            </div>
+                            <span
+                              className={cn(
+                                "rounded-full border px-3 py-1 text-xs font-bold",
+                                getStatusClassName(commande.statut)
+                              )}
+                            >
+                              {formatStatus(commande.statut)}
+                            </span>
                           </div>
-                          <span
-                            className={cn(
-                              "rounded-full border px-3 py-1 text-xs font-bold",
-                              getStatusClassName(commande.statut)
+
+                          <p className="mt-3 text-sm font-semibold text-[#264129]">
+                            {commande.client_nom}
+                          </p>
+                          <p className="mt-1 flex items-start gap-2 text-xs text-[#6F8070]">
+                            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#1E8A3C]" />
+                            <span>
+                              {commande.adresse?.full_address ||
+                                commande.adresse?.neighborhood ||
+                                "Adresse non renseignee"}
+                            </span>
+                          </p>
+
+                          <div className="mt-4 flex items-center justify-between gap-3">
+                            <span className="text-sm font-bold text-[#F07C00]">
+                              {formatMoney(commande.montant_total)}
+                            </span>
+                            {canReassign && (
+                              <button
+                                onClick={() => openReassignModal(commande, tournee.id)}
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-[#F5D7B8] bg-white px-3 py-2 text-xs font-bold text-[#9A5C11] transition hover:bg-[#FFF7EE]"
+                              >
+                                <ArrowLeftRight className="h-3.5 w-3.5" />
+                                Reassigner
+                              </button>
                             )}
-                          >
-                            {formatStatus(commande.statut)}
-                          </span>
-                        </div>
-
-                        <p className="mt-3 text-sm font-semibold text-[#264129]">
-                          {commande.client_nom}
-                        </p>
-                        <p className="mt-1 flex items-start gap-2 text-xs text-[#6F8070]">
-                          <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#1E8A3C]" />
-                          <span>
-                            {commande.adresse?.full_address ||
-                              commande.adresse?.neighborhood ||
-                              "Adresse non renseignee"}
-                          </span>
-                        </p>
-
-                        <div className="mt-4 flex items-center justify-between gap-3">
-                          <span className="text-sm font-bold text-[#F07C00]">
-                            {formatMoney(commande.montant_total)}
-                          </span>
-                          <button
-                            onClick={() => openReassignModal(commande, tournee.id)}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-[#F5D7B8] bg-white px-3 py-2 text-xs font-bold text-[#9A5C11] transition hover:bg-[#FFF7EE]"
-                          >
-                            <ArrowLeftRight className="h-3.5 w-3.5" />
-                            Reassigner
-                          </button>
-                        </div>
-                      </article>
-                    ))
+                          </div>
+                        </article>
+                      )
+                    })
                   )}
                 </div>
               </section>
