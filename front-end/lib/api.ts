@@ -222,6 +222,7 @@ export interface ProduitCommandeJourDTO {
   nom_fr: string
   quantite_kg: number
   sous_total?: number | null
+  image?: string | null
 }
 
 export interface PaiementDTO {

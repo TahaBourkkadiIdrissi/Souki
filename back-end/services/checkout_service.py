@@ -77,6 +77,27 @@ class CheckoutService(ICheckoutService):
                     ),
                 )
 
+            contact_phone = (payload.contact_phone or "").strip()
+            delivery_address = (payload.delivery_address or "").strip()
+            delivery_city = (payload.delivery_city or "").strip()
+            delivery_instructions = (payload.delivery_instructions or "").strip() or None
+
+            if not contact_phone:
+                raise ValueError("Le numero de telephone est obligatoire pour valider la commande.")
+            if not delivery_address:
+                raise ValueError("L'adresse de livraison est obligatoire pour valider la commande.")
+            if not delivery_city:
+                raise ValueError("La ville de livraison est obligatoire pour valider la commande.")
+
+            self.checkout_dao.update_user_phone(session, user_id, contact_phone)
+            self.checkout_dao.upsert_user_delivery_address(
+                session=session,
+                user_id=user_id,
+                street=delivery_address,
+                city=delivery_city,
+                details=delivery_instructions,
+            )
+
             product_ids = [item.product_id for item in payload.items]
             products = self.checkout_dao.get_products_by_ids(session, product_ids)
             products_by_id = {int(product.id): product for product in products} # type: ignore
