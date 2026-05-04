@@ -22,5 +22,13 @@ class IDispatchService(ABC):
         pass
 
     @abstractmethod
+    def resolve_anomalie_replanifier(self, anomalie_id: int, admin_id: int) -> dict[str, Any]:
+        pass
+
+    @abstractmethod
+    def resolve_anomalie_annuler(self, anomalie_id: int, admin_id: int) -> dict[str, Any]:
+        pass
+
+    @abstractmethod
     def reassign_commande(self, commande_id: int, nouvelle_tournee_id: int) -> dict[str, Any]:
         pass

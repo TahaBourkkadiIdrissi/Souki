@@ -10,6 +10,7 @@ from entities.tournee_entity import Tournee
 from entities.panier_entity import Panier
 from entities.ligne_panier_entity import LignePanier
 from entities.commande_entity import Commande
+from entities.anomalie_entity import AnomalieLogistique
 from entities.delivery_event_entity import DeliveryEvent
 from entities.notification_outbox_entity import NotificationOutbox
 from entities.claim_entity import Claim
@@ -43,6 +44,7 @@ __all__ = [
     "Panier",
     "LignePanier",
     "Commande",
+    "AnomalieLogistique",
     "DeliveryEvent",
     "NotificationOutbox",
     "Claim",

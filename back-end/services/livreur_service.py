@@ -24,6 +24,7 @@ from entities.delivery_event_entity import DeliveryEvent
 from interfaces.livreur_dao_interface import ILivreurDao
 from interfaces.livreur_service_interface import ILivreurService
 from interfaces.client_blacklist_service_interface import IClientBlacklistService
+from services.commande_state_machine import CommandeTransitionError, TRANSITIONS, changer_statut
 
 TOURNEE_RELEASE_TIME = time(7, 0)
 LEGACY_PENDING_DELIVERY_STATUS = "EN_ATTENTE"
@@ -267,22 +268,27 @@ class LivreurService(ILivreurService):
                     )
 
             server_timestamp = datetime.now(timezone.utc)
-            event = self.livreur_dao.create_delivery_event(
-                session=session,
-                commande_id=commande.id,
-                livreur_id=livreur_id,
-                previous_status=previous_status,
-                new_status=target_status,
-                client_event_id=payload.client_event_id,
-                device_timestamp=payload.device_timestamp,
-                server_timestamp=server_timestamp,
-            )
+            try:
+                changer_statut(
+                    session=session,
+                    commande=commande,
+                    nouveau_statut=target_status,
+                    actor_id=livreur_id,
+                    reason="LIVREUR_APP",
+                    client_event_id=payload.client_event_id,
+                    device_timestamp=payload.device_timestamp,
+                    server_timestamp=server_timestamp,
+                )
+            except CommandeTransitionError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-            self._apply_transition_on_commande(
-                commande=commande,
-                target_status=target_status,
-                server_timestamp=server_timestamp,
+            event = self.livreur_dao.get_delivery_event_by_client_event_id(
+                session=session,
+                client_event_id=payload.client_event_id,
             )
+            if event is None:
+                raise HTTPException(status_code=500, detail="Evenement de livraison non cree.")
+
             self._apply_refusal_blacklist(
                 session=session,
                 commande=commande,
@@ -462,23 +468,6 @@ class LivreurService(ILivreurService):
 
         return ordered_items
 
-    def _apply_transition_on_commande(
-        self,
-        *,
-        commande: Commande,
-        target_status: str,
-        server_timestamp: datetime,
-    ) -> None:
-        commande.statut = target_status
-        commande.status_version = int(commande.status_version or 1) + 1
-
-        if target_status == STARTED_DELIVERY_STATUS:
-            commande.enroute_at = server_timestamp
-        elif target_status == DELIVERED_STATUS:
-            commande.delivered_at = server_timestamp
-        elif target_status == ABSENT_STATUS:
-            commande.absent_at = server_timestamp
-
     def _apply_refusal_blacklist(
         self,
         *,
@@ -579,12 +568,7 @@ class LivreurService(ILivreurService):
         )
 
     def _is_transition_allowed(self, previous_status: str, target_status: str) -> bool:
-        allowed_transitions = {
-            PENDING_DELIVERY_STATUS: {STARTED_DELIVERY_STATUS},
-            STARTED_DELIVERY_STATUS: {DELIVERED_STATUS, ABSENT_STATUS, REFUSED_STATUS},
-            ABSENT_STATUS: {STARTED_DELIVERY_STATUS},
-        }
-        return target_status in allowed_transitions.get(previous_status, set())
+        return target_status in TRANSITIONS.get(previous_status, [])
 
     def _canonical_delivery_status(self, status: str) -> str:
         normalized_status = self._normalize_status(status)

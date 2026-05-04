@@ -1,15 +1,23 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from config import LocalSession
+from entities.anomalie_entity import AnomalieLogistique
 from entities.commande_entity import Commande
+from entities.ligne_panier_entity import LignePanier
 from entities.livreur_entity import Livreur
+from entities.panier_entity import Panier
 from interfaces.commande_dao_interface import ICommandeVocaleDao
 from interfaces.dispatch_service_interface import IDispatchService
 from interfaces.livreur_dao_interface import ILivreurDao
 from interfaces.tournee_dao_interface import ITourneeDao
+from services.commande_state_machine import (
+    CommandeTransitionError,
+    changer_statut,
+    process_end_of_day_returns,
+)
 
 
 DISPATCH_TARGET_STATUS = "A_LIVRER"
@@ -70,6 +78,7 @@ class DispatchService(IDispatchService):
 
         try:
             with transaction:
+                retours_depot = process_end_of_day_returns(session, target_date)
                 commandes = self.commande_dao.get_commandes_non_assignees(session)
                 if not commandes:
                     return {
@@ -78,6 +87,7 @@ class DispatchService(IDispatchService):
                         "count": 0,
                         "tournees_created": 0,
                         "commandes_assigned": 0,
+                        "retours_depot": retours_depot,
                     }
 
                 livreurs = self.livreur_dao.get_available_livreurs(session)
@@ -101,18 +111,18 @@ class DispatchService(IDispatchService):
                     )
                     tournees_created += 1
 
-                    updates = [
-                        {
-                            "commande_id": int(commande.id),
-                            "tournee_id": int(tournee.id),
-                            "livreur_id": int(livreur.user_id),
-                            "ordre_passage": index,
-                            "statut": DISPATCH_TARGET_STATUS,
-                        }
-                        for index, commande in enumerate(commandes_chunk, start=1)
-                    ]
-                    self.commande_dao.bulk_update_commandes_tournee(session, updates)
-                    commandes_assigned += len(updates)
+                    for index, commande in enumerate(commandes_chunk, start=1):
+                        commande.tournee_id = int(tournee.id)
+                        commande.livreur_id = int(livreur.user_id)
+                        commande.ordre_passage = index
+                        changer_statut(
+                            session=session,
+                            commande=commande,
+                            nouveau_statut=DISPATCH_TARGET_STATUS,
+                            actor_id=int(livreur.user_id),
+                            reason="DISPATCH_DAILY",
+                        )
+                        commandes_assigned += 1
 
             return {
                 "status": "success",
@@ -120,7 +130,12 @@ class DispatchService(IDispatchService):
                 "tournees_created": tournees_created,
                 "commandes_assigned": commandes_assigned,
                 "available_livreurs": len(livreurs),
+                "retours_depot": retours_depot,
             }
+        except CommandeTransitionError as exc:
+            if self._owns_session:
+                session.rollback()
+            raise DispatchServiceError(str(exc)) from exc
         except Exception:
             if self._owns_session:
                 session.rollback()
@@ -129,11 +144,29 @@ class DispatchService(IDispatchService):
     def get_tournees_details(self, target_date: date) -> dict[str, Any]:
         session = self._ensure_session()
         tournees = self.tournee_dao.get_tournees_with_details(session, target_date)
+        anomalies = self._get_anomalies_non_resolues(session)
         return {
             "status": "success",
             "target_date": target_date.isoformat(),
             "tournees": [self._serialize_tournee(tournee) for tournee in tournees],
+            "anomalies": [self._serialize_anomalie(anomalie) for anomalie in anomalies],
         }
+
+    def resolve_anomalie_replanifier(self, anomalie_id: int, admin_id: int) -> dict[str, Any]:
+        return self._resolve_anomalie(
+            anomalie_id=anomalie_id,
+            admin_id=admin_id,
+            nouveau_statut="EN_ATTENTE",
+            resolution="REPLANIFIE",
+        )
+
+    def resolve_anomalie_annuler(self, anomalie_id: int, admin_id: int) -> dict[str, Any]:
+        return self._resolve_anomalie(
+            anomalie_id=anomalie_id,
+            admin_id=admin_id,
+            nouveau_statut="ANNULEE",
+            resolution="ANNULE_PERTE",
+        )
 
     def reassign_commande(self, commande_id: int, nouvelle_tournee_id: int) -> dict[str, Any]:
         session = self._ensure_session()
@@ -181,6 +214,77 @@ class DispatchService(IDispatchService):
                 "nouvelle_tournee_id": nouvelle_tournee_id,
                 "ordre_passage": ordre_passage,
             }
+        except Exception:
+            if self._owns_session:
+                session.rollback()
+            raise
+
+    def _resolve_anomalie(
+        self,
+        *,
+        anomalie_id: int,
+        admin_id: int,
+        nouveau_statut: str,
+        resolution: str,
+    ) -> dict[str, Any]:
+        session = self._ensure_session()
+        transaction = session.begin_nested() if session.in_transaction() else session.begin()
+
+        try:
+            with transaction:
+                anomalie = (
+                    session.query(AnomalieLogistique)
+                    .options(
+                        joinedload(AnomalieLogistique.commande)
+                        .joinedload(Commande.livreur)
+                        .joinedload(Livreur.user),
+                        joinedload(AnomalieLogistique.commande)
+                        .joinedload(Commande.client),
+                        joinedload(AnomalieLogistique.commande)
+                        .joinedload(Commande.panier)
+                        .selectinload(Panier.lignes)
+                        .joinedload(LignePanier.produit),
+                    )
+                    .filter(AnomalieLogistique.id == anomalie_id)
+                    .with_for_update(of=AnomalieLogistique)
+                    .first()
+                )
+                if anomalie is None:
+                    raise DispatchNotFoundError("Anomalie introuvable.")
+                if anomalie.resolved_at is not None:
+                    raise DispatchServiceError("Cette anomalie est deja resolue.")
+
+                commande = anomalie.commande
+                if commande is None:
+                    raise DispatchNotFoundError("Commande de l'anomalie introuvable.")
+
+                actor_id = int(commande.livreur_id or admin_id)
+                changer_statut(
+                    session=session,
+                    commande=commande,
+                    nouveau_statut=nouveau_statut,
+                    actor_id=actor_id,
+                    reason=f"ANOMALIE_{resolution}",
+                )
+                commande.tournee_id = None
+                commande.ordre_passage = None
+                commande.livreur_id = None
+
+                anomalie.resolved_at = datetime.now(timezone.utc)
+                anomalie.resolved_by = admin_id
+                anomalie.resolution = resolution
+
+            return {
+                "status": "success",
+                "anomalie_id": anomalie_id,
+                "commande_id": int(commande.id),
+                "resolution": resolution,
+                "nouveau_statut": nouveau_statut,
+            }
+        except CommandeTransitionError as exc:
+            if self._owns_session:
+                session.rollback()
+            raise DispatchServiceError(str(exc)) from exc
         except Exception:
             if self._owns_session:
                 session.rollback()
@@ -278,7 +382,69 @@ class DispatchService(IDispatchService):
             "date_commande": commande.date_commande.isoformat() if commande.date_commande else None,
             "mode_paiement": str(commande.mode_paiement) if commande.mode_paiement else None,
             "adresse": self._serialize_address(address),
+            "retour_depot_at": commande.retour_depot_at.isoformat() if commande.retour_depot_at else None,
+            "produits": self._serialize_commande_products(commande),
         }
+
+    def _get_anomalies_non_resolues(self, session: Session) -> list[AnomalieLogistique]:
+        return (
+            session.query(AnomalieLogistique)
+            .options(
+                joinedload(AnomalieLogistique.commande)
+                .joinedload(Commande.client),
+                joinedload(AnomalieLogistique.commande)
+                .joinedload(Commande.livreur)
+                .joinedload(Livreur.user),
+                joinedload(AnomalieLogistique.commande)
+                .joinedload(Commande.panier)
+                .selectinload(Panier.lignes)
+                .joinedload(LignePanier.produit),
+            )
+            .filter(AnomalieLogistique.resolved_at.is_(None))
+            .order_by(AnomalieLogistique.detected_at.desc(), AnomalieLogistique.id.desc())
+            .all()
+        )
+
+    def _serialize_anomalie(self, anomalie: AnomalieLogistique) -> dict[str, Any]:
+        commande = anomalie.commande
+        livreur = commande.livreur if commande and commande.livreur else None
+        livreur_user = livreur.user if livreur and livreur.user else None
+        detected_at = anomalie.detected_at
+        return {
+            "id": int(anomalie.id),
+            "commande_id": int(anomalie.commande_id),
+            "type_anomalie": str(anomalie.type_anomalie),
+            "detected_at": detected_at.isoformat() if detected_at else None,
+            "resolved_at": anomalie.resolved_at.isoformat() if anomalie.resolved_at else None,
+            "resolution": str(anomalie.resolution) if anomalie.resolution else None,
+            "date_tournee_ratee": detected_at.date().isoformat() if detected_at else None,
+            "livreur_defaillant": {
+                "user_id": int(livreur.user_id) if livreur and livreur.user_id is not None else None,
+                "nom": self._build_user_label(livreur_user, prefix="Livreur"),
+                "email": str(livreur_user.email) if livreur_user and livreur_user.email else None,
+                "phone": str(livreur_user.phone) if livreur_user and livreur_user.phone else None,
+                "vehicule": str(livreur.vehicule) if livreur and livreur.vehicule else None,
+                "disponible": bool(livreur.disponible) if livreur and livreur.disponible is not None else None,
+                "note_moyenne": float(livreur.note_moyenne) if livreur and livreur.note_moyenne is not None else None,
+            },
+            "commande": self._serialize_commande(commande) if commande else None,
+        }
+
+    def _serialize_commande_products(self, commande: Commande) -> list[dict[str, Any]]:
+        lignes = list(commande.panier.lignes) if commande.panier and commande.panier.lignes else []
+        produits = []
+        for ligne in lignes:
+            produit = ligne.produit
+            produits.append(
+                {
+                    "ligne_panier_id": int(ligne.id) if ligne.id is not None else None,
+                    "product_id": int(ligne.produit_id) if ligne.produit_id is not None else None,
+                    "nom_fr": str(produit.nom_fr) if produit else "Produit supprime",
+                    "quantite_kg": float(ligne.quantite_kg or 0.0),
+                    "sous_total": float(ligne.sous_total) if ligne.sous_total is not None else None,
+                }
+            )
+        return produits
 
     def _build_user_label(self, user, prefix: str) -> str:
         if user and user.email:

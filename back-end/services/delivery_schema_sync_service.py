@@ -14,6 +14,7 @@ ALLOWED_COMMANDE_STATUSES = (
     "ABSENT",
     "REFUS",
     "ANNULEE",
+    "RETOUR_DEPOT",
 )
 
 
@@ -43,6 +44,7 @@ class DeliverySchemaSyncService:
                         WHEN upper(btrim(statut)) = 'ABSENT' THEN 'ABSENT'
                         WHEN upper(btrim(statut)) IN ('REFUS', 'REFUSE', 'REFUSÉ', 'REFUSÉE', 'REFUSÃ‰', 'REFUSÃ‰E', 'REFUSED') THEN 'REFUS'
                         WHEN upper(btrim(statut)) IN ('ANNULE', 'ANNULEE', 'ANNULÉ', 'ANNULÉE', 'ANNULÃ‰', 'ANNULÃ‰E', 'CANCELLED', 'CANCELED') THEN 'ANNULEE'
+                        WHEN upper(btrim(statut)) IN ('RETOUR_DEPOT', 'RETOUR DEPOT') THEN 'RETOUR_DEPOT'
                         ELSE upper(replace(btrim(statut), ' ', '_'))
                     END
                     """
@@ -56,6 +58,7 @@ class DeliverySchemaSyncService:
                     ADD COLUMN IF NOT EXISTS enroute_at TIMESTAMPTZ NULL,
                     ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ NULL,
                     ADD COLUMN IF NOT EXISTS absent_at TIMESTAMPTZ NULL,
+                    ADD COLUMN IF NOT EXISTS retour_depot_at TIMESTAMPTZ NULL,
                     ADD COLUMN IF NOT EXISTS payment_validated BOOLEAN DEFAULT false,
                     ADD COLUMN IF NOT EXISTS client_history_deleted BOOLEAN DEFAULT false,
                     ADD COLUMN IF NOT EXISTS status_version INTEGER
@@ -104,6 +107,38 @@ class DeliverySchemaSyncService:
             )
             connection.execute(text("ALTER TABLE t_commandes ALTER COLUMN status_version SET DEFAULT 1"))
             connection.execute(text("ALTER TABLE t_commandes ALTER COLUMN status_version SET NOT NULL"))
+            connection.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS t_anomalies_logistiques (
+                        id            SERIAL PRIMARY KEY,
+                        commande_id   INTEGER NOT NULL REFERENCES t_commandes(id),
+                        type_anomalie VARCHAR NOT NULL,
+                        detected_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+                        resolved_at   TIMESTAMPTZ NULL,
+                        resolved_by   INTEGER NULL REFERENCES t_users(id),
+                        resolution    VARCHAR NULL CHECK (resolution IN ('REPLANIFIE', 'ANNULE_PERTE') OR resolution IS NULL)
+                    )
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_anomalies_commande_id
+                    ON t_anomalies_logistiques(commande_id)
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_anomalies_non_resolues
+                    ON t_anomalies_logistiques(resolved_at)
+                    WHERE resolved_at IS NULL
+                    """
+                )
+            )
 
             invalid_statuses = [
                 row[0]
