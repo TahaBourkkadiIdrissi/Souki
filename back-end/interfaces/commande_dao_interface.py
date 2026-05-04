@@ -65,7 +65,7 @@ class ICommandeVocaleDao(ABC):
 
     @abstractmethod
     def get_commandes_non_assignees(self, session: Session) -> List[Commande]:
-        """Retourne les commandes confirmees non rattachees a une tournee."""
+        """Retourne les commandes verrouillees non rattachees a une tournee."""
         pass
 
     @abstractmethod

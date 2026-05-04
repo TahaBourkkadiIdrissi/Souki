@@ -15,7 +15,7 @@ class IJITService(ABC):
         pass
 
     @abstractmethod
-    def verrouiller_commandes(self, session: Session) -> int:
+    def verrouiller_commandes(self, session: Session, actor_id: int = 0) -> int:
         """
         Verrouille toutes les commandes en statut 'Confirmée'.
         Retourne le nombre de commandes verrouillées.
@@ -23,7 +23,7 @@ class IJITService(ABC):
         pass
 
     @abstractmethod
-    def executer_job_jit(self, session: Session) -> JITLogDTO:
+    def executer_job_jit(self, session: Session, actor_id: int = 0) -> JITLogDTO:
         """
         Exécute le job JIT complet :
         1. Agrège les commandes

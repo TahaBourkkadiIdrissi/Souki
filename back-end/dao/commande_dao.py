@@ -423,11 +423,13 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                 joinedload(Commande.client)
                 .joinedload(Client.user)
                 .selectinload(User.addresses),
-                selectinload(Commande.panier).selectinload(Panier.lignes),
+                selectinload(Commande.panier)
+                .selectinload(Panier.lignes)
+                .joinedload(LignePanier.produit),
                 with_loader_criteria(Address, Address.is_default.is_(True), include_aliases=True),
             )
             .filter(
-                func.upper(func.coalesce(Commande.statut, "")) == "CONFIRMEE",
+                func.upper(func.coalesce(Commande.statut, "")) == "VERROUILLEE",
                 Commande.tournee_id.is_(None),
             )
             .order_by(Commande.date_commande.asc(), Commande.id.asc())
@@ -443,8 +445,6 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
             values = {
                 "tournee_id": update_data["tournee_id"],
                 "ordre_passage": update_data["ordre_passage"],
-                "statut": update_data.get("statut", "A_LIVRER"),
-                "status_version": func.coalesce(Commande.status_version, 1) + 1,
             }
             if "livreur_id" in update_data:
                 values["livreur_id"] = update_data["livreur_id"]
@@ -576,11 +576,9 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
         )
 
     def annuler_commande_cod(self, session: Session, commande: Commande) -> None:
-        commande.statut = "ANNULEE"
         commande.livreur_id = None
         commande.tournee_id = None
         commande.ordre_passage = None
-        commande.status_version = int(commande.status_version or 1) + 1
         session.flush()
 
     def _build_commande_historique_dto(self, commande: Commande) -> CommandeHistoriqueDTO:
