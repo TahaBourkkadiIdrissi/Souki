@@ -8,12 +8,15 @@ from jose import JWTError, jwt
 from auth_dependencies import require_permission
 from config import ALGORITHM, LocalSession, SECRET_KEY
 from dao.livreur_dao import LivreurDaoBD
-from dependencies import get_blacklist_service
+from dependencies import get_blacklist_service, get_client_admin_service
+from dto.client_admin_dto import AdminClientsPageDTO
 from dto.client_blacklist_dto import BlacklistReportDTO, ClientBlacklistDTO, LiftBlacklistDTO
+from interfaces.client_admin_service_interface import IClientAdminService
 from interfaces.client_blacklist_service_interface import IClientBlacklistService
 from services.authorization_service import AuthorizationService
 
 admin_router = APIRouter(prefix="/admin", tags=["Admin"])
+api_admin_router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
 
 def _parse_since_cursor(raw_value: str | None) -> datetime | None:
@@ -116,6 +119,27 @@ def get_blacklisted_clients(
     session = LocalSession()
     try:
         return service.get_blacklisted_clients(session)
+    finally:
+        session.close()
+
+
+@api_admin_router.get("/clients", response_model=AdminClientsPageDTO)
+def get_admin_clients(
+    search: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    blacklisted: bool | None = Query(default=None),
+    principal=Depends(require_permission("admin.panel.access", "clients.read")),
+    service: IClientAdminService = Depends(get_client_admin_service),
+):
+    _ = principal
+    session = LocalSession()
+    try:
+        return service.get_clients_page(
+            session,
+            search=search,
+            page=page,
+            blacklisted=blacklisted,
+        )
     finally:
         session.close()
 

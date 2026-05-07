@@ -5,6 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, aliased
 
 from dto.client_blacklist_dto import (
+    BlacklistCommandeRefuseeDTO,
     BlacklistParClientDTO,
     BlacklistParLivreurDTO,
     BlacklistParQuartierDTO,
@@ -73,6 +74,9 @@ class ClientBlacklistDaoBD(IClientBlacklistDao):
                 ClientBlacklistLog.reason.label("motif"),
                 ClientBlacklistLog.source.label("source"),
                 ClientBlacklistLog.commande_id.label("commande_id"),
+                Commande.statut.label("commande_statut"),
+                Commande.date_commande.label("commande_date"),
+                func.coalesce(Commande.montant_total, 0).label("montant_perdu"),
                 livreur_user.email.label("livreur_email"),
                 livreur_user.phone.label("livreur_phone"),
                 admin_user.email.label("admin_email"),
@@ -85,6 +89,7 @@ class ClientBlacklistDaoBD(IClientBlacklistDao):
             )
             .join(Client, Client.user_id == ClientBlacklistLog.client_id)
             .join(User, User.id == Client.user_id)
+            .outerjoin(Commande, Commande.id == ClientBlacklistLog.commande_id)
             .outerjoin(Livreur, Livreur.user_id == ClientBlacklistLog.livreur_id)
             .outerjoin(livreur_user, livreur_user.id == Livreur.user_id)
             .outerjoin(admin_user, admin_user.id == ClientBlacklistLog.admin_id)
@@ -104,6 +109,9 @@ class ClientBlacklistDaoBD(IClientBlacklistDao):
                 source=row.source,
                 livreur_nom=row.livreur_email or row.livreur_phone,
                 commande_id=int(row.commande_id) if row.commande_id is not None else None,
+                commande_statut=row.commande_statut,
+                commande_date=row.commande_date,
+                montant_perdu=float(row.montant_perdu or 0.0),
                 admin_nom=row.admin_email or row.admin_phone,
             )
             for row in rows
@@ -125,6 +133,14 @@ class ClientBlacklistDaoBD(IClientBlacklistDao):
             .filter(*base_filters)
             .scalar()
             or 0
+        )
+        total_perte = float(
+            session.query(func.coalesce(func.sum(Commande.montant_total), 0))
+            .select_from(ClientBlacklistLog)
+            .outerjoin(Commande, Commande.id == ClientBlacklistLog.commande_id)
+            .filter(*base_filters)
+            .scalar()
+            or 0.0
         )
 
         par_client_rows = (
@@ -186,10 +202,48 @@ class ClientBlacklistDaoBD(IClientBlacklistDao):
             .all()
         )
 
+        commande_address_subquery = (
+            session.query(
+                Address.user_id.label("user_id"),
+                func.max(Address.id).label("address_id"),
+            )
+            .group_by(Address.user_id)
+            .subquery()
+        )
+
+        commandes_refusees_rows = (
+            session.query(
+                ClientBlacklistLog.id.label("log_id"),
+                ClientBlacklistLog.commande_id.label("commande_id"),
+                ClientBlacklistLog.client_id.label("client_id"),
+                ClientBlacklistLog.created_at.label("date_refus"),
+                ClientBlacklistLog.reason.label("motif"),
+                User.email.label("client_email"),
+                User.phone.label("client_phone"),
+                Commande.date_commande.label("date_commande"),
+                Commande.statut.label("statut_commande"),
+                func.coalesce(Commande.montant_total, 0).label("montant_perdu"),
+                livreur_user.email.label("livreur_email"),
+                livreur_user.phone.label("livreur_phone"),
+                Address.neighborhood.label("quartier"),
+            )
+            .select_from(ClientBlacklistLog)
+            .join(User, User.id == ClientBlacklistLog.client_id)
+            .outerjoin(Commande, Commande.id == ClientBlacklistLog.commande_id)
+            .outerjoin(Livreur, Livreur.user_id == ClientBlacklistLog.livreur_id)
+            .outerjoin(livreur_user, livreur_user.id == Livreur.user_id)
+            .outerjoin(commande_address_subquery, commande_address_subquery.c.user_id == ClientBlacklistLog.client_id)
+            .outerjoin(Address, Address.id == commande_address_subquery.c.address_id)
+            .filter(*base_filters)
+            .order_by(ClientBlacklistLog.created_at.desc(), ClientBlacklistLog.id.desc())
+            .all()
+        )
+
         return BlacklistReportDTO(
             mois=month,
             annee=year,
             total_refus=total_refus,
+            total_perte=total_perte,
             par_client=[
                 BlacklistParClientDTO(
                     client_id=int(row.client_id),
@@ -215,6 +269,23 @@ class ClientBlacklistDaoBD(IClientBlacklistDao):
                     montant_perdu=float(row.montant_perdu or 0.0),
                 )
                 for row in par_quartier_rows
+            ],
+            commandes_refusees=[
+                BlacklistCommandeRefuseeDTO(
+                    log_id=int(row.log_id),
+                    commande_id=int(row.commande_id) if row.commande_id is not None else None,
+                    client_id=int(row.client_id),
+                    client_label=row.client_email or row.client_phone,
+                    phone=row.client_phone,
+                    date_refus=row.date_refus,
+                    date_commande=row.date_commande,
+                    statut_commande=row.statut_commande,
+                    montant_perdu=float(row.montant_perdu or 0.0),
+                    livreur_nom=row.livreur_email or row.livreur_phone,
+                    quartier=row.quartier,
+                    motif=row.motif,
+                )
+                for row in commandes_refusees_rows
             ],
         )
 

@@ -1,6 +1,7 @@
 from fastapi import Depends
 
 from dao.claim_dao import ClaimDaoBD
+from dao.client_admin_dao import ClientAdminDaoBD
 from dao.client_blacklist_dao import ClientBlacklistDaoBD
 from dao.checkout_dao import CheckoutDaoBD
 from dao.cod_confirmation_log_dao import CODConfirmationLogDaoBD
@@ -14,6 +15,8 @@ from dao.tournee_dao import TourneeDaoBD
 from interfaces.catalogue_service_interface import ICatalogueService
 from interfaces.claim_dao_interface import IClaimDao
 from interfaces.claim_service_interface import IClaimService
+from interfaces.client_admin_dao_interface import IClientAdminDao
+from interfaces.client_admin_service_interface import IClientAdminService
 from interfaces.client_blacklist_dao_interface import IClientBlacklistDao
 from interfaces.client_blacklist_service_interface import IClientBlacklistService
 from interfaces.checkout_dao_interface import ICheckoutDao
@@ -35,6 +38,7 @@ from interfaces.souki_wallet_service_interface import ISoukiWalletService
 from interfaces.tournee_dao_interface import ITourneeDao
 from services.catalogue_service import CatalogueService
 from services.claim_service import ClaimService
+from services.client_admin_service import ClientAdminService
 from services.client_blacklist_service import ClientBlacklistService
 from services.checkout_service import CheckoutService
 from services.cod_confirmation_service import CODConfirmationService
@@ -56,6 +60,10 @@ def get_claim_dao() -> IClaimDao:
 
 def get_blacklist_dao() -> IClientBlacklistDao:
     return ClientBlacklistDaoBD()
+
+
+def get_client_admin_dao() -> IClientAdminDao:
+    return ClientAdminDaoBD()
 
 
 def get_commande_dao() -> ICommandeVocaleDao:
@@ -106,6 +114,12 @@ def get_blacklist_service(
     blacklist_dao: IClientBlacklistDao = Depends(get_blacklist_dao)
 ) -> IClientBlacklistService:
     return ClientBlacklistService(blacklist_dao)
+
+
+def get_client_admin_service(
+    client_admin_dao: IClientAdminDao = Depends(get_client_admin_dao)
+) -> IClientAdminService:
+    return ClientAdminService(client_admin_dao)
 
 
 def get_voice_service(

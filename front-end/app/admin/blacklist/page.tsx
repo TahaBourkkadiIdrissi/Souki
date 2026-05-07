@@ -5,6 +5,7 @@ import Link from "next/link"
 import {
   ArrowLeft,
   BarChart3,
+  Banknote,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
@@ -303,6 +304,10 @@ export default function AdminBlacklistPage() {
   }, [loadClients])
 
   useEffect(() => {
+    void loadReport()
+  }, [loadReport])
+
+  useEffect(() => {
     if (!toast) {
       return
     }
@@ -338,22 +343,12 @@ export default function AdminBlacklistPage() {
     }).length
   }, [clients, month, year])
 
-  const liftedThisMonth = useMemo(() => {
-    return clients.filter((client) => {
-      if ((client.source || "").toUpperCase() !== "LIFTED" || !client.date_blacklist) {
-        return false
-      }
-      const date = new Date(client.date_blacklist)
-      return date.getFullYear() === year && date.getMonth() + 1 === month
-    }).length
-  }, [clients, month, year])
-
-  const refusalRate = useMemo(() => {
-    if (!report?.total_refus) {
-      return "0%"
+  const totalPerte = useMemo(() => {
+    if (report) {
+      return report.total_perte
     }
-    return `${Math.round((newThisMonth / report.total_refus) * 100)}%`
-  }, [newThisMonth, report?.total_refus])
+    return clients.reduce((sum, client) => sum + (client.montant_perdu || 0), 0)
+  }, [clients, report])
 
   const hasReportData = Boolean(
     report &&
@@ -484,9 +479,9 @@ export default function AdminBlacklistPage() {
 
         <section className="grid grid-cols-1 gap-4 border-b border-gray-100 bg-white px-6 py-4 sm:grid-cols-2 xl:grid-cols-4">
           <KpiCard icon={UserX} label="Blacklistes" value={clients.length} helper="Total actif" tone="red" />
-          <KpiCard icon={CalendarDays} label="Ce mois" value={newThisMonth} helper={`${monthLabels[month - 1]} ${year}`} tone="orange" />
-          <KpiCard icon={ShieldCheck} label="Leves" value={liftedThisMonth} helper="Ce mois" tone="green" />
-          <KpiCard icon={BarChart3} label="Taux refus" value={refusalRate} helper="Blacklistes / refus" tone="blue" />
+          <KpiCard icon={CalendarDays} label="Refus ce mois" value={report?.total_refus ?? newThisMonth} helper={`${monthLabels[month - 1]} ${year}`} tone="orange" />
+          <KpiCard icon={Banknote} label="Perte totale" value={formatMoney(totalPerte)} helper="Montant en DH" tone="green" />
+          <KpiCard icon={BarChart3} label="Commandes refusees" value={report?.commandes_refusees.length ?? 0} helper="Rapport selectionne" tone="blue" />
         </section>
 
         <div className="px-6 py-6">
@@ -523,7 +518,7 @@ export default function AdminBlacklistPage() {
                 </div>
 
                 {isLoadingClients ? (
-                  <TableSkeleton columns={6} />
+                  <TableSkeleton columns={8} />
                 ) : filteredClients.length === 0 ? (
                   <EmptyState
                     icon={CheckCircle2}
@@ -539,6 +534,8 @@ export default function AdminBlacklistPage() {
                           <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Telephone</th>
                           <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Date</th>
                           <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Source</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Commande refusee</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Perte</th>
                           <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Livreur</th>
                           <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Actions</th>
                         </tr>
@@ -563,6 +560,16 @@ export default function AdminBlacklistPage() {
                                 <span className="text-xs text-gray-400">{emptyValue(client.motif)}</span>
                               </div>
                             </td>
+                            <td className="px-5 py-4 text-sm text-gray-700">
+                              <div className="flex flex-col gap-1">
+                                <span className="font-semibold text-[#1E8A3C]">
+                                  {client.commande_id ? `#${client.commande_id}` : "-"}
+                                </span>
+                                <span className="text-xs text-gray-400">{formatDate(client.commande_date)}</span>
+                                {client.commande_statut ? <span className="text-xs text-gray-400">{client.commande_statut}</span> : null}
+                              </div>
+                            </td>
+                            <td className="px-5 py-4 text-sm font-semibold text-[#F07C00]">{formatMoney(client.montant_perdu)}</td>
                             <td className="px-5 py-4 text-sm text-gray-700">{emptyValue(client.livreur_nom)}</td>
                             <td className="px-5 py-4 text-sm text-gray-700">
                               <button
@@ -625,7 +632,7 @@ export default function AdminBlacklistPage() {
                       className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1E8A3C] px-4 py-2 text-sm font-medium text-white transition-all duration-150 hover:bg-[#176B2E] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {isLoadingReport ? <Loader2 className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
-                      Generer
+                      Actualiser
                       {!isLoadingReport ? <ChevronRight className="h-4 w-4" /> : null}
                     </button>
                   </div>
@@ -639,7 +646,7 @@ export default function AdminBlacklistPage() {
                       <div className="flex items-center gap-3">
                         <TriangleAlert className="h-5 w-5" />
                         <p className="font-semibold">
-                          {report.total_refus} refus COD sur {monthLabels[report.mois - 1]} {report.annee}
+                          {report.total_refus} refus COD sur {monthLabels[report.mois - 1]} {report.annee} - perte totale {formatMoney(report.total_perte)}
                         </p>
                       </div>
                     </div>
@@ -675,12 +682,33 @@ export default function AdminBlacklistPage() {
                         ))}
                       </ReportTable>
                     </div>
+
+                    <ReportTable
+                      title="Commandes refusees"
+                      icon={FileBarChart}
+                      columns={["Commande", "Client", "Telephone", "Date refus", "Livreur", "Quartier", "Motif", "Perte"]}
+                    >
+                      {report.commandes_refusees.map((row) => (
+                        <tr key={row.log_id} className="transition-colors duration-100 hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm font-semibold text-[#1E8A3C]">
+                            {row.commande_id ? `#${row.commande_id}` : "-"}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-950">{emptyValue(row.client_label || `Client #${row.client_id}`)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{emptyValue(row.phone)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{formatDate(row.date_refus)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{emptyValue(row.livreur_nom)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{emptyValue(row.quartier || "Sans quartier")}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{emptyValue(row.motif)}</td>
+                          <td className="px-4 py-3 text-sm font-semibold text-[#F07C00]">{formatMoney(row.montant_perdu)}</td>
+                        </tr>
+                      ))}
+                    </ReportTable>
                   </div>
                 ) : (
                   <EmptyState
                     icon={BarChart3}
                     title="Aucune donnee pour cette periode"
-                    description="Selectionnez un mois et cliquez sur Generer pour afficher le rapport."
+                    description="Selectionnez un mois pour afficher son rapport, puis actualisez si besoin."
                   />
                 )}
               </SectionShell>

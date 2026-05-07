@@ -43,7 +43,8 @@ import {
 const adminNavItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/admin", active: true },
   { icon: Package, label: "Commandes du jour", href: "/admin/orders" },
-  { icon: Users, label: "Clients & Blacklist", href: "/admin/blacklist" },
+  { icon: Users, label: "Clients", href: "/admin/clients" },
+  { icon: AlertTriangle, label: "Blacklist COD", href: "/admin/blacklist" },
   { icon: Truck, label: "Logistique & Livreurs", href: "/admin/livreur" },
   { icon: ShoppingBasket, label: "Gestion Produits & Prix", href: "/admin/produits" },
   { icon: BarChart3, label: "Analytics", href: "/admin/analytics" },
@@ -55,6 +56,7 @@ const adminNavItems = [
 const adminNavPermissions: Record<string, string> = {
   "/admin": "admin.panel.access",
   "/admin/orders": "orders.read",
+  "/admin/clients": "clients.read",
   "/admin/blacklist": "clients.blacklist",
   "/admin/livreur": "admin.panel.access",
   "/admin/produits": "products.manage",

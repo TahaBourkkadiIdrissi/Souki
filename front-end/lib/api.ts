@@ -358,7 +358,30 @@ export interface ClientBlacklistDTO {
   source: string | null
   livreur_nom: string | null
   commande_id: number | null
+  commande_statut: string | null
+  commande_date: string | null
+  montant_perdu: number
   admin_nom: string | null
+}
+
+export interface AdminClientDTO {
+  client_id: number
+  email: string | null
+  phone: string | null
+  nb_commandes: number
+  montant_total: number
+  mode_paiement_favori: string | null
+  is_blacklisted: boolean
+  date_inscription: string | null
+}
+
+export interface AdminClientsPageDTO {
+  items: AdminClientDTO[]
+  total: number
+  total_commandes: number
+  page: number
+  page_size: number
+  total_pages: number
 }
 
 export interface BlacklistParClientDTO {
@@ -381,13 +404,30 @@ export interface BlacklistParQuartierDTO {
   montant_perdu: number
 }
 
+export interface BlacklistCommandeRefuseeDTO {
+  log_id: number
+  commande_id: number | null
+  client_id: number
+  client_label: string | null
+  phone: string | null
+  date_refus: string | null
+  date_commande: string | null
+  statut_commande: string | null
+  montant_perdu: number
+  livreur_nom: string | null
+  quartier: string | null
+  motif: string | null
+}
+
 export interface BlacklistReportDTO {
   mois: number
   annee: number
   total_refus: number
+  total_perte: number
   par_client: BlacklistParClientDTO[]
   par_livreur: BlacklistParLivreurDTO[]
   par_quartier: BlacklistParQuartierDTO[]
+  commandes_refusees: BlacklistCommandeRefuseeDTO[]
 }
 
 export interface LiftBlacklistDTO {
@@ -580,6 +620,30 @@ export async function getAlerteCOD18h(token: string) {
 
 export async function getBlacklistedClients(token: string) {
   return apiCall<ClientBlacklistDTO[]>("/admin/blacklist", { token })
+}
+
+export async function getAdminClients(
+  token: string,
+  params: {
+    search?: string
+    page?: number
+    blacklisted?: boolean
+  } = {},
+  signal?: AbortSignal
+) {
+  const query = new URLSearchParams()
+  if (params.search) {
+    query.set("search", params.search)
+  }
+  if (params.page) {
+    query.set("page", String(params.page))
+  }
+  if (typeof params.blacklisted === "boolean") {
+    query.set("blacklisted", String(params.blacklisted))
+  }
+
+  const suffix = query.toString() ? `?${query.toString()}` : ""
+  return apiCall<AdminClientsPageDTO>(`/api/admin/clients${suffix}`, { token, signal })
 }
 
 export async function liftBlacklist(

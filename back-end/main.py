@@ -10,7 +10,7 @@ from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
 import entities
 from config import Base, engine
-from controllers.admin_controller import admin_router
+from controllers.admin_controller import admin_router, api_admin_router
 from controllers.auth_controller import auth_router
 from controllers.catalogue_controller import router_catalogue
 from controllers.claim_controller import claim_router
@@ -131,6 +131,7 @@ app.include_router(dispatch_router)
 app.include_router(router_jit)
 app.include_router(router_livreur)
 app.include_router(admin_router)
+app.include_router(api_admin_router)
 
 
 if __name__ == "__main__":
