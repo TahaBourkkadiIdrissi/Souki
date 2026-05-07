@@ -442,38 +442,51 @@ export interface DashboardCurvePointDTO {
 export interface DashboardStatusDTO {
   statut: string
   count: number
+  pourcentage: number
 }
 
 export interface DashboardPaymentDTO {
   mode: string
   count: number
   montant: number
+  pourcentage: number
 }
 
 export interface DashboardDTO {
+  periode: DashboardPeriod
+  date_debut: string
+  date_fin: string
+  derniere_maj: string
   total_commandes: number
+  total_commandes_precedent: number
   commandes_livrees: number
+  commandes_livrees_precedent: number
   commandes_en_route: number
   commandes_annulees: number
   commandes_absentes: number
+  commandes_confirmees: number
   taux_livraison: number
   ca_total: number
+  ca_total_precedent: number
   ca_cod: number
   ca_wallet: number
   ca_cmi: number
+  ca_cash: number
+  panier_moyen: number
   total_clients_actifs: number
   nouveaux_clients: number
   clients_blacklistes: number
   dernier_jit_statut: string | null
   dernier_jit_volume: number
+  dernier_jit_nb_commandes: number
   dernier_jit_date: string | null
   livreurs_disponibles: number
   tournees_actives: number
   cod_confirmes: number
   cod_annules: number
+  taux_confirmation_cod: number
   nouveaux_blacklistes: number
   blacklists_leves: number
-  total_soldes_wallets: number
   courbe_ca: DashboardCurvePointDTO[]
   repartition_statuts: DashboardStatusDTO[]
   repartition_paiements: DashboardPaymentDTO[]

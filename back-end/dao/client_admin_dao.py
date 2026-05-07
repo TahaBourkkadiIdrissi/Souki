@@ -1,3 +1,4 @@
+from datetime import datetime
 from math import ceil
 from typing import Dict, Optional
 
@@ -12,6 +13,44 @@ from interfaces.client_admin_dao_interface import IClientAdminDao
 
 
 class ClientAdminDaoBD(IClientAdminDao):
+
+    def count_active_clients(self, session: Session) -> int:
+        return int(
+            session.query(func.count(Client.user_id))
+            .join(User, User.id == Client.user_id)
+            .filter(
+                User.is_active.is_(True),
+                func.upper(func.coalesce(User.role, "")) == "CLIENT",
+            )
+            .scalar()
+            or 0
+        )
+
+    def count_new_clients(
+        self,
+        session: Session,
+        start_datetime: datetime,
+        end_datetime: datetime,
+    ) -> int:
+        return int(
+            session.query(func.count(Client.user_id))
+            .join(User, User.id == Client.user_id)
+            .filter(
+                User.created_at >= start_datetime,
+                User.created_at < end_datetime,
+                func.upper(func.coalesce(User.role, "")) == "CLIENT",
+            )
+            .scalar()
+            or 0
+        )
+
+    def count_blacklisted_clients(self, session: Session) -> int:
+        return int(
+            session.query(func.count(Client.user_id))
+            .filter(Client.is_blacklisted.is_(True))
+            .scalar()
+            or 0
+        )
 
     def get_clients_page(
         self,
