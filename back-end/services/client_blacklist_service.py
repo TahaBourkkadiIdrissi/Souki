@@ -21,7 +21,10 @@ class ClientBlacklistService(IClientBlacklistService):
         client_id: int,
         commande_id: int,
         livreur_id: int,
+        motif: Optional[str] = None,
     ) -> None:
+        motif = motif or "Refus de livraison"
+
         try:
             client = session.get(Client, client_id)
             if client is None:
@@ -37,7 +40,7 @@ class ClientBlacklistService(IClientBlacklistService):
                 action="BLACKLISTED",
                 source="AUTO_REFUS",
                 phone_snapshot=user.phone if user else None,
-                reason="Refus client",
+                reason=motif,
                 commande_id=commande_id,
                 livreur_id=livreur_id,
             )

@@ -8,11 +8,13 @@ from jose import JWTError, jwt
 from auth_dependencies import require_permission
 from config import ALGORITHM, LocalSession, SECRET_KEY
 from dao.livreur_dao import LivreurDaoBD
-from dependencies import get_blacklist_service, get_client_admin_service
+from dependencies import get_blacklist_service, get_client_admin_service, get_dashboard_service
 from dto.client_admin_dto import AdminClientsPageDTO
 from dto.client_blacklist_dto import BlacklistReportDTO, ClientBlacklistDTO, LiftBlacklistDTO
+from dto.dashboard_dto import DashboardDTO
 from interfaces.client_admin_service_interface import IClientAdminService
 from interfaces.client_blacklist_service_interface import IClientBlacklistService
+from interfaces.dashboard_service_interface import IDashboardService
 from services.authorization_service import AuthorizationService
 
 admin_router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -71,24 +73,18 @@ def get_admin_session(
     }
 
 
-@admin_router.get("/dashboard")
+@admin_router.get("/dashboard", response_model=DashboardDTO)
 def get_admin_dashboard_context(
-    principal=Depends(require_permission("admin.panel.access"))
+    periode: str = Query(default="today"),
+    principal=Depends(require_permission("admin.panel.access")),
+    service: IDashboardService = Depends(get_dashboard_service),
 ):
-    modules = {
-        "orders": principal.has_permission("orders.read"),
-        "dispatch": principal.has_permission("orders.assign_livreur"),
-        "products": principal.has_permission("products.manage") or principal.has_permission("products.read"),
-        "payments": principal.has_permission("payments.read"),
-        "stats": principal.has_permission("stats.read"),
-        "clients": principal.has_permission("clients.read"),
-        "blacklist": principal.has_permission("clients.blacklist"),
-    }
-    return {
-        "status": "ok",
-        "modules": modules,
-        "default_dashboard": principal.default_dashboard,
-    }
+    _ = principal
+    session = LocalSession()
+    try:
+        return service.get_dashboard(session, periode)
+    finally:
+        session.close()
 
 
 @admin_router.get("/deliveries/changes")

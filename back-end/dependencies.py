@@ -6,6 +6,7 @@ from dao.client_blacklist_dao import ClientBlacklistDaoBD
 from dao.checkout_dao import CheckoutDaoBD
 from dao.cod_confirmation_log_dao import CODConfirmationLogDaoBD
 from dao.commande_dao import CommandeVocaleDaoBD
+from dao.dashboard_dao import DashboardDaoBD
 from dao.notification_outbox_dao import NotificationOutboxDaoBD
 from dao.panier_dao import PanierDaoBD
 from dao.livreur_dao import LivreurDaoBD
@@ -25,6 +26,8 @@ from interfaces.cod_confirmation_log_dao_interface import ICODConfirmationLogDao
 from interfaces.cod_confirmation_service_interface import ICODConfirmationService
 from interfaces.commande_dao_interface import ICommandeVocaleDao
 from interfaces.commande_service_interface import ICommandeVocaleService
+from interfaces.dashboard_dao_interface import IDashboardDao
+from interfaces.dashboard_service_interface import IDashboardService
 from interfaces.dispatch_service_interface import IDispatchService
 from interfaces.livreur_dao_interface import ILivreurDao
 from interfaces.livreur_service_interface import ILivreurService
@@ -43,6 +46,7 @@ from services.client_blacklist_service import ClientBlacklistService
 from services.checkout_service import CheckoutService
 from services.cod_confirmation_service import CODConfirmationService
 from services.commande_service import CommandeVocaleService
+from services.dashboard_service import DashboardService
 from services.dispatch_service import DispatchService
 from services.livreur_service import LivreurService
 from services.notification_outbox_service import NotificationOutboxService
@@ -64,6 +68,10 @@ def get_blacklist_dao() -> IClientBlacklistDao:
 
 def get_client_admin_dao() -> IClientAdminDao:
     return ClientAdminDaoBD()
+
+
+def get_dashboard_dao() -> IDashboardDao:
+    return DashboardDaoBD()
 
 
 def get_commande_dao() -> ICommandeVocaleDao:
@@ -120,6 +128,12 @@ def get_client_admin_service(
     client_admin_dao: IClientAdminDao = Depends(get_client_admin_dao)
 ) -> IClientAdminService:
     return ClientAdminService(client_admin_dao)
+
+
+def get_dashboard_service(
+    dashboard_dao: IDashboardDao = Depends(get_dashboard_dao)
+) -> IDashboardService:
+    return DashboardService(dashboard_dao)
 
 
 def get_voice_service(

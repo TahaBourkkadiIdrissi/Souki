@@ -15,6 +15,7 @@ class IClientBlacklistService(ABC):
         client_id: int,
         commande_id: int,
         livreur_id: int,
+        motif: Optional[str] = None,
     ) -> None:
         """Blackliste automatiquement après refus livreur"""
         pass
