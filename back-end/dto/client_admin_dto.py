@@ -19,6 +19,7 @@ class AdminClientsPageDTO(BaseModel):
     items: List[AdminClientDTO]
     total: int
     total_commandes: int = 0
+    montant_total_global: float = 0.0
     page: int
     page_size: int
     total_pages: int

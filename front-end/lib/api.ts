@@ -379,6 +379,7 @@ export interface AdminClientsPageDTO {
   items: AdminClientDTO[]
   total: number
   total_commandes: number
+  montant_total_global: number
   page: number
   page_size: number
   total_pages: number
@@ -644,6 +645,18 @@ export async function getAdminClients(
 
   const suffix = query.toString() ? `?${query.toString()}` : ""
   return apiCall<AdminClientsPageDTO>(`/api/admin/clients${suffix}`, { token, signal })
+}
+
+export async function blacklistClient(
+  token: string,
+  clientId: number,
+  reason: string
+) {
+  return apiCall(`/admin/blacklist/${clientId}`, {
+    method: "PATCH",
+    token,
+    body: { reason },
+  })
 }
 
 export async function liftBlacklist(

@@ -29,7 +29,7 @@ class ClientBlacklistService(IClientBlacklistService):
 
             user = session.get(User, client_id)
             client.is_blacklisted = True
-            session.flush()
+            self.client_blacklist_dao.flush(session)
 
             self.client_blacklist_dao.create_log(
                 session=session,
@@ -40,6 +40,40 @@ class ClientBlacklistService(IClientBlacklistService):
                 reason="Refus client",
                 commande_id=commande_id,
                 livreur_id=livreur_id,
+            )
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+
+    def blacklist_manual(
+        self,
+        session: Session,
+        client_id: int,
+        admin_id: int,
+        reason: str,
+    ) -> None:
+        normalized_reason = (reason or "").strip()
+        if not normalized_reason:
+            raise HTTPException(status_code=400, detail="Motif obligatoire.")
+
+        try:
+            client = session.get(Client, client_id)
+            if client is None:
+                raise HTTPException(status_code=404, detail="Client introuvable.")
+
+            user = session.get(User, client_id)
+            client.is_blacklisted = True
+            self.client_blacklist_dao.flush(session)
+
+            self.client_blacklist_dao.create_log(
+                session=session,
+                client_id=client_id,
+                action="BLACKLISTED",
+                source="ADMIN",
+                phone_snapshot=user.phone if user else None,
+                reason=normalized_reason,
+                admin_id=admin_id,
             )
             session.commit()
         except Exception:
@@ -60,7 +94,7 @@ class ClientBlacklistService(IClientBlacklistService):
 
             user = session.get(User, client_id)
             client.is_blacklisted = False
-            session.flush()
+            self.client_blacklist_dao.flush(session)
 
             self.client_blacklist_dao.create_log(
                 session=session,

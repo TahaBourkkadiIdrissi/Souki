@@ -20,6 +20,17 @@ class IClientBlacklistService(ABC):
         pass
 
     @abstractmethod
+    def blacklist_manual(
+        self,
+        session: Session,
+        client_id: int,
+        admin_id: int,
+        reason: str,
+    ) -> None:
+        """Blackliste manuellement depuis le BO"""
+        pass
+
+    @abstractmethod
     def lift_blacklist(
         self,
         session: Session,

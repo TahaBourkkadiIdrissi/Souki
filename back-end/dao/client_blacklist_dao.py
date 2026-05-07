@@ -23,6 +23,9 @@ from interfaces.client_blacklist_dao_interface import IClientBlacklistDao
 
 class ClientBlacklistDaoBD(IClientBlacklistDao):
 
+    def flush(self, session: Session) -> None:
+        session.flush()
+
     def create_log(
         self,
         session: Session,

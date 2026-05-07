@@ -1,7 +1,7 @@
 from math import ceil
 from typing import Dict, Optional
 
-from sqlalchemy import String, cast, func, or_
+from sqlalchemy import String, and_, cast, func, or_
 from sqlalchemy.orm import Session
 
 from dto.client_admin_dto import AdminClientDTO, AdminClientsPageDTO
@@ -36,26 +36,33 @@ class ClientAdminDaoBD(IClientAdminDao):
         normalized_search = (search or "").strip()
         if normalized_search:
             search_like = f"%{normalized_search}%"
-            query = query.filter(
-                or_(
-                    User.email.ilike(search_like),
-                    User.phone.ilike(search_like),
-                    cast(Client.user_id, String).ilike(search_like),
-                )
-            )
+            search_filters = [
+                User.email.ilike(search_like),
+                User.phone.ilike(search_like),
+                cast(Client.user_id, String).ilike(search_like),
+            ]
+            first_name_column = getattr(User, "first_name", None)
+            last_name_column = getattr(User, "last_name", None)
+            if first_name_column is not None:
+                search_filters.append(first_name_column.ilike(search_like))
+            if last_name_column is not None:
+                search_filters.append(last_name_column.ilike(search_like))
+            query = query.filter(or_(*search_filters))
 
         if blacklisted is not None:
             query = query.filter(Client.is_blacklisted.is_(blacklisted))
 
         total = int(query.count() or 0)
         filtered_client_ids_subquery = query.with_entities(Client.user_id.label("client_id")).subquery()
-        total_commandes = int(
+        totals_row = (
             session.query(func.count(Commande.id))
+            .add_columns(func.coalesce(func.sum(Commande.montant_total), 0))
             .join(filtered_client_ids_subquery, filtered_client_ids_subquery.c.client_id == Commande.client_id)
             .filter(func.upper(func.coalesce(Commande.statut, "")) != "BROUILLON")
-            .scalar()
-            or 0
+            .one()
         )
+        total_commandes = int(totals_row[0] or 0)
+        montant_total_global = float(totals_row[1] or 0.0)
         rows = (
             query.order_by(User.created_at.desc(), Client.user_id.desc())
             .offset((page - 1) * page_size)
@@ -83,6 +90,7 @@ class ClientAdminDaoBD(IClientAdminDao):
             ],
             total=total,
             total_commandes=total_commandes,
+            montant_total_global=montant_total_global,
             page=page,
             page_size=page_size,
             total_pages=ceil(total / page_size) if total else 0,
@@ -118,7 +126,7 @@ class ClientAdminDaoBD(IClientAdminDao):
             return {}
 
         count_label = func.count(Commande.id).label("mode_count")
-        rows = (
+        payment_counts_subquery = (
             session.query(
                 Commande.client_id.label("client_id"),
                 Commande.mode_paiement.label("mode_paiement"),
@@ -128,7 +136,29 @@ class ClientAdminDaoBD(IClientAdminDao):
             .filter(Commande.mode_paiement.isnot(None))
             .filter(func.upper(func.coalesce(Commande.statut, "")) != "BROUILLON")
             .group_by(Commande.client_id, Commande.mode_paiement)
-            .order_by(Commande.client_id.asc(), count_label.desc(), Commande.mode_paiement.asc())
+            .subquery()
+        )
+        max_counts_subquery = (
+            session.query(
+                payment_counts_subquery.c.client_id.label("client_id"),
+                func.max(payment_counts_subquery.c.mode_count).label("max_mode_count"),
+            )
+            .group_by(payment_counts_subquery.c.client_id)
+            .subquery()
+        )
+        rows = (
+            session.query(
+                payment_counts_subquery.c.client_id.label("client_id"),
+                payment_counts_subquery.c.mode_paiement.label("mode_paiement"),
+            )
+            .join(
+                max_counts_subquery,
+                and_(
+                    max_counts_subquery.c.client_id == payment_counts_subquery.c.client_id,
+                    max_counts_subquery.c.max_mode_count == payment_counts_subquery.c.mode_count,
+                ),
+            )
+            .order_by(payment_counts_subquery.c.client_id.asc(), payment_counts_subquery.c.mode_paiement.asc())
             .all()
         )
 

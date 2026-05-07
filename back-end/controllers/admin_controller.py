@@ -159,6 +159,21 @@ def get_monthly_report(
         session.close()
 
 
+@admin_router.patch("/blacklist/{client_id}")
+def blacklist_client_manual(
+    client_id: int,
+    payload: LiftBlacklistDTO,
+    principal=Depends(require_permission("admin.panel.access", "clients.blacklist")),
+    service: IClientBlacklistService = Depends(get_blacklist_service),
+):
+    session = LocalSession()
+    try:
+        service.blacklist_manual(session, client_id, principal.user_id, payload.reason or "")
+        return {"message": "Client blackliste avec succes"}
+    finally:
+        session.close()
+
+
 @admin_router.patch("/blacklist/{client_id}/lift")
 def lift_blacklist(
     client_id: int,

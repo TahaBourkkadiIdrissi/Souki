@@ -10,15 +10,27 @@ import {
   ChevronRight,
   RefreshCw,
   Search,
+  ShieldAlert,
   User,
   Users,
 } from "lucide-react"
 
 import { EmptyClientBlock, FicheClientPanel, type ClientBlockKey } from "@/components/admin/client-fiche-panel"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { useAuth } from "@/hooks/useAuth"
 import {
+  blacklistClient,
   getAdminClients,
   getFicheClient,
   type AdminClientDTO,
@@ -175,14 +187,14 @@ export default function AdminClientsPage() {
   const [clientSheetErrors, setClientSheetErrors] = useState<Record<number, string>>({})
   const [clientSheetLoadingId, setClientSheetLoadingId] = useState<number | null>(null)
   const [openClientBlocks, setOpenClientBlocks] = useState<Record<string, boolean>>({})
+  const [blacklistTarget, setBlacklistTarget] = useState<AdminClientDTO | null>(null)
+  const [blacklistReason, setBlacklistReason] = useState("")
+  const [isBlacklisting, setIsBlacklisting] = useState(false)
 
   const totalClients = clientsPage?.total ?? 0
   const clients = clientsPage?.items ?? []
   const totalPages = clientsPage?.total_pages ?? 0
-  const totalAmount = useMemo(
-    () => clients.reduce((sum, client) => sum + (client.montant_total || 0), 0),
-    [clients]
-  )
+  const totalAmount = clientsPage?.montant_total_global ?? 0
   const totalOrders = useMemo(
     () => clients.reduce((sum, client) => sum + (client.nb_commandes || 0), 0),
     [clients]
@@ -258,6 +270,31 @@ export default function AdminClientsPage() {
     setOpenClientBlocks((current) => ({ ...current, [key]: !(current[key] ?? blockKey === "identity") }))
   }
 
+  async function handleConfirmBlacklist() {
+    if (!token || !blacklistTarget) {
+      return
+    }
+
+    const reason = blacklistReason.trim()
+    if (!reason) {
+      setError("Motif obligatoire pour blacklister un client.")
+      return
+    }
+
+    setIsBlacklisting(true)
+    try {
+      await blacklistClient(token, blacklistTarget.client_id, reason)
+      setBlacklistTarget(null)
+      setBlacklistReason("")
+      setOpenClientId((current) => (current === blacklistTarget.client_id ? null : current))
+      await loadClients(true)
+    } catch (blacklistError) {
+      setError(blacklistError instanceof Error ? blacklistError.message : "Impossible de blacklister ce client.")
+    } finally {
+      setIsBlacklisting(false)
+    }
+  }
+
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setDebouncedSearch(search)
@@ -282,6 +319,9 @@ export default function AdminClientsPage() {
     void loadClients(true, controller.signal)
 
     const intervalId = window.setInterval(() => {
+      if (openClientId !== null) {
+        return
+      }
       void loadClients(false)
     }, 60000)
 
@@ -289,7 +329,7 @@ export default function AdminClientsPage() {
       controller.abort()
       window.clearInterval(intervalId)
     }
-  }, [isAuthLoading, loadClients, token])
+  }, [isAuthLoading, loadClients, openClientId, token])
 
   useEffect(() => {
     if (clientsPage && totalPages > 0 && page > totalPages) {
@@ -343,7 +383,7 @@ export default function AdminClientsPage() {
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <KpiCard icon={Users} label="Clients" value={totalClients} tone="green" helper={`${CLIENTS_PAGE_SIZE} par page`} />
-          <KpiCard icon={Banknote} label="Montant total" value={formatMoney(totalAmount)} tone="orange" helper="Page courante" />
+          <KpiCard icon={Banknote} label="Montant total (global)" value={formatMoney(totalAmount)} tone="orange" helper="Tous les clients filtres" />
           <KpiCard icon={CalendarDays} label="Commandes" value={totalOrders} tone="blue" helper="Page courante" />
           <KpiCard icon={User} label="Moyenne commandes" value={averageOrders} tone="green" helper="Tous les clients filtres" />
         </section>
@@ -416,18 +456,32 @@ export default function AdminClientsPage() {
                           <td className="px-6 py-4 text-sm text-[#3D3D3D]">{emptyValue(client.mode_paiement_favori)}</td>
                           <td className="px-6 py-4 text-sm text-[#3D3D3D]">{formatDate(client.date_inscription)}</td>
                           <td className="px-6 py-4">
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation()
-                                void handleToggleClientSheet(client)
-                              }}
-                              disabled={isFicheLoading}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-1.5 text-xs font-semibold text-[#1E8A3C] shadow-sm transition-all duration-150 hover:border-[#1E8A3C] hover:bg-[#1E8A3C] hover:text-white hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              {isFicheLoading ? <Spinner className="size-4 text-[#1E8A3C]" /> : <User className="h-3.5 w-3.5" />}
-                              {isClientOpen ? "Masquer fiche" : "Fiche client"}
-                            </button>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  void handleToggleClientSheet(client)
+                                }}
+                                disabled={isFicheLoading}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-1.5 text-xs font-semibold text-[#1E8A3C] shadow-sm transition-all duration-150 hover:border-[#1E8A3C] hover:bg-[#1E8A3C] hover:text-white hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {isFicheLoading ? <Spinner className="size-4 text-[#1E8A3C]" /> : <User className="h-3.5 w-3.5" />}
+                                {isClientOpen ? "Masquer fiche" : "Fiche client"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  setBlacklistTarget(client)
+                                  setBlacklistReason("")
+                                }}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 shadow-sm transition-all duration-150 hover:border-red-600 hover:bg-red-600 hover:text-white hover:shadow"
+                              >
+                                <ShieldAlert className="h-3.5 w-3.5" />
+                                Blacklister
+                              </button>
+                            </div>
                           </td>
                         </tr>
 
@@ -490,6 +544,51 @@ export default function AdminClientsPage() {
           </div>
         </SectionShell>
       </main>
+
+      <AlertDialog
+        open={blacklistTarget !== null}
+        onOpenChange={(isOpen) => {
+          if (!isOpen && !isBlacklisting) {
+            setBlacklistTarget(null)
+            setBlacklistReason("")
+          }
+        }}
+      >
+        <AlertDialogContent className="rounded-2xl border border-gray-200 p-0 shadow-xl">
+          <div className="px-6 pt-6">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-lg font-bold text-gray-950">
+                Blacklister {blacklistTarget ? getClientLabel(blacklistTarget) : "ce client"} ?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-sm text-gray-500">
+                Le client sera retire de la page clients et apparaitra dans la blacklist. Le motif est obligatoire.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            <textarea
+              value={blacklistReason}
+              onChange={(event) => setBlacklistReason(event.target.value)}
+              placeholder="Motif du blacklist..."
+              className="mt-4 min-h-28 w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/10"
+            />
+          </div>
+          <AlertDialogFooter className="border-t border-gray-100 bg-gray-50 px-6 py-4">
+            <AlertDialogCancel className="rounded-lg border-gray-200 bg-white text-gray-700 hover:bg-gray-50" disabled={isBlacklisting}>
+              Annuler
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault()
+                void handleConfirmBlacklist()
+              }}
+              disabled={!blacklistReason.trim() || isBlacklisting}
+              className="rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isBlacklisting ? "Blacklisting..." : "Confirmer"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
