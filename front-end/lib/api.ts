@@ -431,6 +431,54 @@ export interface BlacklistReportDTO {
   commandes_refusees: BlacklistCommandeRefuseeDTO[]
 }
 
+export type DashboardPeriod = "today" | "7d" | "30d" | "month"
+
+export interface DashboardCurvePointDTO {
+  date: string
+  ca: number
+  nb_commandes: number
+}
+
+export interface DashboardStatusDTO {
+  statut: string
+  count: number
+}
+
+export interface DashboardPaymentDTO {
+  mode: string
+  count: number
+  montant: number
+}
+
+export interface DashboardDTO {
+  total_commandes: number
+  commandes_livrees: number
+  commandes_en_route: number
+  commandes_annulees: number
+  commandes_absentes: number
+  taux_livraison: number
+  ca_total: number
+  ca_cod: number
+  ca_wallet: number
+  ca_cmi: number
+  total_clients_actifs: number
+  nouveaux_clients: number
+  clients_blacklistes: number
+  dernier_jit_statut: string | null
+  dernier_jit_volume: number
+  dernier_jit_date: string | null
+  livreurs_disponibles: number
+  tournees_actives: number
+  cod_confirmes: number
+  cod_annules: number
+  nouveaux_blacklistes: number
+  blacklists_leves: number
+  total_soldes_wallets: number
+  courbe_ca: DashboardCurvePointDTO[]
+  repartition_statuts: DashboardStatusDTO[]
+  repartition_paiements: DashboardPaymentDTO[]
+}
+
 export interface LiftBlacklistDTO {
   reason?: string
 }
@@ -621,6 +669,17 @@ export async function getAlerteCOD18h(token: string) {
 
 export async function getBlacklistedClients(token: string) {
   return apiCall<ClientBlacklistDTO[]>("/admin/blacklist", { token })
+}
+
+export async function getAdminDashboard(
+  token: string,
+  periode: DashboardPeriod = "today",
+  signal?: AbortSignal
+) {
+  return apiCall<DashboardDTO>(`/admin/dashboard?periode=${encodeURIComponent(periode)}`, {
+    token,
+    signal,
+  })
 }
 
 export async function getAdminClients(

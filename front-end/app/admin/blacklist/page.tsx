@@ -760,7 +760,7 @@ export default function AdminBlacklistPage() {
                           <td className="px-4 py-3 text-sm text-gray-700">{formatDate(row.date_refus)}</td>
                           <td className="px-4 py-3 text-sm text-gray-700">{emptyValue(row.livreur_nom)}</td>
                           <td className="px-4 py-3 text-sm text-gray-700">{emptyValue(row.quartier || "Sans quartier")}</td>
-                          <td className="px-4 py-3 text-sm text-gray-700">{emptyValue(row.motif)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{row.motif ?? "—"}</td>
                           <td className="px-4 py-3 text-sm font-semibold text-[#F07C00]">{formatMoney(row.montant_perdu)}</td>
                         </tr>
                       ))}

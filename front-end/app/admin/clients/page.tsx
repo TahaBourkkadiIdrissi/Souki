@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useState } from "react"
+import { Fragment, type ReactNode, useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import {
   ArrowLeft,
@@ -195,10 +195,7 @@ export default function AdminClientsPage() {
   const clients = clientsPage?.items ?? []
   const totalPages = clientsPage?.total_pages ?? 0
   const totalAmount = clientsPage?.montant_total_global ?? 0
-  const totalOrders = useMemo(
-    () => clients.reduce((sum, client) => sum + (client.nb_commandes || 0), 0),
-    [clients]
-  )
+  const totalOrders = clientsPage?.total_commandes ?? 0
   const averageOrders = totalClients > 0 ? ((clientsPage?.total_commandes ?? 0) / totalClients).toFixed(1) : "0"
 
   const loadClients = useCallback(async (showLoader = true, signal?: AbortSignal) => {
@@ -384,7 +381,7 @@ export default function AdminClientsPage() {
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <KpiCard icon={Users} label="Clients" value={totalClients} tone="green" helper={`${CLIENTS_PAGE_SIZE} par page`} />
           <KpiCard icon={Banknote} label="Montant total (global)" value={formatMoney(totalAmount)} tone="orange" helper="Tous les clients filtres" />
-          <KpiCard icon={CalendarDays} label="Commandes" value={totalOrders} tone="blue" helper="Page courante" />
+          <KpiCard icon={CalendarDays} label="Commandes" value={totalOrders} tone="blue" helper="Tous les clients filtres" />
           <KpiCard icon={User} label="Moyenne commandes" value={averageOrders} tone="green" helper="Tous les clients filtres" />
         </section>
 
