@@ -108,6 +108,60 @@ function getClientLabel(client: ClientBlacklistDTO) {
   return client.email || client.phone || `Client #${client.client_id}`
 }
 
+function csvCell(value: string | number | null | undefined) {
+  const rawValue = value === null || value === undefined ? "" : String(value)
+  return `"${rawValue.replace(/"/g, '""')}"`
+}
+
+function exportCSV(report: BlacklistReportDTO, mois: number, annee: number) {
+  const lines: string[] = []
+
+  lines.push("=== PAR CLIENT ===")
+  lines.push("Client,Telephone,Nb refus,Montant perdu (DH)")
+  report.par_client.forEach((row) => {
+    lines.push([
+      csvCell(row.email || `Client #${row.client_id}`),
+      csvCell(row.phone),
+      csvCell(row.nb_refus),
+      csvCell(row.montant_perdu),
+    ].join(","))
+  })
+
+  lines.push("")
+  lines.push("=== PAR LIVREUR ===")
+  lines.push("Livreur,Nb refus")
+  report.par_livreur.forEach((row) => {
+    lines.push([
+      csvCell(row.livreur_nom || `Livreur #${row.livreur_id}`),
+      csvCell(row.nb_refus),
+    ].join(","))
+  })
+
+  lines.push("")
+  lines.push("=== COMMANDES REFUSEES ===")
+  lines.push("Commande,Client,Telephone,Date refus,Livreur,Quartier,Motif,Perte (DH)")
+  report.commandes_refusees.forEach((row) => {
+    lines.push([
+      csvCell(row.commande_id),
+      csvCell(row.client_label || `Client #${row.client_id}`),
+      csvCell(row.phone),
+      csvCell(row.date_refus),
+      csvCell(row.livreur_nom),
+      csvCell(row.quartier),
+      csvCell(row.motif),
+      csvCell(row.montant_perdu),
+    ].join(","))
+  })
+
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = `blacklist_${annee}_${String(mois).padStart(2, "0")}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 function KpiCard({
   icon: Icon,
   label,
@@ -350,13 +404,7 @@ export default function AdminBlacklistPage() {
     return clients.reduce((sum, client) => sum + (client.montant_perdu || 0), 0)
   }, [clients, report])
 
-  const hasReportData = Boolean(
-    report &&
-      (report.total_refus > 0 ||
-        report.par_client.length > 0 ||
-        report.par_livreur.length > 0 ||
-        report.par_quartier.length > 0)
-  )
+  const canExportReport = Boolean(report && report.commandes_refusees.length > 0)
 
   const submitLift = async () => {
     if (!token || !selectedClient) {
@@ -629,18 +677,32 @@ export default function AdminBlacklistPage() {
                       type="button"
                       onClick={() => void loadReport()}
                       disabled={isLoadingReport}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-all duration-150 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isLoadingReport ? <Loader2 className="h-4 w-4 animate-spin text-[#1E8A3C]" /> : <RefreshCw className="h-4 w-4 text-[#1E8A3C]" />}
+                      Actualiser
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (report) {
+                          exportCSV(report, month, year)
+                        }
+                      }}
+                      disabled={!canExportReport}
+                      title={!canExportReport ? "Aucune donnée à exporter" : undefined}
                       className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1E8A3C] px-4 py-2 text-sm font-medium text-white transition-all duration-150 hover:bg-[#176B2E] disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {isLoadingReport ? <Loader2 className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
-                      Actualiser
-                      {!isLoadingReport ? <ChevronRight className="h-4 w-4" /> : null}
+                      <FileBarChart className="h-4 w-4" />
+                      Exporter CSV
+                      <ChevronRight className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
 
                 {isLoadingReport ? (
                   <TableSkeleton columns={4} rows={4} />
-                ) : hasReportData && report ? (
+                ) : report ? (
                   <div className="space-y-6 p-6">
                     <div className="rounded-2xl border border-orange-100 bg-orange-50 px-5 py-4 text-[#9A5C11]">
                       <div className="flex items-center gap-3">
