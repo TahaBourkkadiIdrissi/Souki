@@ -9,6 +9,10 @@ from dto.client_blacklist_dto import ClientBlacklistDTO, BlacklistReportDTO
 class IClientBlacklistDao(ABC):
 
     @abstractmethod
+    def flush(self, session: Session) -> None:
+        pass
+
+    @abstractmethod
     def create_log(
         self,
         session: Session,

@@ -4,11 +4,10 @@ import { Fragment, type ReactNode, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import {
   ArrowLeft,
-  BarChart3,
   Banknote,
   CalendarDays,
   ChevronDown,
-  ChevronRight,
+  ChevronUp,
   CheckCircle2,
   ClipboardList,
   Eye,
@@ -21,7 +20,6 @@ import {
   Scale,
   TriangleAlert,
   Unlock,
-  User,
   XCircle,
 } from "lucide-react"
 
@@ -45,7 +43,7 @@ import {
 } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
-import { EmptyClientBlock, FicheClientPanel, type ClientBlockKey } from "@/components/admin/client-fiche-panel"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/hooks/useAuth"
 import { cn } from "@/lib/utils"
 import {
@@ -58,6 +56,7 @@ import {
   updateConfirmationCOD,
   type AlerteCOD18hDTO,
   type CommandeCODDemainDTO,
+  type CommandeHistoriqueDTO,
   type DetailProduitJIT,
   type FicheClientDTO,
   type JITCommandeDeverrouillee,
@@ -88,7 +87,6 @@ interface AdminOrderRow {
   produits: string
   volumeKg: number | null
   montant: number | null
-  modePaiement: string | null
   statut: string
   creneauLivraison: string | null
   isBlacklisted: boolean | null
@@ -351,10 +349,6 @@ function normalizeOrders(payload: unknown): AdminOrderRow[] {
           getNumber(item.montant_total) ??
           getNumber(item.total) ??
           getNumber(item.total_amount),
-        modePaiement:
-          getString(item.mode_paiement) ||
-          getString(item.modePaiement) ||
-          getString(item.payment_method),
         statut:
           getString(item.statut) ||
           getString(item.status) ||
@@ -601,49 +595,6 @@ function codConfirmationBadge(status: string) {
     className: "bg-amber-50 text-amber-800 border-amber-200 animate-pulse",
   }
 }
-
-function paiementBadge(modePaiement: string | null | undefined) {
-  const normalized = normalizeStatus(modePaiement || "")
-
-  if (normalized === "cod") {
-    return {
-      label: "COD",
-      className: "bg-amber-50 text-amber-700 border-amber-200",
-      dotClassName: "bg-amber-500",
-    }
-  }
-
-  if (normalized === "cmi") {
-    return {
-      label: "CMI",
-      className: "bg-blue-50 text-blue-700 border-blue-200",
-      dotClassName: "bg-blue-500",
-    }
-  }
-
-  if (normalized === "wallet") {
-    return {
-      label: "Wallet",
-      className: "bg-violet-50 text-violet-700 border-violet-200",
-      dotClassName: "bg-violet-500",
-    }
-  }
-
-  if (normalized === "cash") {
-    return {
-      label: "Cash",
-      className: "bg-emerald-50 text-emerald-700 border-emerald-200",
-      dotClassName: "bg-emerald-500",
-    }
-  }
-
-  return {
-    label: "N/A",
-    className: "bg-gray-50 text-gray-600 border-gray-200",
-    dotClassName: "bg-gray-400",
-  }
-}
-
 function jitLogBadge(status: string) {
   const normalized = normalizeStatus(status)
 
@@ -878,6 +829,15 @@ function UnlockDetailsTable({ details }: { details: JITCommandeDeverrouillee[] }
   )
 }
 
+type ClientBlockKey =
+  | "identity"
+  | "orders"
+  | "voice"
+  | "sessions"
+  | "notifications"
+  | "subscription"
+  | "payments"
+
 function emptyValue(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === "") {
     return "Aucune donnée disponible"
@@ -886,6 +846,308 @@ function emptyValue(value: string | number | null | undefined) {
   return String(value)
 }
 
+function formatBool(value: boolean | null | undefined) {
+  if (value === null || value === undefined) {
+    return "Aucune donnée disponible"
+  }
+
+  return value ? "Oui" : "Non"
+}
+
+function ClientInfoGrid({ items }: { items: { label: string; value: string | number | null | undefined }[] }) {
+  return (
+    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {items.map((item) => (
+        <div key={item.label} className="rounded-xl bg-gray-50 px-4 py-3">
+          <p className="text-xs font-semibold uppercase text-[#8A8A8A]">{item.label}</p>
+          <p className="mt-1 text-sm font-medium text-[#3D3D3D]">{emptyValue(item.value)}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function EmptyClientBlock() {
+  return (
+    <div className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-[#8A8A8A]">
+      Aucune donnée disponible
+    </div>
+  )
+}
+
+function ClientSheetBlock({
+  title,
+  count,
+  isOpen,
+  onToggle,
+  children,
+}: {
+  title: string
+  count?: number
+  isOpen: boolean
+  onToggle: () => void
+  children: ReactNode
+}) {
+  return (
+    <div className="rounded-2xl border border-gray-100 overflow-hidden bg-white">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-gray-50"
+      >
+        <span className="font-semibold text-[#3D3D3D]">
+          {title}
+          {typeof count === "number" ? <span className="ml-2 text-sm font-normal text-[#8A8A8A]">({count})</span> : null}
+        </span>
+        {isOpen ? <ChevronUp className="w-4 h-4 text-[#8A8A8A]" /> : <ChevronDown className="w-4 h-4 text-[#8A8A8A]" />}
+      </button>
+
+      {isOpen && <div className="border-t border-gray-100 p-4">{children}</div>}
+    </div>
+  )
+}
+
+function CommandeClientCard({ commande }: { commande: CommandeHistoriqueDTO }) {
+  const badge = statusBadge(commande.statut || "")
+
+  return (
+    <div className="rounded-xl border border-gray-100 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold text-[#1E8A3C]">Commande #{commande.id}</p>
+          <p className="text-sm text-[#8A8A8A]">{formatShortDateTime(commande.date_commande)}</p>
+        </div>
+        <span className={cn("inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium", badge.className)}>
+          {badge.locked && <Lock className="w-3 h-3" />}
+          {badge.label}
+        </span>
+      </div>
+
+      <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="rounded-xl bg-gray-50 px-3 py-2">
+          <p className="text-xs uppercase text-[#8A8A8A]">Montant</p>
+          <p className="font-semibold text-[#F07C00]">{formatMoney(commande.montant_total)}</p>
+        </div>
+        <div className="rounded-xl bg-gray-50 px-3 py-2">
+          <p className="text-xs uppercase text-[#8A8A8A]">Paiement</p>
+          <p className="font-medium text-[#3D3D3D]">{emptyValue(commande.mode_paiement)}</p>
+        </div>
+        <div className="rounded-xl bg-gray-50 px-3 py-2">
+          <p className="text-xs uppercase text-[#8A8A8A]">Validé</p>
+          <p className="font-medium text-[#3D3D3D]">{formatBool(commande.payment_validated)}</p>
+        </div>
+        <div className="rounded-xl bg-gray-50 px-3 py-2">
+          <p className="text-xs uppercase text-[#8A8A8A]">À encaisser</p>
+          <p className="font-semibold text-[#3D3D3D]">{formatMoney(commande.montant_a_encaisser)}</p>
+        </div>
+      </div>
+
+      <ClientInfoGrid
+        items={[
+          { label: "Créneau", value: commande.creneau_livraison },
+          { label: "En route", value: formatShortDateTime(commande.enroute_at) },
+          { label: "Livrée", value: formatShortDateTime(commande.delivered_at) },
+          { label: "Absent", value: formatShortDateTime(commande.absent_at) },
+        ]}
+      />
+
+      <div className="mt-4">
+        <p className="mb-2 text-xs font-semibold uppercase text-[#8A8A8A]">Produits</p>
+        {commande.produits.length === 0 ? (
+          <EmptyClientBlock />
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {commande.produits.map((produit, index) => (
+              <span key={`${produit.nom_fr}-${index}`} className="rounded-full border border-[#1E8A3C]/20 bg-[#F0FAF1] px-3 py-1 text-xs font-medium text-[#1E8A3C]">
+                {produit.nom_fr} · {formatWeight(produit.quantite_kg)}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function FicheClientPanel({
+  fiche,
+  openBlocks,
+  onToggleBlock,
+}: {
+  fiche: FicheClientDTO
+  openBlocks: Record<string, boolean>
+  onToggleBlock: (blockKey: ClientBlockKey) => void
+}) {
+  const blockOrder: ClientBlockKey[] = ["identity", "orders", "voice", "sessions", "notifications", "subscription"]
+  const activeBlock = blockOrder.find((blockKey) => openBlocks[`${fiche.id}:${blockKey}`]) || "identity"
+  const paiements = fiche.commandes.filter((commande) => commande.paiement)
+
+  return (
+    <div className="rounded-2xl border border-[#1E8A3C]/20 bg-white shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#1E8A3C]">Fiche client</p>
+          <h3 className="mt-1 text-base font-bold text-gray-950">Client #{fiche.id}</h3>
+          <p className="mt-1 text-sm text-gray-500">{fiche.email || fiche.phone || "Aucune donnee disponible"}</p>
+        </div>
+        <span className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium", fiche.is_active ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-gray-200 bg-gray-50 text-gray-600")}>
+          {fiche.is_active ? "Actif" : "Inactif"}
+        </span>
+      </div>
+
+      <Tabs defaultValue={activeBlock} onValueChange={(value) => onToggleBlock(value as ClientBlockKey)} className="p-5">
+        <TabsList className="mb-5 flex h-auto w-full flex-wrap justify-start gap-2 rounded-xl bg-gray-100 p-1">
+          <TabsTrigger value="identity" className="rounded-lg px-3 py-2 text-xs data-[state=active]:bg-white data-[state=active]:text-[#1E8A3C]">Identite</TabsTrigger>
+          <TabsTrigger value="orders" className="rounded-lg px-3 py-2 text-xs data-[state=active]:bg-white data-[state=active]:text-[#1E8A3C]">Commandes</TabsTrigger>
+          <TabsTrigger value="voice" className="rounded-lg px-3 py-2 text-xs data-[state=active]:bg-white data-[state=active]:text-[#1E8A3C]">Vocal</TabsTrigger>
+          <TabsTrigger value="sessions" className="rounded-lg px-3 py-2 text-xs data-[state=active]:bg-white data-[state=active]:text-[#1E8A3C]">Sessions</TabsTrigger>
+          <TabsTrigger value="notifications" className="rounded-lg px-3 py-2 text-xs data-[state=active]:bg-white data-[state=active]:text-[#1E8A3C]">Notifs</TabsTrigger>
+          <TabsTrigger value="subscription" className="rounded-lg px-3 py-2 text-xs data-[state=active]:bg-white data-[state=active]:text-[#1E8A3C]">Abonnement</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="identity" className="space-y-4">
+          <ClientInfoGrid
+            items={[
+              { label: "Email", value: fiche.email },
+              { label: "Telephone", value: fiche.phone },
+              { label: "Inscription", value: formatDateTime(fiche.created_at) },
+              { label: "Derniere connexion", value: formatDateTime(fiche.last_login_at) },
+              { label: "Provider", value: fiche.auth_provider },
+              { label: "Email verifie", value: formatBool(fiche.is_email_verified) },
+              { label: "Telephone verifie", value: formatBool(fiche.is_phone_verified) },
+              { label: "Blacklisted", value: formatBool(fiche.is_blacklisted) },
+            ]}
+          />
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Adresses</p>
+            {(fiche.adresses || []).length === 0 ? (
+              <EmptyClientBlock />
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                {(fiche.adresses || []).map((adresse, index) => (
+                  <div key={`${adresse.neighborhood || "adresse"}-${index}`} className="rounded-xl border border-gray-100 bg-slate-50 px-4 py-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-medium text-gray-950">
+                        {[adresse.neighborhood, adresse.street, adresse.ville].filter(Boolean).join(", ") || "Adresse sans libelle"}
+                      </p>
+                      {adresse.is_default ? (
+                        <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
+                          Principale
+                        </span>
+                      ) : null}
+                    </div>
+                    {adresse.details ? <p className="mt-1 text-sm text-gray-500">{adresse.details}</p> : null}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="orders" className="space-y-4">
+          {fiche.commandes.length === 0 ? (
+            <EmptyClientBlock />
+          ) : (
+            <div className="grid gap-3">
+              {fiche.commandes.map((commande) => (
+                <CommandeClientCard key={commande.id} commande={commande} />
+              ))}
+            </div>
+          )}
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Paiements</p>
+            {paiements.length === 0 ? (
+              <EmptyClientBlock />
+            ) : (
+              <div className="space-y-3">
+                {paiements.map((commande) => (
+                  <ClientInfoGrid
+                    key={`paiement-${commande.id}`}
+                    items={[
+                      { label: "Commande", value: `#${commande.id}` },
+                      { label: "Methode", value: commande.paiement?.methode },
+                      { label: "Montant", value: formatMoney(commande.paiement?.montant) },
+                      { label: "Valide", value: formatBool(commande.paiement?.valide) },
+                      { label: "Frais CMI", value: formatMoney(commande.paiement?.frais_cmi) },
+                      { label: "Montant net", value: formatMoney(commande.paiement?.montant_net) },
+                    ]}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="voice" className="space-y-3">
+          {fiche.commandes_vocales.length === 0 ? (
+            <EmptyClientBlock />
+          ) : (
+            fiche.commandes_vocales.map((commande) => (
+              <div key={commande.id} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                <p className="font-semibold text-[#1E8A3C]">Commande vocale #{commande.id}</p>
+                <p className="text-sm text-gray-500">{formatShortDateTime(commande.created_at)} - {emptyValue(commande.langue_detectee)}</p>
+                <p className="mt-2 text-sm text-gray-700">{emptyValue(commande.transcription_brute)}</p>
+              </div>
+            ))
+          )}
+        </TabsContent>
+
+        <TabsContent value="sessions" className="space-y-3">
+          {fiche.sessions.length === 0 ? (
+            <EmptyClientBlock />
+          ) : (
+            fiche.sessions.map((session, index) => (
+              <ClientInfoGrid
+                key={`${session.ip || "session"}-${index}`}
+                items={[
+                  { label: "Appareil", value: session.device_name },
+                  { label: "Navigateur", value: session.browser },
+                  { label: "Localisation", value: session.location },
+                  { label: "IP", value: session.ip },
+                  { label: "Derniere activite", value: formatDateTime(session.last_active) },
+                  { label: "Creee le", value: formatDateTime(session.created_at) },
+                  { label: "Active", value: formatBool(session.is_active) },
+                ]}
+              />
+            ))
+          )}
+        </TabsContent>
+
+        <TabsContent value="notifications">
+          {!fiche.notifications ? (
+            <EmptyClientBlock />
+          ) : (
+            <ClientInfoGrid
+              items={[
+                { label: "Email", value: formatBool(fiche.notifications.email) },
+                { label: "Push", value: formatBool(fiche.notifications.push) },
+                { label: "SMS", value: formatBool(fiche.notifications.sms) },
+                { label: "Commandes", value: formatBool(fiche.notifications.order_updates) },
+                { label: "Promotions", value: formatBool(fiche.notifications.promotions) },
+                { label: "Newsletter", value: formatBool(fiche.notifications.newsletter) },
+              ]}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="subscription">
+          {!fiche.abonnement ? (
+            <EmptyClientBlock />
+          ) : (
+            <ClientInfoGrid
+              items={[
+                { label: "Poids garanti", value: fiche.abonnement.poids_garanti !== null && fiche.abonnement.poids_garanti !== undefined ? formatWeight(fiche.abonnement.poids_garanti) : null },
+                { label: "Frequence", value: fiche.abonnement.frequence },
+                { label: "Mensuel", value: fiche.abonnement.montant_mensuel !== null && fiche.abonnement.montant_mensuel !== undefined ? formatMoney(fiche.abonnement.montant_mensuel) : null },
+                { label: "Actif", value: formatBool(fiche.abonnement.actif) },
+              ]}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
 export default function AdminOrdersPage() {
   const { token, isLoading: isAuthLoading } = useAuth()
   const [orders, setOrders] = useState<AdminOrderRow[]>([])
@@ -1387,11 +1649,11 @@ export default function AdminOrdersPage() {
     return groupCodOrdersByClient(filteredOrders)
   }, [codOrders, codSearch, codStatusFilter])
   const sidebarItems = [
-    { id: "overview" as const, label: "Vue generale", icon: BarChart3, count: null },
-    { id: "commandes" as const, label: "Commandes du jour", icon: Package, count: orders.length },
-    { id: "jit" as const, label: "JIT", icon: Rocket, count: null },
-    { id: "cod" as const, label: "COD", icon: PhoneCall, count: codUncalledClientsCount },
-    { id: "logs" as const, label: "Logs", icon: ClipboardList, count: null },
+    { id: "overview" as const, label: "Vue generale", icon: "📊", count: null },
+    { id: "commandes" as const, label: "Commandes du jour", icon: "📦", count: orders.length },
+    { id: "jit" as const, label: "JIT", icon: "⚡", count: null },
+    { id: "cod" as const, label: "COD", icon: "📞", count: codUncalledClientsCount },
+    { id: "logs" as const, label: "Logs", icon: "📋", count: null },
   ]
 
   if (isAuthLoading) {
@@ -1489,11 +1751,10 @@ export default function AdminOrdersPage() {
 
       <aside className="fixed left-0 top-16 z-20 hidden h-[calc(100vh-4rem)] w-64 flex-col border-r border-gray-200 bg-white lg:flex">
         <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-              {sidebarItems.map((item) => {
-                const isActive = activeSection === item.id
-                const Icon = item.icon
+          {sidebarItems.map((item) => {
+            const isActive = activeSection === item.id
 
-                return (
+            return (
               <button
                 key={item.id}
                 type="button"
@@ -1502,9 +1763,9 @@ export default function AdminOrdersPage() {
                   "inline-flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
                   isActive ? "bg-[#F0FDF4] text-[#1E8A3C]" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                 )}
-                >
-                  <span className="inline-flex items-center gap-2">
-                  <Icon className="h-4 w-4" aria-hidden="true" />
+              >
+                <span className="inline-flex items-center gap-2">
+                  <span aria-hidden="true">{item.icon}</span>
                   {item.label}
                 </span>
                 {typeof item.count === "number" ? (
@@ -1578,10 +1839,7 @@ export default function AdminOrdersPage() {
             onClick={() => setActiveSection("commandes")}
             className="rounded-xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all duration-150 hover:border-[#1E8A3C]/30 hover:shadow-md"
           >
-            <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-gray-500">
-              <Package className="h-3.5 w-3.5" aria-hidden="true" />
-              Commandes du jour
-            </p>
+            <p className="text-xs font-medium uppercase tracking-wider text-gray-500">📦 Commandes du jour</p>
             <p className="mt-3 text-2xl font-bold text-gray-900">{orders.length} commandes</p>
             <p className="mt-1 text-sm text-gray-500">{clientGroups.length} clients uniques, {orderStatuses.length} statut(s)</p>
             <p className="mt-5 text-sm font-semibold text-[#1E8A3C]">Voir commandes →</p>
@@ -1592,10 +1850,7 @@ export default function AdminOrdersPage() {
             onClick={() => setActiveSection("jit")}
             className="rounded-xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all duration-150 hover:border-[#1E8A3C]/30 hover:shadow-md"
           >
-            <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-gray-500">
-              <Rocket className="h-3.5 w-3.5" aria-hidden="true" />
-              JIT
-            </p>
+            <p className="text-xs font-medium uppercase tracking-wider text-gray-500">⚡ JIT</p>
             <p className="mt-3 text-2xl font-bold text-gray-900">{lastLog ? formatWeight(lastLog.volume_total) : "Aucun log"}</p>
             <p className="mt-1 text-sm text-gray-500">{lastLog ? `Derniere exec: ${formatShortDateTime(lastLog.date_execution)}` : "Pret pour aggregation"}</p>
             <p className="mt-5 text-sm font-semibold text-[#1E8A3C]">Gerer JIT →</p>
@@ -1607,10 +1862,7 @@ export default function AdminOrdersPage() {
             className="relative rounded-xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all duration-150 hover:border-[#1E8A3C]/30 hover:shadow-md"
           >
             {codUncalledClientsCount > 0 ? <span className="absolute right-4 top-4 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">{codUncalledClientsCount} a appeler</span> : null}
-            <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-gray-500">
-              <PhoneCall className="h-3.5 w-3.5" aria-hidden="true" />
-              COD
-            </p>
+            <p className="text-xs font-medium uppercase tracking-wider text-gray-500">📞 COD</p>
             <p className="mt-3 text-2xl font-bold text-gray-900">{codOrders.length} commandes COD</p>
             <p className="mt-1 text-sm text-gray-500">{codCalledClientsCount} clients appeles, {formatMoney(codTotalAmount)} a encaisser</p>
             <p className="mt-5 text-sm font-semibold text-[#1E8A3C]">Gerer COD →</p>
@@ -1621,10 +1873,7 @@ export default function AdminOrdersPage() {
             onClick={() => setActiveSection("logs")}
             className="rounded-xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all duration-150 hover:border-[#1E8A3C]/30 hover:shadow-md"
           >
-            <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-gray-500">
-              <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />
-              Logs
-            </p>
+            <p className="text-xs font-medium uppercase tracking-wider text-gray-500">📋 Logs</p>
             <p className="mt-3 text-2xl font-bold text-gray-900">{lastLog?.statut || "Aucun log"}</p>
             <p className="mt-1 text-sm text-gray-500">{lastLog ? `${lastLog.nombre_commandes} commandes - ${formatShortDateTime(lastLog.date_execution)}` : "Dernier cycle indisponible"}</p>
             <p className="mt-5 text-sm font-semibold text-[#1E8A3C]">Voir logs →</p>
@@ -1687,6 +1936,12 @@ export default function AdminOrdersPage() {
                     <option key={status} value={status}>{status}</option>
                   ))}
                 </select>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-all duration-150 hover:bg-gray-50"
+                >
+                  Exporter
+                </button>
               </div>
             </div>
           </div>
@@ -1770,15 +2025,9 @@ export default function AdminOrdersPage() {
                                   event.stopPropagation()
                                   setOpenOrdersClientKey(isOrdersOpen ? null : group.key)
                                 }}
-                                className={cn(
-                                  "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-all duration-150",
-                                  isOrdersOpen
-                                    ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#1E8A3C] hover:bg-[#DCFCE7]"
-                                    : "border-transparent text-gray-500 hover:border-gray-200 hover:bg-gray-100 hover:text-gray-900"
-                                )}
+                                className="cursor-pointer px-4 py-2 border border-[#1A4F8A]/20 bg-[#1A4F8A]/10 rounded-xl font-medium text-[#1A4F8A] hover:bg-[#1A4F8A]/15 flex items-center gap-2 whitespace-nowrap"
                               >
-                                {isOrdersOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                                {isOrdersOpen ? "Masquer" : "Voir commandes"}
+                                {isOrdersOpen ? "Masquer commandes" : "Voir commandes"}
                               </button>
                             <button
                               type="button"
@@ -1787,10 +2036,9 @@ export default function AdminOrdersPage() {
                                 void handleToggleClientSheet(firstOrder)
                               }}
                               disabled={!group.clientId || isFicheLoading}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-1.5 text-xs font-semibold text-[#1E8A3C] shadow-sm transition-all duration-150 hover:border-[#1E8A3C] hover:bg-[#1E8A3C] hover:text-white hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
+                              className="cursor-pointer px-4 py-2 border border-[#1E8A3C]/20 bg-[#F0FAF1] rounded-xl font-medium text-[#1E8A3C] hover:bg-[#E7F5E8] disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
                             >
                               {isFicheLoading && <Spinner className="size-4 text-[#1E8A3C]" />}
-                              {!isFicheLoading && <User className="h-3.5 w-3.5" />}
                               {isClientOpen ? "Masquer fiche" : "Fiche client"}
                             </button>
                             </div>
@@ -1808,7 +2056,6 @@ export default function AdminOrdersPage() {
                                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Produits</th>
                                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Volume kg</th>
                                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Montant</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Paiement</th>
                                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Statut</th>
                                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Créneau</th>
                                     </tr>
@@ -1816,7 +2063,6 @@ export default function AdminOrdersPage() {
                                   <tbody className="divide-y divide-gray-100">
                                     {group.commandes.map((order) => {
                                       const badge = statusBadge(order.statut)
-                                      const paymentBadge = paiementBadge(order.modePaiement)
 
                                       return (
                                         <tr key={order.id} className="hover:bg-gray-50">
@@ -1825,17 +2071,6 @@ export default function AdminOrdersPage() {
                                           <td className="px-4 py-3 text-sm text-[#8A8A8A] max-w-[320px] whitespace-normal">{order.produits}</td>
                                           <td className="px-4 py-3 text-[#3D3D3D]">{formatWeight(order.volumeKg)}</td>
                                           <td className="px-4 py-3 font-semibold text-[#F07C00]">{formatMoney(order.montant)}</td>
-                                          <td className="px-4 py-3">
-                                            <span
-                                              className={cn(
-                                                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold",
-                                                paymentBadge.className
-                                              )}
-                                            >
-                                              <span className={cn("h-1.5 w-1.5 rounded-full", paymentBadge.dotClassName)} aria-hidden="true" />
-                                              {paymentBadge.label}
-                                            </span>
-                                          </td>
                                           <td className="px-4 py-3">
                                             <span
                                               className={cn(
@@ -1861,9 +2096,9 @@ export default function AdminOrdersPage() {
                           <tr className="bg-[#F8FBF8]">
                             <td colSpan={7} className="px-6 py-4">
                               {isFicheLoading ? (
-                                <div className="flex items-center justify-center gap-3 rounded-2xl border border-gray-100 bg-white py-8">
-                                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#1E8A3C] border-t-transparent" />
-                                  <span className="text-sm font-medium text-gray-500">Chargement de la fiche client...</span>
+                                <div className="rounded-2xl border border-gray-100 bg-white px-6 py-8 text-center">
+                                  <Spinner className="mx-auto size-6 text-[#1E8A3C]" />
+                                  <p className="mt-3 text-sm text-[#8A8A8A]">Chargement de la fiche clientâ€¦</p>
                                 </div>
                               ) : ficheError ? (
                                 <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

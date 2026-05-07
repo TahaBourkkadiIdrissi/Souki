@@ -5,7 +5,7 @@ from controllers.claim_controller import claim_router
 from controllers.commande_controller import router_voice
 from controllers.dispatch_controller import anomalies_router, dispatch_router
 from controllers.livreur_controller import router_livreur
-from controllers.admin_controller import admin_router
+from controllers.admin_controller import admin_router, api_admin_router
 
 __all__ = [
     "auth_router",
@@ -17,4 +17,5 @@ __all__ = [
     "anomalies_router",
     "router_livreur",
     "admin_router",
+    "api_admin_router",
 ]

@@ -14,6 +14,9 @@ class ClientBlacklistDTO(BaseModel):
     source: Optional[str] = None
     livreur_nom: Optional[str] = None
     commande_id: Optional[int] = None
+    commande_statut: Optional[str] = None
+    commande_date: Optional[datetime] = None
+    montant_perdu: float = 0.0
     admin_nom: Optional[str] = None
 
     class Config:
@@ -44,10 +47,27 @@ class BlacklistParQuartierDTO(BaseModel):
     montant_perdu: float
 
 
+class BlacklistCommandeRefuseeDTO(BaseModel):
+    log_id: int
+    commande_id: Optional[int] = None
+    client_id: int
+    client_label: Optional[str] = None
+    phone: Optional[str] = None
+    date_refus: Optional[datetime] = None
+    date_commande: Optional[datetime] = None
+    statut_commande: Optional[str] = None
+    montant_perdu: float = 0.0
+    livreur_nom: Optional[str] = None
+    quartier: Optional[str] = None
+    motif: Optional[str] = None
+
+
 class BlacklistReportDTO(BaseModel):
     mois: int
     annee: int
     total_refus: int
+    total_perte: float = 0.0
     par_client: List[BlacklistParClientDTO] = []
     par_livreur: List[BlacklistParLivreurDTO] = []
     par_quartier: List[BlacklistParQuartierDTO] = []
+    commandes_refusees: List[BlacklistCommandeRefuseeDTO] = []

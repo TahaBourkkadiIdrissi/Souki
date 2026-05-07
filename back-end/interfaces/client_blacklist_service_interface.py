@@ -15,8 +15,20 @@ class IClientBlacklistService(ABC):
         client_id: int,
         commande_id: int,
         livreur_id: int,
+        motif: Optional[str] = None,
     ) -> None:
         """Blackliste automatiquement après refus livreur"""
+        pass
+
+    @abstractmethod
+    def blacklist_manual(
+        self,
+        session: Session,
+        client_id: int,
+        admin_id: int,
+        reason: str,
+    ) -> None:
+        """Blackliste manuellement depuis le BO"""
         pass
 
     @abstractmethod

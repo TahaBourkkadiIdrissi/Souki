@@ -391,7 +391,31 @@ export interface ClientBlacklistDTO {
   source: string | null
   livreur_nom: string | null
   commande_id: number | null
+  commande_statut: string | null
+  commande_date: string | null
+  montant_perdu: number
   admin_nom: string | null
+}
+
+export interface AdminClientDTO {
+  client_id: number
+  email: string | null
+  phone: string | null
+  nb_commandes: number
+  montant_total: number
+  mode_paiement_favori: string | null
+  is_blacklisted: boolean
+  date_inscription: string | null
+}
+
+export interface AdminClientsPageDTO {
+  items: AdminClientDTO[]
+  total: number
+  total_commandes: number
+  montant_total_global: number
+  page: number
+  page_size: number
+  total_pages: number
 }
 
 export interface BlacklistParClientDTO {
@@ -414,13 +438,78 @@ export interface BlacklistParQuartierDTO {
   montant_perdu: number
 }
 
+export interface BlacklistCommandeRefuseeDTO {
+  log_id: number
+  commande_id: number | null
+  client_id: number
+  client_label: string | null
+  phone: string | null
+  date_refus: string | null
+  date_commande: string | null
+  statut_commande: string | null
+  montant_perdu: number
+  livreur_nom: string | null
+  quartier: string | null
+  motif: string | null
+}
+
 export interface BlacklistReportDTO {
   mois: number
   annee: number
   total_refus: number
+  total_perte: number
   par_client: BlacklistParClientDTO[]
   par_livreur: BlacklistParLivreurDTO[]
   par_quartier: BlacklistParQuartierDTO[]
+  commandes_refusees: BlacklistCommandeRefuseeDTO[]
+}
+
+export type DashboardPeriod = "today" | "7d" | "30d" | "month"
+
+export interface DashboardCurvePointDTO {
+  date: string
+  ca: number
+  nb_commandes: number
+}
+
+export interface DashboardStatusDTO {
+  statut: string
+  count: number
+}
+
+export interface DashboardPaymentDTO {
+  mode: string
+  count: number
+  montant: number
+}
+
+export interface DashboardDTO {
+  total_commandes: number
+  commandes_livrees: number
+  commandes_en_route: number
+  commandes_annulees: number
+  commandes_absentes: number
+  taux_livraison: number
+  ca_total: number
+  ca_cod: number
+  ca_wallet: number
+  ca_cmi: number
+  total_clients_actifs: number
+  nouveaux_clients: number
+  clients_blacklistes: number
+  dernier_jit_statut: string | null
+  dernier_jit_volume: number
+  dernier_jit_date: string | null
+  livreurs_disponibles: number
+  tournees_actives: number
+  cod_confirmes: number
+  cod_annules: number
+  nouveaux_blacklistes: number
+  blacklists_leves: number
+  total_soldes_wallets: number
+  courbe_ca: DashboardCurvePointDTO[]
+  repartition_statuts: DashboardStatusDTO[]
+  repartition_paiements: DashboardPaymentDTO[]
 }
 
 export interface LiftBlacklistDTO {
@@ -637,6 +726,53 @@ export async function getAlerteCOD18h(token: string) {
 
 export async function getBlacklistedClients(token: string) {
   return apiCall<ClientBlacklistDTO[]>("/admin/blacklist", { token })
+}
+
+export async function getAdminDashboard(
+  token: string,
+  periode: DashboardPeriod = "today",
+  signal?: AbortSignal
+) {
+  return apiCall<DashboardDTO>(`/admin/dashboard?periode=${encodeURIComponent(periode)}`, {
+    token,
+    signal,
+  })
+}
+
+export async function getAdminClients(
+  token: string,
+  params: {
+    search?: string
+    page?: number
+    blacklisted?: boolean
+  } = {},
+  signal?: AbortSignal
+) {
+  const query = new URLSearchParams()
+  if (params.search) {
+    query.set("search", params.search)
+  }
+  if (params.page) {
+    query.set("page", String(params.page))
+  }
+  if (typeof params.blacklisted === "boolean") {
+    query.set("blacklisted", String(params.blacklisted))
+  }
+
+  const suffix = query.toString() ? `?${query.toString()}` : ""
+  return apiCall<AdminClientsPageDTO>(`/api/admin/clients${suffix}`, { token, signal })
+}
+
+export async function blacklistClient(
+  token: string,
+  clientId: number,
+  reason: string
+) {
+  return apiCall(`/admin/blacklist/${clientId}`, {
+    method: "PATCH",
+    token,
+    body: { reason },
+  })
 }
 
 export async function liftBlacklist(
