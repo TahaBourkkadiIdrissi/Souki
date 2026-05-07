@@ -70,8 +70,14 @@ def get_client_admin_dao() -> IClientAdminDao:
     return ClientAdminDaoBD()
 
 
-def get_dashboard_dao() -> IDashboardDao:
-    return DashboardDaoBD()
+def get_dashboard_dao(
+    blacklist_dao: IClientBlacklistDao = Depends(get_blacklist_dao),
+    client_admin_dao: IClientAdminDao = Depends(get_client_admin_dao),
+) -> IDashboardDao:
+    return DashboardDaoBD(
+        client_blacklist_dao=blacklist_dao,
+        client_admin_dao=client_admin_dao,
+    )
 
 
 def get_commande_dao() -> ICommandeVocaleDao:

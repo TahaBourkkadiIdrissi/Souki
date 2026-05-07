@@ -23,12 +23,21 @@ class DashboardService(IDashboardService):
         today = date.today()
         start_date = self._start_date_for_period(today, normalized_period)
         end_date = today + timedelta(days=1)
+        previous_start_date, previous_end_date = self._previous_bounds(
+            today,
+            normalized_period,
+            start_date,
+            end_date,
+        )
         curve_start_date = today - timedelta(days=29)
 
         return self.dashboard_dao.get_dashboard(
             session,
+            periode=normalized_period,
             start_datetime=datetime.combine(start_date, time.min),
             end_datetime=datetime.combine(end_date, time.min),
+            previous_start_datetime=datetime.combine(previous_start_date, time.min),
+            previous_end_datetime=datetime.combine(previous_end_date, time.min),
             today=today,
             curve_start_datetime=datetime.combine(curve_start_date, time.min),
             curve_end_datetime=datetime.combine(end_date, time.min),
@@ -42,3 +51,20 @@ class DashboardService(IDashboardService):
         if periode == "month":
             return today.replace(day=1)
         return today
+
+    def _previous_bounds(
+        self,
+        today: date,
+        periode: str,
+        start_date: date,
+        end_date: date,
+    ) -> tuple[date, date]:
+        if periode == "month":
+            previous_month_end = today.replace(day=1)
+            previous_month_start = (previous_month_end - timedelta(days=1)).replace(day=1)
+            return previous_month_start, previous_month_end
+
+        period_days = (end_date - start_date).days
+        previous_end = start_date
+        previous_start = previous_end - timedelta(days=period_days)
+        return previous_start, previous_end

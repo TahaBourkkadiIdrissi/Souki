@@ -2,14 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import type { LucideIcon } from "lucide-react"
 import {
   AlertTriangle,
   ArrowRight,
   BarChart3,
   Bell,
-  Bike,
   CheckCircle2,
   CircleDollarSign,
+  CreditCard,
   LayoutDashboard,
   Leaf,
   LogOut,
@@ -17,7 +18,11 @@ import {
   Package,
   RefreshCw,
   Settings,
+  ShieldX,
   ShoppingBasket,
+  ShoppingCart,
+  TrendingDown,
+  TrendingUp,
   Truck,
   Users,
   Wallet,
@@ -52,13 +57,13 @@ const adminNavItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/admin", active: true },
   { icon: Package, label: "Commandes du jour", href: "/admin/orders" },
   { icon: Users, label: "Clients", href: "/admin/clients" },
-  { icon: AlertTriangle, label: "Blacklisté", href: "/admin/blacklist" },
+  { icon: AlertTriangle, label: "Blackliste", href: "/admin/blacklist" },
   { icon: Truck, label: "Logistique & Livreurs", href: "/admin/livreur" },
   { icon: ShoppingBasket, label: "Gestion Produits & Prix", href: "/admin/produits" },
   { icon: BarChart3, label: "Analytics", href: "/admin/analytics" },
   { icon: Users, label: "Abonnements Parentaux", href: "/admin/subscriptions" },
   { icon: Wallet, label: "Transactions Wallet", href: "/admin/wallet" },
-  { icon: Settings, label: "Paramètres Système", href: "/admin/settings" },
+  { icon: Settings, label: "Parametres Systeme", href: "/admin/settings" },
 ]
 
 const adminNavPermissions: Record<string, string> = {
@@ -83,20 +88,29 @@ const periodOptions: Array<{ value: DashboardPeriod; label: string }> = [
 
 const statusColors: Record<string, string> = {
   LIVRE: "#1E8A3C",
-  EN_ROUTE: "#2563EB",
-  ANNULEE: "#DC2626",
+  EN_ROUTE: "#3B82F6",
+  ANNULEE: "#EF4444",
   ABSENT: "#F97316",
-  INCONNU: "#6B7280",
+  CONFIRMEE: "#10B981",
+  INCONNU: "#9CA3AF",
 }
 
 const paymentColors: Record<string, string> = {
-  COD: "#F97316",
-  WALLET: "#1E8A3C",
-  CMI: "#2563EB",
-  INCONNU: "#6B7280",
+  COD: "#F59E0B",
+  WALLET: "#8B5CF6",
+  CMI: "#3B82F6",
+  CASH: "#10B981",
+  INCONNU: "#9CA3AF",
 }
 
 function formatMoney(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "0 DH"
+  }
+  return `${value.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} DH`
+}
+
+function formatPreciseMoney(value: number | null | undefined) {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return "0.00 DH"
   }
@@ -110,7 +124,7 @@ function formatNumber(value: number | null | undefined) {
   return value.toLocaleString("fr-FR")
 }
 
-function formatDate(value: string | null | undefined) {
+function formatDateTime(value: string | null | undefined) {
   if (!value) {
     return "-"
   }
@@ -127,81 +141,76 @@ function formatDate(value: string | null | undefined) {
   })
 }
 
-function currentDateLabel() {
-  return new Date().toLocaleDateString("fr-FR", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  })
-}
-
 function normalizeLabel(value: string) {
   return value.replace(/_/g, " ")
 }
 
 function getStatusColor(status: string) {
-  return statusColors[status.toUpperCase()] || "#6B7280"
+  return statusColors[status.toUpperCase()] || "#9CA3AF"
 }
 
 function getPaymentColor(mode: string) {
-  return paymentColors[mode.toUpperCase()] || "#6B7280"
+  return paymentColors[mode.toUpperCase()] || "#9CA3AF"
 }
 
-function SkeletonCard() {
-  return (
-    <div className="animate-pulse rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
-      <div className="h-4 w-24 rounded bg-gray-200" />
-      <div className="mt-4 h-8 w-32 rounded bg-gray-200" />
-      <div className="mt-4 h-3 w-20 rounded bg-gray-100" />
-    </div>
-  )
+function variation(current: number, previous: number) {
+  if (!Number.isFinite(current) || !Number.isFinite(previous) || previous <= 0) {
+    return null
+  }
+  return ((current - previous) / previous) * 100
+}
+
+function SkeletonBlock({ className }: { className?: string }) {
+  return <div className={cn("animate-pulse rounded-xl border border-[#E5E7EB] bg-white shadow-sm", className)} />
 }
 
 function MetricCard({
   label,
   value,
-  icon: Icon,
   helper,
+  icon: Icon,
+  colorClass,
+  variationValue,
   highlight = false,
 }: {
   label: string
-  value: string | number
-  icon: typeof Package
+  value: string
   helper: string
+  icon: LucideIcon
+  colorClass: string
+  variationValue?: number | null
   highlight?: boolean
 }) {
+  const positive = typeof variationValue === "number" && variationValue >= 0
+  const negative = typeof variationValue === "number" && variationValue < 0
+
   return (
-    <div className={cn("rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm", highlight && "border-emerald-100 bg-[#F0FDF4]")}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-gray-500">{label}</p>
-          <p className="mt-2 truncate text-3xl font-bold tracking-tight text-gray-950">{value}</p>
+    <div className={cn("min-h-[116px] rounded-xl border border-[#E5E7EB] bg-white px-3 py-3 shadow-sm", highlight && "border-emerald-200 bg-[#F0FDF4]")}>
+      <div className="flex items-start gap-2.5">
+        <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", colorClass)}>
+          <Icon className="h-4.5 w-4.5" />
         </div>
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-emerald-100 bg-[#F0FDF4] text-[#1E8A3C]">
-          <Icon className="h-5 w-5" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-semibold uppercase text-[#6B7280]">{label}</p>
+          <p className="mt-1 break-words text-[1.28rem] font-bold leading-tight text-[#1F2937] 2xl:text-[1.38rem]">{value}</p>
         </div>
       </div>
-      <p className="mt-4 text-xs font-medium text-gray-400">{helper}</p>
+      <div className="mt-2 flex min-h-5 items-center justify-between gap-2 text-xs">
+        <span className="truncate font-medium text-[#6B7280]">{helper}</span>
+        {typeof variationValue === "number" ? (
+          <span
+            className={cn(
+              "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 font-bold",
+              positive && "bg-[#F0FDF4] text-[#1E8A3C]",
+              negative && "bg-red-50 text-red-600"
+            )}
+          >
+            {positive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+            {Math.abs(variationValue).toFixed(1)}%
+          </span>
+        ) : null}
+      </div>
     </div>
-  )
-}
-
-function StatusBadge({ value }: { value: string | null }) {
-  const normalized = (value || "INCONNU").toUpperCase()
-  const isSuccess = normalized.includes("SUCC") || normalized === "SUCCES"
-  const isError = normalized.includes("ERREUR")
-  return (
-    <span
-      className={cn(
-        "inline-flex rounded-full border px-3 py-1 text-xs font-semibold",
-        isSuccess && "border-emerald-200 bg-[#F0FDF4] text-[#1E8A3C]",
-        isError && "border-red-200 bg-red-50 text-red-700",
-        !isSuccess && !isError && "border-gray-200 bg-gray-50 text-gray-600"
-      )}
-    >
-      {value || "Aucun JIT"}
-    </span>
   )
 }
 
@@ -219,10 +228,10 @@ function AreaTooltip({
   }
   const point = payload[0]?.payload
   return (
-    <div className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-sm shadow-sm">
-      <p className="font-semibold text-gray-950">{label}</p>
-      <p className="text-[#1E8A3C]">CA: {formatMoney(point?.ca)}</p>
-      <p className="text-gray-500">Commandes: {formatNumber(point?.nb_commandes)}</p>
+    <div className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-xs shadow-sm">
+      <p className="font-bold text-[#1F2937]">{label}</p>
+      <p className="text-[#1E8A3C]">CA: {formatPreciseMoney(point?.ca)}</p>
+      <p className="text-[#6B7280]">Commandes: {formatNumber(point?.nb_commandes)}</p>
     </div>
   )
 }
@@ -239,26 +248,32 @@ function PaymentTooltip({
   }
   const point = payload[0]?.payload
   return (
-    <div className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-sm shadow-sm">
-      <p className="font-semibold text-gray-950">{point?.mode}</p>
-      <p className="text-[#1E8A3C]">{formatMoney(point?.montant)}</p>
-      <p className="text-gray-500">{formatNumber(point?.count)} commande(s)</p>
+    <div className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-xs shadow-sm">
+      <p className="font-bold text-[#1F2937]">{point?.mode}</p>
+      <p className="text-[#1E8A3C]">{formatPreciseMoney(point?.montant)}</p>
+      <p className="text-[#6B7280]">{formatNumber(point?.count)} commande(s)</p>
     </div>
   )
 }
 
-function MiniStat({
-  label,
-  value,
-}: {
-  label: string
-  value: string
-}) {
+function StatusBadge({ value }: { value: string | null }) {
+  const normalized = (value || "INCONNU").toUpperCase()
+  const success = normalized.includes("SUCC")
+  const error = normalized.includes("ERREUR")
+  const empty = normalized.includes("AUCUNE")
+
   return (
-    <div className="rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3">
-      <p className="text-xs font-semibold uppercase text-gray-400">{label}</p>
-      <p className="mt-1 text-xl font-bold text-gray-950">{value}</p>
-    </div>
+    <span
+      className={cn(
+        "inline-flex rounded-full border px-2.5 py-1 text-xs font-bold",
+        success && "border-emerald-200 bg-[#F0FDF4] text-[#1E8A3C]",
+        error && "border-red-200 bg-red-50 text-red-700",
+        empty && "border-amber-200 bg-amber-50 text-amber-700",
+        !success && !error && !empty && "border-gray-200 bg-gray-50 text-[#6B7280]"
+      )}
+    >
+      {value || "Aucun JIT"}
+    </span>
   )
 }
 
@@ -269,7 +284,6 @@ export default function AdminDashboard() {
   const [dashboard, setDashboard] = useState<DashboardDTO | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
-  const [lastRefresh, setLastRefresh] = useState<string | null>(null)
 
   const loadDashboard = useCallback(async (showLoader = true, signal?: AbortSignal) => {
     if (!token) {
@@ -285,7 +299,6 @@ export default function AdminDashboard() {
       const result = await getAdminDashboard(token, periode, signal)
       setDashboard(result)
       setError("")
-      setLastRefresh(new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }))
     } catch (loadError) {
       if (loadError instanceof Error && loadError.name === "AbortError") {
         return
@@ -312,47 +325,94 @@ export default function AdminDashboard() {
     }
   }, [loadDashboard])
 
-  const visibleAdminNavItems = adminNavItems.filter((item) =>
-    can(adminNavPermissions[item.href] || "admin.panel.access")
+  const visibleAdminNavItems = useMemo(
+    () => adminNavItems.filter((item) => can(adminNavPermissions[item.href] || "admin.panel.access")),
+    [can]
   )
 
-  const codTotal = (dashboard?.cod_confirmes ?? 0) + (dashboard?.cod_annules ?? 0)
-  const codRate = codTotal > 0 ? ((dashboard?.cod_confirmes ?? 0) / codTotal) * 100 : 0
-  const mainStatus = dashboard?.repartition_statuts
-    .filter((item) => item.count > 0)
-    .sort((left, right) => right.count - left.count)
-    .at(0)
+  const metrics = dashboard
+    ? [
+        {
+          label: "CA Total",
+          value: formatMoney(dashboard.ca_total),
+          helper: "Livrees uniquement",
+          icon: CircleDollarSign,
+          colorClass: "bg-[#F0FDF4] text-[#1E8A3C]",
+          variationValue: variation(dashboard.ca_total, dashboard.ca_total_precedent),
+          highlight: true,
+        },
+        {
+          label: "Commandes",
+          value: formatNumber(dashboard.total_commandes),
+          helper: `${formatNumber(dashboard.commandes_confirmees)} confirmees`,
+          icon: Package,
+          colorClass: "bg-blue-50 text-blue-600",
+          variationValue: variation(dashboard.total_commandes, dashboard.total_commandes_precedent),
+        },
+        {
+          label: "Livrees",
+          value: `${formatNumber(dashboard.commandes_livrees)} (${dashboard.taux_livraison.toFixed(1)}%)`,
+          helper: `${formatNumber(dashboard.commandes_absentes)} absentes`,
+          icon: CheckCircle2,
+          colorClass: "bg-[#F0FDF4] text-[#1E8A3C]",
+          variationValue: variation(dashboard.commandes_livrees, dashboard.commandes_livrees_precedent),
+        },
+        {
+          label: "Panier moyen",
+          value: formatMoney(dashboard.panier_moyen),
+          helper: "Sans variation",
+          icon: ShoppingCart,
+          colorClass: "bg-teal-50 text-teal-600",
+        },
+        {
+          label: "Clients actifs",
+          value: formatNumber(dashboard.total_clients_actifs),
+          helper: `${formatNumber(dashboard.nouveaux_clients)} nouveaux`,
+          icon: Users,
+          colorClass: "bg-violet-50 text-violet-600",
+        },
+        {
+          label: "Blacklistes",
+          value: formatNumber(dashboard.clients_blacklistes),
+          helper: "COD bloque",
+          icon: ShieldX,
+          colorClass: "bg-red-50 text-red-600",
+        },
+      ]
+    : []
+
+  const netBlacklist = (dashboard?.nouveaux_blacklistes ?? 0) - (dashboard?.blacklists_leves ?? 0)
 
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
       <header className="sticky top-0 z-50 border-b border-[#E5E7EB] bg-white shadow-sm">
-        <div className="flex h-16 items-center justify-between px-4 lg:px-6">
+        <div className="flex h-14 items-center justify-between px-4 lg:px-6">
           <div className="flex items-center gap-4">
-            <button type="button" onClick={() => setSidebarOpen(true)} className="rounded-lg p-2 text-gray-700 hover:bg-gray-100 lg:hidden">
-              <Menu className="h-6 w-6" />
+            <button type="button" onClick={() => setSidebarOpen(true)} className="rounded-lg p-2 text-[#1F2937] hover:bg-gray-100 lg:hidden">
+              <Menu className="h-5 w-5" />
             </button>
             <Link href="/admin" className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-100 bg-[#F0FDF4] text-[#1E8A3C]">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-100 bg-[#F0FDF4] text-[#1E8A3C]">
                 <Leaf className="h-5 w-5" />
               </div>
               <div className="hidden sm:block">
-                <span className="text-xl font-bold text-[#1E8A3C]">SOUKI</span>
-                <span className="ml-1 text-sm text-gray-500">Admin</span>
+                <span className="text-lg font-bold text-[#1E8A3C]">SOUKI</span>
+                <span className="ml-1 text-sm text-[#6B7280]">Admin</span>
               </div>
             </Link>
           </div>
 
-          <div className="hidden min-w-0 text-center md:block">
-            <p className="truncate text-sm font-semibold capitalize text-gray-700">{currentDateLabel()}</p>
-            {lastRefresh ? <p className="text-xs text-gray-400">Dernière MAJ {lastRefresh}</p> : null}
+          <div className="hidden text-center md:block">
+            <p className="text-sm font-bold text-[#1F2937]">SOUKI Dashboard</p>
+            <p className="text-xs text-[#6B7280]">Suivi global des performances</p>
           </div>
 
           <div className="flex items-center gap-3">
-            <button type="button" className="relative rounded-xl p-2 text-gray-700 hover:bg-gray-100">
+            <button type="button" className="relative rounded-xl p-2 text-[#1F2937] hover:bg-gray-100">
               <Bell className="h-5 w-5" />
               <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
             </button>
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1E8A3C] font-bold text-white">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1E8A3C] font-bold text-white">
               A
             </div>
           </div>
@@ -362,7 +422,7 @@ export default function AdminDashboard() {
       <div className="flex">
         <aside
           className={cn(
-            "fixed left-0 top-0 z-40 flex h-screen w-20 flex-col bg-[#1E8A3C] transition-transform lg:sticky lg:top-16 lg:h-[calc(100vh-64px)] lg:translate-x-0",
+            "fixed left-0 top-0 z-40 flex h-screen w-20 flex-col bg-[#1E8A3C] transition-transform lg:sticky lg:top-14 lg:h-[calc(100vh-56px)] lg:translate-x-0",
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           )}
         >
@@ -388,7 +448,7 @@ export default function AdminDashboard() {
           </nav>
 
           <div className="border-t border-white/20 p-3">
-            <button type="button" title="Déconnexion" aria-label="Déconnexion" className="flex h-11 w-11 items-center justify-center rounded-xl text-white/75 transition-colors hover:bg-white/10 hover:text-white">
+            <button type="button" title="Deconnexion" aria-label="Deconnexion" className="flex h-11 w-11 items-center justify-center rounded-xl text-white/75 transition-colors hover:bg-white/10 hover:text-white">
               <LogOut className="h-5 w-5" />
             </button>
           </div>
@@ -397,12 +457,18 @@ export default function AdminDashboard() {
         {sidebarOpen ? <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} /> : null}
 
         <main className="min-w-0 flex-1">
-          <div className="sticky top-16 z-30 border-b border-[#E5E7EB] bg-white/95 px-4 py-3 backdrop-blur lg:px-8">
-            <div className="mx-auto flex max-w-7xl flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-950">Dashboard opérationnel</h1>
-                <p className="text-sm text-gray-500">Lecture rapide des ventes, commandes et signaux du jour.</p>
+          <div className="sticky top-14 z-30 border-b border-[#E5E7EB] bg-white px-4 py-3 lg:px-6">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                  <h1 className="text-2xl font-bold tracking-tight text-[#1F2937]">SOUKI Dashboard</h1>
+                  <span className="text-xs font-semibold text-[#6B7280]">
+                    Derniere maj : {formatDateTime(dashboard?.derniere_maj)}
+                  </span>
+                </div>
+                <p className="text-sm text-[#6B7280]">Suivi global des performances</p>
               </div>
+
               <div className="flex flex-wrap items-center gap-2">
                 {periodOptions.map((option) => (
                   <button
@@ -410,10 +476,10 @@ export default function AdminDashboard() {
                     type="button"
                     onClick={() => setPeriode(option.value)}
                     className={cn(
-                      "rounded-lg border px-3 py-2 text-sm font-semibold transition-colors",
+                      "rounded-lg border px-3 py-2 text-sm font-bold transition-colors",
                       periode === option.value
                         ? "border-[#1E8A3C] bg-[#1E8A3C] text-white"
-                        : "border-[#E5E7EB] bg-white text-gray-700 hover:bg-[#F0FDF4] hover:text-[#1E8A3C]"
+                        : "border-[#E5E7EB] bg-white text-[#1F2937] hover:bg-[#F0FDF4] hover:text-[#1E8A3C]"
                     )}
                   >
                     {option.label}
@@ -423,7 +489,7 @@ export default function AdminDashboard() {
                   type="button"
                   onClick={() => void loadDashboard(true)}
                   disabled={isLoading}
-                  className="inline-flex items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-sm font-bold text-[#1F2937] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <RefreshCw className={cn("h-4 w-4 text-[#1E8A3C]", isLoading && "animate-spin")} />
                   Actualiser
@@ -432,61 +498,67 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 lg:px-8">
+          <div className="space-y-4 px-4 py-4 lg:px-6">
             {error ? (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700">
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
                 {error}
               </div>
             ) : null}
 
             {isLoading && !dashboard ? (
               <>
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                  {Array.from({ length: 4 }).map((_, index) => <SkeletonCard key={index} />)}
-                </div>
-                <div className="grid gap-6 lg:grid-cols-3">
-                  <div className="h-96 animate-pulse rounded-xl border border-[#E5E7EB] bg-white lg:col-span-2" />
-                  <div className="h-96 animate-pulse rounded-xl border border-[#E5E7EB] bg-white" />
-                </div>
+                <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <SkeletonBlock key={index} className="h-28" />
+                  ))}
+                </section>
+                <section className="grid gap-4 xl:grid-cols-[2fr_1fr_1fr]">
+                  <SkeletonBlock className="h-[340px]" />
+                  <SkeletonBlock className="h-[340px]" />
+                  <SkeletonBlock className="h-[340px]" />
+                </section>
+                <section className="grid gap-4 xl:grid-cols-3">
+                  <SkeletonBlock className="h-40" />
+                  <SkeletonBlock className="h-40" />
+                  <SkeletonBlock className="h-40" />
+                </section>
               </>
             ) : dashboard ? (
               <>
-                <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                  <MetricCard label="CA total" value={formatMoney(dashboard.ca_total)} icon={CircleDollarSign} helper="Commandes livrées" highlight />
-                  <MetricCard label="Commandes" value={formatNumber(dashboard.total_commandes)} icon={Package} helper={`${dashboard.taux_livraison.toFixed(1)}% livrées`} />
-                  <MetricCard label="Clients actifs" value={formatNumber(dashboard.total_clients_actifs)} icon={Users} helper={`${formatNumber(dashboard.nouveaux_clients)} nouveaux`} />
-                  <MetricCard label="Livreurs" value={formatNumber(dashboard.livreurs_disponibles)} icon={Bike} helper={`${formatNumber(dashboard.tournees_actives)} tournée(s) active(s)`} />
+                <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+                  {metrics.map((metric) => (
+                    <MetricCard key={metric.label} {...metric} />
+                  ))}
                 </section>
 
-                <section className="grid gap-6 lg:grid-cols-3">
-                  <div className="rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm lg:col-span-2">
-                    <div className="mb-5 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <section className="grid gap-4 xl:grid-cols-[2fr_1fr_1fr]">
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+                    <div className="mb-3 flex items-end justify-between gap-3">
                       <div>
-                        <h2 className="text-lg font-bold text-gray-950">CA sur 30 jours</h2>
-                        <p className="text-sm text-gray-500">Tendance globale, indépendante du filtre de période.</p>
+                        <h2 className="text-base font-bold text-[#1F2937]">Evolution du CA (DH)</h2>
+                        <p className="text-xs text-[#6B7280]">Courbe fixe sur 30 jours</p>
                       </div>
-                      <span className="text-sm font-semibold text-[#1E8A3C]">{formatMoney(dashboard.ca_total)}</span>
+                      <span className="text-sm font-bold text-[#1E8A3C]">{formatPreciseMoney(dashboard.ca_total)}</span>
                     </div>
-                    <div className="h-80">
+                    <div className="h-[270px]">
                       <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={dashboard.courbe_ca} margin={{ left: 0, right: 12, top: 10, bottom: 0 }}>
-                          <CartesianGrid stroke="#E5E7EB" strokeDasharray="3 3" />
-                          <XAxis dataKey="date" tick={{ fill: "#6B7280", fontSize: 12 }} tickLine={false} axisLine={false} />
-                          <YAxis tick={{ fill: "#6B7280", fontSize: 12 }} tickLine={false} axisLine={false} />
+                        <AreaChart data={dashboard.courbe_ca} margin={{ left: 0, right: 12, top: 8, bottom: 0 }}>
+                          <CartesianGrid stroke="#E5E7EB" strokeDasharray="3 3" vertical={false} />
+                          <XAxis dataKey="date" tick={{ fill: "#6B7280", fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={18} />
+                          <YAxis tick={{ fill: "#6B7280", fontSize: 11 }} tickFormatter={(value) => `${value} DH`} tickLine={false} axisLine={false} width={58} />
                           <Tooltip content={<AreaTooltip />} />
-                          <Area type="monotone" dataKey="ca" stroke="#1E8A3C" strokeWidth={2} fill="#1E8A3C20" name="CA" />
+                          <Area type="monotone" dataKey="ca" stroke="#1E8A3C" strokeWidth={2} fill="#1E8A3C26" name="CA" />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
-                    <h2 className="text-lg font-bold text-gray-950">Statuts commandes</h2>
-                    <p className="text-sm text-gray-500">Répartition de la période.</p>
-                    <div className="mt-4 h-56">
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+                    <h2 className="text-base font-bold text-[#1F2937]">Statuts commandes</h2>
+                    <div className="mt-2 h-[170px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={dashboard.repartition_statuts} dataKey="count" nameKey="statut" innerRadius={58} outerRadius={84} paddingAngle={3}>
+                          <Pie data={dashboard.repartition_statuts} dataKey="count" nameKey="statut" innerRadius={55} outerRadius={78} paddingAngle={3}>
                             {dashboard.repartition_statuts.map((entry) => (
                               <Cell key={entry.statut} fill={getStatusColor(entry.statut)} />
                             ))}
@@ -495,29 +567,31 @@ export default function AdminDashboard() {
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
-                    {mainStatus ? (
-                      <div className="rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm">
-                        <span className="text-gray-500">Statut dominant</span>
-                        <p className="mt-1 font-bold text-gray-950">{normalizeLabel(mainStatus.statut)} · {formatNumber(mainStatus.count)}</p>
-                      </div>
-                    ) : null}
-                  </div>
-                </section>
-
-                <section className="grid gap-6 lg:grid-cols-3">
-                  <div className="rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm lg:col-span-2">
-                    <div className="mb-5">
-                      <h2 className="text-lg font-bold text-gray-950">Paiements</h2>
-                      <p className="text-sm text-gray-500">Montant par mode de paiement.</p>
+                    <div className="mt-2 max-h-28 overflow-hidden rounded-lg border border-[#E5E7EB]">
+                      <table className="w-full text-xs">
+                        <tbody className="divide-y divide-[#E5E7EB]">
+                          {dashboard.repartition_statuts.slice(0, 4).map((row) => (
+                            <tr key={row.statut}>
+                              <td className="px-2 py-1.5 font-semibold text-[#1F2937]">{normalizeLabel(row.statut)}</td>
+                              <td className="px-2 py-1.5 text-right text-[#6B7280]">{formatNumber(row.count)}</td>
+                              <td className="px-2 py-1.5 text-right font-bold text-[#1E8A3C]">{row.pourcentage.toFixed(1)}%</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                    <div className="h-64">
+                  </div>
+
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+                    <h2 className="text-base font-bold text-[#1F2937]">CA par mode paiement</h2>
+                    <div className="mt-4 h-[250px]">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={dashboard.repartition_paiements} margin={{ left: 0, right: 12, top: 10, bottom: 0 }}>
-                          <CartesianGrid stroke="#E5E7EB" strokeDasharray="3 3" vertical={false} />
-                          <XAxis dataKey="mode" tick={{ fill: "#6B7280", fontSize: 12 }} tickLine={false} axisLine={false} />
-                          <YAxis tick={{ fill: "#6B7280", fontSize: 12 }} tickLine={false} axisLine={false} />
+                        <BarChart data={dashboard.repartition_paiements} layout="vertical" margin={{ left: 0, right: 12, top: 4, bottom: 4 }}>
+                          <CartesianGrid stroke="#E5E7EB" strokeDasharray="3 3" horizontal={false} />
+                          <XAxis type="number" tick={{ fill: "#6B7280", fontSize: 11 }} tickFormatter={(value) => `${value} DH`} tickLine={false} axisLine={false} />
+                          <YAxis dataKey="mode" type="category" tick={{ fill: "#6B7280", fontSize: 11 }} tickLine={false} axisLine={false} width={62} />
                           <Tooltip content={<PaymentTooltip />} />
-                          <Bar dataKey="montant" radius={[8, 8, 0, 0]}>
+                          <Bar dataKey="montant" radius={[0, 8, 8, 0]} barSize={18}>
                             {dashboard.repartition_paiements.map((entry) => (
                               <Cell key={entry.mode} fill={getPaymentColor(entry.mode)} />
                             ))}
@@ -525,38 +599,88 @@ export default function AdminDashboard() {
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h2 className="text-lg font-bold text-gray-950">JIT</h2>
-                          <p className="text-sm text-gray-500">{dashboard.dernier_jit_volume.toFixed(2)} kg · {formatDate(dashboard.dernier_jit_date)}</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {dashboard.repartition_paiements.slice(0, 4).map((row) => (
+                        <div key={row.mode} className="rounded-lg bg-gray-50 px-2 py-1.5">
+                          <p className="font-bold text-[#1F2937]">{row.mode}</p>
+                          <p className="text-[#6B7280]">{formatMoney(row.montant)} · {formatNumber(row.count)}</p>
                         </div>
-                        <StatusBadge value={dashboard.dernier_jit_statut} />
-                      </div>
-                      <Link href="/admin/orders#jit" className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#1E8A3C] px-4 py-2 text-sm font-semibold text-white hover:bg-[#166d30]">
-                        Voir JIT
-                        <ArrowRight className="h-4 w-4" />
-                      </Link>
-                    </div>
-
-                    <div className="rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
-                      <h2 className="text-lg font-bold text-gray-950">COD</h2>
-                      <p className="mt-1 text-sm text-gray-500">{formatNumber(dashboard.cod_confirmes)} confirmés · {formatNumber(dashboard.cod_annules)} annulés</p>
-                      <div className="mt-4 h-2 overflow-hidden rounded-full bg-gray-100">
-                        <div className="h-full rounded-full bg-[#1E8A3C]" style={{ width: `${Math.min(100, codRate)}%` }} />
-                      </div>
-                      <p className="mt-2 text-xs font-semibold text-[#1E8A3C]">{codRate.toFixed(1)}% confirmation</p>
+                      ))}
                     </div>
                   </div>
                 </section>
 
-                <section className="grid gap-4 md:grid-cols-3">
-                  <MiniStat label="Wallets" value={formatMoney(dashboard.total_soldes_wallets)} />
-                  <MiniStat label="Blacklistés période" value={formatNumber(dashboard.nouveaux_blacklistes)} />
-                  <MiniStat label="Blacklist levées" value={formatNumber(dashboard.blacklists_leves)} />
+                <section className="grid gap-4 xl:grid-cols-3">
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h2 className="text-base font-bold text-[#1F2937]">JIT</h2>
+                        <p className="mt-1 text-sm text-[#6B7280]">{formatPreciseMoney(dashboard.dernier_jit_volume).replace("DH", "kg")}</p>
+                      </div>
+                      <StatusBadge value={dashboard.dernier_jit_statut} />
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-[#6B7280]">Commandes</p>
+                        <p className="text-xl font-bold text-[#1F2937]">{formatNumber(dashboard.dernier_jit_nb_commandes)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-[#6B7280]">Dernier job</p>
+                        <p className="text-sm font-bold text-[#1F2937]">{formatDateTime(dashboard.dernier_jit_date)}</p>
+                      </div>
+                    </div>
+                    <Link href="/admin/orders#jit" className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#1E8A3C] hover:text-[#166d30]">
+                      Gerer JIT
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+                    <h2 className="text-base font-bold text-[#1F2937]">COD</h2>
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-[#6B7280]">Confirmes</p>
+                        <p className="text-2xl font-bold text-[#1E8A3C]">{formatNumber(dashboard.cod_confirmes)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-[#6B7280]">Annules</p>
+                        <p className="text-2xl font-bold text-red-600">{formatNumber(dashboard.cod_annules)}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-red-100">
+                      <div className="h-full rounded-full bg-[#1E8A3C]" style={{ width: `${Math.min(100, dashboard.taux_confirmation_cod)}%` }} />
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-xs font-bold">
+                      <span className="text-[#6B7280]">Taux confirmation</span>
+                      <span className="text-[#1E8A3C]">{dashboard.taux_confirmation_cod.toFixed(1)}%</span>
+                    </div>
+                    <Link href="/admin/orders" className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#1E8A3C] hover:text-[#166d30]">
+                      Gerer COD
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+                    <h2 className="text-base font-bold text-[#1F2937]">Blacklist periode</h2>
+                    <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-lg bg-red-50 px-2 py-3">
+                        <p className="text-xs font-semibold text-red-600">Nouveaux</p>
+                        <p className="text-2xl font-bold text-red-700">{formatNumber(dashboard.nouveaux_blacklistes)}</p>
+                      </div>
+                      <div className="rounded-lg bg-[#F0FDF4] px-2 py-3">
+                        <p className="text-xs font-semibold text-[#1E8A3C]">Leves</p>
+                        <p className="text-2xl font-bold text-[#1E8A3C]">{formatNumber(dashboard.blacklists_leves)}</p>
+                      </div>
+                      <div className="rounded-lg bg-gray-50 px-2 py-3">
+                        <p className="text-xs font-semibold text-[#6B7280]">Net</p>
+                        <p className="text-2xl font-bold text-[#1F2937]">{formatNumber(netBlacklist)}</p>
+                      </div>
+                    </div>
+                    <Link href="/admin/blacklist" className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#1E8A3C] hover:text-[#166d30]">
+                      Voir blacklist
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
                 </section>
               </>
             ) : null}
