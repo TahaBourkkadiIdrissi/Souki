@@ -1,23 +1,8 @@
-# Dashboard Admin SOUKI
+# Dashboard Admin SOUKI - Refonte Complete
 
 ## Objectif
 
-Remplacer le contenu du dashboard admin par une vue back-office dense, connectee a `GET /admin/dashboard`, avec filtre de periode, KPIs, graphiques Recharts, cards operationnelles et auto-refresh silencieux.
-
-## Tables Utilisees
-
-| Table | Champs lus | Usage |
-|---|---|---|
-| `t_commandes` | `id`, `date_commande`, `statut`, `montant_total`, `mode_paiement` | KPIs commandes, CA, courbe CA 30 jours, repartition statuts, repartition paiements |
-| `t_paiements` | `commande_id`, `methode` | Fallback mode paiement avec jointure commande |
-| `t_clients` | `user_id`, `is_blacklisted` | Clients blacklistes, jointure clients/users |
-| `t_users` | `id`, `role`, `is_active`, `created_at` | Clients actifs et nouveaux clients |
-| `t_jit_logs` | `id`, `statut`, `volume_total`, `date_execution` | Dernier statut JIT, volume, date |
-| `t_livreurs` | `user_id`, `disponible` | Livreurs disponibles |
-| `t_tournees` | `id`, `date_tournee`, `statut` | Tournees actives du jour |
-| `t_cod_confirmation_logs` | `id`, `statut`, `created_at` | COD confirmes et annules |
-| `t_client_blacklist_logs` | `id`, `action`, `created_at` | Nouveaux blacklistes et blacklists leves |
-| `t_wallets` | `solde` | Total soldes wallets |
+Remplacer le dashboard admin par une vue executive dense type Power BI/Shopify adaptee a SOUKI, avec KPIs en ligne, graphes en grille, filtre de periode sticky, auto-refresh silencieux et accents verts `#1E8A3C`.
 
 ## Endpoint
 
@@ -41,7 +26,7 @@ def get_admin_dashboard_context(
 Parametres :
 
 - `periode`: `today`, `7d`, `30d`, `month`
-- defaut: `today`
+- Defaut: `today`
 
 Permission :
 
@@ -52,10 +37,10 @@ require_permission("admin.panel.access")
 Flux MVC2 :
 
 - Controller : ouvre `LocalSession()`, appelle le service, ferme la session.
-- Service : valide la periode et calcule les bornes temporelles.
-- DAO : execute toutes les requetes SQLAlchemy.
+- Service : valide la periode et calcule les bornes temporelles courantes et precedentes.
+- DAO : execute les requetes SQLAlchemy lecture seule.
 
-## DTO
+## DTO Complet
 
 Fichier :
 
@@ -65,17 +50,28 @@ DTO principal :
 
 ```python
 class DashboardDTO(BaseModel):
+    periode: str
+    date_debut: datetime
+    date_fin: datetime
+    derniere_maj: datetime
+
     total_commandes: int = 0
+    total_commandes_precedent: int = 0
     commandes_livrees: int = 0
+    commandes_livrees_precedent: int = 0
     commandes_en_route: int = 0
     commandes_annulees: int = 0
     commandes_absentes: int = 0
+    commandes_confirmees: int = 0
     taux_livraison: float = 0.0
 
     ca_total: float = 0.0
+    ca_total_precedent: float = 0.0
     ca_cod: float = 0.0
     ca_wallet: float = 0.0
     ca_cmi: float = 0.0
+    ca_cash: float = 0.0
+    panier_moyen: float = 0.0
 
     total_clients_actifs: int = 0
     nouveaux_clients: int = 0
@@ -83,6 +79,7 @@ class DashboardDTO(BaseModel):
 
     dernier_jit_statut: Optional[str] = None
     dernier_jit_volume: float = 0.0
+    dernier_jit_nb_commandes: int = 0
     dernier_jit_date: Optional[datetime] = None
 
     livreurs_disponibles: int = 0
@@ -90,58 +87,188 @@ class DashboardDTO(BaseModel):
 
     cod_confirmes: int = 0
     cod_annules: int = 0
+    taux_confirmation_cod: float = 0.0
 
     nouveaux_blacklistes: int = 0
     blacklists_leves: int = 0
 
-    total_soldes_wallets: float = 0.0
-
-    courbe_ca: List[CourbeCADTO] = []
-    repartition_statuts: List[RepartitionStatutDTO] = []
-    repartition_paiements: List[RepartitionPaiementDTO] = []
+    courbe_ca: List[DashboardPointDTO] = []
+    repartition_statuts: List[DashboardStatutDTO] = []
+    repartition_paiements: List[DashboardPaiementDTO] = []
 ```
 
 DTO enfants :
 
 ```python
-class CourbeCADTO(BaseModel):
+class DashboardPointDTO(BaseModel):
     date: str
     ca: float = 0.0
     nb_commandes: int = 0
 
-class RepartitionStatutDTO(BaseModel):
+class DashboardStatutDTO(BaseModel):
     statut: str
     count: int = 0
+    pourcentage: float = 0.0
 
-class RepartitionPaiementDTO(BaseModel):
+class DashboardPaiementDTO(BaseModel):
     mode: str
     count: int = 0
     montant: float = 0.0
+    pourcentage: float = 0.0
 ```
 
-## Backend Cree
+Champ supprime :
 
-| Fichier | Role |
-|---|---|
-| `back-end/dto/dashboard_dto.py` | DTO de sortie dashboard |
-| `back-end/interfaces/dashboard_dao_interface.py` | Contrat DAO |
-| `back-end/interfaces/dashboard_service_interface.py` | Contrat service |
-| `back-end/dao/dashboard_dao.py` | Requetes SQLAlchemy lecture seule |
-| `back-end/services/dashboard_service.py` | Validation periode et orchestration |
+- `total_soldes_wallets` retire du DTO backend, du type frontend et de la page dashboard.
 
-## Backend Modifie
+Champs ajoutes pour variation frontend :
 
-| Fichier | Modification |
-|---|---|
-| `back-end/controllers/admin_controller.py` | `GET /admin/dashboard` retourne maintenant `DashboardDTO` |
-| `back-end/dependencies.py` | Ajout providers `get_dashboard_dao()` et `get_dashboard_service()` |
+- `ca_total_precedent`
+- `total_commandes_precedent`
+- `commandes_livrees_precedent`
 
-## Frontend Modifie
+La variation frontend est calculee par :
 
-| Fichier | Modification |
-|---|---|
-| `front-end/lib/api.ts` | Ajout types Dashboard et fonction `getAdminDashboard()` |
-| `front-end/app/admin/page.tsx` | Remplacement du contenu dashboard par une vue connectee avec periode sticky, KPIs, AreaChart, PieChart, cards JIT/COD/Wallet |
+```ts
+((actuel - precedent) / precedent) * 100
+```
+
+Les KPIs `panier moyen`, `clients actifs` et `blacklistes` n'affichent pas de variation.
+
+## Tables Utilisees Et Champs Lus
+
+| Table | Champs lus | Usage |
+|---|---|---|
+| `t_commandes` | `id`, `date_commande`, `statut`, `montant_total`, `mode_paiement` | KPIs commandes, CA, panier moyen, courbe CA, statuts, paiements |
+| `t_paiements` | `commande_id`, `methode` | Fallback mode paiement |
+| `t_clients` | `user_id`, `is_blacklisted` | Clients blacklistes via `client_admin_dao` |
+| `t_users` | `id`, `role`, `is_active`, `created_at` | Clients actifs et nouveaux clients via `client_admin_dao` |
+| `t_jit_logs` | `id`, `statut`, `volume_total`, `nombre_commandes`, `date_execution` | Dernier job JIT |
+| `t_livreurs` | `user_id`, `disponible` | Livreurs disponibles |
+| `t_tournees` | `id`, `date_tournee`, `statut` | Tournees actives du jour |
+| `t_cod_confirmation_logs` | `id`, `statut`, `created_at` | COD confirmes, annules et taux confirmation |
+| `t_client_blacklist_logs` | `id`, `action`, `created_at` | Nouveaux blacklistes et blacklists leves via `client_blacklist_dao` |
+
+## Regle Anti-Duplication Appliquee
+
+`dashboard_dao.py` ne duplique plus les requetes clients et blacklist deja couvertes par les DAOs specialises.
+
+DAOs reutilises :
+
+- `ClientAdminDaoBD`
+  - `count_active_clients()`
+  - `count_new_clients()`
+  - `count_blacklisted_clients()`
+- `ClientBlacklistDaoBD`
+  - `get_action_counts_by_period()`
+
+Injection :
+
+```python
+def get_dashboard_dao(
+    blacklist_dao: IClientBlacklistDao = Depends(get_blacklist_dao),
+    client_admin_dao: IClientAdminDao = Depends(get_client_admin_dao),
+) -> IDashboardDao:
+    return DashboardDaoBD(
+        client_blacklist_dao=blacklist_dao,
+        client_admin_dao=client_admin_dao,
+    )
+```
+
+## Filtre BROUILLON
+
+Toutes les requetes basees sur `t_commandes` utilisent le filtre :
+
+```python
+func.upper(func.coalesce(Commande.statut, "")) != "BROUILLON"
+```
+
+Cela couvre :
+
+- total commandes
+- commandes precedentes
+- statuts commandes
+- CA total
+- CA precedent
+- CA par paiement
+- courbe CA 30 jours
+- repartition paiements
+
+## Frontend
+
+Fichier modifie :
+
+- `front-end/app/admin/page.tsx`
+
+Fonctionnalites :
+
+- Topbar admin conservee.
+- Sidebar admin en icones conservee.
+- Header `SOUKI Dashboard`.
+- Derniere mise a jour basee sur `derniere_maj`.
+- Filtre sticky :
+  - Aujourd'hui
+  - 7 jours
+  - 30 jours
+  - Ce mois
+  - Actualiser
+- 6 KPI cards horizontales :
+  - CA Total
+  - Commandes
+  - Livrees
+  - Panier moyen
+  - Clients actifs
+  - Blacklistes
+- Variations uniquement sur :
+  - CA Total
+  - Commandes
+  - Livrees
+- Grille graphes :
+  - AreaChart CA 30 jours
+  - Donut statuts commandes
+  - BarChart horizontal paiements
+- Ligne operationnelle :
+  - JIT
+  - COD
+  - Blacklist periode
+- Loading state par skeleton cards et graphes.
+- Auto-refresh silencieux toutes les 5 minutes.
+
+Fichier API modifie :
+
+- `front-end/lib/api.ts`
+
+Types dashboard mis a jour pour correspondre au DTO backend.
+
+## Fichiers Modifies
+
+Backend :
+
+- `back-end/dto/dashboard_dto.py`
+- `back-end/interfaces/dashboard_dao_interface.py`
+- `back-end/interfaces/client_admin_dao_interface.py`
+- `back-end/interfaces/client_blacklist_dao_interface.py`
+- `back-end/dao/dashboard_dao.py`
+- `back-end/dao/client_admin_dao.py`
+- `back-end/dao/client_blacklist_dao.py`
+- `back-end/services/dashboard_service.py`
+- `back-end/dependencies.py`
+
+Frontend :
+
+- `front-end/lib/api.ts`
+- `front-end/app/admin/page.tsx`
+
+Documentation :
+
+- `dashboard.md`
+
+## Fichiers Non Touches
+
+- Aucune entity modifiee.
+- Aucune table SQL creee ou modifiee.
+- `back-end/dao/livreur_dao.py` non touche.
+- `back-end/services/livreur_service.py` non touche.
 
 ## Check Flush/Commit
 
@@ -149,16 +276,14 @@ class RepartitionPaiementDTO(BaseModel):
 |---|---|---:|---:|---:|---|
 | `back-end/dao/dashboard_dao.py` | DAO | N/A lecture seule | Oui, aucun commit | Oui | OK |
 | `back-end/services/dashboard_service.py` | Service | N/A | N/A lecture seule | Oui | OK |
-| `back-end/controllers/admin_controller.py` | Controller | N/A | N/A | Non, attendu controller | OK |
+| `back-end/dao/client_admin_dao.py` | DAO | N/A lecture seule | Oui, aucun commit | Oui | OK |
+| `back-end/dao/client_blacklist_dao.py` | DAO | Oui, flush DAO existant | Oui, aucun commit | Oui | OK |
 | `back-end/dependencies.py` | Injection | N/A | N/A | Oui | OK |
+| `back-end/controllers/admin_controller.py` | Controller | N/A | N/A | Non, attendu controller | OK |
 
-Violations trouvees dans les nouveaux fichiers :
+Violations trouvees dans les fichiers modifies :
 
-- Aucune.
-
-Violations existantes :
-
-- Non traitees dans cette mission, conformement au scope.
+- Aucune nouvelle violation.
 
 ## Verifications
 
@@ -176,10 +301,11 @@ python -m compileall back-end
 
 Resultat : OK.
 
-Contraintes respectees :
+Contraintes confirmees :
 
 - Aucune entity modifiee.
 - Aucune table SQL creee.
 - `livreur_dao.py` non touche.
 - `livreur_service.py` non touche.
-- Aucun backend non lie au dashboard modifie dans cette mission.
+- `BROUILLON` exclu des requetes commandes.
+- Blacklist dashboard basee sur `t_clients.is_blacklisted = true` via `client_admin_dao`.

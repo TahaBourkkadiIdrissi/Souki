@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
@@ -37,4 +38,13 @@ class IClientBlacklistDao(ABC):
     def get_monthly_report(
         self, session: Session, year: int, month: int
     ) -> BlacklistReportDTO:
+        pass
+
+    @abstractmethod
+    def get_action_counts_by_period(
+        self,
+        session: Session,
+        start_datetime: datetime,
+        end_datetime: datetime,
+    ) -> dict[str, int]:
         pass

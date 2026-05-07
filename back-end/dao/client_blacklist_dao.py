@@ -292,6 +292,27 @@ class ClientBlacklistDaoBD(IClientBlacklistDao):
             ],
         )
 
+    def get_action_counts_by_period(
+        self,
+        session: Session,
+        start_datetime: datetime,
+        end_datetime: datetime,
+    ) -> dict[str, int]:
+        action_expr = func.upper(func.coalesce(ClientBlacklistLog.action, "INCONNU"))
+        rows = (
+            session.query(
+                action_expr.label("action"),
+                func.count(ClientBlacklistLog.id).label("count"),
+            )
+            .filter(
+                ClientBlacklistLog.created_at >= start_datetime,
+                ClientBlacklistLog.created_at < end_datetime,
+            )
+            .group_by(action_expr)
+            .all()
+        )
+        return {str(row.action): int(row.count or 0) for row in rows}
+
     def _month_bounds(self, year: int, month: int) -> tuple[datetime, datetime]:
         start_date = datetime.combine(datetime(year, month, 1).date(), time.min)
         if month == 12:
