@@ -1,49 +1,58 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { useAuth } from "@/hooks/useAuth"
-import { 
-  Leaf,
-  LayoutDashboard,
-  Package,
-  Users,
-  Bike,
-  Truck,
-  ShoppingBasket,
+import {
+  AlertTriangle,
+  ArrowRight,
   BarChart3,
-  Wallet,
-  Settings,
+  Bell,
+  Bike,
+  CheckCircle2,
+  CircleDollarSign,
+  LayoutDashboard,
+  Leaf,
   LogOut,
   Menu,
+  Package,
+  RefreshCw,
+  Settings,
+  ShoppingBasket,
+  Truck,
+  Users,
+  Wallet,
   X,
-  Bell,
-  Zap,
-  AlertTriangle,
-  CheckCircle,
-  Phone,
-  ChevronDown,
-  TrendingUp,
-  Clock
 } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { KPICard } from "@/components/souki/kpi-card"
-import { StatusBadge } from "@/components/souki/status-badge"
 import {
-  LineChart,
-  Line,
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend
 } from "recharts"
+
+import { useAuth } from "@/hooks/useAuth"
+import {
+  getAdminDashboard,
+  type DashboardCurvePointDTO,
+  type DashboardDTO,
+  type DashboardPaymentDTO,
+  type DashboardPeriod,
+} from "@/lib/api"
+import { cn } from "@/lib/utils"
 
 const adminNavItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/admin", active: true },
   { icon: Package, label: "Commandes du jour", href: "/admin/orders" },
-  { icon: Users, label: "Clients & Blacklist", href: "/admin/blacklist" },
+  { icon: Users, label: "Clients", href: "/admin/clients" },
+  { icon: AlertTriangle, label: "Blacklisté", href: "/admin/blacklist" },
   { icon: Truck, label: "Logistique & Livreurs", href: "/admin/livreur" },
   { icon: ShoppingBasket, label: "Gestion Produits & Prix", href: "/admin/produits" },
   { icon: BarChart3, label: "Analytics", href: "/admin/analytics" },
@@ -55,6 +64,7 @@ const adminNavItems = [
 const adminNavPermissions: Record<string, string> = {
   "/admin": "admin.panel.access",
   "/admin/orders": "orders.read",
+  "/admin/clients": "clients.read",
   "/admin/blacklist": "clients.blacklist",
   "/admin/livreur": "admin.panel.access",
   "/admin/produits": "products.manage",
@@ -64,115 +74,285 @@ const adminNavPermissions: Record<string, string> = {
   "/admin/settings": "users.manage_roles",
 }
 
-const ordersToday = [
-  { id: "CMD-2847", client: "Youssef M.", products: "Tomates, Oignons", total: 201, payment: "COD", livreur: "Mohammed B.", status: "enroute" as const },
-  { id: "CMD-2848", client: "Fatima B.", products: "Carottes, Herbes", total: 89, payment: "Wallet", livreur: "Ahmed K.", status: "delivered" as const },
-  { id: "CMD-2849", client: "Rachid K.", products: "Pommes de Terre", total: 156, payment: "COD", livreur: "-", status: "pending" as const },
-  { id: "CMD-2850", client: "Khadija L.", products: "Aubergines, Piments", total: 134, payment: "CMI", livreur: "Mohammed B.", status: "preparing" as const },
-  { id: "CMD-2851", client: "Omar S.", products: "Courgettes, Concombre", total: 178, payment: "COD", livreur: "-", status: "pending" as const },
+const periodOptions: Array<{ value: DashboardPeriod; label: string }> = [
+  { value: "today", label: "Aujourd'hui" },
+  { value: "7d", label: "7 jours" },
+  { value: "30d", label: "30 jours" },
+  { value: "month", label: "Ce mois" },
 ]
 
-const stockPricing = [
-  { product: "Tomates", prixGros: 7, coutReel: 7.5, prixVente: 7, marge: -6.7, strategy: "appel" },
-  { product: "Pommes de Terre", prixGros: 6, coutReel: 6.4, prixVente: 6, marge: -6.3, strategy: "appel" },
-  { product: "Oignons", prixGros: 9, coutReel: 9.6, prixVente: 9, marge: -6.3, strategy: "lissage" },
-  { product: "Carottes", prixGros: 8.5, coutReel: 9.1, prixVente: 10, marge: 9.9, strategy: "lissage" },
-  { product: "Courgettes", prixGros: 13, coutReel: 13.9, prixVente: 13, marge: -6.5, strategy: "perte" },
-]
+const statusColors: Record<string, string> = {
+  LIVRE: "#1E8A3C",
+  EN_ROUTE: "#2563EB",
+  ANNULEE: "#DC2626",
+  ABSENT: "#F97316",
+  INCONNU: "#6B7280",
+}
 
-const weeklyTrend = [
-  { day: "Lun", revenue: 450, orders: 6 },
-  { day: "Mar", revenue: 520, orders: 7 },
-  { day: "Mer", revenue: 380, orders: 5 },
-  { day: "Jeu", revenue: 610, orders: 8 },
-  { day: "Ven", revenue: 590, orders: 8 },
-  { day: "Sam", revenue: 720, orders: 10 },
-  { day: "Dim", revenue: 593, orders: 8 },
-]
+const paymentColors: Record<string, string> = {
+  COD: "#F97316",
+  WALLET: "#1E8A3C",
+  CMI: "#2563EB",
+  INCONNU: "#6B7280",
+}
 
-const alerts = [
-  { type: "danger", code: "7.14", message: "Prix tomates +45% au gros — Substitution activée : Courgettes" },
-  { type: "warning", code: "7.6", message: "Client Rachid M. — 2 refus COD consécutifs — Confirmation requise" },
-  { type: "success", code: "7.13", message: "Serveur nominal — Bot WhatsApp backup en veille" },
-]
+function formatMoney(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "0.00 DH"
+  }
+  return `${value.toLocaleString("fr-FR", { maximumFractionDigits: 2, minimumFractionDigits: 2 })} DH`
+}
+
+function formatNumber(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "0"
+  }
+  return value.toLocaleString("fr-FR")
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) {
+    return "-"
+  }
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+  return date.toLocaleString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
+function currentDateLabel() {
+  return new Date().toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  })
+}
+
+function normalizeLabel(value: string) {
+  return value.replace(/_/g, " ")
+}
+
+function getStatusColor(status: string) {
+  return statusColors[status.toUpperCase()] || "#6B7280"
+}
+
+function getPaymentColor(mode: string) {
+  return paymentColors[mode.toUpperCase()] || "#6B7280"
+}
+
+function SkeletonCard() {
+  return (
+    <div className="animate-pulse rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
+      <div className="h-4 w-24 rounded bg-gray-200" />
+      <div className="mt-4 h-8 w-32 rounded bg-gray-200" />
+      <div className="mt-4 h-3 w-20 rounded bg-gray-100" />
+    </div>
+  )
+}
+
+function MetricCard({
+  label,
+  value,
+  icon: Icon,
+  helper,
+  highlight = false,
+}: {
+  label: string
+  value: string | number
+  icon: typeof Package
+  helper: string
+  highlight?: boolean
+}) {
+  return (
+    <div className={cn("rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm", highlight && "border-emerald-100 bg-[#F0FDF4]")}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-gray-500">{label}</p>
+          <p className="mt-2 truncate text-3xl font-bold tracking-tight text-gray-950">{value}</p>
+        </div>
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-emerald-100 bg-[#F0FDF4] text-[#1E8A3C]">
+          <Icon className="h-5 w-5" />
+        </div>
+      </div>
+      <p className="mt-4 text-xs font-medium text-gray-400">{helper}</p>
+    </div>
+  )
+}
+
+function StatusBadge({ value }: { value: string | null }) {
+  const normalized = (value || "INCONNU").toUpperCase()
+  const isSuccess = normalized.includes("SUCC") || normalized === "SUCCES"
+  const isError = normalized.includes("ERREUR")
+  return (
+    <span
+      className={cn(
+        "inline-flex rounded-full border px-3 py-1 text-xs font-semibold",
+        isSuccess && "border-emerald-200 bg-[#F0FDF4] text-[#1E8A3C]",
+        isError && "border-red-200 bg-red-50 text-red-700",
+        !isSuccess && !isError && "border-gray-200 bg-gray-50 text-gray-600"
+      )}
+    >
+      {value || "Aucun JIT"}
+    </span>
+  )
+}
+
+function AreaTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean
+  payload?: Array<{ payload?: DashboardCurvePointDTO }>
+  label?: string
+}) {
+  if (!active || !payload?.length) {
+    return null
+  }
+  const point = payload[0]?.payload
+  return (
+    <div className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-sm shadow-sm">
+      <p className="font-semibold text-gray-950">{label}</p>
+      <p className="text-[#1E8A3C]">CA: {formatMoney(point?.ca)}</p>
+      <p className="text-gray-500">Commandes: {formatNumber(point?.nb_commandes)}</p>
+    </div>
+  )
+}
+
+function PaymentTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean
+  payload?: Array<{ payload?: DashboardPaymentDTO }>
+}) {
+  if (!active || !payload?.length) {
+    return null
+  }
+  const point = payload[0]?.payload
+  return (
+    <div className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-sm shadow-sm">
+      <p className="font-semibold text-gray-950">{point?.mode}</p>
+      <p className="text-[#1E8A3C]">{formatMoney(point?.montant)}</p>
+      <p className="text-gray-500">{formatNumber(point?.count)} commande(s)</p>
+    </div>
+  )
+}
+
+function MiniStat({
+  label,
+  value,
+}: {
+  label: string
+  value: string
+}) {
+  return (
+    <div className="rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3">
+      <p className="text-xs font-semibold uppercase text-gray-400">{label}</p>
+      <p className="mt-1 text-xl font-bold text-gray-950">{value}</p>
+    </div>
+  )
+}
 
 export default function AdminDashboard() {
-  const { can } = useAuth()
+  const { token, can } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [selectedFilter, setSelectedFilter] = useState("tous")
-  const [timeUntilCutoff, setTimeUntilCutoff] = useState({ hours: 0, minutes: 0 })
-  const [currentDate, setCurrentDate] = useState("")
+  const [periode, setPeriode] = useState<DashboardPeriod>("today")
+  const [dashboard, setDashboard] = useState<DashboardDTO | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [lastRefresh, setLastRefresh] = useState<string | null>(null)
 
-  useEffect(() => {
-    // Set current date on client only
-    setCurrentDate(new Date().toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    }))
-
-    // Calculate time until 20h00
-    const calculateTime = () => {
-      const now = new Date()
-      const cutoff = new Date()
-      cutoff.setHours(20, 0, 0, 0)
-      const diff = cutoff.getTime() - now.getTime()
-      const hours = Math.max(0, Math.floor(diff / (1000 * 60 * 60)))
-      const minutes = Math.max(0, Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)))
-      setTimeUntilCutoff({ hours, minutes })
+  const loadDashboard = useCallback(async (showLoader = true, signal?: AbortSignal) => {
+    if (!token) {
+      setIsLoading(false)
+      return
     }
 
-    calculateTime()
-    const interval = setInterval(calculateTime, 60000) // Update every minute
-    return () => clearInterval(interval)
-  }, [])
+    if (showLoader) {
+      setIsLoading(true)
+    }
 
-  const hoursUntil = timeUntilCutoff.hours
-  const minutesUntil = timeUntilCutoff.minutes
-  const codOrdersCount = ordersToday.filter(o => o.payment === "COD" && o.status === "pending").length
+    try {
+      const result = await getAdminDashboard(token, periode, signal)
+      setDashboard(result)
+      setError("")
+      setLastRefresh(new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }))
+    } catch (loadError) {
+      if (loadError instanceof Error && loadError.name === "AbortError") {
+        return
+      }
+      setError(loadError instanceof Error ? loadError.message : "Impossible de charger le dashboard.")
+    } finally {
+      if (showLoader) {
+        setIsLoading(false)
+      }
+    }
+  }, [periode, token])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    void loadDashboard(true, controller.signal)
+
+    const intervalId = window.setInterval(() => {
+      void loadDashboard(false)
+    }, 300000)
+
+    return () => {
+      controller.abort()
+      window.clearInterval(intervalId)
+    }
+  }, [loadDashboard])
+
   const visibleAdminNavItems = adminNavItems.filter((item) =>
     can(adminNavPermissions[item.href] || "admin.panel.access")
   )
 
+  const codTotal = (dashboard?.cod_confirmes ?? 0) + (dashboard?.cod_annules ?? 0)
+  const codRate = codTotal > 0 ? ((dashboard?.cod_confirmes ?? 0) / codTotal) * 100 : 0
+  const mainStatus = dashboard?.repartition_statuts
+    .filter((item) => item.count > 0)
+    .sort((left, right) => right.count - left.count)
+    .at(0)
+
   return (
-    <div className="min-h-screen bg-[#F5F5F0]">
-      {/* Top Bar */}
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-        <div className="flex items-center justify-between px-4 lg:px-6 h-16">
+    <div className="min-h-screen bg-[#F8F9FA]">
+      <header className="sticky top-0 z-50 border-b border-[#E5E7EB] bg-white shadow-sm">
+        <div className="flex h-16 items-center justify-between px-4 lg:px-6">
           <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2"
-            >
-              <Menu className="w-6 h-6 text-[#3D3D3D]" />
+            <button type="button" onClick={() => setSidebarOpen(true)} className="rounded-lg p-2 text-gray-700 hover:bg-gray-100 lg:hidden">
+              <Menu className="h-6 w-6" />
             </button>
             <Link href="/admin" className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-xl shadow-sm overflow-hidden flex items-center justify-center bg-white p-0.5 pointer-events-none">
-                <img src="/logo3.png" alt="SOUKI" className="w-[175%] h-full max-w-none object-cover" style={{ objectPosition: "left center" }} />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-100 bg-[#F0FDF4] text-[#1E8A3C]">
+                <Leaf className="h-5 w-5" />
               </div>
               <div className="hidden sm:block">
                 <span className="text-xl font-bold text-[#1E8A3C]">SOUKI</span>
-                <span className="text-sm text-[#8A8A8A] ml-1">Admin</span>
+                <span className="ml-1 text-sm text-gray-500">Admin</span>
               </div>
             </Link>
           </div>
 
-          <div className="flex items-center gap-2 px-4 py-2 bg-[#F07C00]/10 rounded-xl">
-            <Zap className="w-5 h-5 text-[#F07C00]" />
-            <span className="text-[#F07C00] font-medium text-sm hidden sm:inline">
-              Agrégation commandes dans {hoursUntil}h{minutesUntil.toString().padStart(2, '0')} (20h00)
-            </span>
-            <span className="text-[#F07C00] font-medium text-sm sm:hidden">
-              {hoursUntil}h{minutesUntil.toString().padStart(2, '0')}
-            </span>
+          <div className="hidden min-w-0 text-center md:block">
+            <p className="truncate text-sm font-semibold capitalize text-gray-700">{currentDateLabel()}</p>
+            {lastRefresh ? <p className="text-xs text-gray-400">Dernière MAJ {lastRefresh}</p> : null}
           </div>
 
           <div className="flex items-center gap-3">
-            <button className="relative p-2 text-[#3D3D3D] hover:bg-gray-100 rounded-xl">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+            <button type="button" className="relative rounded-xl p-2 text-gray-700 hover:bg-gray-100">
+              <Bell className="h-5 w-5" />
+              <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
             </button>
-            <div className="w-10 h-10 bg-[#1E8A3C] rounded-full flex items-center justify-center text-white font-bold">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1E8A3C] font-bold text-white">
               A
             </div>
           </div>
@@ -180,287 +360,206 @@ export default function AdminDashboard() {
       </header>
 
       <div className="flex">
-        {/* Sidebar */}
-        <aside className={cn(
-          "fixed lg:sticky top-0 lg:top-16 left-0 z-40 w-64 h-screen lg:h-[calc(100vh-64px)] bg-[#1E8A3C] flex flex-col transition-transform lg:translate-x-0",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        )}>
-          <button 
-            onClick={() => setSidebarOpen(false)}
-            className="lg:hidden absolute top-4 right-4 p-2 text-white"
-          >
-            <X className="w-5 h-5" />
+        <aside
+          className={cn(
+            "fixed left-0 top-0 z-40 flex h-screen w-20 flex-col bg-[#1E8A3C] transition-transform lg:sticky lg:top-16 lg:h-[calc(100vh-64px)] lg:translate-x-0",
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          )}
+        >
+          <button type="button" onClick={() => setSidebarOpen(false)} className="absolute right-4 top-4 rounded-lg p-2 text-white hover:bg-white/10 lg:hidden">
+            <X className="h-5 w-5" />
           </button>
 
-          <nav className="flex-1 p-4 space-y-1 overflow-y-auto mt-12 lg:mt-0">
+          <nav className="mt-12 flex-1 space-y-2 overflow-y-auto p-3 lg:mt-0">
             {visibleAdminNavItems.map((item) => (
               <Link
-                key={item.label}
+                key={item.href}
                 href={item.href}
+                title={item.label}
+                aria-label={item.label}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors",
-                  item.active
-                    ? "bg-white/20 text-white"
-                    : "text-white/70 hover:bg-white/10 hover:text-white"
+                  "flex h-11 w-11 items-center justify-center rounded-xl font-medium transition-colors",
+                  item.active ? "bg-white/20 text-white" : "text-white/75 hover:bg-white/10 hover:text-white"
                 )}
               >
-                <item.icon className="w-5 h-5" />
-                <span className="text-sm">{item.label}</span>
+                <item.icon className="h-5 w-5" />
               </Link>
             ))}
           </nav>
 
-          <div className="p-4 border-t border-white/20">
-            <button className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-white/70 hover:bg-white/10 hover:text-white transition-colors">
-              <LogOut className="w-5 h-5" />
-              <span className="font-medium">Déconnexion</span>
+          <div className="border-t border-white/20 p-3">
+            <button type="button" title="Déconnexion" aria-label="Déconnexion" className="flex h-11 w-11 items-center justify-center rounded-xl text-white/75 transition-colors hover:bg-white/10 hover:text-white">
+              <LogOut className="h-5 w-5" />
             </button>
           </div>
         </aside>
 
-        {/* Overlay */}
-        {sidebarOpen && (
-          <div 
-            className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
+        {sidebarOpen ? <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} /> : null}
 
-        {/* Main Content */}
-        <main className="flex-1 p-4 lg:p-8 overflow-x-hidden">
-          <div className="max-w-7xl mx-auto">
-            {/* Header */}
-            <div className="mb-6">
-              <h1 className="text-2xl lg:text-3xl font-bold text-[#1E8A3C]">
-                Dashboard Opérationnel — {currentDate}
-              </h1>
-            </div>
-
-            {/* Alert Banner */}
-            {codOrdersCount > 0 && (
-              <div className="mb-6 p-4 bg-[#F07C00] text-white rounded-2xl flex items-center gap-3">
-                <Clock className="w-5 h-5 flex-shrink-0" />
-                <span className="font-medium">
-                  {codOrdersCount} commande{codOrdersCount > 1 ? 's' : ''} COD à confirmer par appel avant 19h00
-                </span>
-                <button className="ml-auto px-4 py-1.5 bg-white text-[#F07C00] rounded-lg font-semibold hover:bg-white/90 transition-colors flex items-center gap-2">
-                  <Phone className="w-4 h-4" />
-                  Appeler
+        <main className="min-w-0 flex-1">
+          <div className="sticky top-16 z-30 border-b border-[#E5E7EB] bg-white/95 px-4 py-3 backdrop-blur lg:px-8">
+            <div className="mx-auto flex max-w-7xl flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight text-gray-950">Dashboard opérationnel</h1>
+                <p className="text-sm text-gray-500">Lecture rapide des ventes, commandes et signaux du jour.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {periodOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setPeriode(option.value)}
+                    className={cn(
+                      "rounded-lg border px-3 py-2 text-sm font-semibold transition-colors",
+                      periode === option.value
+                        ? "border-[#1E8A3C] bg-[#1E8A3C] text-white"
+                        : "border-[#E5E7EB] bg-white text-gray-700 hover:bg-[#F0FDF4] hover:text-[#1E8A3C]"
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => void loadDashboard(true)}
+                  disabled={isLoading}
+                  className="inline-flex items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <RefreshCw className={cn("h-4 w-4 text-[#1E8A3C]", isLoading && "animate-spin")} />
+                  Actualiser
                 </button>
               </div>
-            )}
-
-            {/* KPI Cards */}
-            <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-              <KPICard
-                title="Commandes aujourd'hui"
-                value="23"
-                icon={Package}
-                trend={{ value: 5, label: " vs hier" }}
-              />
-              <KPICard
-                title="Revenu net estimé"
-                value="592,94 DH"
-                icon={TrendingUp}
-                variant="success"
-              />
-              <KPICard
-                title="Livreurs actifs"
-                value="3/4"
-                icon={Bike}
-              />
-              <KPICard
-                title="Total Wallet"
-                value="3.250 DH"
-                icon={Wallet}
-              />
-              <KPICard
-                title="Clients blacklistés"
-                value="2"
-                icon={AlertTriangle}
-                variant="warning"
-              />
             </div>
+          </div>
 
-            {/* Chart & Alerts Row */}
-            <div className="grid lg:grid-cols-3 gap-6 mb-8">
-              {/* Weekly Trend Chart */}
-              <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm p-6">
-                <h2 className="text-lg font-bold text-[#3D3D3D] mb-4">Tendance hebdomadaire</h2>
-                <ResponsiveContainer width="100%" height={250}>
-                  <LineChart data={weeklyTrend}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fill: '#8A8A8A' }} />
-                    <YAxis yAxisId="left" tickLine={false} axisLine={false} tick={{ fill: '#8A8A8A' }} />
-                    <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tick={{ fill: '#8A8A8A' }} />
-                    <Tooltip />
-                    <Legend />
-                    <Line yAxisId="left" type="monotone" dataKey="revenue" stroke="#1E8A3C" strokeWidth={2} name="Revenue (DH)" dot={{ fill: '#1E8A3C' }} />
-                    <Line yAxisId="right" type="monotone" dataKey="orders" stroke="#F07C00" strokeWidth={2} name="Commandes" dot={{ fill: '#F07C00' }} />
-                  </LineChart>
-                </ResponsiveContainer>
+          <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 lg:px-8">
+            {error ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700">
+                {error}
               </div>
+            ) : null}
 
-              {/* Alerts */}
-              <div className="bg-white rounded-2xl shadow-sm p-6">
-                <h2 className="text-lg font-bold text-[#3D3D3D] mb-4">Alertes & Risques</h2>
-                <div className="space-y-3">
-                  {alerts.map((alert, index) => (
-                    <div
-                      key={index}
-                      className={cn(
-                        "p-4 rounded-xl border-l-4",
-                        alert.type === "danger" && "bg-red-50 border-red-500",
-                        alert.type === "warning" && "bg-[#F07C00]/10 border-[#F07C00]",
-                        alert.type === "success" && "bg-[#4CB84A]/10 border-[#4CB84A]"
-                      )}
-                    >
-                      <div className="flex items-start gap-2">
-                        {alert.type === "danger" && <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />}
-                        {alert.type === "warning" && <AlertTriangle className="w-4 h-4 text-[#F07C00] flex-shrink-0 mt-0.5" />}
-                        {alert.type === "success" && <CheckCircle className="w-4 h-4 text-[#4CB84A] flex-shrink-0 mt-0.5" />}
-                        <div>
-                          <p className="text-xs font-semibold text-[#8A8A8A] mb-1">Risk {alert.code}</p>
-                          <p className="text-sm text-[#3D3D3D]">{alert.message}</p>
-                        </div>
+            {isLoading && !dashboard ? (
+              <>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  {Array.from({ length: 4 }).map((_, index) => <SkeletonCard key={index} />)}
+                </div>
+                <div className="grid gap-6 lg:grid-cols-3">
+                  <div className="h-96 animate-pulse rounded-xl border border-[#E5E7EB] bg-white lg:col-span-2" />
+                  <div className="h-96 animate-pulse rounded-xl border border-[#E5E7EB] bg-white" />
+                </div>
+              </>
+            ) : dashboard ? (
+              <>
+                <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <MetricCard label="CA total" value={formatMoney(dashboard.ca_total)} icon={CircleDollarSign} helper="Commandes livrées" highlight />
+                  <MetricCard label="Commandes" value={formatNumber(dashboard.total_commandes)} icon={Package} helper={`${dashboard.taux_livraison.toFixed(1)}% livrées`} />
+                  <MetricCard label="Clients actifs" value={formatNumber(dashboard.total_clients_actifs)} icon={Users} helper={`${formatNumber(dashboard.nouveaux_clients)} nouveaux`} />
+                  <MetricCard label="Livreurs" value={formatNumber(dashboard.livreurs_disponibles)} icon={Bike} helper={`${formatNumber(dashboard.tournees_actives)} tournée(s) active(s)`} />
+                </section>
+
+                <section className="grid gap-6 lg:grid-cols-3">
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm lg:col-span-2">
+                    <div className="mb-5 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                      <div>
+                        <h2 className="text-lg font-bold text-gray-950">CA sur 30 jours</h2>
+                        <p className="text-sm text-gray-500">Tendance globale, indépendante du filtre de période.</p>
                       </div>
+                      <span className="text-sm font-semibold text-[#1E8A3C]">{formatMoney(dashboard.ca_total)}</span>
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={dashboard.courbe_ca} margin={{ left: 0, right: 12, top: 10, bottom: 0 }}>
+                          <CartesianGrid stroke="#E5E7EB" strokeDasharray="3 3" />
+                          <XAxis dataKey="date" tick={{ fill: "#6B7280", fontSize: 12 }} tickLine={false} axisLine={false} />
+                          <YAxis tick={{ fill: "#6B7280", fontSize: 12 }} tickLine={false} axisLine={false} />
+                          <Tooltip content={<AreaTooltip />} />
+                          <Area type="monotone" dataKey="ca" stroke="#1E8A3C" strokeWidth={2} fill="#1E8A3C20" name="CA" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
 
-            {/* Orders Table */}
-            <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-8">
-              <div className="p-6 border-b border-gray-100 flex flex-wrap items-center justify-between gap-4">
-                <h2 className="text-lg font-bold text-[#3D3D3D]">Commandes du jour</h2>
-                <div className="flex gap-2">
-                  {["tous", "COD", "Wallet", "CMI"].map(filter => (
-                    <button
-                      key={filter}
-                      onClick={() => setSelectedFilter(filter)}
-                      className={cn(
-                        "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                        selectedFilter === filter
-                          ? "bg-[#1E8A3C] text-white"
-                          : "bg-gray-100 text-[#3D3D3D] hover:bg-gray-200"
-                      )}
-                    >
-                      {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
+                    <h2 className="text-lg font-bold text-gray-950">Statuts commandes</h2>
+                    <p className="text-sm text-gray-500">Répartition de la période.</p>
+                    <div className="mt-4 h-56">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={dashboard.repartition_statuts} dataKey="count" nameKey="statut" innerRadius={58} outerRadius={84} paddingAngle={3}>
+                            {dashboard.repartition_statuts.map((entry) => (
+                              <Cell key={entry.statut} fill={getStatusColor(entry.statut)} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    {mainStatus ? (
+                      <div className="rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm">
+                        <span className="text-gray-500">Statut dominant</span>
+                        <p className="mt-1 font-bold text-gray-950">{normalizeLabel(mainStatus.statut)} · {formatNumber(mainStatus.count)}</p>
+                      </div>
+                    ) : null}
+                  </div>
+                </section>
 
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">#ID</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Client</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Produits</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Total</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Paiement</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Livreur</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Statut</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {ordersToday
-                      .filter(order => selectedFilter === "tous" || order.payment === selectedFilter)
-                      .map((order) => (
-                      <tr key={order.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 font-medium text-[#1E8A3C]">{order.id}</td>
-                        <td className="px-6 py-4 text-[#3D3D3D]">{order.client}</td>
-                        <td className="px-6 py-4 text-[#8A8A8A] text-sm">{order.products}</td>
-                        <td className="px-6 py-4 font-semibold text-[#F07C00]">{order.total} DH</td>
-                        <td className="px-6 py-4">
-                          <span className={cn(
-                            "px-2 py-1 rounded-full text-xs font-medium",
-                            order.payment === "COD" && "bg-yellow-100 text-yellow-700",
-                            order.payment === "Wallet" && "bg-green-100 text-green-700",
-                            order.payment === "CMI" && "bg-blue-100 text-blue-700"
-                          )}>
-                            {order.payment}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-[#3D3D3D]">{order.livreur}</td>
-                        <td className="px-6 py-4">
-                          <StatusBadge status={order.status} size="sm" />
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex gap-2">
-                            {order.livreur === "-" && (
-                              <button className="px-3 py-1 bg-[#1E8A3C] text-white rounded-lg text-xs font-medium hover:bg-[#176B2E]">
-                                Assigner
-                              </button>
-                            )}
-                            <button className="px-3 py-1 border border-gray-200 rounded-lg text-xs font-medium hover:bg-gray-50">
-                              Détails
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                <section className="grid gap-6 lg:grid-cols-3">
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm lg:col-span-2">
+                    <div className="mb-5">
+                      <h2 className="text-lg font-bold text-gray-950">Paiements</h2>
+                      <p className="text-sm text-gray-500">Montant par mode de paiement.</p>
+                    </div>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={dashboard.repartition_paiements} margin={{ left: 0, right: 12, top: 10, bottom: 0 }}>
+                          <CartesianGrid stroke="#E5E7EB" strokeDasharray="3 3" vertical={false} />
+                          <XAxis dataKey="mode" tick={{ fill: "#6B7280", fontSize: 12 }} tickLine={false} axisLine={false} />
+                          <YAxis tick={{ fill: "#6B7280", fontSize: 12 }} tickLine={false} axisLine={false} />
+                          <Tooltip content={<PaymentTooltip />} />
+                          <Bar dataKey="montant" radius={[8, 8, 0, 0]}>
+                            {dashboard.repartition_paiements.map((entry) => (
+                              <Cell key={entry.mode} fill={getPaymentColor(entry.mode)} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
 
-            {/* Stock & Pricing */}
-            <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-              <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-                <h2 className="text-lg font-bold text-[#3D3D3D]">Stock & Prix du Marché</h2>
-                <button className="px-4 py-2 bg-[#F07C00] text-white rounded-lg font-medium flex items-center gap-2 hover:bg-[#D66B00]">
-                  <Zap className="w-4 h-4" />
-                  Relancer Algo Substitution
-                </button>
-              </div>
+                  <div className="space-y-4">
+                    <div className="rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h2 className="text-lg font-bold text-gray-950">JIT</h2>
+                          <p className="text-sm text-gray-500">{dashboard.dernier_jit_volume.toFixed(2)} kg · {formatDate(dashboard.dernier_jit_date)}</p>
+                        </div>
+                        <StatusBadge value={dashboard.dernier_jit_statut} />
+                      </div>
+                      <Link href="/admin/orders#jit" className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#1E8A3C] px-4 py-2 text-sm font-semibold text-white hover:bg-[#166d30]">
+                        Voir JIT
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
+                    </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Produit</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Prix Gros</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Coût Réel</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Prix Vente</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Marge %</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Stratégie</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {stockPricing.map((item) => (
-                      <tr key={item.product} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 font-medium text-[#3D3D3D]">{item.product}</td>
-                        <td className="px-6 py-4 text-[#3D3D3D]">{item.prixGros} DH</td>
-                        <td className="px-6 py-4 text-[#3D3D3D]">{item.coutReel} DH</td>
-                        <td className="px-6 py-4 font-semibold text-[#F07C00]">{item.prixVente} DH</td>
-                        <td className={cn(
-                          "px-6 py-4 font-semibold",
-                          item.marge >= 0 ? "text-[#4CB84A]" : "text-red-500"
-                        )}>
-                          {item.marge >= 0 ? "+" : ""}{item.marge.toFixed(1)}%
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={cn(
-                            "px-3 py-1 rounded-full text-xs font-medium",
-                            item.strategy === "appel" && "bg-green-100 text-green-700",
-                            item.strategy === "lissage" && "bg-yellow-100 text-yellow-700",
-                            item.strategy === "perte" && "bg-red-100 text-red-700"
-                          )}>
-                            {item.strategy === "appel" && "Produit d'appel"}
-                            {item.strategy === "lissage" && "Lissage marge"}
-                            {item.strategy === "perte" && "Perte stratégique"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                    <div className="rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
+                      <h2 className="text-lg font-bold text-gray-950">COD</h2>
+                      <p className="mt-1 text-sm text-gray-500">{formatNumber(dashboard.cod_confirmes)} confirmés · {formatNumber(dashboard.cod_annules)} annulés</p>
+                      <div className="mt-4 h-2 overflow-hidden rounded-full bg-gray-100">
+                        <div className="h-full rounded-full bg-[#1E8A3C]" style={{ width: `${Math.min(100, codRate)}%` }} />
+                      </div>
+                      <p className="mt-2 text-xs font-semibold text-[#1E8A3C]">{codRate.toFixed(1)}% confirmation</p>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="grid gap-4 md:grid-cols-3">
+                  <MiniStat label="Wallets" value={formatMoney(dashboard.total_soldes_wallets)} />
+                  <MiniStat label="Blacklistés période" value={formatNumber(dashboard.nouveaux_blacklistes)} />
+                  <MiniStat label="Blacklist levées" value={formatNumber(dashboard.blacklists_leves)} />
+                </section>
+              </>
+            ) : null}
           </div>
         </main>
       </div>
