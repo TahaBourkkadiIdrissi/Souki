@@ -76,13 +76,14 @@ def get_admin_session(
 @admin_router.get("/dashboard", response_model=DashboardDTO)
 def get_admin_dashboard_context(
     periode: str = Query(default="today"),
+    date_custom: str | None = Query(default=None),
     principal=Depends(require_permission("admin.panel.access")),
     service: IDashboardService = Depends(get_dashboard_service),
 ):
     _ = principal
     session = LocalSession()
     try:
-        return service.get_dashboard(session, periode)
+        return service.get_dashboard(session, periode, date_custom)
     finally:
         session.close()
 
