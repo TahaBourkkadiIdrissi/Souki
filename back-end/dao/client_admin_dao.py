@@ -37,7 +37,7 @@ class ClientAdminDaoBD(IClientAdminDao):
             .join(User, User.id == Client.user_id)
             .filter(
                 User.created_at >= start_datetime,
-                User.created_at < end_datetime,
+                User.created_at <= end_datetime,
                 func.upper(func.coalesce(User.role, "")) == "CLIENT",
             )
             .scalar()
