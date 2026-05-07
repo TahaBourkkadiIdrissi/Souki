@@ -35,49 +35,52 @@ class DashboardDaoBD(IDashboardDao):
         session: Session,
         *,
         periode: str,
-        start_datetime: datetime,
-        end_datetime: datetime,
-        previous_start_datetime: datetime,
-        previous_end_datetime: datetime,
+        date_custom: str | None,
+        date_debut: datetime,
+        date_fin: datetime,
+        prec_debut: datetime,
+        prec_fin: datetime,
         today: date,
         curve_start_datetime: datetime,
         curve_end_datetime: datetime,
     ) -> DashboardDTO:
-        total_commandes = self._get_order_count(session, start_datetime, end_datetime)
+        total_commandes = self._get_order_count(session, date_debut, date_fin)
         total_commandes_precedent = self._get_order_count(
             session,
-            previous_start_datetime,
-            previous_end_datetime,
+            prec_debut,
+            prec_fin,
         )
-        status_counts = self._get_status_counts(session, start_datetime, end_datetime)
+        status_counts = self._get_status_counts(session, date_debut, date_fin)
         commandes_livrees = status_counts.get("LIVRE", 0)
+        commandes_absentes = status_counts.get("ABSENT", 0)
         commandes_livrees_precedent = self._get_order_count(
             session,
-            previous_start_datetime,
-            previous_end_datetime,
+            prec_debut,
+            prec_fin,
             status="LIVRE",
         )
 
-        ca_total = self._get_total_revenue(session, start_datetime, end_datetime)
+        ca_total = self._get_total_revenue(session, date_debut, date_fin)
         ca_total_precedent = self._get_total_revenue(
             session,
-            previous_start_datetime,
-            previous_end_datetime,
+            prec_debut,
+            prec_fin,
         )
-        payment_ca = self._get_revenue_by_payment(session, start_datetime, end_datetime)
-        cod_counts = self._get_cod_counts(session, start_datetime, end_datetime)
+        payment_ca = self._get_revenue_by_payment(session, date_debut, date_fin)
+        cod_counts = self._get_cod_counts(session, date_debut, date_fin)
         blacklist_counts = self.client_blacklist_dao.get_action_counts_by_period(
             session,
-            start_datetime,
-            end_datetime,
+            date_debut,
+            date_fin,
         )
         last_jit = self._get_last_jit(session)
         cod_total = cod_counts.get("CONFIRMEE_PAR_APPEL", 0) + cod_counts.get("ANNULEE", 0)
 
         return DashboardDTO(
             periode=periode,
-            date_debut=start_datetime,
-            date_fin=end_datetime,
+            date_custom=date_custom,
+            date_debut=date_debut,
+            date_fin=date_fin,
             derniere_maj=datetime.now(),
             total_commandes=total_commandes,
             total_commandes_precedent=total_commandes_precedent,
@@ -85,23 +88,24 @@ class DashboardDaoBD(IDashboardDao):
             commandes_livrees_precedent=commandes_livrees_precedent,
             commandes_en_route=status_counts.get("EN_ROUTE", 0),
             commandes_annulees=status_counts.get("ANNULEE", 0),
-            commandes_absentes=status_counts.get("ABSENT", 0),
-            commandes_confirmees=status_counts.get("CONFIRMEE", 0),
+            commandes_absentes=commandes_absentes,
             taux_livraison=round((commandes_livrees / total_commandes) * 100, 2) if total_commandes else 0.0,
+            taux_absence=round((commandes_absentes / total_commandes) * 100, 2) if total_commandes else 0.0,
             ca_total=ca_total,
             ca_total_precedent=ca_total_precedent,
             ca_cod=payment_ca.get("COD", 0.0),
             ca_wallet=payment_ca.get("WALLET", 0.0),
             ca_cmi=payment_ca.get("CMI", 0.0),
-            ca_cash=payment_ca.get("CASH", 0.0),
             panier_moyen=round(ca_total / commandes_livrees, 2) if commandes_livrees else 0.0,
             total_clients_actifs=self.client_admin_dao.count_active_clients(session),
-            nouveaux_clients=self.client_admin_dao.count_new_clients(session, start_datetime, end_datetime),
+            nouveaux_clients=self.client_admin_dao.count_new_clients(session, date_debut, date_fin),
+            nouveaux_clients_precedent=self.client_admin_dao.count_new_clients(session, prec_debut, prec_fin),
             clients_blacklistes=self.client_admin_dao.count_blacklisted_clients(session),
             dernier_jit_statut=last_jit.statut if last_jit else None,
             dernier_jit_volume=float(last_jit.volume_total or 0.0) if last_jit else 0.0,
             dernier_jit_nb_commandes=int(last_jit.nombre_commandes or 0) if last_jit else 0,
             dernier_jit_date=last_jit.date_execution if last_jit else None,
+            jit_execute_aujourdhui=self._get_jit_executed_today(session, today),
             livreurs_disponibles=self._get_available_livreurs(session),
             tournees_actives=self._get_active_tournees(session, today),
             cod_confirmes=cod_counts.get("CONFIRMEE_PAR_APPEL", 0),
@@ -113,7 +117,7 @@ class DashboardDaoBD(IDashboardDao):
             blacklists_leves=blacklist_counts.get("LIFTED", 0),
             courbe_ca=self._get_revenue_curve(session, curve_start_datetime, curve_end_datetime),
             repartition_statuts=self._get_status_repartition(status_counts, total_commandes),
-            repartition_paiements=self._get_payment_repartition(session, start_datetime, end_datetime),
+            repartition_paiements=self._get_payment_repartition(session, date_debut, date_fin),
         )
 
     def _non_draft_filter(self):
@@ -131,7 +135,7 @@ class DashboardDaoBD(IDashboardDao):
     ) -> int:
         query = session.query(func.count(Commande.id)).filter(
             Commande.date_commande >= start_datetime,
-            Commande.date_commande < end_datetime,
+            Commande.date_commande <= end_datetime,
             self._non_draft_filter(),
         )
         if status:
@@ -149,7 +153,7 @@ class DashboardDaoBD(IDashboardDao):
             )
             .filter(
                 Commande.date_commande >= start_datetime,
-                Commande.date_commande < end_datetime,
+                Commande.date_commande <= end_datetime,
                 self._non_draft_filter(),
             )
             .group_by(status_expr)
@@ -182,7 +186,7 @@ class DashboardDaoBD(IDashboardDao):
             session.query(func.coalesce(func.sum(Commande.montant_total), 0))
             .filter(
                 Commande.date_commande >= start_datetime,
-                Commande.date_commande < end_datetime,
+                Commande.date_commande <= end_datetime,
                 self._non_draft_filter(),
                 self._status_filter("LIVRE"),
             )
@@ -203,7 +207,7 @@ class DashboardDaoBD(IDashboardDao):
             .outerjoin(Paiement, Paiement.commande_id == Commande.id)
             .filter(
                 Commande.date_commande >= start_datetime,
-                Commande.date_commande < end_datetime,
+                Commande.date_commande <= end_datetime,
                 self._non_draft_filter(),
                 self._status_filter("LIVRE"),
             )
@@ -214,6 +218,18 @@ class DashboardDaoBD(IDashboardDao):
 
     def _get_last_jit(self, session: Session) -> JITLog | None:
         return session.query(JITLog).order_by(JITLog.date_execution.desc(), JITLog.id.desc()).first()
+
+    def _get_jit_executed_today(self, session: Session, today: date) -> bool:
+        count = int(
+            session.query(func.count(JITLog.id))
+            .filter(
+                func.date(JITLog.date_execution) == today,
+                func.lower(JITLog.statut).in_(["succès", "succes", "success"]),
+            )
+            .scalar()
+            or 0
+        )
+        return count > 0
 
     def _get_available_livreurs(self, session: Session) -> int:
         return int(
@@ -245,7 +261,7 @@ class DashboardDaoBD(IDashboardDao):
             )
             .filter(
                 CODConfirmationLog.created_at >= start_datetime,
-                CODConfirmationLog.created_at < end_datetime,
+                CODConfirmationLog.created_at <= end_datetime,
             )
             .group_by(status_expr)
             .all()
@@ -264,7 +280,7 @@ class DashboardDaoBD(IDashboardDao):
             )
             .filter(
                 Commande.date_commande >= start_datetime,
-                Commande.date_commande < end_datetime,
+                Commande.date_commande <= end_datetime,
                 self._non_draft_filter(),
                 self._status_filter("LIVRE"),
             )
@@ -280,7 +296,7 @@ class DashboardDaoBD(IDashboardDao):
             )
             for row in rows
         }
-        days_count = max((end_datetime.date() - start_datetime.date()).days, 0)
+        days_count = max((end_datetime.date() - start_datetime.date()).days + 1, 0)
         return [
             rows_by_date.get(
                 str(start_datetime.date() + timedelta(days=offset)),
@@ -303,7 +319,7 @@ class DashboardDaoBD(IDashboardDao):
             .outerjoin(Paiement, Paiement.commande_id == Commande.id)
             .filter(
                 Commande.date_commande >= start_datetime,
-                Commande.date_commande < end_datetime,
+                Commande.date_commande <= end_datetime,
                 self._non_draft_filter(),
                 self._status_filter("LIVRE"),
             )

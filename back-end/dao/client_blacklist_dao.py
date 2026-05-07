@@ -306,7 +306,7 @@ class ClientBlacklistDaoBD(IClientBlacklistDao):
             )
             .filter(
                 ClientBlacklistLog.created_at >= start_datetime,
-                ClientBlacklistLog.created_at < end_datetime,
+                ClientBlacklistLog.created_at <= end_datetime,
             )
             .group_by(action_expr)
             .all()
