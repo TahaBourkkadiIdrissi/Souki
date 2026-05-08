@@ -188,6 +188,17 @@ class LivreurDaoBD(ILivreurDao):
             "payment_validated": details_row.payment_validated if details_row else None,
         }
 
+    def get_commande_by_id(
+        self,
+        session: Session,
+        commande_id: int,
+        for_update: bool = False,
+    ) -> Optional[Commande]:
+        statement = select(Commande).where(Commande.id == commande_id)
+        if for_update:
+            statement = statement.with_for_update(of=Commande)
+        return session.execute(statement).scalar_one_or_none()
+
     def get_delivery_event_by_client_event_id(
         self,
         session: Session,

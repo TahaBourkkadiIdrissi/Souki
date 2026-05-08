@@ -222,6 +222,12 @@ export interface DeliveryEventRequest {
   expected_version?: number
 }
 
+export interface LivraisonDecisionRequest {
+  client_event_id: string
+  device_timestamp: string
+  expected_version?: number
+}
+
 export interface DeliveryEventResponse {
   status: string
   event_id: string
@@ -602,6 +608,30 @@ export async function envoyerEvenementLivraison(
   body: DeliveryEventRequest
 ) {
   return apiCall<DeliveryEventResponse>(`/api/livreur/livraisons/${commandeId}/events`, {
+    method: "POST",
+    token,
+    body,
+  })
+}
+
+export async function accepterLivraisonLivreur(
+  token: string,
+  commandeId: string | number,
+  body: LivraisonDecisionRequest
+) {
+  return apiCall<DeliveryEventResponse>(`/api/livreur/livraisons/${commandeId}/accepter`, {
+    method: "POST",
+    token,
+    body,
+  })
+}
+
+export async function refuserLivraisonLivreur(
+  token: string,
+  commandeId: string | number,
+  body: LivraisonDecisionRequest
+) {
+  return apiCall<DeliveryEventResponse>(`/api/livreur/livraisons/${commandeId}/refuser`, {
     method: "POST",
     token,
     body,

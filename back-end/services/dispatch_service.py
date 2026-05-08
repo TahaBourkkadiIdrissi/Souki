@@ -20,7 +20,13 @@ from services.commande_state_machine import (
 )
 
 
-DISPATCH_TARGET_STATUS = "A_LIVRER"
+DISPATCH_TARGET_STATUS = "EN_ATTENTE_LIVREUR"
+DISPATCH_STATUS_PROGRESSIONS = {
+    "EN_ATTENTE": ("CONFIRMEE", "VERROUILLEE", DISPATCH_TARGET_STATUS),
+    "CONFIRMEE": ("VERROUILLEE", DISPATCH_TARGET_STATUS),
+    "VERROUILLEE": (DISPATCH_TARGET_STATUS,),
+    "REFUS_LIVREUR": (DISPATCH_TARGET_STATUS,),
+}
 REASSIGNABLE_COMMANDE_STATUSES = {"A_LIVRER", "PLANIFIEE"}
 
 
@@ -115,12 +121,10 @@ class DispatchService(IDispatchService):
                         commande.tournee_id = int(tournee.id)
                         commande.livreur_id = int(livreur.user_id)
                         commande.ordre_passage = index
-                        changer_statut(
+                        self._mettre_commande_en_attente_livreur(
                             session=session,
                             commande=commande,
-                            nouveau_statut=DISPATCH_TARGET_STATUS,
                             actor_id=int(livreur.user_id),
-                            reason="DISPATCH_DAILY",
                         )
                         commandes_assigned += 1
 
@@ -301,6 +305,24 @@ class DispatchService(IDispatchService):
                 int(commande.id or 0),
             ),
         )
+
+    def _mettre_commande_en_attente_livreur(self, session: Session, commande: Commande, actor_id: int) -> None:
+        current_status = str(commande.statut or "").strip().upper()
+        status_steps = DISPATCH_STATUS_PROGRESSIONS.get(current_status)
+
+        if not status_steps:
+            raise DispatchServiceError(
+                f"Commande {commande.id} non eligible au dispatch depuis le statut {current_status or 'INCONNU'}."
+            )
+
+        for next_status in status_steps:
+            changer_statut(
+                session=session,
+                commande=commande,
+                nouveau_statut=next_status,
+                actor_id=actor_id,
+                reason=f"DISPATCH_DAILY_{next_status}",
+            )
 
     def _split_equally(self, commandes: list[Commande], livreur_count: int) -> list[list[Commande]]:
         chunk_count = min(len(commandes), max(livreur_count, 1))

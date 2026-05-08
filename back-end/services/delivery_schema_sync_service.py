@@ -8,11 +8,13 @@ ALLOWED_COMMANDE_STATUSES = (
     "EN_ATTENTE",
     "CONFIRMEE",
     "VERROUILLEE",
+    "EN_ATTENTE_LIVREUR",
     "A_LIVRER",
     "EN_ROUTE",
     "LIVRE",
     "ABSENT",
     "REFUS",
+    "REFUS_LIVREUR",
     "ANNULEE",
     "RETOUR_DEPOT",
 )
@@ -38,12 +40,14 @@ class DeliverySchemaSyncService:
                         WHEN upper(btrim(statut)) IN ('EN_ATTENTE', 'EN ATTENTE') THEN 'EN_ATTENTE'
                         WHEN upper(btrim(statut)) IN ('CONFIRMEE', 'CONFIRMÉE', 'CONFIRMÃ‰E') THEN 'CONFIRMEE'
                         WHEN upper(btrim(statut)) IN ('VERROUILLEE', 'VERROUILLÉE', 'VERROUILLÃ‰E') THEN 'VERROUILLEE'
+                        WHEN upper(btrim(statut)) IN ('EN_ATTENTE_LIVREUR', 'EN ATTENTE LIVREUR') THEN 'EN_ATTENTE_LIVREUR'
                         WHEN upper(btrim(statut)) IN ('A_LIVRER', 'A LIVRER') THEN 'A_LIVRER'
                         WHEN upper(btrim(statut)) IN ('EN_ROUTE', 'EN ROUTE', 'EN_COURS_DE_LIVRAISON') THEN 'EN_ROUTE'
                         WHEN upper(btrim(statut)) IN ('LIVRE', 'LIVREE', 'LIVRÉE', 'LIVRÃ‰E', 'DELIVERED') THEN 'LIVRE'
                         WHEN upper(btrim(statut)) = 'ABSENT' THEN 'ABSENT'
                         WHEN upper(btrim(statut)) IN ('REFUS', 'REFUSE', 'REFUSÉ', 'REFUSÉE', 'REFUSÃ‰', 'REFUSÃ‰E', 'REFUSED') THEN 'REFUS'
                         WHEN upper(btrim(statut)) IN ('ANNULE', 'ANNULEE', 'ANNULÉ', 'ANNULÉE', 'ANNULÃ‰', 'ANNULÃ‰E', 'CANCELLED', 'CANCELED') THEN 'ANNULEE'
+                        WHEN upper(btrim(statut)) IN ('REFUS_LIVREUR', 'REFUS LIVREUR') THEN 'REFUS_LIVREUR'
                         WHEN upper(btrim(statut)) IN ('RETOUR_DEPOT', 'RETOUR DEPOT') THEN 'RETOUR_DEPOT'
                         ELSE upper(replace(btrim(statut), ' ', '_'))
                     END

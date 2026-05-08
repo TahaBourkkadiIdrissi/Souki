@@ -28,6 +28,9 @@ from entities.user_notification_preferences_entity import UserNotificationPrefer
 from entities.user_session_entity import UserSession
 
 
+DISPATCHABLE_COMMANDE_STATUSES = ("EN_ATTENTE", "CONFIRMEE", "VERROUILLEE", "REFUS_LIVREUR")
+
+
 class CommandeVocaleDaoBD(ICommandeVocaleDao):
 
     def create_commande(
@@ -429,7 +432,7 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                 with_loader_criteria(Address, Address.is_default.is_(True), include_aliases=True),
             )
             .filter(
-                func.upper(func.coalesce(Commande.statut, "")) == "VERROUILLEE",
+                func.upper(func.coalesce(Commande.statut, "")).in_(DISPATCHABLE_COMMANDE_STATUSES),
                 Commande.tournee_id.is_(None),
             )
             .order_by(Commande.date_commande.asc(), Commande.id.asc())

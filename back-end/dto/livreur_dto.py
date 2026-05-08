@@ -59,6 +59,12 @@ class DeliveryEventRequestDTO(BaseModel):
     expected_version: Optional[int] = Field(default=None, ge=1)
 
 
+class LivraisonDecisionRequestDTO(BaseModel):
+    client_event_id: UUID
+    device_timestamp: datetime
+    expected_version: Optional[int] = Field(default=None, ge=1)
+
+
 class DeliveryEventResponseDTO(BaseModel):
     status: str = "success"
     event_id: UUID

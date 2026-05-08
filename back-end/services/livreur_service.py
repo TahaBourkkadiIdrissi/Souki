@@ -15,6 +15,7 @@ from dto.livreur_dto import (
     DeliveryEventRequestDTO,
     DeliveryEventResponseDTO,
     DemarrerTourneeResponseDTO,
+    LivraisonDecisionRequestDTO,
     TourneeItemDTO,
     TourneeResponseDTO,
 )
@@ -28,13 +29,16 @@ from services.commande_state_machine import CommandeTransitionError, TRANSITIONS
 
 TOURNEE_RELEASE_TIME = time(7, 0)
 LEGACY_PENDING_DELIVERY_STATUS = "EN_ATTENTE"
+ASSIGNMENT_PENDING_STATUS = "EN_ATTENTE_LIVREUR"
 PENDING_DELIVERY_STATUS = "A_LIVRER"
+ASSIGNMENT_REFUSED_STATUS = "REFUS_LIVREUR"
 STARTED_DELIVERY_STATUS = "EN_ROUTE"
 DELIVERED_STATUS = "LIVRE"
 ABSENT_STATUS = "ABSENT"
 REFUSED_STATUS = "REFUS"
 VISIBLE_TOURNEE_STATUSES = {
     LEGACY_PENDING_DELIVERY_STATUS,
+    ASSIGNMENT_PENDING_STATUS,
     PENDING_DELIVERY_STATUS,
     STARTED_DELIVERY_STATUS,
     DELIVERED_STATUS,
@@ -106,12 +110,12 @@ class LivreurService(ILivreurService):
         pending_count = self.livreur_dao.count_by_statuses(
             session=session,
             livreur_id=livreur_id,
-            statuses=[LEGACY_PENDING_DELIVERY_STATUS, PENDING_DELIVERY_STATUS],
+            statuses=[LEGACY_PENDING_DELIVERY_STATUS, ASSIGNMENT_PENDING_STATUS, PENDING_DELIVERY_STATUS],
         )
 
         return DemarrerTourneeResponseDTO(
             updated_count=0,
-            previous_status="/".join(sorted({LEGACY_PENDING_DELIVERY_STATUS, PENDING_DELIVERY_STATUS})),
+            previous_status="/".join(sorted({LEGACY_PENDING_DELIVERY_STATUS, ASSIGNMENT_PENDING_STATUS, PENDING_DELIVERY_STATUS})),
             new_status=STARTED_DELIVERY_STATUS,
             message=(
                 "Le demarrage est desormais gere commande par commande via les evenements de livraison."
@@ -203,6 +207,38 @@ class LivreurService(ILivreurService):
                 status_code=500,
                 detail="Erreur interne lors de la validation COD.",
             ) from exc
+
+    def accepter_livraison(
+        self,
+        livreur_id: int,
+        commande_id: int,
+        payload: LivraisonDecisionRequestDTO,
+    ) -> DeliveryEventResponseDTO:
+        return self._apply_assignment_decision(
+            livreur_id=livreur_id,
+            commande_id=commande_id,
+            payload=payload,
+            target_status=PENDING_DELIVERY_STATUS,
+            notification_event="DELIVERY_ASSIGNMENT_ACCEPTED",
+            success_message="Course acceptee. Elle est maintenant prete a livrer.",
+            detach_after_transition=False,
+        )
+
+    def refuser_livraison(
+        self,
+        livreur_id: int,
+        commande_id: int,
+        payload: LivraisonDecisionRequestDTO,
+    ) -> DeliveryEventResponseDTO:
+        return self._apply_assignment_decision(
+            livreur_id=livreur_id,
+            commande_id=commande_id,
+            payload=payload,
+            target_status=ASSIGNMENT_REFUSED_STATUS,
+            notification_event="DELIVERY_ASSIGNMENT_REFUSED",
+            success_message="Course refusee. Elle a ete retiree de votre tournee.",
+            detach_after_transition=True,
+        )
 
     def apply_delivery_event(
         self,
@@ -375,6 +411,167 @@ class LivreurService(ILivreurService):
                 detail="Erreur interne lors de la mise a jour de livraison.",
             ) from exc
 
+    def _apply_assignment_decision(
+        self,
+        *,
+        livreur_id: int,
+        commande_id: int,
+        payload: LivraisonDecisionRequestDTO,
+        target_status: str,
+        notification_event: str,
+        success_message: str,
+        detach_after_transition: bool,
+    ) -> DeliveryEventResponseDTO:
+        session = self._ensure_session()
+
+        try:
+            existing_event = self.livreur_dao.get_delivery_event_by_client_event_id(
+                session=session,
+                client_event_id=payload.client_event_id,
+            )
+            if existing_event is not None:
+                return self._build_assignment_idempotent_response(
+                    event=existing_event,
+                    livreur_id=livreur_id,
+                    commande_id=commande_id,
+                )
+
+            context = self.livreur_dao.get_commande_delivery_context(
+                session=session,
+                livreur_id=livreur_id,
+                commande_id=commande_id,
+            )
+            if not context:
+                raise HTTPException(status_code=404, detail="Commande introuvable pour ce livreur.")
+
+            commande: Commande = context["commande"]
+            previous_status = self._canonical_delivery_status(commande.statut)
+
+            if previous_status != ASSIGNMENT_PENDING_STATUS:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Decision impossible depuis le statut {previous_status}.",
+                )
+
+            if payload.expected_version is not None and int(commande.status_version or 1) != payload.expected_version:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Conflit de version. Rechargez la commande avant de renvoyer l'action.",
+                )
+
+            server_timestamp = datetime.now(timezone.utc)
+            try:
+                changer_statut(
+                    session=session,
+                    commande=commande,
+                    nouveau_statut=target_status,
+                    actor_id=livreur_id,
+                    reason=notification_event,
+                    client_event_id=payload.client_event_id,
+                    device_timestamp=payload.device_timestamp,
+                    server_timestamp=server_timestamp,
+                )
+            except CommandeTransitionError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+            event = self.livreur_dao.get_delivery_event_by_client_event_id(
+                session=session,
+                client_event_id=payload.client_event_id,
+            )
+            if event is None:
+                raise HTTPException(status_code=500, detail="Evenement de livraison non cree.")
+
+            if detach_after_transition:
+                commande.livreur_id = None
+                commande.tournee_id = None
+                commande.ordre_passage = None
+
+            self._queue_assignment_notification(
+                session=session,
+                commande=commande,
+                livreur_id=livreur_id,
+                previous_status=previous_status,
+                new_status=target_status,
+                event_name=notification_event,
+                client_event_id=str(payload.client_event_id),
+                server_timestamp=server_timestamp,
+            )
+
+            session.commit()
+
+            return self._build_delivery_event_response(
+                event=event,
+                commande=commande,
+                idempotent=False,
+                message=success_message,
+            )
+        except HTTPException:
+            session.rollback()
+            raise
+        except IntegrityError as exc:
+            session.rollback()
+            existing_event = self.livreur_dao.get_delivery_event_by_client_event_id(
+                session=session,
+                client_event_id=payload.client_event_id,
+            )
+            if existing_event is not None:
+                return self._build_assignment_idempotent_response(
+                    event=existing_event,
+                    livreur_id=livreur_id,
+                    commande_id=commande_id,
+                )
+
+            logger.exception(
+                "Conflit idempotence decision livreur commande_id=%s livreur_id=%s",
+                commande_id,
+                livreur_id,
+            )
+            raise HTTPException(
+                status_code=409,
+                detail="Conflit d'idempotence sur la decision de livraison.",
+            ) from exc
+        except Exception as exc:
+            session.rollback()
+            logger.exception(
+                "Erreur backend decision livreur commande_id=%s livreur_id=%s",
+                commande_id,
+                livreur_id,
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Erreur interne lors de la decision de livraison.",
+            ) from exc
+
+    def _build_assignment_idempotent_response(
+        self,
+        *,
+        event: DeliveryEvent,
+        livreur_id: int,
+        commande_id: int,
+    ) -> DeliveryEventResponseDTO:
+        if int(event.commande_id) != int(commande_id):
+            raise HTTPException(status_code=409, detail="client_event_id deja utilise pour une autre commande.")
+
+        if int(event.livreur_id) != int(livreur_id):
+            raise HTTPException(status_code=409, detail="client_event_id deja utilise par un autre livreur.")
+
+        if self._canonical_delivery_status(event.new_status) not in {PENDING_DELIVERY_STATUS, ASSIGNMENT_REFUSED_STATUS}:
+            raise HTTPException(status_code=409, detail="client_event_id deja utilise pour une autre action.")
+
+        commande = self.livreur_dao.get_commande_by_id(
+            session=self._ensure_session(),
+            commande_id=commande_id,
+        )
+        if commande is None:
+            raise HTTPException(status_code=404, detail="Commande introuvable.")
+
+        return self._build_delivery_event_response(
+            event=event,
+            commande=commande,
+            idempotent=True,
+            message="Decision deja traitee.",
+        )
+
     def _ensure_tournee_available(self) -> None:
         if datetime.now().time() < TOURNEE_RELEASE_TIME:
             pass
@@ -412,7 +609,12 @@ class LivreurService(ILivreurService):
         if not items:
             return items, "EMPTY"
 
-        active_items = [item for item in items if self._canonical_delivery_status(item.statut) in {PENDING_DELIVERY_STATUS, STARTED_DELIVERY_STATUS}]
+        active_items = [
+            item
+            for item in items
+            if self._canonical_delivery_status(item.statut)
+            in {ASSIGNMENT_PENDING_STATUS, PENDING_DELIVERY_STATUS, STARTED_DELIVERY_STATUS}
+        ]
         completed_items = [item for item in items if item not in active_items]
 
         if self._can_use_greedy_gps(active_items):
@@ -543,6 +745,34 @@ class LivreurService(ILivreurService):
                 },
             )
 
+    def _queue_assignment_notification(
+        self,
+        *,
+        session: Session,
+        commande: Commande,
+        livreur_id: int,
+        previous_status: str,
+        new_status: str,
+        event_name: str,
+        client_event_id: str,
+        server_timestamp: datetime,
+    ) -> None:
+        self.livreur_dao.create_notification_outbox(
+            session=session,
+            outbox_type="WEBSOCKET",
+            payload={
+                "event": event_name,
+                "channel": "bo_deliveries",
+                "commande_id": int(commande.id),
+                "livreur_id": int(livreur_id),
+                "previous_status": previous_status,
+                "new_status": new_status,
+                "client_event_id": client_event_id,
+                "server_timestamp": server_timestamp.isoformat(),
+                "status_version": int(commande.status_version or 1),
+            },
+        )
+
     def _build_delivery_event_response(
         self,
         *,
@@ -575,10 +805,12 @@ class LivreurService(ILivreurService):
         status_aliases = {
             "EN_COURS_DE_LIVRAISON": STARTED_DELIVERY_STATUS,
             "EN_ATTENTE": PENDING_DELIVERY_STATUS,
+            "EN_ATTENTE_LIVREUR": ASSIGNMENT_PENDING_STATUS,
             "LIVREE": DELIVERED_STATUS,
             "DELIVERED": DELIVERED_STATUS,
             "REFUSE": REFUSED_STATUS,
             "REFUSED": REFUSED_STATUS,
+            "REFUS_LIVREUR": ASSIGNMENT_REFUSED_STATUS,
         }
         return status_aliases.get(normalized_status, normalized_status)
 
@@ -634,9 +866,11 @@ class LivreurService(ILivreurService):
         normalized_status = status.strip().upper()
         replacements = {
             "EN ATTENTE": LEGACY_PENDING_DELIVERY_STATUS,
+            "EN ATTENTE LIVREUR": ASSIGNMENT_PENDING_STATUS,
             "A LIVRER": PENDING_DELIVERY_STATUS,
             "EN ROUTE": STARTED_DELIVERY_STATUS,
             "REFUSÉ": REFUSED_STATUS,
+            "REFUS LIVREUR": ASSIGNMENT_REFUSED_STATUS,
             "REFUSE": REFUSED_STATUS,
             "CONFIRMÉE": "CONFIRMEE",
             "VERROUILLÉE": "VERROUILLEE",

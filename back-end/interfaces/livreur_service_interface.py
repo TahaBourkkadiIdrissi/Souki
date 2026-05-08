@@ -5,6 +5,7 @@ from dto.livreur_dto import (
     DeliveryEventRequestDTO,
     DeliveryEventResponseDTO,
     DemarrerTourneeResponseDTO,
+    LivraisonDecisionRequestDTO,
     TourneeResponseDTO,
 )
 
@@ -33,6 +34,24 @@ class ILivreurService(ABC):
         livreur_id: int,
         commande_id: int,
         payload: DeliveryEventRequestDTO,
+    ) -> DeliveryEventResponseDTO:
+        pass
+
+    @abstractmethod
+    def accepter_livraison(
+        self,
+        livreur_id: int,
+        commande_id: int,
+        payload: LivraisonDecisionRequestDTO,
+    ) -> DeliveryEventResponseDTO:
+        pass
+
+    @abstractmethod
+    def refuser_livraison(
+        self,
+        livreur_id: int,
+        commande_id: int,
+        payload: LivraisonDecisionRequestDTO,
     ) -> DeliveryEventResponseDTO:
         pass
 
