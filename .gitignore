@@ -111,6 +111,7 @@ dist
 back-end/.venv/
 back-end/sql/*
 !back-end/sql/2026-04-25_add_avatar_storage.sql
+!back-end/sql/migration_produit_pricing.sql
 
 # vitepress build output
 **/.vitepress/dist

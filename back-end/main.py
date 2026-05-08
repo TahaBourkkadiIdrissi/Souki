@@ -20,6 +20,7 @@ from controllers.dispatch_controller import dispatch_router
 from controllers.jit_controller import router_jit
 from controllers.livreur_controller import router_livreur
 from controllers.panier_controller import router_panier
+from controllers.produit_pricing_controller import router as pricing_router
 from controllers.profile_controller import profile_router
 from controllers.settings_controller import settings_router
 from services.catalogue_bootstrap_service import CatalogueBootstrapService
@@ -126,6 +127,7 @@ app.include_router(router_catalogue)
 app.include_router(router_voice)
 app.include_router(router_panier)
 app.include_router(router_checkout)
+app.include_router(pricing_router)
 app.include_router(claim_router)
 app.include_router(dispatch_router)
 app.include_router(router_jit)
