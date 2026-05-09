@@ -8,12 +8,15 @@ ALLOWED_COMMANDE_STATUSES = (
     "EN_ATTENTE",
     "CONFIRMEE",
     "VERROUILLEE",
+    "EN_ATTENTE_LIVREUR",
     "A_LIVRER",
     "EN_ROUTE",
     "LIVRE",
     "ABSENT",
     "REFUS",
+    "REFUS_LIVREUR",
     "ANNULEE",
+    "RETOUR_DEPOT",
 )
 
 

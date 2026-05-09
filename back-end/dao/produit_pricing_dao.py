@@ -1,33 +1,19 @@
 from typing import List, Optional
 
-from sqlalchemy import Column, Float, Integer, String
 from sqlalchemy.orm import Session
 
-from config import Base
 from dto.produit_pricing_dto import ProduitPricingDTO, ProduitPricingUpdateDTO
-from entities.produit_pricing_mixin import ProduitPricingMixin
+from entities.product_entity import Product
 from interfaces.produit_pricing_dao_interface import IProduitPricingDao
 
 
 COEFFICIENT_KHDDAR = {1: 1.08, 2: 1.12, 3: 1.25}
 
 
-class ProduitPricing(ProduitPricingMixin, Base):
-    __tablename__ = 'T_Product'
-    __table_args__ = {"extend_existing": True}
-
-    id = Column(Integer, primary_key=True, index=True)
-    nom_fr = Column(String(100), nullable=False)
-    nom_darija = Column(String(100), nullable=False, unique=True)
-    prix_kg = Column(Float, nullable=False)
-    unite = Column(String(50), nullable=False)
-    stock = Column(Float, nullable=False, default=0.0)
-
-
 class ProduitPricingDaoBD(IProduitPricingDao):
 
     def get_all_produits_pricing(self, session: Session) -> List[ProduitPricingDTO]:
-        produits = session.query(ProduitPricing).order_by(ProduitPricing.id.asc()).all()
+        produits = session.query(Product).order_by(Product.id.asc()).all()
         return [self._to_dto(produit) for produit in produits]
 
     def get_produit_pricing(
@@ -36,8 +22,8 @@ class ProduitPricingDaoBD(IProduitPricingDao):
         produit_id: int,
     ) -> Optional[ProduitPricingDTO]:
         produit = (
-            session.query(ProduitPricing)
-            .filter(ProduitPricing.id == produit_id)
+            session.query(Product)
+            .filter(Product.id == produit_id)
             .first()
         )
         if produit is None:
@@ -51,8 +37,8 @@ class ProduitPricingDaoBD(IProduitPricingDao):
         data: ProduitPricingUpdateDTO,
     ) -> None:
         produit = (
-            session.query(ProduitPricing)
-            .filter(ProduitPricing.id == produit_id)
+            session.query(Product)
+            .filter(Product.id == produit_id)
             .first()
         )
         if produit is None:
@@ -66,8 +52,8 @@ class ProduitPricingDaoBD(IProduitPricingDao):
 
     def update_prix_affiche(self, session: Session, produit_id: int, prix: float) -> None:
         produit = (
-            session.query(ProduitPricing)
-            .filter(ProduitPricing.id == produit_id)
+            session.query(Product)
+            .filter(Product.id == produit_id)
             .first()
         )
         if produit is None:
@@ -76,7 +62,7 @@ class ProduitPricingDaoBD(IProduitPricingDao):
         produit.prix_affiche = prix
         session.flush()
 
-    def _to_dto(self, produit: ProduitPricing) -> ProduitPricingDTO:
+    def _to_dto(self, produit: Product) -> ProduitPricingDTO:
         niveau = int(produit.niveau or 2)
         coefficient = COEFFICIENT_KHDDAR.get(niveau, COEFFICIENT_KHDDAR[2])
         prix_gros = float(produit.prix_gros_saisi or produit.prix_kg)
