@@ -11,7 +11,10 @@ from interfaces.checkout_dao_interface import ICheckoutDao
 from interfaces.checkout_service_interface import ICheckoutService
 
 
-DELIVERY_FEE = 10.0
+PANIER_MINIMUM_DH = 50.0
+SEUIL_LIVRAISON_GRATUITE = 80.0
+FRAIS_LIVRAISON = 10.0
+DELIVERY_FEE = FRAIS_LIVRAISON
 MOROCCO_TIMEZONE = ZoneInfo("Africa/Casablanca")
 ORDER_CUTOFF_START = time(21, 30)
 ORDER_CUTOFF_END = time(8, 0)
@@ -123,13 +126,36 @@ class CheckoutService(ICheckoutService):
                         f"Stock insuffisant pour {product.nom_fr}. Disponible: {available_stock} {product.unite}."
                     )
 
-                line_total = round(float(product.prix_kg) * requested_quantity, 2) # type: ignore
+                prix_affiche = getattr(product, "prix_affiche", None)
+                unit_price = (
+                    float(prix_affiche)
+                    if prix_affiche is not None
+                    else float(product.prix_kg) # type: ignore
+                )
+                line_total = round(unit_price * requested_quantity, 2)
                 sous_total += line_total
                 total_legumes += requested_quantity
                 total_articles += 1
                 product.stock = available_stock - requested_quantity # type: ignore
 
-            montant_total = round(sous_total + DELIVERY_FEE, 2)
+            total_produits = round(sous_total, 2)
+            if total_produits < PANIER_MINIMUM_DH:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Commande minimum {PANIER_MINIMUM_DH} DH",
+                )
+
+            is_b2b = False
+            if (
+                total_produits >= SEUIL_LIVRAISON_GRATUITE
+                or getattr(client, 'abonnement_actif', False)
+                or is_b2b
+            ):
+                frais_livraison = 0.0
+            else:
+                frais_livraison = FRAIS_LIVRAISON
+
+            montant_total = round(total_produits + frais_livraison, 2)
             panier = self.checkout_dao.create_panier(
                 session=session,
                 user_id=user_id,
@@ -140,7 +166,13 @@ class CheckoutService(ICheckoutService):
 
             for item in payload.items:
                 product = products_by_id[item.product_id]
-                line_total = round(float(product.prix_kg) * float(item.quantity), 2) # type: ignore
+                prix_affiche = getattr(product, "prix_affiche", None)
+                unit_price = (
+                    float(prix_affiche)
+                    if prix_affiche is not None
+                    else float(product.prix_kg) # type: ignore
+                )
+                line_total = round(unit_price * float(item.quantity), 2)
                 self.checkout_dao.create_ligne_panier(
                     session=session,
                     panier_id=int(panier.id), # type: ignore
@@ -167,8 +199,8 @@ class CheckoutService(ICheckoutService):
                 commande_id=int(commande.id), # type: ignore
                 panier_id=int(panier.id), # type: ignore
                 total_articles=total_articles,
-                sous_total=round(sous_total, 2),
-                frais_livraison=DELIVERY_FEE,
+                sous_total=total_produits,
+                frais_livraison=frais_livraison,
                 montant_total=montant_total,
                 message="Commande enregistree avec succes.",
             )

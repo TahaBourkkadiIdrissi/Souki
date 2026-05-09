@@ -489,6 +489,19 @@ function normalizeLogResult(log: JITLogDTO): ResultatAgregationJIT {
   }
 }
 
+function isToday(date: Date) {
+  if (Number.isNaN(date.getTime())) {
+    return false
+  }
+
+  const today = new Date()
+  return (
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
+  )
+}
+
 function getOrdersErrorMessage(error: unknown) {
   if (error instanceof ApiError && error.status === 404) {
     return `L'endpoint ${ORDERS_ENDPOINT} n'est pas disponible sur le backend actuel.`
@@ -1094,6 +1107,13 @@ export default function AdminOrdersPage() {
       window.clearInterval(alertIntervalId)
     }
   }, [isAuthLoading, token])
+
+  useEffect(() => {
+    if (lastLog?.date_execution && isToday(new Date(lastLog.date_execution))) {
+      setJitResult(normalizeLogResult(lastLog))
+      setJitResultSource("execute")
+    }
+  }, [lastLog])
 
   async function handlePreview() {
     if (!token || isPreviewLoading) {

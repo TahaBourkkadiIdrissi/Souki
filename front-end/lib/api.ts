@@ -481,7 +481,7 @@ export interface BlacklistReportDTO {
   commandes_refusees: BlacklistCommandeRefuseeDTO[]
 }
 
-export type DashboardPeriod = "today" | "7d" | "30d" | "month"
+export type DashboardPeriod = "today" | "7d" | "30d" | "month" | "custom"
 
 export interface DashboardCurvePointDTO {
   date: string
@@ -504,6 +504,7 @@ export interface DashboardPaymentDTO {
 
 export interface DashboardDTO {
   periode: DashboardPeriod
+  date_custom: string | null
   date_debut: string
   date_fin: string
   derniere_maj: string
@@ -514,22 +515,23 @@ export interface DashboardDTO {
   commandes_en_route: number
   commandes_annulees: number
   commandes_absentes: number
-  commandes_confirmees: number
   taux_livraison: number
+  taux_absence: number
   ca_total: number
   ca_total_precedent: number
   ca_cod: number
   ca_wallet: number
   ca_cmi: number
-  ca_cash: number
   panier_moyen: number
   total_clients_actifs: number
   nouveaux_clients: number
+  nouveaux_clients_precedent: number
   clients_blacklistes: number
   dernier_jit_statut: string | null
   dernier_jit_volume: number
   dernier_jit_nb_commandes: number
   dernier_jit_date: string | null
+  jit_execute_aujourdhui: boolean
   livreurs_disponibles: number
   tournees_actives: number
   cod_confirmes: number
@@ -769,9 +771,14 @@ export async function getBlacklistedClients(token: string) {
 export async function getAdminDashboard(
   token: string,
   periode: DashboardPeriod = "today",
+  date_custom?: string,
   signal?: AbortSignal
 ) {
-  return apiCall<DashboardDTO>(`/admin/dashboard?periode=${encodeURIComponent(periode)}`, {
+  const query = new URLSearchParams({ periode })
+  if (date_custom) {
+    query.set("date_custom", date_custom)
+  }
+  return apiCall<DashboardDTO>(`/admin/dashboard?${query.toString()}`, {
     token,
     signal,
   })

@@ -11,6 +11,7 @@ from dao.notification_outbox_dao import NotificationOutboxDaoBD
 from dao.panier_dao import PanierDaoBD
 from dao.livreur_dao import LivreurDaoBD
 from dao.product_dao import ProductDaoBD
+from dao.produit_pricing_dao import ProduitPricingDaoBD
 from dao.souki_wallet_dao import SoukiWalletDaoBD
 from dao.tournee_dao import TourneeDaoBD
 from interfaces.catalogue_service_interface import ICatalogueService
@@ -36,6 +37,8 @@ from interfaces.notification_outbox_service_interface import INotificationOutbox
 from interfaces.panier_dao_interface import IPanierDao
 from interfaces.panier_service_interface import IPanierService
 from interfaces.product_dao_interface import IProductDao
+from interfaces.produit_pricing_dao_interface import IProduitPricingDao
+from interfaces.produit_pricing_service_interface import IProduitPricingService
 from interfaces.souki_wallet_dao_interface import ISoukiWalletDao
 from interfaces.souki_wallet_service_interface import ISoukiWalletService
 from interfaces.tournee_dao_interface import ITourneeDao
@@ -51,11 +54,16 @@ from services.dispatch_service import DispatchService
 from services.livreur_service import LivreurService
 from services.notification_outbox_service import NotificationOutboxService
 from services.panier_service import PanierService
+from services.produit_pricing_service import ProduitPricingServiceBD
 from services.souki_wallet_service import SoukiWalletService
 
 
 def get_product_dao() -> IProductDao:
     return ProductDaoBD()
+
+
+def get_produit_pricing_dao() -> IProduitPricingDao:
+    return ProduitPricingDaoBD()
 
 
 def get_claim_dao() -> IClaimDao:
@@ -116,6 +124,12 @@ def get_catalogue_service(
     product_dao: IProductDao = Depends(get_product_dao)
 ) -> ICatalogueService:
     return CatalogueService(product_dao)
+
+
+def get_produit_pricing_service(
+    dao: IProduitPricingDao = Depends(get_produit_pricing_dao)
+) -> IProduitPricingService:
+    return ProduitPricingServiceBD(dao=dao)
 
 
 def get_notification_outbox_service(

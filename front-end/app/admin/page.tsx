@@ -8,9 +8,9 @@ import {
   ArrowRight,
   BarChart3,
   Bell,
+  CalendarDays,
   CheckCircle2,
   CircleDollarSign,
-  CreditCard,
   LayoutDashboard,
   Leaf,
   LogOut,
@@ -18,11 +18,8 @@ import {
   Package,
   RefreshCw,
   Settings,
-  ShieldX,
   ShoppingBasket,
   ShoppingCart,
-  TrendingDown,
-  TrendingUp,
   Truck,
   Users,
   Wallet,
@@ -84,6 +81,7 @@ const periodOptions: Array<{ value: DashboardPeriod; label: string }> = [
   { value: "7d", label: "7 jours" },
   { value: "30d", label: "30 jours" },
   { value: "month", label: "Ce mois" },
+  { value: "custom", label: "Jour precis" },
 ]
 
 const statusColors: Record<string, string> = {
@@ -141,6 +139,17 @@ function formatDateTime(value: string | null | undefined) {
   })
 }
 
+function todayInputValue() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function formatKg(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "0.00 kg"
+  }
+  return `${value.toLocaleString("fr-FR", { maximumFractionDigits: 2, minimumFractionDigits: 2 })} kg`
+}
+
 function normalizeLabel(value: string) {
   return value.replace(/_/g, " ")
 }
@@ -164,6 +173,35 @@ function SkeletonBlock({ className }: { className?: string }) {
   return <div className={cn("animate-pulse rounded-xl border border-[#E5E7EB] bg-white shadow-sm", className)} />
 }
 
+function graphTitle(periode: DashboardPeriod, customDate: string) {
+  if (periode === "today") {
+    return "CA du jour (DH)"
+  }
+  if (periode === "7d") {
+    return "CA 7 derniers jours (DH)"
+  }
+  if (periode === "30d") {
+    return "CA 30 derniers jours (DH)"
+  }
+  if (periode === "month") {
+    return "CA ce mois (DH)"
+  }
+  return `CA autour du ${customDate} (DH)`
+}
+
+function JitExecutionBadge({ executed }: { executed: boolean }) {
+  return (
+    <div
+      className={cn(
+        "mt-2 border-t border-[#E5E7EB] pt-2 text-xs font-bold",
+        executed ? "text-[#1E8A3C]" : "text-amber-700"
+      )}
+    >
+      {executed ? "● JIT execute" : "⏳ JIT en attente"}
+    </div>
+  )
+}
+
 function MetricCard({
   label,
   value,
@@ -171,6 +209,7 @@ function MetricCard({
   icon: Icon,
   colorClass,
   variationValue,
+  footer,
   highlight = false,
 }: {
   label: string
@@ -179,16 +218,18 @@ function MetricCard({
   icon: LucideIcon
   colorClass: string
   variationValue?: number | null
+  footer?: React.ReactNode
   highlight?: boolean
 }) {
-  const positive = typeof variationValue === "number" && variationValue >= 0
+  const positive = typeof variationValue === "number" && variationValue > 0
   const negative = typeof variationValue === "number" && variationValue < 0
+  const neutral = variationValue === null || variationValue === 0
 
   return (
     <div className={cn("min-h-[116px] rounded-xl border border-[#E5E7EB] bg-white px-3 py-3 shadow-sm", highlight && "border-emerald-200 bg-[#F0FDF4]")}>
       <div className="flex items-start gap-2.5">
         <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", colorClass)}>
-          <Icon className="h-4.5 w-4.5" />
+          <Icon className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-semibold uppercase text-[#6B7280]">{label}</p>
@@ -197,19 +238,22 @@ function MetricCard({
       </div>
       <div className="mt-2 flex min-h-5 items-center justify-between gap-2 text-xs">
         <span className="truncate font-medium text-[#6B7280]">{helper}</span>
-        {typeof variationValue === "number" ? (
+        {variationValue !== undefined ? (
           <span
             className={cn(
               "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 font-bold",
               positive && "bg-[#F0FDF4] text-[#1E8A3C]",
-              negative && "bg-red-50 text-red-600"
+              negative && "bg-red-50 text-red-600",
+              neutral && "bg-gray-100 text-[#6B7280]"
             )}
           >
-            {positive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-            {Math.abs(variationValue).toFixed(1)}%
+            {positive ? `▲ +${variationValue.toFixed(1)}%` : null}
+            {negative ? `▼ ${variationValue.toFixed(1)}%` : null}
+            {neutral ? (variationValue === 0 ? "— 0%" : "—") : null}
           </span>
         ) : null}
       </div>
+      {footer}
     </div>
   )
 }
@@ -281,6 +325,7 @@ export default function AdminDashboard() {
   const { token, can } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [periode, setPeriode] = useState<DashboardPeriod>("today")
+  const [customDate, setCustomDate] = useState(todayInputValue())
   const [dashboard, setDashboard] = useState<DashboardDTO | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
@@ -296,7 +341,7 @@ export default function AdminDashboard() {
     }
 
     try {
-      const result = await getAdminDashboard(token, periode, signal)
+      const result = await getAdminDashboard(token, periode, periode === "custom" ? customDate : undefined, signal)
       setDashboard(result)
       setError("")
     } catch (loadError) {
@@ -309,7 +354,7 @@ export default function AdminDashboard() {
         setIsLoading(false)
       }
     }
-  }, [periode, token])
+  }, [customDate, periode, token])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -331,57 +376,74 @@ export default function AdminDashboard() {
   )
 
   const metrics = dashboard
-    ? [
-        {
-          label: "CA Total",
-          value: formatMoney(dashboard.ca_total),
-          helper: "Livrees uniquement",
-          icon: CircleDollarSign,
-          colorClass: "bg-[#F0FDF4] text-[#1E8A3C]",
-          variationValue: variation(dashboard.ca_total, dashboard.ca_total_precedent),
-          highlight: true,
-        },
-        {
-          label: "Commandes",
-          value: formatNumber(dashboard.total_commandes),
-          helper: `${formatNumber(dashboard.commandes_confirmees)} confirmees`,
-          icon: Package,
-          colorClass: "bg-blue-50 text-blue-600",
-          variationValue: variation(dashboard.total_commandes, dashboard.total_commandes_precedent),
-        },
-        {
-          label: "Livrees",
-          value: `${formatNumber(dashboard.commandes_livrees)} (${dashboard.taux_livraison.toFixed(1)}%)`,
-          helper: `${formatNumber(dashboard.commandes_absentes)} absentes`,
-          icon: CheckCircle2,
-          colorClass: "bg-[#F0FDF4] text-[#1E8A3C]",
-          variationValue: variation(dashboard.commandes_livrees, dashboard.commandes_livrees_precedent),
-        },
-        {
-          label: "Panier moyen",
-          value: formatMoney(dashboard.panier_moyen),
-          helper: "Sans variation",
-          icon: ShoppingCart,
-          colorClass: "bg-teal-50 text-teal-600",
-        },
-        {
-          label: "Clients actifs",
-          value: formatNumber(dashboard.total_clients_actifs),
-          helper: `${formatNumber(dashboard.nouveaux_clients)} nouveaux`,
-          icon: Users,
-          colorClass: "bg-violet-50 text-violet-600",
-        },
-        {
-          label: "Blacklistes",
-          value: formatNumber(dashboard.clients_blacklistes),
-          helper: "COD bloque",
-          icon: ShieldX,
-          colorClass: "bg-red-50 text-red-600",
-        },
-      ]
+    ? (() => {
+        const kpi4 = periode === "today"
+          ? {
+              label: "En route",
+              value: formatNumber(dashboard.commandes_en_route),
+              helper: "Commandes en livraison",
+              icon: Truck,
+              colorClass: "bg-blue-50 text-blue-600",
+            }
+          : {
+              label: "Panier moyen",
+              value: formatMoney(dashboard.panier_moyen),
+              helper: "Sans variation",
+              icon: ShoppingCart,
+              colorClass: "bg-teal-50 text-teal-600",
+            }
+
+        return [
+          {
+            label: "CA Total",
+            value: formatMoney(dashboard.ca_total),
+            helper: "Livrees uniquement",
+            icon: CircleDollarSign,
+            colorClass: "bg-[#F0FDF4] text-[#1E8A3C]",
+            variationValue: variation(dashboard.ca_total, dashboard.ca_total_precedent),
+            highlight: true,
+          },
+          {
+            label: "Commandes",
+            value: formatNumber(dashboard.total_commandes),
+            helper: `${formatNumber(dashboard.commandes_en_route)} en route`,
+            icon: Package,
+            colorClass: "bg-blue-50 text-blue-600",
+            variationValue: variation(dashboard.total_commandes, dashboard.total_commandes_precedent),
+            footer: periode === "today" ? <JitExecutionBadge executed={dashboard.jit_execute_aujourdhui} /> : undefined,
+          },
+          {
+            label: "Livrees",
+            value: `${formatNumber(dashboard.commandes_livrees)} (${dashboard.taux_livraison.toFixed(1)}%)`,
+            helper: `${formatNumber(dashboard.commandes_absentes)} absentes`,
+            icon: CheckCircle2,
+            colorClass: "bg-[#F0FDF4] text-[#1E8A3C]",
+            variationValue: variation(dashboard.commandes_livrees, dashboard.commandes_livrees_precedent),
+          },
+          kpi4,
+          {
+            label: "Nouveaux clients",
+            value: formatNumber(dashboard.nouveaux_clients),
+            helper: "Periode selectionnee",
+            icon: Users,
+            colorClass: "bg-[#F0FDF4] text-[#1E8A3C]",
+            variationValue: variation(dashboard.nouveaux_clients, dashboard.nouveaux_clients_precedent),
+          },
+          {
+            label: "Taux absence",
+            value: `${dashboard.taux_absence.toFixed(1)}%`,
+            helper: `${formatNumber(dashboard.commandes_absentes)} absentes`,
+            icon: AlertTriangle,
+            colorClass: dashboard.taux_absence > 10 ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600",
+          },
+        ]
+      })()
     : []
 
   const netBlacklist = (dashboard?.nouveaux_blacklistes ?? 0) - (dashboard?.blacklists_leves ?? 0)
+  const panierPhysique = dashboard && dashboard.dernier_jit_nb_commandes > 0
+    ? dashboard.dernier_jit_volume / dashboard.dernier_jit_nb_commandes
+    : 0
 
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
@@ -476,15 +538,25 @@ export default function AdminDashboard() {
                     type="button"
                     onClick={() => setPeriode(option.value)}
                     className={cn(
-                      "rounded-lg border px-3 py-2 text-sm font-bold transition-colors",
+                      "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold transition-colors",
                       periode === option.value
                         ? "border-[#1E8A3C] bg-[#1E8A3C] text-white"
                         : "border-[#E5E7EB] bg-white text-[#1F2937] hover:bg-[#F0FDF4] hover:text-[#1E8A3C]"
                     )}
                   >
+                    {option.value === "custom" ? <CalendarDays className="h-4 w-4" /> : null}
                     {option.label}
                   </button>
                 ))}
+                {periode === "custom" ? (
+                  <input
+                    type="date"
+                    value={customDate}
+                    max={todayInputValue()}
+                    onChange={(event) => setCustomDate(event.target.value)}
+                    className="rounded-lg border border-[#1E8A3C] bg-white px-3 py-2 text-sm font-bold text-[#1F2937] outline-none focus:ring-2 focus:ring-[#1E8A3C]/20"
+                  />
+                ) : null}
                 <button
                   type="button"
                   onClick={() => void loadDashboard(true)}
@@ -535,8 +607,8 @@ export default function AdminDashboard() {
                   <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
                     <div className="mb-3 flex items-end justify-between gap-3">
                       <div>
-                        <h2 className="text-base font-bold text-[#1F2937]">Evolution du CA (DH)</h2>
-                        <p className="text-xs text-[#6B7280]">Courbe fixe sur 30 jours</p>
+                        <h2 className="text-base font-bold text-[#1F2937]">{graphTitle(periode, customDate)}</h2>
+                        <p className="text-xs text-[#6B7280]">{periode === "custom" ? "Fenetre fixe de 30 jours" : "Periode selectionnee"}</p>
                       </div>
                       <span className="text-sm font-bold text-[#1E8A3C]">{formatPreciseMoney(dashboard.ca_total)}</span>
                     </div>
@@ -615,14 +687,22 @@ export default function AdminDashboard() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <h2 className="text-base font-bold text-[#1F2937]">JIT</h2>
-                        <p className="mt-1 text-sm text-[#6B7280]">{formatPreciseMoney(dashboard.dernier_jit_volume).replace("DH", "kg")}</p>
+                        <p className="mt-1 text-sm text-[#6B7280]">Tournees actives : {formatNumber(dashboard.tournees_actives)}</p>
                       </div>
                       <StatusBadge value={dashboard.dernier_jit_statut} />
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                       <div>
+                        <p className="text-xs font-semibold uppercase text-[#6B7280]">Volume</p>
+                        <p className="text-xl font-bold text-[#1F2937]">{formatKg(dashboard.dernier_jit_volume)}</p>
+                      </div>
+                      <div>
                         <p className="text-xs font-semibold uppercase text-[#6B7280]">Commandes</p>
                         <p className="text-xl font-bold text-[#1F2937]">{formatNumber(dashboard.dernier_jit_nb_commandes)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-[#6B7280]">Panier physique</p>
+                        <p className="text-sm font-bold text-[#1F2937]">{formatKg(panierPhysique)}/commande</p>
                       </div>
                       <div>
                         <p className="text-xs font-semibold uppercase text-[#6B7280]">Dernier job</p>
@@ -637,23 +717,14 @@ export default function AdminDashboard() {
 
                   <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
                     <h2 className="text-base font-bold text-[#1F2937]">COD</h2>
-                    <div className="mt-3 grid grid-cols-2 gap-3">
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-[#6B7280]">Confirmes</p>
-                        <p className="text-2xl font-bold text-[#1E8A3C]">{formatNumber(dashboard.cod_confirmes)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-[#6B7280]">Annules</p>
-                        <p className="text-2xl font-bold text-red-600">{formatNumber(dashboard.cod_annules)}</p>
-                      </div>
-                    </div>
+                    <p className="mt-3 text-3xl font-bold text-[#1F2937]">{dashboard.taux_confirmation_cod.toFixed(1)}%</p>
+                    <p className="text-xs font-semibold uppercase text-[#6B7280]">Taux confirmation</p>
                     <div className="mt-3 h-2 overflow-hidden rounded-full bg-red-100">
                       <div className="h-full rounded-full bg-[#1E8A3C]" style={{ width: `${Math.min(100, dashboard.taux_confirmation_cod)}%` }} />
                     </div>
-                    <div className="mt-2 flex items-center justify-between text-xs font-bold">
-                      <span className="text-[#6B7280]">Taux confirmation</span>
-                      <span className="text-[#1E8A3C]">{dashboard.taux_confirmation_cod.toFixed(1)}%</span>
-                    </div>
+                    <p className="mt-2 text-sm font-medium text-[#6B7280]">
+                      {formatNumber(dashboard.cod_confirmes)} confirmees | {formatNumber(dashboard.cod_annules)} annulees
+                    </p>
                     <Link href="/admin/orders" className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#1E8A3C] hover:text-[#166d30]">
                       Gerer COD
                       <ArrowRight className="h-4 w-4" />
@@ -662,20 +733,22 @@ export default function AdminDashboard() {
 
                   <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
                     <h2 className="text-base font-bold text-[#1F2937]">Blacklist periode</h2>
-                    <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                      <div className="rounded-lg bg-red-50 px-2 py-3">
-                        <p className="text-xs font-semibold text-red-600">Nouveaux</p>
-                        <p className="text-2xl font-bold text-red-700">{formatNumber(dashboard.nouveaux_blacklistes)}</p>
-                      </div>
-                      <div className="rounded-lg bg-[#F0FDF4] px-2 py-3">
-                        <p className="text-xs font-semibold text-[#1E8A3C]">Leves</p>
-                        <p className="text-2xl font-bold text-[#1E8A3C]">{formatNumber(dashboard.blacklists_leves)}</p>
-                      </div>
-                      <div className="rounded-lg bg-gray-50 px-2 py-3">
-                        <p className="text-xs font-semibold text-[#6B7280]">Net</p>
-                        <p className="text-2xl font-bold text-[#1F2937]">{formatNumber(netBlacklist)}</p>
-                      </div>
+                    <p className="mt-3 text-3xl font-bold text-[#1F2937]">{formatNumber(dashboard.clients_blacklistes)}</p>
+                    <p className="text-xs font-semibold uppercase text-[#6B7280]">Blacklistes actifs</p>
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                      <p className="rounded-lg bg-red-50 px-3 py-2 font-bold text-red-700">Nouveaux : +{formatNumber(dashboard.nouveaux_blacklistes)}</p>
+                      <p className="rounded-lg bg-[#F0FDF4] px-3 py-2 font-bold text-[#1E8A3C]">Leves : -{formatNumber(dashboard.blacklists_leves)}</p>
                     </div>
+                    <p
+                      className={cn(
+                        "mt-2 rounded-lg bg-gray-50 px-3 py-2 text-sm font-bold",
+                        netBlacklist > 0 && "bg-red-50 text-red-700",
+                        netBlacklist < 0 && "bg-[#F0FDF4] text-[#1E8A3C]",
+                        netBlacklist === 0 && "text-[#6B7280]"
+                      )}
+                    >
+                      Solde net : {netBlacklist > 0 ? "+" : ""}{formatNumber(netBlacklist)}
+                    </p>
                     <Link href="/admin/blacklist" className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#1E8A3C] hover:text-[#166d30]">
                       Voir blacklist
                       <ArrowRight className="h-4 w-4" />
