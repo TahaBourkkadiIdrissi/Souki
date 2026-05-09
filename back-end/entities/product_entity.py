@@ -13,6 +13,14 @@ class Product(Base):
     unite      = Column(String(50),  nullable=False)
     stock      = Column(Float,       nullable=False, default=0.0)
 
+    # Colonnes pricing — ajoutées après migration Supabase Mai 2026
+    marge_cible       = Column(Float,      default=0.25)
+    coussin_securite  = Column(Float,      default=0.10)
+    niveau            = Column(Integer,    default=2)
+    volatilite        = Column(String(20), default='STABLE')
+    prix_gros_saisi   = Column(Float,      nullable=True)
+    prix_affiche      = Column(Float,      nullable=True)
+
     lignes_commande_vocale = relationship("LigneCommandeVocale", back_populates="produit")
     lignes_panier          = relationship("LignePanier", back_populates="produit")
     produits_b2b           = relationship("ProduitB2B", back_populates="produit")

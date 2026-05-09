@@ -11,7 +11,10 @@ class DetailProduitJIT(BaseModel):
     buffer_perte_10_pct: float  # Buffer 10%
     volume_total_kg: float  # Arrondi à la caisse entière supérieure
     prix_kg: float
+    prix_achat: float
     sous_total: float
+    sous_total_ca: float
+    sous_total_achat: float
     unite: str
 
     class Config:
@@ -25,6 +28,9 @@ class ResultatAgregationJIT(BaseModel):
     volume_total_kg: float
     details_produits: List[DetailProduitJIT]
     montant_total: float
+    ca_estime_total: float
+    cout_achat_estime: float
+    marge_estimee: float
     statut: str  # "succès", "aucune_commande", "erreur"
     message: Optional[str] = None
 
