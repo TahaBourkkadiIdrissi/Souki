@@ -66,7 +66,7 @@ async def executer_job_jit(
     """
     session = LocalSession()
     try:
-        log = service.executer_job_jit(session, actor_id=int(admin_user.id))
+        log = service.executer_job_jit(session, actor_id=int(admin_user.user_id))
 
         if not log:
             raise HTTPException(status_code=500, detail="Impossible de creer le log JIT")
@@ -91,7 +91,7 @@ async def deverrouiller_commandes_jit(
     """
     session = LocalSession()
     try:
-        resultat = service.deverrouiller_commandes(session, actor_id=int(admin_user.id))
+        resultat = service.deverrouiller_commandes(session, actor_id=int(admin_user.user_id))
         nombre_deverrouillees = resultat.get("nombre_deverrouillees", 0)
         session.commit()
 

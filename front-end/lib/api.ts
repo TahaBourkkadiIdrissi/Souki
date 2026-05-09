@@ -245,6 +245,17 @@ export interface DeliveryEventResponse {
   message: string
 }
 
+export interface TourneeRefusResponse {
+  status: string
+  client_event_id: string
+  commandes_refusees: number
+  commande_ids: number[]
+  dispatch_reassign_triggered: boolean
+  dispatch_status?: string | null
+  idempotent: boolean
+  message: string
+}
+
 export interface CodValidationResponse {
   status: string
   commande_id: number
@@ -614,24 +625,8 @@ export async function envoyerEvenementLivraison(
   })
 }
 
-export async function accepterLivraisonLivreur(
-  token: string,
-  commandeId: string | number,
-  body: LivraisonDecisionRequest
-) {
-  return apiCall<DeliveryEventResponse>(`/api/livreur/livraisons/${commandeId}/accepter`, {
-    method: "POST",
-    token,
-    body,
-  })
-}
-
-export async function refuserLivraisonLivreur(
-  token: string,
-  commandeId: string | number,
-  body: LivraisonDecisionRequest
-) {
-  return apiCall<DeliveryEventResponse>(`/api/livreur/livraisons/${commandeId}/refuser`, {
+export async function refuserTourneeLivreur(token: string, body: LivraisonDecisionRequest) {
+  return apiCall<TourneeRefusResponse>("/api/livreur/tournee/refuser", {
     method: "POST",
     token,
     body,

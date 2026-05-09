@@ -78,14 +78,23 @@ class DispatchService(IDispatchService):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._close_owned_session(rollback=exc_type is not None)
 
-    def generate_daily_routes(self, target_date: date) -> dict[str, Any]:
+    def generate_daily_routes(
+        self,
+        target_date: date,
+        excluded_livreur_ids: Optional[set[int]] = None,
+        commande_ids: Optional[set[int]] = None,
+    ) -> dict[str, Any]:
         session = self._ensure_session()
         transaction = session.begin_nested() if session.in_transaction() else session.begin()
+        excluded_ids = {int(livreur_id) for livreur_id in (excluded_livreur_ids or set())}
 
         try:
             with transaction:
                 retours_depot = process_end_of_day_returns(session, target_date)
-                commandes = self.commande_dao.get_commandes_non_assignees(session)
+                commandes = self.commande_dao.get_commandes_non_assignees(
+                    session,
+                    commande_ids=commande_ids,
+                )
                 if not commandes:
                     return {
                         "status": "no_orders",
@@ -96,7 +105,11 @@ class DispatchService(IDispatchService):
                         "retours_depot": retours_depot,
                     }
 
-                livreurs = self.livreur_dao.get_available_livreurs(session)
+                livreurs = [
+                    livreur
+                    for livreur in self.livreur_dao.get_available_livreurs(session)
+                    if int(livreur.user_id) not in excluded_ids
+                ]
                 if not livreurs:
                     raise DispatchNoLivreurError("Aucun livreur disponible")
 
@@ -155,6 +168,106 @@ class DispatchService(IDispatchService):
             "tournees": [self._serialize_tournee(tournee) for tournee in tournees],
             "anomalies": [self._serialize_anomalie(anomalie) for anomalie in anomalies],
         }
+
+    def reassign_refused_orders(
+        self,
+        commande_ids: set[int],
+        excluded_livreur_id: int,
+        target_date: Optional[date] = None,
+    ) -> dict[str, Any]:
+        session = self._ensure_session()
+        reassignment_date = target_date or date.today()
+        normalized_commande_ids = {int(commande_id) for commande_id in commande_ids}
+        transaction = session.begin_nested() if session.in_transaction() else session.begin()
+
+        try:
+            with transaction:
+                commandes = self.commande_dao.get_commandes_non_assignees(
+                    session,
+                    commande_ids=normalized_commande_ids,
+                )
+                commandes = [
+                    commande
+                    for commande in commandes
+                    if str(commande.statut or "").strip().upper() == "REFUS_LIVREUR"
+                ]
+                if not commandes:
+                    return {
+                        "status": "no_orders",
+                        "target_date": reassignment_date.isoformat(),
+                        "commandes_assigned": 0,
+                        "tournees_created": 0,
+                        "excluded_livreur_id": int(excluded_livreur_id),
+                    }
+
+                livreurs = [
+                    livreur
+                    for livreur in self.livreur_dao.get_available_livreurs(session)
+                    if int(livreur.user_id) != int(excluded_livreur_id)
+                ]
+                if not livreurs:
+                    raise DispatchNoLivreurError("Aucun autre livreur disponible")
+
+                existing_tournees = self.tournee_dao.get_tournees_by_date(session, reassignment_date)
+                tournees_by_livreur = {
+                    int(tournee.livreur_id): tournee
+                    for tournee in existing_tournees
+                    if tournee.livreur_id is not None
+                }
+                assigned_counts = {
+                    int(livreur.user_id): len(list(tournees_by_livreur.get(int(livreur.user_id)).commandes or []))
+                    if int(livreur.user_id) in tournees_by_livreur
+                    else 0
+                    for livreur in livreurs
+                }
+                selected_livreur = min(
+                    livreurs,
+                    key=lambda livreur: (
+                        assigned_counts.get(int(livreur.user_id), 0),
+                        int(livreur.user_id),
+                    ),
+                )
+                selected_livreur_id = int(selected_livreur.user_id)
+                tournee = tournees_by_livreur.get(selected_livreur_id)
+                tournees_created = 0
+                if tournee is None:
+                    tournee = self.tournee_dao.create_tournee(
+                        session,
+                        livreur_id=selected_livreur_id,
+                        date_tournee=reassignment_date,
+                    )
+                    tournees_created = 1
+
+                ordre_passage = self.tournee_dao.get_next_ordre_passage(session, int(tournee.id))
+                commandes_assigned = 0
+                for commande in self._sort_commandes_for_dispatch(commandes):
+                    commande.tournee_id = int(tournee.id)
+                    commande.livreur_id = selected_livreur_id
+                    commande.ordre_passage = ordre_passage
+                    self._mettre_commande_en_attente_livreur(
+                        session=session,
+                        commande=commande,
+                        actor_id=selected_livreur_id,
+                    )
+                    commandes_assigned += 1
+                    ordre_passage += 1
+
+            return {
+                "status": "success",
+                "target_date": reassignment_date.isoformat(),
+                "tournees_created": tournees_created,
+                "commandes_assigned": commandes_assigned,
+                "selected_livreur_id": selected_livreur_id,
+                "excluded_livreur_id": int(excluded_livreur_id),
+            }
+        except CommandeTransitionError as exc:
+            if self._owns_session:
+                session.rollback()
+            raise DispatchServiceError(str(exc)) from exc
+        except Exception:
+            if self._owns_session:
+                session.rollback()
+            raise
 
     def resolve_anomalie_replanifier(self, anomalie_id: int, admin_id: int) -> dict[str, Any]:
         return self._resolve_anomalie(

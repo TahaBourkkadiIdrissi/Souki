@@ -34,6 +34,15 @@ class ILivreurDao(ABC):
         pass
 
     @abstractmethod
+    def get_commandes_for_tournee_refus(
+        self,
+        session: Session,
+        livreur_id: int,
+        statuses: Iterable[str],
+    ) -> list[Commande]:
+        pass
+
+    @abstractmethod
     def get_commande_delivery_context(
         self,
         session: Session,

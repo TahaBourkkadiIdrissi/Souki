@@ -82,6 +82,17 @@ class DeliveryEventResponseDTO(BaseModel):
     message: str
 
 
+class TourneeRefusResponseDTO(BaseModel):
+    status: str = "success"
+    client_event_id: UUID
+    commandes_refusees: int = Field(default=0, ge=0)
+    commande_ids: List[int] = Field(default_factory=list)
+    dispatch_reassign_triggered: bool = False
+    dispatch_status: Optional[str] = None
+    idempotent: bool = False
+    message: str
+
+
 class CodValidationResponseDTO(BaseModel):
     status: str = "success"
     commande_id: int

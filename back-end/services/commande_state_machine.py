@@ -21,9 +21,9 @@ TRANSITIONS: dict[str, list[str]] = {
     "EN_ATTENTE": ["CONFIRMEE", "ANNULEE"],
     "CONFIRMEE": ["VERROUILLEE", "ANNULEE"],
     "VERROUILLEE": ["EN_ATTENTE_LIVREUR", "A_LIVRER"],
-    "EN_ATTENTE_LIVREUR": ["A_LIVRER", "REFUS_LIVREUR"],
+    "EN_ATTENTE_LIVREUR": ["A_LIVRER", "EN_ROUTE", "REFUS_LIVREUR"],
     "REFUS_LIVREUR": ["EN_ATTENTE_LIVREUR", "ANNULEE"],
-    "A_LIVRER": ["EN_ROUTE", "RETOUR_DEPOT"],
+    "A_LIVRER": ["EN_ROUTE", "RETOUR_DEPOT", "REFUS_LIVREUR"],
     "EN_ROUTE": ["LIVRE", "ABSENT", "REFUS", "RETOUR_DEPOT"],
     "RETOUR_DEPOT": ["EN_ATTENTE", "ANNULEE"],
     "LIVRE": [],
@@ -51,7 +51,12 @@ def changer_statut(
     statut_actuel = _normalize_status(commande.statut)
     statut_cible = _normalize_status(nouveau_statut)
 
-    if statut_cible not in TRANSITIONS.get(statut_actuel, []):
+    # Autorise le déverrouillage JIT spécial VERROUILLEE -> CONFIRMEE
+    if not (
+        statut_actuel == "VERROUILLEE"
+        and statut_cible == "CONFIRMEE"
+        and reason == "JIT_UNLOCK"
+    ) and statut_cible not in TRANSITIONS.get(statut_actuel, []):
         raise CommandeTransitionError(f"Transition interdite: {statut_actuel} -> {statut_cible}.")
 
     timestamp = server_timestamp or datetime.now(timezone.utc)

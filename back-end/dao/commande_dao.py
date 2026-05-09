@@ -1,7 +1,7 @@
 from datetime import date, datetime, time
 from sqlalchemy import func, update as sqlalchemy_update
 from sqlalchemy.orm import Session, joinedload, selectinload, with_loader_criteria
-from typing import Any, Optional, List
+from typing import Any, Iterable, Optional, List
 from interfaces.commande_dao_interface import ICommandeVocaleDao
 from dto.commande_dto import (
     AbonnementClientDTO,
@@ -419,8 +419,12 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
             query = query.with_for_update(of=Commande)
         return query.first()
 
-    def get_commandes_non_assignees(self, session: Session) -> List[Commande]:
-        return (
+    def get_commandes_non_assignees(
+        self,
+        session: Session,
+        commande_ids: Optional[Iterable[int]] = None,
+    ) -> List[Commande]:
+        query = (
             session.query(Commande)
             .options(
                 joinedload(Commande.client)
@@ -435,9 +439,15 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                 func.upper(func.coalesce(Commande.statut, "")).in_(DISPATCHABLE_COMMANDE_STATUSES),
                 Commande.tournee_id.is_(None),
             )
-            .order_by(Commande.date_commande.asc(), Commande.id.asc())
-            .all()
         )
+
+        if commande_ids is not None:
+            normalized_ids = [int(commande_id) for commande_id in commande_ids]
+            if not normalized_ids:
+                return []
+            query = query.filter(Commande.id.in_(normalized_ids))
+
+        return query.order_by(Commande.date_commande.asc(), Commande.id.asc()).all()
 
     def bulk_update_commandes_tournee(self, session: Session, updates: List[dict[str, Any]]) -> None:
         for update_data in updates:

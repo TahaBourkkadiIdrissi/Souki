@@ -162,11 +162,28 @@ def get_checkout_service(
     return CheckoutService(checkout_dao)
 
 
+def get_dispatch_service(
+    commande_dao: ICommandeVocaleDao = Depends(get_commande_dao),
+    livreur_dao: ILivreurDao = Depends(get_livreur_dao),
+    tournee_dao: ITourneeDao = Depends(get_tournee_dao),
+) -> IDispatchService:
+    return DispatchService(
+        commande_dao=commande_dao,
+        livreur_dao=livreur_dao,
+        tournee_dao=tournee_dao,
+    )
+
+
 def get_livreur_service(
     livreur_dao: ILivreurDao = Depends(get_livreur_dao),
     blacklist_service: IClientBlacklistService = Depends(get_blacklist_service),
+    dispatch_service: IDispatchService = Depends(get_dispatch_service),
 ) -> ILivreurService:
-    return LivreurService(livreur_dao, blacklist_service)
+    return LivreurService(
+        livreur_dao=livreur_dao,
+        client_blacklist_service=blacklist_service,
+        dispatch_service=dispatch_service,
+    )
 
 
 def get_panier_service(
@@ -192,16 +209,4 @@ def get_claim_service(
         souki_wallet_service=souki_wallet_service,
         commande_dao=commande_dao,
         notification_outbox_service=notification_outbox_service,
-    )
-
-
-def get_dispatch_service(
-    commande_dao: ICommandeVocaleDao = Depends(get_commande_dao),
-    livreur_dao: ILivreurDao = Depends(get_livreur_dao),
-    tournee_dao: ITourneeDao = Depends(get_tournee_dao),
-) -> IDispatchService:
-    return DispatchService(
-        commande_dao=commande_dao,
-        livreur_dao=livreur_dao,
-        tournee_dao=tournee_dao,
     )
