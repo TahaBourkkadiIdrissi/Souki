@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional
+from typing import Any, Iterable, List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -64,8 +64,12 @@ class ICommandeVocaleDao(ABC):
         pass
 
     @abstractmethod
-    def get_commandes_non_assignees(self, session: Session) -> List[Commande]:
-        """Retourne les commandes confirmees non rattachees a une tournee."""
+    def get_commandes_non_assignees(
+        self,
+        session: Session,
+        commande_ids: Optional[Iterable[int]] = None,
+    ) -> List[Commande]:
+        """Retourne les commandes dispatchables non rattachees a une tournee."""
         pass
 
     @abstractmethod

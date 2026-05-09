@@ -20,6 +20,7 @@ import {
   SignalHigh,
   Truck,
   WifiOff,
+  XCircle,
 } from "lucide-react"
 import type { LineLayerSpecification } from "mapbox-gl"
 import MapView, { Layer, Marker, NavigationControl, Source, type MapRef } from "react-map-gl/mapbox"
@@ -33,6 +34,7 @@ import {
   DeliveryEventResponse,
   envoyerEvenementLivraison,
   getLivreurTournee,
+  refuserTourneeLivreur,
   TourneeItem,
   TourneeResponse,
   validerPaiementCodLivreur,
@@ -72,6 +74,7 @@ const ROUTE_REFRESH_DISTANCE_METERS = 40
 const ROUTE_REFRESH_INTERVAL_MS = 15000
 const ROUTE_OVERVIEW_PADDING = { top: 140, bottom: 190, left: 28, right: 28 }
 const DRIVE_MODE_PADDING = { top: 100, bottom: 190, left: 20, right: 20 }
+const ASSIGNMENT_REFUSED_STATUS = "REFUS_LIVREUR"
 const STARTED_DELIVERY_STATUS = "EN_ROUTE"
 const ROUTE_CASING_LAYER: Omit<LineLayerSpecification, "source"> = {
   id: "tournee-route-casing",
@@ -384,7 +387,12 @@ function normalizeDeliveryStatus(status: string): DeliveryStatus {
     return "absent"
   }
 
-  if (normalizedStatus === "REFUS" || normalizedStatus === "REFUSE" || normalizedStatus === "REFUSED") {
+  if (
+    normalizedStatus === "REFUS" ||
+    normalizedStatus === "REFUSE" ||
+    normalizedStatus === "REFUSED" ||
+    normalizedStatus === ASSIGNMENT_REFUSED_STATUS
+  ) {
     return "refused"
   }
 
@@ -473,6 +481,10 @@ function hasCoordinates(item: DeliveryViewItem): item is DeliveryViewItem & { la
 
 function isActiveDelivery(item: DeliveryViewItem) {
   return item.status === "pending" || item.status === "enroute"
+}
+
+function isPendingAssignmentDelivery(item: DeliveryViewItem) {
+  return normalizeBackendStatus(item.rawStatus) === "EN_ATTENTE_LIVREUR"
 }
 
 function formatPaymentMethodLabel(paymentMethod: PaymentMethod) {
@@ -694,6 +706,7 @@ export default function LivreurPage() {
   const [isStartingTournee, setIsStartingTournee] = useState(false)
   const [isValidatingCodPayment, setIsValidatingCodPayment] = useState(false)
   const [isLoadingRefus, setIsLoadingRefus] = useState(false)
+  const [isRefusingTournee, setIsRefusingTournee] = useState(false)
   const [beforeSeven, setBeforeSeven] = useState(false)
   const [tourneeStarted, setTourneeStarted] = useState(false)
   const [loadSource, setLoadSource] = useState<"api" | "cache" | null>(null)
@@ -835,8 +848,12 @@ export default function LivreurPage() {
 
   const applyServerDeliveryEvent = useEffectEvent((response: DeliveryEventResponse) => {
     const nextStatus = normalizeDeliveryStatus(response.new_status)
+    const shouldMarkTourneeStarted =
+      nextStatus === "enroute" || nextStatus === "delivered" || nextStatus === "absent" || nextStatus === "refused"
 
-    setTourneeStarted(true)
+    if (shouldMarkTourneeStarted) {
+      setTourneeStarted(true)
+    }
     setDeliveryList((previousList) =>
       previousList.map((item) =>
         item.id === String(response.commande_id)
@@ -860,7 +877,7 @@ export default function LivreurPage() {
 
       const nextTournee = {
         ...previousTournee,
-        tournee_started: true,
+        tournee_started: previousTournee.tournee_started || shouldMarkTourneeStarted,
         items: previousTournee.items.map((item) =>
           item.commande_id === response.commande_id
             ? {
@@ -872,6 +889,76 @@ export default function LivreurPage() {
                 absent_at: response.absent_at ?? item.absent_at ?? null,
               }
             : item
+        ),
+      }
+
+      writeCachedTournee(nextTournee)
+      return nextTournee
+    })
+  })
+
+  const clearLocalTournee = useEffectEvent(() => {
+    setDeliveryList([])
+    deliveryListRef.current = []
+    setTourneeStarted(false)
+    setActiveNavigationDeliveryId(null)
+    setIsNavigating(false)
+    setRouteGeoJson(EMPTY_ROUTE_GEOJSON)
+    setRouteSummary(null)
+    setRouteError(null)
+    setIsRouteLoading(false)
+    setSheetMode("peek")
+    lastDirectionsRequestRef.current = null
+
+    setTourneeData((previousTournee) => {
+      if (!previousTournee) {
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem(CACHE_KEY)
+        }
+        return previousTournee
+      }
+
+      const nextTournee = {
+        ...previousTournee,
+        tournee_started: false,
+        items: [],
+      }
+
+      writeCachedTournee(nextTournee)
+      return nextTournee
+    })
+  })
+
+  const removePendingAssignmentsFromLocalTournee = useEffectEvent(() => {
+    const pendingIds = new Set(
+      deliveryListRef.current.filter(isPendingAssignmentDelivery).map((item) => item.id)
+    )
+    if (pendingIds.size === 0) {
+      return
+    }
+
+    setDeliveryList((previousList) => previousList.filter((item) => !pendingIds.has(item.id)))
+
+    if (activeNavigationDeliveryId && pendingIds.has(activeNavigationDeliveryId)) {
+      setActiveNavigationDeliveryId(null)
+      setIsNavigating(false)
+      setRouteGeoJson(EMPTY_ROUTE_GEOJSON)
+      setRouteSummary(null)
+      setRouteError(null)
+      setIsRouteLoading(false)
+      setSheetMode("peek")
+      lastDirectionsRequestRef.current = null
+    }
+
+    setTourneeData((previousTournee) => {
+      if (!previousTournee) {
+        return previousTournee
+      }
+
+      const nextTournee = {
+        ...previousTournee,
+        items: previousTournee.items.filter(
+          (item) => normalizeBackendStatus(item.statut) !== "EN_ATTENTE_LIVREUR"
         ),
       }
 
@@ -1701,6 +1788,7 @@ export default function LivreurPage() {
   const progressRatio = totalCount === 0 ? 0 : completedCount / totalCount
   const currentRouteDistanceLabel = routeSummary ? formatDistanceLabel(routeSummary.distanceMeters) : "Trace en attente"
   const currentRouteDurationLabel = routeSummary ? formatDurationFromSeconds(routeSummary.durationSeconds) : remainingTime
+  const pendingAssignmentCount = deliveryList.filter(isPendingAssignmentDelivery).length
   const futureMarkers = currentDelivery ? futureDeliveries.filter(hasCoordinates) : mappableDeliveries
   const sheetHeightValue = sheetMode === "expanded" ? "min(58dvh, 34rem)" : "max(20dvh, 12rem)"
   const isSheetExpanded = sheetMode === "expanded"
@@ -1713,6 +1801,42 @@ export default function LivreurPage() {
   const isCodDeliveryPendingValidation = Boolean(
     currentDelivery && currentDelivery.paymentMethod === "cod" && !currentDelivery.paymentValidated
   )
+  const canRejectEntireTournee = Boolean(token) && pendingAssignmentCount > 0
+
+  const buildTourneeRefusPayload = () => ({
+    client_event_id:
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `tournee-refus-${Date.now()}`,
+    device_timestamp: new Date().toISOString(),
+  })
+
+  const handleRejectEntireTournee = async () => {
+    if (!token || !canRejectEntireTournee || isRefusingTournee) {
+      return
+    }
+
+    const confirmed =
+      typeof window === "undefined" ||
+      window.confirm("Etes-vous sur de vouloir refuser toutes les commandes de cette tournee ?")
+    if (!confirmed) {
+      return
+    }
+
+    setIsRefusingTournee(true)
+    try {
+      const response = await refuserTourneeLivreur(token, buildTourneeRefusPayload())
+      removePendingAssignmentsFromLocalTournee()
+      setNotice({ tone: "success", message: response.message })
+    } catch (error) {
+      setNotice({
+        tone: "error",
+        message: error instanceof ApiError ? error.message : "Impossible de refuser toute la tournee.",
+      })
+    } finally {
+      setIsRefusingTournee(false)
+    }
+  }
 
   const handleStartDriveMode = async () => {
     if (!nextDelivery) {
@@ -2193,6 +2317,7 @@ export default function LivreurPage() {
                       style={{ width: `${progressRatio * 100}%` }}
                     />
                   </div>
+
                 </div>
 
                 <div className="flex shrink-0 flex-col items-end gap-2">
@@ -2231,6 +2356,20 @@ export default function LivreurPage() {
             <div className="rounded-2xl bg-[#FFF3E0]/95 px-4 py-3 text-sm text-[#8A5A00] shadow-sm backdrop-blur">
               Mode hors ligne actif. La derniere tournee sauvegardee est affichee.
             </div>
+          )}
+
+          {canRejectEntireTournee && (
+            <button
+              type="button"
+              onClick={handleRejectEntireTournee}
+              disabled={isRefusingTournee}
+              className="pointer-events-auto relative z-10 my-4 flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 font-semibold text-white shadow-md transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-65"
+            >
+              {isRefusingTournee ? <Spinner className="size-5" /> : <XCircle className="h-5 w-5" />}
+              <span className="truncate">
+                {isRefusingTournee ? "Refus en cours..." : `Refuser ${pendingAssignmentCount} nouvelle(s) course(s)`}
+              </span>
+            </button>
           )}
 
           {notice && !beforeSeven && (
@@ -2455,68 +2594,68 @@ export default function LivreurPage() {
                       isSheetExpanded ? "pt-3" : "mt-auto pt-3"
                     )}
                   >
-                    <a
-                      href={currentDelivery.callHref ?? undefined}
-                      aria-disabled={!currentDelivery.callHref}
-                      className={cn(
-                        "flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#F3F4F6] px-3 text-sm font-semibold text-[#17301E] transition-transform active:scale-[0.99]",
-                        !currentDelivery.callHref && "pointer-events-none bg-gray-200 text-gray-500"
-                      )}
-                    >
-                      <Phone className="h-5 w-5" />
-                    </a>
-
-                    {isNavigating && (
-                      <button
-                        type="button"
-                        onClick={handleMarkCurrentDeliveryAbsent}
-                        disabled={isStartingTournee || isValidatingCodPayment || !currentDelivery}
-                        title="Client introuvable"
-                        className="flex h-12 items-center justify-center rounded-2xl bg-amber-500 px-3 text-xs font-semibold text-white shadow-[0_14px_30px_rgba(245,158,11,0.24)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Absent
-                      </button>
-                    )}
-
-                    {isNavigating && (
-                      <button
-                        type="button"
-                        onClick={handleMarkCurrentDeliveryRefused}
-                        disabled={isLoadingRefus || isStartingTournee || isValidatingCodPayment || !currentDelivery}
-                        title="Client refuse la commande"
+                      <a
+                        href={currentDelivery.callHref ?? undefined}
+                        aria-disabled={!currentDelivery.callHref}
                         className={cn(
-                          "flex h-12 items-center justify-center rounded-2xl bg-red-600 px-3 text-xs font-semibold text-white shadow-[0_14px_30px_rgba(220,38,38,0.24)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60",
-                          isLoadingRefus && "opacity-50"
+                          "flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#F3F4F6] px-3 text-sm font-semibold text-[#17301E] transition-transform active:scale-[0.99]",
+                          !currentDelivery.callHref && "pointer-events-none bg-gray-200 text-gray-500"
                         )}
                       >
-                        {isLoadingRefus ? "Traitement..." : "Refus client"}
-                      </button>
-                    )}
+                        <Phone className="h-5 w-5" />
+                      </a>
 
-                    <button
-                      type="button"
-                      onClick={isNavigating ? handleCompleteCurrentDelivery : handleStartDriveMode}
+                      {isNavigating && (
+                        <button
+                          type="button"
+                          onClick={handleMarkCurrentDeliveryAbsent}
+                          disabled={isStartingTournee || isValidatingCodPayment || !currentDelivery}
+                          title="Client introuvable"
+                          className="flex h-12 items-center justify-center rounded-2xl bg-amber-500 px-3 text-xs font-semibold text-white shadow-[0_14px_30px_rgba(245,158,11,0.24)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Absent
+                        </button>
+                      )}
+
+                      {isNavigating && (
+                        <button
+                          type="button"
+                          onClick={handleMarkCurrentDeliveryRefused}
+                          disabled={isLoadingRefus || isStartingTournee || isValidatingCodPayment || !currentDelivery}
+                          title="Client refuse la commande"
+                          className={cn(
+                            "flex h-12 items-center justify-center rounded-2xl bg-red-600 px-3 text-xs font-semibold text-white shadow-[0_14px_30px_rgba(220,38,38,0.24)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60",
+                            isLoadingRefus && "opacity-50"
+                          )}
+                        >
+                          {isLoadingRefus ? "Traitement..." : "Refus client"}
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={isNavigating ? handleCompleteCurrentDelivery : handleStartDriveMode}
                         disabled={
                           isStartingTournee ||
                           isValidatingCodPayment ||
                           !currentDelivery ||
                           (isNavigating && isCodDeliveryPendingValidation)
                         }
-                      className={cn(
-                        "flex h-12 w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60",
-                        isNavigating ? "bg-[#1E8A3C]" : "bg-[#17301E]"
-                      )}
-                    >
-                      {isStartingTournee ? (
-                        <Spinner className="size-5" />
-                      ) : isNavigating ? (
-                        <CheckCircle2 className="h-5 w-5" />
-                      ) : (
-                        <Navigation className="h-5 w-5" />
-                      )}
-                      <span className="truncate">{isNavigating ? "Marquer comme livre" : "Demarrer la course"}</span>
-                    </button>
-                  </div>
+                        className={cn(
+                          "flex h-12 w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60",
+                          isNavigating ? "bg-[#1E8A3C]" : "bg-[#17301E]"
+                        )}
+                      >
+                        {isStartingTournee ? (
+                          <Spinner className="size-5" />
+                        ) : isNavigating ? (
+                          <CheckCircle2 className="h-5 w-5" />
+                        ) : (
+                          <Navigation className="h-5 w-5" />
+                        )}
+                        <span className="truncate">{isNavigating ? "Marquer comme livre" : "Demarrer la course"}</span>
+                      </button>
+                    </div>
 
                   {isNavigating && isCodDeliveryPendingValidation && (
                     <p className="mt-2 text-xs font-medium text-[#8A5A00]">

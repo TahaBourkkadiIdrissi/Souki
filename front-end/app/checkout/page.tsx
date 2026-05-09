@@ -26,7 +26,6 @@ import { API_BASE_URL } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { fetchCatalogueProducts, getCataloguePresentation } from "@/lib/catalogue"
 import { MapboxLocator } from "@/components/souki/mapbox-locator"
-import { useOrderLock } from "@/hooks/useOrderLock"
 
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&h=300&fit=crop"
 
@@ -73,7 +72,6 @@ const paymentMethods = [
 function CheckoutContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const orderLock = useOrderLock()
   const commandeId = searchParams.get('commande_id')
   const panierId = searchParams.get('panier_id')
   const cartParam = searchParams.get('cart')
@@ -366,15 +364,9 @@ function CheckoutContent() {
     !isPhoneMissing &&
     !isAddressMissing &&
     !isCityMissing &&
-    !isSubmitting &&
-    !orderLock.isLocked
+    !isSubmitting
 
   const handleFinalSubmit = async () => {
-    if (orderLock.isLocked) {
-      alert(orderLock.message)
-      return
-    }
-
     if (!canSubmitOrder) return
 
     setIsSubmitting(true)
@@ -474,12 +466,6 @@ function CheckoutContent() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {orderLock.isLocked && (
-          <div className="mb-6 rounded-2xl border border-[#F5D7B8] bg-[#FFF7EE] px-5 py-4 text-sm font-semibold text-[#9A5C11]">
-            {orderLock.message}
-          </div>
-        )}
-
         <h1 className="text-2xl lg:text-3xl font-bold text-[#1E8A3C] mb-8">Finaliser ma commande</h1>
 
         {voiceData && (
@@ -716,12 +702,7 @@ function CheckoutContent() {
                 disabled={!canSubmitOrder}
                 className={cn("w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all", canSubmitOrder ? "bg-[#F07C00] text-white hover:bg-[#D66B00] shadow-lg shadow-[#F07C00]/30" : "bg-gray-200 text-gray-500 cursor-not-allowed")}
               >
-                {orderLock.isLocked ? (
-                  <>
-                    <Lock className="w-5 h-5" />
-                    Commandes fermees jusqu'a 08h00
-                  </>
-                ) : isSubmitting ? (
+                {isSubmitting ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     Validation en cours...

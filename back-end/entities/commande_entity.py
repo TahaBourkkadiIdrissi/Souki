@@ -19,6 +19,7 @@ class Commande(Base):
     enroute_at         = Column(DateTime(timezone=True), nullable=True)
     delivered_at       = Column(DateTime(timezone=True), nullable=True)
     absent_at          = Column(DateTime(timezone=True), nullable=True)
+    retour_depot_at    = Column(DateTime(timezone=True), nullable=True)
     status_version     = Column(Integer, nullable=False, default=1, server_default="1")
     payment_validated  = Column(Boolean, nullable=True, default=False, server_default="false")
     client_history_deleted = Column(Boolean, nullable=False, default=False, server_default="false")
@@ -31,3 +32,4 @@ class Commande(Base):
     tournee         = relationship("Tournee", back_populates="commandes")
     paiement        = relationship("Paiement", back_populates="commande", uselist=False)
     delivery_events = relationship("DeliveryEvent", back_populates="commande")
+    anomalies       = relationship("AnomalieLogistique", back_populates="commande")

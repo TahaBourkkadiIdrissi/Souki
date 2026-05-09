@@ -11,6 +11,7 @@ from entities.commande_entity import Commande
 from entities.panier_entity import Panier
 from interfaces.jit_dao_interface import IJITDao
 from interfaces.jit_service_interface import IJITService
+from services.commande_state_machine import changer_statut
 
 
 PENDING_JIT_STATUSES = ("EN_ATTENTE", "CONFIRMEE")
@@ -161,7 +162,7 @@ class JITService(IJITService):
             message=message,
         )
 
-    def verrouiller_commandes(self, session: Session) -> int:
+    def verrouiller_commandes(self, session: Session, actor_id: int = 0) -> int:
         """
         Verrouille toutes les commandes EN_ATTENTE ou CONFIRMEE.
         Retourne le nombre de commandes verrouillees.
@@ -181,7 +182,22 @@ class JITService(IJITService):
 
             nombre_verrouillees = 0
             for commande in commandes:
-                setattr(commande, "statut", LOCKED_JIT_STATUS)  # type: ignore
+                current_status = str(commande.statut or "").strip().upper()
+                if current_status == "EN_ATTENTE":
+                    changer_statut(
+                        session=session,
+                        commande=commande,
+                        nouveau_statut="CONFIRMEE",
+                        actor_id=actor_id,
+                        reason="JIT_CONFIRMATION",
+                    )
+                changer_statut(
+                    session=session,
+                    commande=commande,
+                    nouveau_statut=LOCKED_JIT_STATUS,
+                    actor_id=actor_id,
+                    reason="JIT_LOCK",
+                )
                 nombre_verrouillees += 1
 
             session.flush()
@@ -190,7 +206,7 @@ class JITService(IJITService):
             print(f"Erreur lors du verrouillage des commandes: {exc}")
             raise
 
-    def deverrouiller_commandes(self, session: Session) -> Dict:
+    def deverrouiller_commandes(self, session: Session, actor_id: int = 0) -> Dict:
         """
         Deverrouille toutes les commandes verrouillees par le JIT.
         Retourne le nombre et le detail des commandes rouvertes.
@@ -211,7 +227,13 @@ class JITService(IJITService):
             commandes_deverrouillees = []
             for commande in commandes:
                 statut_avant = str(commande.statut) if commande.statut else None
-                setattr(commande, "statut", UNLOCKED_JIT_STATUS)  # type: ignore
+                changer_statut(
+                    session=session,
+                    commande=commande,
+                    nouveau_statut=UNLOCKED_JIT_STATUS,
+                    actor_id=actor_id,
+                    reason="JIT_UNLOCK",
+                )
                 commandes_deverrouillees.append(
                     {
                         "id": int(commande.id),  # type: ignore
@@ -230,7 +252,7 @@ class JITService(IJITService):
             print(f"Erreur lors du deverrouillage des commandes: {exc}")
             raise
 
-    def executer_job_jit(self, session: Session) -> JITLogDTO:
+    def executer_job_jit(self, session: Session, actor_id: int = 0) -> JITLogDTO:
         """
         Execute le job JIT complet:
         1. Agreger les commandes
@@ -254,7 +276,7 @@ class JITService(IJITService):
             )
 
             if resultat.statut == "succès":
-                nombre_verrouillees = self.verrouiller_commandes(session)
+                nombre_verrouillees = self.verrouiller_commandes(session, actor_id=actor_id)
                 print(f"{nombre_verrouillees} commandes verrouillees")
 
             details_json = {
