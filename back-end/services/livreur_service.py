@@ -1,6 +1,7 @@
 import logging
 import math
 import re
+import uuid
 from collections import defaultdict
 from datetime import date, datetime, time, timezone
 from typing import Optional
@@ -15,7 +16,9 @@ from dto.livreur_dto import (
     DeliveryEventRequestDTO,
     DeliveryEventResponseDTO,
     DemarrerTourneeResponseDTO,
+    LivraisonDecisionRequestDTO,
     TourneeItemDTO,
+    TourneeRefusResponseDTO,
     TourneeResponseDTO,
 )
 from entities.client_entity import Client
@@ -24,16 +27,22 @@ from entities.delivery_event_entity import DeliveryEvent
 from interfaces.livreur_dao_interface import ILivreurDao
 from interfaces.livreur_service_interface import ILivreurService
 from interfaces.client_blacklist_service_interface import IClientBlacklistService
+from interfaces.dispatch_service_interface import IDispatchService
+from services.commande_state_machine import CommandeTransitionError, TRANSITIONS, changer_statut
 
 TOURNEE_RELEASE_TIME = time(7, 0)
 LEGACY_PENDING_DELIVERY_STATUS = "EN_ATTENTE"
+ASSIGNMENT_PENDING_STATUS = "EN_ATTENTE_LIVREUR"
 PENDING_DELIVERY_STATUS = "A_LIVRER"
+ASSIGNMENT_REFUSED_STATUS = "REFUS_LIVREUR"
 STARTED_DELIVERY_STATUS = "EN_ROUTE"
+TOURNEE_REFUS_ELIGIBLE_STATUSES = {ASSIGNMENT_PENDING_STATUS}
 DELIVERED_STATUS = "LIVRE"
 ABSENT_STATUS = "ABSENT"
 REFUSED_STATUS = "REFUS"
 VISIBLE_TOURNEE_STATUSES = {
     LEGACY_PENDING_DELIVERY_STATUS,
+    ASSIGNMENT_PENDING_STATUS,
     PENDING_DELIVERY_STATUS,
     STARTED_DELIVERY_STATUS,
     DELIVERED_STATUS,
@@ -50,9 +59,11 @@ class LivreurService(ILivreurService):
         livreur_dao: ILivreurDao,
         client_blacklist_service: IClientBlacklistService,
         session: Optional[Session] = None,
+        dispatch_service: Optional[IDispatchService] = None,
     ) -> None:
         self.livreur_dao = livreur_dao
         self.client_blacklist_service = client_blacklist_service
+        self.dispatch_service = dispatch_service
         self.session = session
         self._owns_session = False
 
@@ -105,12 +116,12 @@ class LivreurService(ILivreurService):
         pending_count = self.livreur_dao.count_by_statuses(
             session=session,
             livreur_id=livreur_id,
-            statuses=[LEGACY_PENDING_DELIVERY_STATUS, PENDING_DELIVERY_STATUS],
+            statuses=[LEGACY_PENDING_DELIVERY_STATUS, ASSIGNMENT_PENDING_STATUS, PENDING_DELIVERY_STATUS],
         )
 
         return DemarrerTourneeResponseDTO(
             updated_count=0,
-            previous_status="/".join(sorted({LEGACY_PENDING_DELIVERY_STATUS, PENDING_DELIVERY_STATUS})),
+            previous_status="/".join(sorted({LEGACY_PENDING_DELIVERY_STATUS, ASSIGNMENT_PENDING_STATUS, PENDING_DELIVERY_STATUS})),
             new_status=STARTED_DELIVERY_STATUS,
             message=(
                 "Le demarrage est desormais gere commande par commande via les evenements de livraison."
@@ -203,6 +214,132 @@ class LivreurService(ILivreurService):
                 detail="Erreur interne lors de la validation COD.",
             ) from exc
 
+    def refuser_tournee(
+        self,
+        livreur_id: int,
+        payload: LivraisonDecisionRequestDTO,
+    ) -> TourneeRefusResponseDTO:
+        session = self._ensure_session()
+        commande_ids: list[int] = []
+
+        try:
+            existing_event = self.livreur_dao.get_delivery_event_by_client_event_id(
+                session=session,
+                client_event_id=payload.client_event_id,
+            )
+            if existing_event is not None:
+                return self._build_tournee_refus_idempotent_response(
+                    event=existing_event,
+                    livreur_id=livreur_id,
+                )
+
+            commandes = self.livreur_dao.get_commandes_for_tournee_refus(
+                session=session,
+                livreur_id=livreur_id,
+                statuses=TOURNEE_REFUS_ELIGIBLE_STATUSES,
+            )
+            if not commandes:
+                return TourneeRefusResponseDTO(
+                    client_event_id=payload.client_event_id,
+                    commandes_refusees=0,
+                    commande_ids=[],
+                    dispatch_reassign_triggered=False,
+                    dispatch_status="no_orders",
+                    idempotent=False,
+                    message="Aucune commande assignee a refuser.",
+                )
+
+            server_timestamp = datetime.now(timezone.utc)
+            for index, commande in enumerate(commandes):
+                previous_status = self._canonical_delivery_status(commande.statut)
+                event_client_id = (
+                    payload.client_event_id
+                    if index == 0
+                    else self._derive_tournee_refus_client_event_id(payload.client_event_id, int(commande.id))
+                )
+
+                try:
+                    changer_statut(
+                        session=session,
+                        commande=commande,
+                        nouveau_statut=ASSIGNMENT_REFUSED_STATUS,
+                        actor_id=livreur_id,
+                        reason="TOURNEE_REFUSED",
+                        client_event_id=event_client_id,
+                        device_timestamp=payload.device_timestamp,
+                        server_timestamp=server_timestamp,
+                    )
+                except CommandeTransitionError as exc:
+                    raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+                commande_ids.append(int(commande.id))
+                commande.livreur_id = None
+                commande.tournee_id = None
+                commande.ordre_passage = None
+
+                self._queue_assignment_notification(
+                    session=session,
+                    commande=commande,
+                    livreur_id=livreur_id,
+                    previous_status=previous_status,
+                    new_status=ASSIGNMENT_REFUSED_STATUS,
+                    event_name="TOURNEE_ASSIGNMENT_REFUSED",
+                    client_event_id=str(event_client_id),
+                    server_timestamp=server_timestamp,
+                )
+
+            session.flush()
+            self._queue_tournee_refus_notification(
+                session=session,
+                livreur_id=livreur_id,
+                commande_ids=commande_ids,
+                client_event_id=str(payload.client_event_id),
+                server_timestamp=server_timestamp,
+            )
+            session.commit()
+        except HTTPException:
+            session.rollback()
+            raise
+        except IntegrityError as exc:
+            session.rollback()
+            existing_event = self.livreur_dao.get_delivery_event_by_client_event_id(
+                session=session,
+                client_event_id=payload.client_event_id,
+            )
+            if existing_event is not None:
+                return self._build_tournee_refus_idempotent_response(
+                    event=existing_event,
+                    livreur_id=livreur_id,
+                )
+
+            logger.exception("Conflit idempotence refus global tournee livreur_id=%s", livreur_id)
+            raise HTTPException(
+                status_code=409,
+                detail="Conflit d'idempotence sur le refus de tournee.",
+            ) from exc
+        except Exception as exc:
+            session.rollback()
+            logger.exception("Erreur backend refus global tournee livreur_id=%s", livreur_id)
+            raise HTTPException(
+                status_code=500,
+                detail="Erreur interne lors du refus de tournee.",
+            ) from exc
+
+        dispatch_status, dispatch_reassign_triggered = self._trigger_refused_tournee_dispatch(
+            livreur_id=livreur_id,
+            commande_ids=commande_ids,
+        )
+
+        return TourneeRefusResponseDTO(
+            client_event_id=payload.client_event_id,
+            commandes_refusees=len(commande_ids),
+            commande_ids=commande_ids,
+            dispatch_reassign_triggered=dispatch_reassign_triggered,
+            dispatch_status=dispatch_status,
+            idempotent=False,
+            message="Tournee refusee. Les commandes ont ete retirees de votre ecran.",
+        )
+
     def apply_delivery_event(
         self,
         livreur_id: int,
@@ -267,22 +404,27 @@ class LivreurService(ILivreurService):
                     )
 
             server_timestamp = datetime.now(timezone.utc)
-            event = self.livreur_dao.create_delivery_event(
-                session=session,
-                commande_id=commande.id,
-                livreur_id=livreur_id,
-                previous_status=previous_status,
-                new_status=target_status,
-                client_event_id=payload.client_event_id,
-                device_timestamp=payload.device_timestamp,
-                server_timestamp=server_timestamp,
-            )
+            try:
+                changer_statut(
+                    session=session,
+                    commande=commande,
+                    nouveau_statut=target_status,
+                    actor_id=livreur_id,
+                    reason="LIVREUR_APP",
+                    client_event_id=payload.client_event_id,
+                    device_timestamp=payload.device_timestamp,
+                    server_timestamp=server_timestamp,
+                )
+            except CommandeTransitionError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-            self._apply_transition_on_commande(
-                commande=commande,
-                target_status=target_status,
-                server_timestamp=server_timestamp,
+            event = self.livreur_dao.get_delivery_event_by_client_event_id(
+                session=session,
+                client_event_id=payload.client_event_id,
             )
+            if event is None:
+                raise HTTPException(status_code=500, detail="Evenement de livraison non cree.")
+
             self._apply_refusal_blacklist(
                 session=session,
                 commande=commande,
@@ -369,6 +511,66 @@ class LivreurService(ILivreurService):
                 detail="Erreur interne lors de la mise a jour de livraison.",
             ) from exc
 
+    def _build_tournee_refus_idempotent_response(
+        self,
+        *,
+        event: DeliveryEvent,
+        livreur_id: int,
+    ) -> TourneeRefusResponseDTO:
+        if int(event.livreur_id) != int(livreur_id):
+            raise HTTPException(status_code=409, detail="client_event_id deja utilise par un autre livreur.")
+
+        if self._canonical_delivery_status(event.new_status) != ASSIGNMENT_REFUSED_STATUS:
+            raise HTTPException(status_code=409, detail="client_event_id deja utilise pour une autre action.")
+
+        return TourneeRefusResponseDTO(
+            client_event_id=event.client_event_id,
+            commandes_refusees=0,
+            commande_ids=[int(event.commande_id)],
+            dispatch_reassign_triggered=False,
+            dispatch_status="idempotent",
+            idempotent=True,
+            message="Refus de tournee deja traite.",
+        )
+
+    def _derive_tournee_refus_client_event_id(
+        self,
+        root_client_event_id: uuid.UUID,
+        commande_id: int,
+    ) -> uuid.UUID:
+        return uuid.uuid5(root_client_event_id, f"tournee-refus:{commande_id}")
+
+    def _trigger_refused_tournee_dispatch(
+        self,
+        *,
+        livreur_id: int,
+        commande_ids: list[int],
+    ) -> tuple[Optional[str], bool]:
+        if not commande_ids:
+            return "no_orders", False
+
+        if self.dispatch_service is None:
+            return "dispatch_service_unavailable", False
+
+        try:
+            with self.dispatch_service:
+                result = self.dispatch_service.reassign_refused_orders(
+                    commande_ids=set(commande_ids),
+                    excluded_livreur_id=int(livreur_id),
+                    target_date=date.today(),
+                )
+        except Exception as exc:
+            logger.warning(
+                "Reassignation dispatch apres refus global non terminee livreur_id=%s commandes=%s: %s",
+                livreur_id,
+                commande_ids,
+                exc,
+            )
+            return "dispatch_failed", False
+
+        assigned_count = int(result.get("commandes_assigned") or 0)
+        return str(result.get("status") or "unknown"), assigned_count > 0
+
     def _ensure_tournee_available(self) -> None:
         if datetime.now().time() < TOURNEE_RELEASE_TIME:
             pass
@@ -406,7 +608,12 @@ class LivreurService(ILivreurService):
         if not items:
             return items, "EMPTY"
 
-        active_items = [item for item in items if self._canonical_delivery_status(item.statut) in {PENDING_DELIVERY_STATUS, STARTED_DELIVERY_STATUS}]
+        active_items = [
+            item
+            for item in items
+            if self._canonical_delivery_status(item.statut)
+            in {ASSIGNMENT_PENDING_STATUS, PENDING_DELIVERY_STATUS, STARTED_DELIVERY_STATUS}
+        ]
         completed_items = [item for item in items if item not in active_items]
 
         if self._can_use_greedy_gps(active_items):
@@ -461,23 +668,6 @@ class LivreurService(ILivreurService):
             current_lng = next_item.lng
 
         return ordered_items
-
-    def _apply_transition_on_commande(
-        self,
-        *,
-        commande: Commande,
-        target_status: str,
-        server_timestamp: datetime,
-    ) -> None:
-        commande.statut = target_status
-        commande.status_version = int(commande.status_version or 1) + 1
-
-        if target_status == STARTED_DELIVERY_STATUS:
-            commande.enroute_at = server_timestamp
-        elif target_status == DELIVERED_STATUS:
-            commande.delivered_at = server_timestamp
-        elif target_status == ABSENT_STATUS:
-            commande.absent_at = server_timestamp
 
     def _apply_refusal_blacklist(
         self,
@@ -554,6 +744,56 @@ class LivreurService(ILivreurService):
                 },
             )
 
+    def _queue_assignment_notification(
+        self,
+        *,
+        session: Session,
+        commande: Commande,
+        livreur_id: int,
+        previous_status: str,
+        new_status: str,
+        event_name: str,
+        client_event_id: str,
+        server_timestamp: datetime,
+    ) -> None:
+        self.livreur_dao.create_notification_outbox(
+            session=session,
+            outbox_type="WEBSOCKET",
+            payload={
+                "event": event_name,
+                "channel": "bo_deliveries",
+                "commande_id": int(commande.id),
+                "livreur_id": int(livreur_id),
+                "previous_status": previous_status,
+                "new_status": new_status,
+                "client_event_id": client_event_id,
+                "server_timestamp": server_timestamp.isoformat(),
+                "status_version": int(commande.status_version or 1),
+            },
+        )
+
+    def _queue_tournee_refus_notification(
+        self,
+        *,
+        session: Session,
+        livreur_id: int,
+        commande_ids: list[int],
+        client_event_id: str,
+        server_timestamp: datetime,
+    ) -> None:
+        self.livreur_dao.create_notification_outbox(
+            session=session,
+            outbox_type="WEBSOCKET",
+            payload={
+                "event": "TOURNEE_REFUSED",
+                "channel": "bo_deliveries",
+                "livreur_id": int(livreur_id),
+                "commande_ids": commande_ids,
+                "client_event_id": client_event_id,
+                "server_timestamp": server_timestamp.isoformat(),
+            },
+        )
+
     def _build_delivery_event_response(
         self,
         *,
@@ -579,22 +819,19 @@ class LivreurService(ILivreurService):
         )
 
     def _is_transition_allowed(self, previous_status: str, target_status: str) -> bool:
-        allowed_transitions = {
-            PENDING_DELIVERY_STATUS: {STARTED_DELIVERY_STATUS},
-            STARTED_DELIVERY_STATUS: {DELIVERED_STATUS, ABSENT_STATUS, REFUSED_STATUS},
-            ABSENT_STATUS: {STARTED_DELIVERY_STATUS},
-        }
-        return target_status in allowed_transitions.get(previous_status, set())
+        return target_status in TRANSITIONS.get(previous_status, [])
 
     def _canonical_delivery_status(self, status: str) -> str:
         normalized_status = self._normalize_status(status)
         status_aliases = {
             "EN_COURS_DE_LIVRAISON": STARTED_DELIVERY_STATUS,
             "EN_ATTENTE": PENDING_DELIVERY_STATUS,
+            "EN_ATTENTE_LIVREUR": ASSIGNMENT_PENDING_STATUS,
             "LIVREE": DELIVERED_STATUS,
             "DELIVERED": DELIVERED_STATUS,
             "REFUSE": REFUSED_STATUS,
             "REFUSED": REFUSED_STATUS,
+            "REFUS_LIVREUR": ASSIGNMENT_REFUSED_STATUS,
         }
         return status_aliases.get(normalized_status, normalized_status)
 
@@ -650,9 +887,11 @@ class LivreurService(ILivreurService):
         normalized_status = status.strip().upper()
         replacements = {
             "EN ATTENTE": LEGACY_PENDING_DELIVERY_STATUS,
+            "EN ATTENTE LIVREUR": ASSIGNMENT_PENDING_STATUS,
             "A LIVRER": PENDING_DELIVERY_STATUS,
             "EN ROUTE": STARTED_DELIVERY_STATUS,
             "REFUSÉ": REFUSED_STATUS,
+            "REFUS LIVREUR": ASSIGNMENT_REFUSED_STATUS,
             "REFUSE": REFUSED_STATUS,
             "CONFIRMÉE": "CONFIRMEE",
             "VERROUILLÉE": "VERROUILLEE",

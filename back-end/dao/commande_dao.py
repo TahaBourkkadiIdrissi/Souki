@@ -1,7 +1,7 @@
 from datetime import date, datetime, time
 from sqlalchemy import func, update as sqlalchemy_update
 from sqlalchemy.orm import Session, joinedload, selectinload, with_loader_criteria
-from typing import Any, Optional, List
+from typing import Any, Iterable, Optional, List
 from interfaces.commande_dao_interface import ICommandeVocaleDao
 from dto.commande_dto import (
     AbonnementClientDTO,
@@ -26,6 +26,9 @@ from entities.product_entity import Product
 from entities.user_entity import User
 from entities.user_notification_preferences_entity import UserNotificationPreferences
 from entities.user_session_entity import UserSession
+
+
+DISPATCHABLE_COMMANDE_STATUSES = ("EN_ATTENTE", "CONFIRMEE", "VERROUILLEE", "REFUS_LIVREUR")
 
 
 class CommandeVocaleDaoBD(ICommandeVocaleDao):
@@ -416,23 +419,35 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
             query = query.with_for_update(of=Commande)
         return query.first()
 
-    def get_commandes_non_assignees(self, session: Session) -> List[Commande]:
-        return (
+    def get_commandes_non_assignees(
+        self,
+        session: Session,
+        commande_ids: Optional[Iterable[int]] = None,
+    ) -> List[Commande]:
+        query = (
             session.query(Commande)
             .options(
                 joinedload(Commande.client)
                 .joinedload(Client.user)
                 .selectinload(User.addresses),
-                selectinload(Commande.panier).selectinload(Panier.lignes),
+                selectinload(Commande.panier)
+                .selectinload(Panier.lignes)
+                .joinedload(LignePanier.produit),
                 with_loader_criteria(Address, Address.is_default.is_(True), include_aliases=True),
             )
             .filter(
-                func.upper(func.coalesce(Commande.statut, "")) == "CONFIRMEE",
+                func.upper(func.coalesce(Commande.statut, "")).in_(DISPATCHABLE_COMMANDE_STATUSES),
                 Commande.tournee_id.is_(None),
             )
-            .order_by(Commande.date_commande.asc(), Commande.id.asc())
-            .all()
         )
+
+        if commande_ids is not None:
+            normalized_ids = [int(commande_id) for commande_id in commande_ids]
+            if not normalized_ids:
+                return []
+            query = query.filter(Commande.id.in_(normalized_ids))
+
+        return query.order_by(Commande.date_commande.asc(), Commande.id.asc()).all()
 
     def bulk_update_commandes_tournee(self, session: Session, updates: List[dict[str, Any]]) -> None:
         for update_data in updates:
@@ -443,8 +458,6 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
             values = {
                 "tournee_id": update_data["tournee_id"],
                 "ordre_passage": update_data["ordre_passage"],
-                "statut": update_data.get("statut", "A_LIVRER"),
-                "status_version": func.coalesce(Commande.status_version, 1) + 1,
             }
             if "livreur_id" in update_data:
                 values["livreur_id"] = update_data["livreur_id"]
@@ -576,11 +589,9 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
         )
 
     def annuler_commande_cod(self, session: Session, commande: Commande) -> None:
-        commande.statut = "ANNULEE"
         commande.livreur_id = None
         commande.tournee_id = None
         commande.ordre_passage = None
-        commande.status_version = int(commande.status_version or 1) + 1
         session.flush()
 
     def _build_commande_historique_dto(self, commande: Commande) -> CommandeHistoriqueDTO:

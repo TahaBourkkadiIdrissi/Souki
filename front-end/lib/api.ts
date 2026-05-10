@@ -10,6 +10,7 @@ interface ApiOptions {
   body?: unknown
   token?: string
   signal?: AbortSignal
+  cache?: RequestCache
 }
 
 export class ApiError extends Error {
@@ -65,6 +66,14 @@ export interface AdminDispatchAddress {
   full_address: string | null
 }
 
+export interface AdminDispatchProduit {
+  ligne_panier_id: number | null
+  product_id: number | null
+  nom_fr: string
+  quantite_kg: number
+  sous_total: number | null
+}
+
 export interface AdminDispatchCommande {
   id: number
   client_id: number | null
@@ -77,6 +86,8 @@ export interface AdminDispatchCommande {
   date_commande: string | null
   mode_paiement: string | null
   adresse: AdminDispatchAddress | null
+  retour_depot_at?: string | null
+  produits?: AdminDispatchProduit[]
 }
 
 export interface AdminDispatchLivreur {
@@ -99,10 +110,23 @@ export interface AdminDispatchTournee {
   commandes: AdminDispatchCommande[]
 }
 
+export interface AdminDispatchAnomalie {
+  id: number
+  commande_id: number
+  type_anomalie: string
+  detected_at: string | null
+  resolved_at: string | null
+  resolution: string | null
+  date_tournee_ratee: string | null
+  livreur_defaillant: AdminDispatchLivreur
+  commande: AdminDispatchCommande | null
+}
+
 export interface AdminDispatchTourneesResponse {
   status: string
   target_date: string
   tournees: AdminDispatchTournee[]
+  anomalies?: AdminDispatchAnomalie[]
 }
 
 export interface AdminDispatchRunDailyResponse {
@@ -112,6 +136,7 @@ export interface AdminDispatchRunDailyResponse {
   tournees_created?: number
   commandes_assigned?: number
   available_livreurs?: number
+  retours_depot?: number
 }
 
 export interface ReassignDispatchResponse {
@@ -119,6 +144,14 @@ export interface ReassignDispatchResponse {
   commande_id: number
   nouvelle_tournee_id: number
   ordre_passage: number
+}
+
+export interface ResolveAnomalieResponse {
+  status: string
+  anomalie_id: number
+  commande_id: number
+  resolution: string
+  nouveau_statut: string
 }
 
 export interface DemarrerTourneeResponse {
@@ -195,6 +228,12 @@ export interface DeliveryEventRequest {
   expected_version?: number
 }
 
+export interface LivraisonDecisionRequest {
+  client_event_id: string
+  device_timestamp: string
+  expected_version?: number
+}
+
 export interface DeliveryEventResponse {
   status: string
   event_id: string
@@ -208,6 +247,17 @@ export interface DeliveryEventResponse {
   absent_at?: string | null
   device_timestamp: string
   server_timestamp: string
+  idempotent: boolean
+  message: string
+}
+
+export interface TourneeRefusResponse {
+  status: string
+  client_event_id: string
+  commandes_refusees: number
+  commande_ids: number[]
+  dispatch_reassign_triggered: boolean
+  dispatch_status?: string | null
   idempotent: boolean
   message: string
 }
@@ -553,6 +603,7 @@ export async function apiCall<T = any>(endpoint: string, options: ApiOptions = {
     method: options.method || "GET",
     headers,
     signal: options.signal,
+    cache: options.cache,
   }
 
   if (options.body !== undefined) {
@@ -616,6 +667,14 @@ export async function envoyerEvenementLivraison(
   })
 }
 
+export async function refuserTourneeLivreur(token: string, body: LivraisonDecisionRequest) {
+  return apiCall<TourneeRefusResponse>("/api/livreur/tournee/refuser", {
+    method: "POST",
+    token,
+    body,
+  })
+}
+
 export async function validerPaiementCodLivreur(token: string, commandeId: string | number) {
   return apiCall<CodValidationResponse>(`/api/livreur/livraisons/${commandeId}/cod/validate`, {
     method: "POST",
@@ -663,13 +722,16 @@ export async function getCommandesCODDemain(token: string, signal?: AbortSignal)
 
 export async function getAdminDispatchTournees(
   token: string,
-  targetDate?: string,
   signal?: AbortSignal
 ) {
-  const query = targetDate ? `?date=${encodeURIComponent(targetDate)}` : ""
-  return apiCall<AdminDispatchTourneesResponse>(`/api/v1/admin/dispatch/tournees${query}`, {
+  return apiCall<AdminDispatchTourneesResponse>(`/api/v1/admin/dispatch/tournees?_=${Date.now()}`, {
     token,
     signal,
+    cache: "no-store",
+    headers: {
+      "Cache-Control": "no-store",
+      Pragma: "no-cache",
+    },
   })
 }
 
@@ -691,6 +753,26 @@ export async function reassignAdminDispatchCommande(
       method: "PUT",
       token,
       body: { nouvelle_tournee_id: nouvelleTourneeId },
+    }
+  )
+}
+
+export async function replanifierAdminAnomalie(token: string, anomalieId: number) {
+  return apiCall<ResolveAnomalieResponse>(
+    `/api/v1/admin/anomalies/${anomalieId}/replanifier`,
+    {
+      method: "POST",
+      token,
+    }
+  )
+}
+
+export async function annulerAdminAnomalie(token: string, anomalieId: number) {
+  return apiCall<ResolveAnomalieResponse>(
+    `/api/v1/admin/anomalies/${anomalieId}/annuler`,
+    {
+      method: "POST",
+      token,
     }
   )
 }

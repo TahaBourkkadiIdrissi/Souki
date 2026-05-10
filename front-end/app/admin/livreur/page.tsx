@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
+  AlertTriangle,
   ArrowLeftRight,
   Bike,
   CalendarDays,
@@ -11,6 +12,7 @@ import {
   Package,
   RefreshCw,
   Route,
+  Trash2,
   Zap,
   X,
 } from "lucide-react"
@@ -18,9 +20,12 @@ import {
 import { useAuth } from "@/hooks/useAuth"
 import {
   ApiError,
+  annulerAdminAnomalie,
   getAdminDispatchTournees,
   reassignAdminDispatchCommande,
+  replanifierAdminAnomalie,
   runDailyAdminDispatch,
+  type AdminDispatchAnomalie,
   type AdminDispatchCommande,
   type AdminDispatchTournee,
 } from "@/lib/api"
@@ -31,13 +36,44 @@ type ReassignTarget = {
   sourceTourneeId: number
 } | null
 
-function tomorrowAsInputDate() {
-  const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const year = tomorrow.getFullYear()
-  const month = String(tomorrow.getMonth() + 1).padStart(2, "0")
-  const day = String(tomorrow.getDate()).padStart(2, "0")
+function todayAsIsoDate() {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, "0")
+  const day = String(today.getDate()).padStart(2, "0")
   return `${year}-${month}-${day}`
+}
+
+function formatDispatchDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number)
+  if (!year || !month || !day) {
+    return "aujourd'hui"
+  }
+
+  const formattedDate = new Intl.DateTimeFormat("fr-MA", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+  }).format(new Date(year, month - 1, day, 12))
+
+  return formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1)
+}
+
+function formatSimpleDate(value?: string | null) {
+  if (!value) {
+    return "Date non renseignee"
+  }
+
+  const [year, month, day] = value.split("T")[0].split("-").map(Number)
+  if (!year || !month || !day) {
+    return "Date non renseignee"
+  }
+
+  return new Intl.DateTimeFormat("fr-MA", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(year, month - 1, day, 12))
 }
 
 function formatMoney(value: number | null | undefined) {
@@ -61,6 +97,9 @@ function getStatusClassName(status: string) {
   if (["ABSENT", "REFUS", "ANNULEE"].includes(normalizedStatus)) {
     return "bg-[#FFF1F1] text-[#B42318] border-[#F1C6C6]"
   }
+  if (normalizedStatus === "RETOUR_DEPOT") {
+    return "bg-[#FFF1F1] text-[#B42318] border-[#F1C6C6]"
+  }
   return "bg-[#FFF7EE] text-[#9A5C11] border-[#F5D7B8]"
 }
 
@@ -72,6 +111,7 @@ function formatStatus(status: string) {
     ABSENT: "Absent",
     REFUS: "Refusee",
     ANNULEE: "Annulee",
+    RETOUR_DEPOT: "Retour depot",
     PLANIFIEE: "Planifiee",
   }
   return labels[status.toUpperCase()] || status || "Inconnu"
@@ -83,8 +123,9 @@ function isCommandeReassignable(status: string) {
 
 export default function AdminLivreurPage() {
   const { token } = useAuth()
-  const [targetDate, setTargetDate] = useState(tomorrowAsInputDate)
+  const [dispatchDate, setDispatchDate] = useState(todayAsIsoDate)
   const [tournees, setTournees] = useState<AdminDispatchTournee[]>([])
+  const [anomalies, setAnomalies] = useState<AdminDispatchAnomalie[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isGeneratingDispatch, setIsGeneratingDispatch] = useState(false)
@@ -93,10 +134,13 @@ export default function AdminLivreurPage() {
   const [reassignTarget, setReassignTarget] = useState<ReassignTarget>(null)
   const [selectedTourneeId, setSelectedTourneeId] = useState("")
   const [isSubmittingReassign, setIsSubmittingReassign] = useState(false)
+  const [resolvingAnomalieId, setResolvingAnomalieId] = useState<number | null>(null)
 
   const loadTournees = useCallback(
     async (showLoader = true) => {
       if (!token) {
+        setTournees([])
+        setAnomalies([])
         setIsLoading(false)
         return
       }
@@ -107,8 +151,10 @@ export default function AdminLivreurPage() {
         } else {
           setIsRefreshing(true)
         }
-        const response = await getAdminDispatchTournees(token, targetDate)
-        setTournees(response.tournees)
+        const response = await getAdminDispatchTournees(token)
+        setDispatchDate(response.target_date || todayAsIsoDate())
+        setTournees(response.tournees || [])
+        setAnomalies(response.anomalies || [])
         setError("")
       } catch (loadError) {
         setError(
@@ -121,7 +167,7 @@ export default function AdminLivreurPage() {
         setIsRefreshing(false)
       }
     },
-    [targetDate, token]
+    [token]
   )
 
   useEffect(() => {
@@ -140,6 +186,9 @@ export default function AdminLivreurPage() {
     () => tournees.reduce((sum, tournee) => sum + tournee.commandes.length, 0),
     [tournees]
   )
+  const dispatchDateLabel = useMemo(() => formatDispatchDate(dispatchDate), [dispatchDate])
+  const hasAnomalies = anomalies.length > 0
+  const hasDispatchData = totalCommandes > 0 || hasAnomalies
 
   const openReassignModal = (commande: AdminDispatchCommande, sourceTourneeId: number) => {
     const firstOtherTournee = tournees.find((tournee) => tournee.id !== sourceTourneeId)
@@ -165,6 +214,7 @@ export default function AdminLivreurPage() {
       const response = await runDailyAdminDispatch(token)
       const assignedCount = response.commandes_assigned ?? response.count ?? 0
       const tourneeCount = response.tournees_created ?? 0
+      setDispatchDate(response.target_date || todayAsIsoDate())
       setToast(
         response.status === "no_orders"
           ? "Aucune commande disponible pour generer un dispatch."
@@ -212,6 +262,33 @@ export default function AdminLivreurPage() {
     }
   }
 
+  const resolveAnomalie = async (anomalieId: number, action: "replanifier" | "annuler") => {
+    if (!token) {
+      return
+    }
+
+    setResolvingAnomalieId(anomalieId)
+    try {
+      if (action === "replanifier") {
+        await replanifierAdminAnomalie(token, anomalieId)
+        setToast("Anomalie resolue: commande remise en attente.")
+      } else {
+        await annulerAdminAnomalie(token, anomalieId)
+        setToast("Anomalie resolue: commande annulee en perte.")
+      }
+      setError("")
+      await loadTournees(false)
+    } catch (resolveError) {
+      setError(
+        resolveError instanceof ApiError || resolveError instanceof Error
+          ? resolveError.message
+          : "Impossible de resoudre cette anomalie."
+      )
+    } finally {
+      setResolvingAnomalieId(null)
+    }
+  }
+
   const availableTargetTournees = reassignTarget
     ? tournees.filter((tournee) => tournee.id !== reassignTarget.sourceTourneeId)
     : []
@@ -238,9 +315,13 @@ export default function AdminLivreurPage() {
                 <p className="mt-3 max-w-2xl text-sm text-white/80 lg:text-base">
                   Supervision des tournees planifiees, commandes assignees et reassignations rapides.
                 </p>
+                <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-bold text-white">
+                  <CalendarDays className="h-4 w-4" />
+                  Dispatch du {dispatchDateLabel}
+                </p>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-3xl bg-white/15 px-5 py-4 backdrop-blur">
                   <p className="text-xs uppercase tracking-[0.18em] text-white/65">Tournees</p>
                   <p className="mt-1 text-3xl font-black">{tournees.length}</p>
@@ -249,23 +330,24 @@ export default function AdminLivreurPage() {
                   <p className="text-xs uppercase tracking-[0.18em] text-white/65">Commandes</p>
                   <p className="mt-1 text-3xl font-black">{totalCommandes}</p>
                 </div>
+                <div className="rounded-3xl bg-red-500/25 px-5 py-4 backdrop-blur">
+                  <p className="text-xs uppercase tracking-[0.18em] text-white/75">Inspections</p>
+                  <p className="mt-1 text-3xl font-black">{anomalies.length}</p>
+                </div>
               </div>
             </div>
           </div>
 
           <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
-            <label className="flex flex-col gap-2 text-sm font-semibold text-[#264129] sm:flex-row sm:items-center">
+            <div className="flex flex-col gap-2 text-sm font-semibold text-[#264129] sm:flex-row sm:items-center">
               <span className="inline-flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-[#1E8A3C]" />
-                Date de tournee
+                Jour courant
               </span>
-              <input
-                type="date"
-                value={targetDate}
-                onChange={(event) => setTargetDate(event.target.value)}
-                className="rounded-2xl border border-[#D7EBD9] bg-[#FAFCFA] px-4 py-3 text-[#264129] outline-none transition focus:border-[#1E8A3C]"
-              />
-            </label>
+              <span className="rounded-2xl border border-[#D7EBD9] bg-[#FAFCFA] px-4 py-3 text-[#264129]">
+                Dispatch du {dispatchDateLabel}
+              </span>
+            </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <button
@@ -306,108 +388,244 @@ export default function AdminLivreurPage() {
               <p className="mt-3 font-semibold text-[#6F8070]">Chargement des tournees...</p>
             </div>
           </div>
-        ) : tournees.length === 0 ? (
-          <div className="rounded-[32px] border border-[#DDEBDD] bg-white p-12 text-center">
-            <Package className="mx-auto h-12 w-12 text-[#C8D9CA]" />
-            <h2 className="mt-4 text-xl font-black text-[#264129]">Aucune tournee planifiee</h2>
-            <p className="mt-2 text-[#6F8070]">
-              Lancez le dispatch quotidien ou selectionnez une autre date.
-            </p>
+        ) : !hasDispatchData ? (
+          <div className="flex min-h-[360px] items-center justify-center rounded-[32px] border border-[#DDEBDD] bg-white p-8 text-center">
+            <div>
+              <Package className="mx-auto h-12 w-12 text-[#C8D9CA]" />
+              <h2 className="mt-4 text-xl font-black text-[#264129]">
+                Aucune commande ou tournee generee pour aujourd'hui.
+              </h2>
+              <p className="mt-2 text-[#6F8070]">
+                Cliquez sur "Generer le Dispatch" pour commencer.
+              </p>
+              <button
+                onClick={() => void generateDispatch()}
+                disabled={isGeneratingDispatch || isRefreshing}
+                className="mt-6 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#F07C00] px-5 py-3 font-bold text-white transition hover:bg-[#D66B00] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isGeneratingDispatch ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Zap className="h-4 w-4" />
+                )}
+                Generer le Dispatch
+              </button>
+            </div>
           </div>
         ) : (
-          <div className="flex gap-5 overflow-x-auto pb-6">
-            {tournees.map((tournee) => (
-              <section
-                key={tournee.id}
-                className="flex max-h-[calc(100vh-240px)] min-w-[320px] max-w-[360px] flex-1 flex-col rounded-[28px] border border-[#DDEBDD] bg-white shadow-[0_20px_60px_-40px_rgba(18,58,29,0.3)]"
-              >
-                <header className="border-b border-[#EEF2EE] p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#F07C00]">
-                        Tournee #{tournee.id}
-                      </p>
-                      <h2 className="mt-1 text-lg font-black text-[#1E8A3C]">
-                        {tournee.livreur.nom}
-                      </h2>
-                      <p className="mt-1 flex items-center gap-2 text-sm text-[#6F8070]">
-                        <Bike className="h-4 w-4" />
-                        {tournee.livreur.vehicule || "Vehicule non renseigne"}
-                      </p>
+          <>
+            {hasAnomalies && (
+              <section className="mb-6 rounded-[32px] border-2 border-red-300 bg-red-50 p-5 shadow-[0_20px_70px_-45px_rgba(180,35,24,0.5)]">
+                <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-red-700">
+                      <AlertTriangle className="h-4 w-4" />
+                      Retour depot
                     </div>
-                    <span className="rounded-full bg-[#F0FAF1] px-3 py-1 text-xs font-bold text-[#1E8A3C]">
-                      {tournee.commandes.length}
-                    </span>
+                    <h2 className="mt-3 text-2xl font-black text-red-900">
+                      Inspections marchandise en attente
+                    </h2>
                   </div>
-                </header>
+                  <span className="inline-flex items-center justify-center rounded-full bg-red-600 px-4 py-2 text-sm font-black text-white">
+                    {anomalies.length} inspection{anomalies.length > 1 ? "s" : ""}
+                  </span>
+                </div>
 
-                <div className="flex-1 space-y-3 overflow-y-auto p-4">
-                  {tournee.commandes.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-[#D7EBD9] p-5 text-center text-sm font-semibold text-[#8A9A8C]">
-                      Aucune commande assignee.
-                    </div>
-                  ) : (
-                    tournee.commandes.map((commande) => {
-                      const canReassign = isCommandeReassignable(commande.statut)
+                <div className="grid gap-4 xl:grid-cols-2">
+                  {anomalies.map((anomalie) => {
+                    const commande = anomalie.commande
+                    const produits = commande?.produits || []
+                    const isResolving = resolvingAnomalieId === anomalie.id
 
-                      return (
-                        <article
-                          key={commande.id}
-                          className="rounded-3xl border border-[#E6F0E7] bg-[#FAFCFA] p-4 transition hover:-translate-y-0.5 hover:shadow-md"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#8A9A8C]">
-                                Passage {commande.ordre_passage ?? "-"}
-                              </p>
-                              <h3 className="mt-1 font-black text-[#264129]">
-                                CMD-{commande.id}
-                              </h3>
+                    return (
+                      <article
+                        key={anomalie.id}
+                        className="rounded-[24px] border border-red-200 bg-white p-5 shadow-sm"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-black uppercase tracking-[0.16em] text-red-500">
+                              Anomalie #{anomalie.id} - CMD-{anomalie.commande_id}
+                            </p>
+                            <h3 className="mt-1 text-lg font-black text-[#264129]">
+                              {commande?.client_nom || "Client inconnu"}
+                            </h3>
+                          </div>
+                          <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-black text-red-700">
+                            {formatStatus(commande?.statut || "RETOUR_DEPOT")}
+                          </span>
+                        </div>
+
+                        <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                          <div className="rounded-2xl bg-[#FFF7F7] p-3">
+                            <p className="text-xs font-bold uppercase tracking-[0.14em] text-red-500">
+                              Livreur defaillant
+                            </p>
+                            <p className="mt-1 font-bold text-[#264129]">
+                              {anomalie.livreur_defaillant?.nom || "Non renseigne"}
+                            </p>
+                          </div>
+                          <div className="rounded-2xl bg-[#FFF7F7] p-3">
+                            <p className="text-xs font-bold uppercase tracking-[0.14em] text-red-500">
+                              Tournee ratee
+                            </p>
+                            <p className="mt-1 font-bold text-[#264129]">
+                              {formatSimpleDate(anomalie.date_tournee_ratee || anomalie.detected_at)}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 rounded-2xl border border-red-100 bg-[#FFFDFD] p-3">
+                          <p className="text-xs font-bold uppercase tracking-[0.14em] text-red-500">
+                            Produits a inspecter
+                          </p>
+                          {produits.length > 0 ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {produits.map((produit, index) => (
+                                <span
+                                  key={`${anomalie.id}-${produit.product_id ?? index}`}
+                                  className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-800"
+                                >
+                                  {produit.nom_fr} - {produit.quantite_kg} kg
+                                </span>
+                              ))}
                             </div>
-                            <span
-                              className={cn(
-                                "rounded-full border px-3 py-1 text-xs font-bold",
-                                getStatusClassName(commande.statut)
-                              )}
-                            >
-                              {formatStatus(commande.statut)}
-                            </span>
-                          </div>
+                          ) : (
+                            <p className="mt-2 text-sm font-semibold text-[#6F8070]">
+                              Produits non renseignes.
+                            </p>
+                          )}
+                        </div>
 
-                          <p className="mt-3 text-sm font-semibold text-[#264129]">
-                            {commande.client_nom}
-                          </p>
-                          <p className="mt-1 flex items-start gap-2 text-xs text-[#6F8070]">
-                            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#1E8A3C]" />
-                            <span>
-                              {commande.adresse?.full_address ||
-                                commande.adresse?.neighborhood ||
-                                "Adresse non renseignee"}
-                            </span>
-                          </p>
-
-                          <div className="mt-4 flex items-center justify-between gap-3">
-                            <span className="text-sm font-bold text-[#F07C00]">
-                              {formatMoney(commande.montant_total)}
-                            </span>
-                            {canReassign && (
-                              <button
-                                onClick={() => openReassignModal(commande, tournee.id)}
-                                className="inline-flex items-center gap-1.5 rounded-xl border border-[#F5D7B8] bg-white px-3 py-2 text-xs font-bold text-[#9A5C11] transition hover:bg-[#FFF7EE]"
-                              >
-                                <ArrowLeftRight className="h-3.5 w-3.5" />
-                                Reassigner
-                              </button>
+                        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                          <button
+                            onClick={() => void resolveAnomalie(anomalie.id, "replanifier")}
+                            disabled={isResolving}
+                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#1E8A3C] px-4 py-3 text-sm font-black text-white transition hover:bg-[#176B2E] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isResolving ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="h-4 w-4" />
                             )}
-                          </div>
-                        </article>
-                      )
-                    })
-                  )}
+                            Marchandise OK - Re-planifier
+                          </button>
+                          <button
+                            onClick={() => void resolveAnomalie(anomalie.id, "annuler")}
+                            disabled={isResolving}
+                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-4 py-3 text-sm font-black text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isResolving ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                            Marchandise perimee - Annuler
+                          </button>
+                        </div>
+                      </article>
+                    )
+                  })}
                 </div>
               </section>
-            ))}
-          </div>
+            )}
+
+            {tournees.length > 0 && totalCommandes > 0 && (
+              <div className="flex gap-5 overflow-x-auto pb-6">
+                {tournees.map((tournee) => (
+                  <section
+                    key={tournee.id}
+                    className="flex max-h-[calc(100vh-240px)] min-w-[320px] max-w-[360px] flex-1 flex-col rounded-[28px] border border-[#DDEBDD] bg-white shadow-[0_20px_60px_-40px_rgba(18,58,29,0.3)]"
+                  >
+                    <header className="border-b border-[#EEF2EE] p-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#F07C00]">
+                            Tournee #{tournee.id}
+                          </p>
+                          <h2 className="mt-1 text-lg font-black text-[#1E8A3C]">
+                            {tournee.livreur.nom}
+                          </h2>
+                          <p className="mt-1 flex items-center gap-2 text-sm text-[#6F8070]">
+                            <Bike className="h-4 w-4" />
+                            {tournee.livreur.vehicule || "Vehicule non renseigne"}
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-[#F0FAF1] px-3 py-1 text-xs font-bold text-[#1E8A3C]">
+                          {tournee.commandes.length}
+                        </span>
+                      </div>
+                    </header>
+
+                    <div className="flex-1 space-y-3 overflow-y-auto p-4">
+                      {tournee.commandes.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-[#D7EBD9] p-5 text-center text-sm font-semibold text-[#8A9A8C]">
+                          Aucune commande assignee.
+                        </div>
+                      ) : (
+                        tournee.commandes.map((commande) => {
+                          const canReassign = isCommandeReassignable(commande.statut)
+
+                          return (
+                            <article
+                              key={commande.id}
+                              className="rounded-3xl border border-[#E6F0E7] bg-[#FAFCFA] p-4 transition hover:-translate-y-0.5 hover:shadow-md"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#8A9A8C]">
+                                    Passage {commande.ordre_passage ?? "-"}
+                                  </p>
+                                  <h3 className="mt-1 font-black text-[#264129]">
+                                    CMD-{commande.id}
+                                  </h3>
+                                </div>
+                                <span
+                                  className={cn(
+                                    "rounded-full border px-3 py-1 text-xs font-bold",
+                                    getStatusClassName(commande.statut)
+                                  )}
+                                >
+                                  {formatStatus(commande.statut)}
+                                </span>
+                              </div>
+
+                              <p className="mt-3 text-sm font-semibold text-[#264129]">
+                                {commande.client_nom}
+                              </p>
+                              <p className="mt-1 flex items-start gap-2 text-xs text-[#6F8070]">
+                                <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#1E8A3C]" />
+                                <span>
+                                  {commande.adresse?.full_address ||
+                                    commande.adresse?.neighborhood ||
+                                    "Adresse non renseignee"}
+                                </span>
+                              </p>
+
+                              <div className="mt-4 flex items-center justify-between gap-3">
+                                <span className="text-sm font-bold text-[#F07C00]">
+                                  {formatMoney(commande.montant_total)}
+                                </span>
+                                {canReassign && (
+                                  <button
+                                    onClick={() => openReassignModal(commande, tournee.id)}
+                                    className="inline-flex items-center gap-1.5 rounded-xl border border-[#F5D7B8] bg-white px-3 py-2 text-xs font-bold text-[#9A5C11] transition hover:bg-[#FFF7EE]"
+                                  >
+                                    <ArrowLeftRight className="h-3.5 w-3.5" />
+                                    Reassigner
+                                  </button>
+                                )}
+                              </div>
+                            </article>
+                          )
+                        })
+                      )}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </main>
 
