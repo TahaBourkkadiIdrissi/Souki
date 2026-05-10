@@ -49,6 +49,12 @@ class CatalogueService(ICatalogueService):
                     nom_fr=str(p.nom_fr),
                     nom_darija=str(p.nom_darija),
                     prix_kg=float(p.prix_kg),# type: ignore
+                    prix_affiche=(
+                        float(p.prix_affiche)
+                        if p.prix_affiche is not None
+                        else None
+                    ),
+                    niveau=int(p.niveau or 2),
                     unite=str(p.unite),
                     stock=float(p.stock),# type: ignore
                 )
@@ -57,6 +63,30 @@ class CatalogueService(ICatalogueService):
         finally:
             if auto_session:
                 self._close_owned_session()
+
+    def get_suggestions(
+        self,
+        session: Session,
+        exclude_ids: list[int],
+    ) -> List[ProductResponseDTO]:
+        produits = self.product_dao.get_suggestions(session, exclude_ids)
+        return [
+            ProductResponseDTO(
+                id=int(p.id),# type: ignore
+                nom_fr=str(p.nom_fr),
+                nom_darija=str(p.nom_darija),
+                prix_kg=float(p.prix_kg),# type: ignore
+                prix_affiche=(
+                    float(p.prix_affiche)
+                    if p.prix_affiche is not None
+                    else None
+                ),
+                niveau=int(p.niveau or 2),
+                unite=str(p.unite),
+                stock=float(p.stock),# type: ignore
+            )
+            for p in produits
+        ]
 
     def valider_et_ajuster_item(
         self, item_gemini: dict

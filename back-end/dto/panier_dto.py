@@ -6,6 +6,7 @@ class ManualBasketItemDTO(BaseModel):
     """Item du panier manuel"""
     product_id: int
     quantity: float  # en kg
+    prix_unitaire: Optional[float] = None
 
 
 class ManualBasketRequestDTO(BaseModel):

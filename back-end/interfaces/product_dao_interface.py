@@ -19,6 +19,16 @@ class IProductDao(ABC):
         pass
 
     @abstractmethod
+    def get_suggestions(
+        self,
+        session: Session,
+        exclude_ids: list[int],
+        limit: int = 3,
+    ) -> List[Product]:
+        """Retourne les suggestions publiques du catalogue."""
+        pass
+
+    @abstractmethod
     def decrement_stock(self, session: Session, product_id: int, quantity: float) -> bool:
         """Decremente le stock d'un produit."""
         pass

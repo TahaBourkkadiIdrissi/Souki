@@ -26,8 +26,8 @@ import {
 import { AIModals } from "@/components/souki/ai-modals"
 import { ProductCard } from "@/components/souki/product-card"
 import { useAuth } from "@/hooks/useAuth"
-import type { CommandeHistoriqueDTO, ProduitPricingDTO } from "@/lib/api"
-import { getProduitsPricing } from "@/lib/api"
+import type { CommandeHistoriqueDTO, ProduitSuggestionDTO } from "@/lib/api"
+import { getCatalogueSuggestions } from "@/lib/api"
 import {
   BasketSelection,
   CatalogueProduct,
@@ -51,8 +51,8 @@ import { cn } from "@/lib/utils"
 
 const CATALOGUE_REFRESH_INTERVAL_MS = 5 * 60 * 1000
 const CLAIM_WINDOW_MS = 24 * 60 * 60 * 1000
-const SEUIL = 80
-const FRAIS = 10
+const SEUIL = 85
+const FRAIS = 15
 
 const categories = [
   { id: "tous", label: "Tous" },
@@ -198,6 +198,24 @@ export default function CataloguePage() {
   const [isSubmittingClaim, setIsSubmittingClaim] = useState(false)
   const [deletingOrderId, setDeletingOrderId] = useState<number | null>(null)
   const [pricingSuggestions, setPricingSuggestions] = useState<CatalogueProduct[]>([])
+  const [addedSuggestionIds, setAddedSuggestionIds] = useState<number[]>([])
+
+  const toCatalogueProduct = (product: ProduitSuggestionDTO): CatalogueProduct => {
+    const presentation = getCataloguePresentation(product.nom_fr)
+    return {
+      id: product.id,
+      name: product.nom_fr,
+      alias: product.nom_darija,
+      price: product.prix_affiche ?? product.prix_kg,
+      niveau: product.niveau,
+      unit: product.unite,
+      displayUnit: presentation.displayUnit || product.unite,
+      image: presentation.image,
+      category: presentation.category,
+      quantityStep: presentation.quantityStep || (product.unite === "kg" ? 0.5 : 1),
+      stock: product.stock,
+    }
+  }
 
   const loadOrderHistory = useCallback(async (showLoader = true) => {
     if (!isAuthenticated) {
@@ -236,6 +254,12 @@ export default function CataloguePage() {
         }
         setError("")
         setProducts(catalogue)
+        setCart((currentCart) =>
+          currentCart.map((item) => {
+            const updated = catalogue.find((product) => product.id === item.id)
+            return updated ? { ...item, price: updated.price } : item
+          })
+        )
       } catch (fetchError) {
         if (isMounted && showLoader) {
           setError("Impossible de charger le catalogue pour le moment.")
@@ -264,50 +288,17 @@ export default function CataloguePage() {
   }, [cart])
 
   useEffect(() => {
-    if (isLoading || !isAuthenticated) {
-      setPricingSuggestions([])
-      return
-    }
-
-    const token = typeof window !== "undefined" ? window.localStorage.getItem("token") : null
-    if (!token) {
+    if (isLoading || !isAuthenticated || cart.length === 0) {
       setPricingSuggestions([])
       return
     }
 
     const controller = new AbortController()
+    const excludeIds = cart.map((item) => item.id)
 
-    const toCatalogueSuggestion = (item: ProduitPricingDTO): CatalogueProduct => {
-      const catalogueProduct = products.find((product) => product.id === item.id)
-      const price = item.prix_affiche ?? item.prix_kg
-
-      if (catalogueProduct) {
-        return { ...catalogueProduct, price }
-      }
-
-      const presentation = getCataloguePresentation(item.nom_fr)
-      return {
-        id: item.id,
-        name: item.nom_fr,
-        alias: item.nom_darija,
-        price,
-        unit: item.unite,
-        displayUnit: presentation.displayUnit || item.unite,
-        image: presentation.image,
-        category: presentation.category,
-        quantityStep: presentation.quantityStep || (item.unite === "kg" ? 0.5 : 1),
-        stock: 0,
-      }
-    }
-
-    getProduitsPricing(token, controller.signal)
-      .then((pricing) => {
-        const suggestions = pricing.items
-          .filter((item) => item.niveau === 3 && typeof item.prix_affiche === "number")
-          .sort((left, right) => (left.prix_affiche ?? 0) - (right.prix_affiche ?? 0))
-          .slice(0, 3)
-          .map(toCatalogueSuggestion)
-        setPricingSuggestions(suggestions)
+    getCatalogueSuggestions(excludeIds, controller.signal)
+      .then((suggestions) => {
+        setPricingSuggestions(suggestions.map(toCatalogueProduct))
       })
       .catch((error) => {
         if (error instanceof DOMException && error.name === "AbortError") {
@@ -317,7 +308,7 @@ export default function CataloguePage() {
       })
 
     return () => controller.abort()
-  }, [isAuthenticated, isLoading, products])
+  }, [cart, isAuthenticated, isLoading])
 
   useEffect(() => {
     if (isLoading) {
@@ -462,6 +453,9 @@ export default function CataloguePage() {
 
   const handleAddSuggestionToCart = (product: CatalogueProduct) => {
     requireAuth("/catalogue", () => {
+      setAddedSuggestionIds((currentIds) =>
+        currentIds.includes(product.id) ? currentIds : [...currentIds, product.id]
+      )
       setCart((currentCart) => upsertCartItem(currentCart, product, product.quantityStep))
       setShowCart(true)
     })
@@ -662,6 +656,14 @@ export default function CataloguePage() {
   const progression = Math.min(100, (cartSubtotal / SEUIL) * 100)
   const cartDeliveryFee = cartSubtotal >= SEUIL ? 0 : FRAIS
   const cartTotal = cartSubtotal + cartDeliveryFee
+  const firstLevelTwoSuggestionId = pricingSuggestions.find(
+    (suggestion) => suggestion.niveau === 2
+  )?.id
+  const addedSuggestionItems = cart.filter((item) => addedSuggestionIds.includes(item.id))
+  const suggestionSavings = addedSuggestionItems.reduce(
+    (sum, item) => sum + item.price * 0.12,
+    0
+  )
   const claimableLines =
     claimOrder?.produits.filter(
       (product) => typeof product.ligne_panier_id === "number" && product.quantite_kg > 0
@@ -1198,48 +1200,122 @@ export default function CataloguePage() {
               </div>
             ) : (
               <div className="space-y-4 pb-4">
-                <div className="rounded-[28px] border border-[#F5D7B8] bg-[#FFF7EE] p-5 shadow-sm">
+                <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 shadow-sm">
                   {reste > 0 ? (
-                    <p className="text-lg font-black leading-snug text-[#9A5C11]">
-                      <span aria-hidden="true">🚚</span> Plus que {reste.toFixed(2)} DH pour la livraison gratuite !
-                    </p>
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-bold leading-snug text-[#264129]">
+                        Plus que {reste.toFixed(2)} DH pour la livraison gratuite 🎁
+                      </p>
+                      <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[#9A5C11]">
+                        Livraison {FRAIS.toFixed(0)} DH
+                      </span>
+                    </div>
                   ) : (
-                    <p className="text-lg font-black leading-snug text-[#1E8A3C]">
-                      ✅ Livraison offerte !
-                    </p>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-bold text-[#1E8A3C]">Livraison offerte ✅</p>
+                      <span className="shrink-0 rounded-full bg-[#F0FDF4] px-2.5 py-1 text-xs font-bold text-[#1E8A3C]">
+                        Gratuite
+                      </span>
+                    </div>
                   )}
 
-                  <div className="mt-4 w-full rounded-full bg-white h-3 ring-1 ring-[#F3D8B2]">
+                  <div className="mt-3 w-full rounded-full bg-white h-2 ring-1 ring-gray-200">
                     <div
-                      className="h-3 rounded-full transition-all duration-300"
+                      className="h-2 rounded-full bg-[#1E8A3C] transition-all duration-300"
                       style={{
                         width: `${progression}%`,
-                        backgroundColor: progression >= 100 ? "#1E8A3C" : "#F59E0B",
                       }}
                     />
                   </div>
-                  <p className="mt-2 text-right text-xs font-bold text-[#9A5C11]">
-                    {Math.round(progression)}%
+                  <p className="mt-2 text-right text-[11px] font-semibold text-[#6F8070]">
+                    {cartSubtotal.toFixed(2)} / {SEUIL.toFixed(0)} DH
                   </p>
 
-                  {reste > 0 && pricingSuggestions.length > 0 && (
+                  {pricingSuggestions.length > 0 && (
                     <div className="mt-5">
-                      <div className="mb-3 flex items-center gap-3 text-xs font-black uppercase tracking-[0.16em] text-[#9A5C11]">
-                        <span className="h-px flex-1 bg-[#F3D8B2]" />
-                        <span>Suggestions pour toi</span>
-                        <span className="h-px flex-1 bg-[#F3D8B2]" />
+                      <div className="mb-3 flex items-center gap-3">
+                        <span className="h-px flex-1 bg-gray-200" />
+                        <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                          À ne pas manquer
+                        </span>
+                        <span className="h-px flex-1 bg-gray-200" />
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        {pricingSuggestions.map((suggestion) => (
-                          <button
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {pricingSuggestions.map((suggestion) => {
+                          const niveau = suggestion.niveau || 2
+                          const isInCart = cart.some((item) => item.id === suggestion.id)
+                          const prixKhddar = suggestion.price * 1.12
+                          const isFeaturedLevelTwo = niveau === 2 && suggestion.id === firstLevelTwoSuggestionId
+
+                          return (
+                          <div
                             key={suggestion.id}
-                            onClick={() => handleAddSuggestionToCart(suggestion)}
-                            className="rounded-full border border-[#F3D8B2] bg-white px-3 py-2 text-xs font-bold text-[#264129] shadow-sm transition-colors hover:border-[#F59E0B] hover:bg-[#FFF3DE]"
+                            className={cn(
+                              "overflow-hidden rounded-xl border bg-white shadow-sm transition-shadow hover:shadow-md",
+                              niveau === 3
+                                ? "border-2 border-amber-400"
+                                : isFeaturedLevelTwo
+                                  ? "border-2 border-[#1E8A3C]"
+                                  : "border-gray-200"
+                            )}
                           >
-                            {suggestion.name} {suggestion.price.toFixed(2)} DH
-                          </button>
-                        ))}
+                            <div className="relative flex h-[110px] items-center justify-center bg-gray-50">
+                              <img
+                                src={suggestion.image}
+                                alt={suggestion.name}
+                                className="h-full w-full object-cover"
+                              />
+                              <span className={cn(
+                                "absolute left-2 top-2 rounded-full px-2 py-1 text-[10px] font-bold",
+                                niveau === 3
+                                  ? "bg-green-100 text-[#1E8A3C]"
+                                  : "bg-amber-100 text-amber-700"
+                              )}>
+                                {niveau === 3 ? "Livraison offerte +" : "Très commandé"}
+                              </span>
+                              <span className="absolute bottom-2 right-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] text-gray-400 line-through">
+                                {prixKhddar.toFixed(2)} DH
+                              </span>
+                            </div>
+                            <div className="p-3">
+                              <p className="truncate text-[13px] font-medium text-[#264129]">
+                                {suggestion.name}
+                              </p>
+                              <p className="mt-1 truncate text-[11px] text-gray-400">
+                                Ajout malin pour compléter ton panier
+                              </p>
+                              <div className="mt-3 flex items-center justify-between gap-2">
+                                <span className="text-[15px] font-medium text-[#1E8A3C]">
+                                  {suggestion.price.toFixed(2)} DH
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddSuggestionToCart(suggestion)}
+                                  className={cn(
+                                    "flex h-8 w-8 items-center justify-center rounded-full border text-sm font-bold transition-colors",
+                                    isInCart
+                                      ? "border-[#1E8A3C] bg-[#1E8A3C] text-white"
+                                      : "border-gray-300 bg-white text-[#264129] hover:border-[#1E8A3C] hover:text-[#1E8A3C]"
+                                  )}
+                                  aria-label={`Ajouter ${suggestion.name}`}
+                                >
+                                  {isInCart ? "✓" : "+"}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                          )
+                        })}
                       </div>
+
+                      {cart.length > 0 && addedSuggestionItems.length > 0 && (
+                        <div className="mt-4 flex items-center gap-3 rounded-xl border border-green-200 bg-[#F0FDF4] px-4 py-3">
+                          <Leaf className="h-5 w-5 shrink-0 text-[#1E8A3C]" />
+                          <p className="text-sm font-semibold text-[#264129]">
+                            Tu économises {suggestionSavings.toFixed(2)} DH vs le khddar sur cette sélection 🌿
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

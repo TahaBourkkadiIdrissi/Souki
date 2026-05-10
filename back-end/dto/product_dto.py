@@ -1,4 +1,6 @@
-from pydantic import BaseModel
+from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
 class ProductResponseDTO(BaseModel):
@@ -6,8 +8,14 @@ class ProductResponseDTO(BaseModel):
     nom_fr: str
     nom_darija: str
     prix_kg: float
+    prix_affiche: Optional[float] = None
+    niveau: int = 2
     unite: str
     stock: float
 
     class Config:
         from_attributes = True
+
+
+class SuggestionsRequestDTO(BaseModel):
+    exclude_ids: list[int] = Field(default_factory=list, max_length=20)

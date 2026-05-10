@@ -475,6 +475,23 @@ export interface ProduitPricingUpdateDTO {
   prix_gros_saisi?: number | null
 }
 
+export interface CatalogueProductDTO {
+  id: number
+  nom_fr: string
+  nom_darija: string
+  prix_kg: number
+  prix_affiche: number | null
+  niveau: ProduitNiveau
+  unite: string
+  stock: number
+}
+
+export type ProduitSuggestionDTO = CatalogueProductDTO
+
+export interface SuggestionsRequestDTO {
+  exclude_ids: number[]
+}
+
 export interface BlacklistParClientDTO {
   client_id: number
   email: string | null
@@ -850,6 +867,17 @@ export async function getAdminClients(
 
 export async function getProduitsPricing(token: string, signal?: AbortSignal): Promise<ProduitPricingListDTO> {
   return apiCall<ProduitPricingListDTO>("/api/produits/pricing", { token, signal })
+}
+
+export async function getCatalogueSuggestions(
+  excludeIds: number[],
+  signal?: AbortSignal
+): Promise<ProduitSuggestionDTO[]> {
+  return apiCall<ProduitSuggestionDTO[]>("/api/catalogue/suggestions", {
+    method: "POST",
+    body: { exclude_ids: excludeIds.slice(0, 20) } satisfies SuggestionsRequestDTO,
+    signal,
+  })
 }
 
 export async function updateProduitPricing(

@@ -28,8 +28,8 @@ import { fetchCatalogueProducts, getCataloguePresentation } from "@/lib/catalogu
 import { MapboxLocator } from "@/components/souki/mapbox-locator"
 
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&h=300&fit=crop"
-const SEUIL = 80
-const FRAIS = 10
+const SEUIL = 85
+const FRAIS = 15
 
 interface CartItem {
   id: string

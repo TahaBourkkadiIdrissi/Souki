@@ -73,6 +73,23 @@ class ProductDaoBD(IProductDao):
     def get_all(self, session: Session) -> List[Product]:
         return session.query(Product).order_by(Product.id.asc()).all()
 
+    def get_suggestions(
+        self,
+        session: Session,
+        exclude_ids: list[int],
+        limit: int = 3,
+    ) -> List[Product]:
+        query = (
+            session.query(Product)
+            .filter(Product.niveau.in_([2, 3]))
+            .filter(Product.prix_affiche.isnot(None))
+            .filter(Product.stock > 0)
+            .order_by(Product.niveau.desc(), Product.prix_affiche.desc())
+        )
+        if exclude_ids:
+            query = query.filter(Product.id.notin_(exclude_ids))
+        return query.limit(limit).all()
+
     def decrement_stock(self, session: Session, product_id: int, quantity: float) -> bool:
         product = session.query(Product).filter(Product.id == product_id).first()
         if product and float(product.stock) >= quantity:
