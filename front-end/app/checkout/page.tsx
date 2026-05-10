@@ -29,6 +29,8 @@ import { MapboxLocator } from "@/components/souki/mapbox-locator"
 import { useOrderLock } from "@/hooks/useOrderLock"
 
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&h=300&fit=crop"
+const SEUIL = 80
+const FRAIS = 10
 
 interface CartItem {
   id: string
@@ -330,7 +332,9 @@ function CheckoutContent() {
 
   const merchantPrice = cart.reduce((sum, item) => sum + (item.price * 1.1) * item.quantity, 0)
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  const deliveryFee = 10
+  const totalProduits = subtotal
+  const progressionLivraison = Math.min(100, (totalProduits / SEUIL) * 100)
+  const deliveryFee = totalProduits >= SEUIL ? 0 : FRAIS
   const walletDiscount = 0
   const total = subtotal + deliveryFee - walletDiscount
   const savings = merchantPrice - subtotal
@@ -545,13 +549,37 @@ function CheckoutContent() {
               </div>
 
               <div className="p-6 bg-[#F0FAF1] space-y-2">
+                <div className="rounded-xl border border-[#D7EBD9] bg-white px-4 py-3">
+                  <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+                    <span className="font-semibold text-[#3D3D3D]">Livraison</span>
+                    <span className={cn(
+                      "font-bold",
+                      deliveryFee > 0 ? "text-amber-700" : "text-[#1E8A3C]"
+                    )}>
+                      {deliveryFee > 0 ? `${deliveryFee.toFixed(0)} DH` : "Offerte ✅"}
+                    </span>
+                  </div>
+
+                  <div className="w-full bg-gray-200 rounded-full h-1.5">
+                    <div
+                      className="h-1.5 rounded-full transition-all duration-300"
+                      style={{
+                        width: `${progressionLivraison}%`,
+                        backgroundColor: progressionLivraison >= 100 ? "#1E8A3C" : "#F59E0B"
+                      }}
+                    />
+                  </div>
+                </div>
+
                 <div className="flex justify-between text-sm">
                   <span className="text-[#8A8A8A]">Sous-total produits</span>
                   <span className="font-medium">{subtotal.toFixed(2)} DH</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-[#8A8A8A]">Frais de livraison</span>
-                  <span className="font-medium">{deliveryFee.toFixed(2)} DH</span>
+                  <span className="font-medium">
+                    {deliveryFee > 0 ? `${deliveryFee.toFixed(2)} DH` : "Offerte ✅"}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-[#8A8A8A]">Réduction Wallet</span>

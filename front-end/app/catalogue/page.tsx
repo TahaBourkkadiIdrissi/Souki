@@ -27,13 +27,13 @@ import { AIModals } from "@/components/souki/ai-modals"
 import { ProductCard } from "@/components/souki/product-card"
 import { useAuth } from "@/hooks/useAuth"
 import { useOrderLock } from "@/hooks/useOrderLock"
-import type { CommandeHistoriqueDTO } from "@/lib/api"
+import type { CommandeHistoriqueDTO, ProduitPricingDTO } from "@/lib/api"
+import { getProduitsPricing } from "@/lib/api"
 import {
   BasketSelection,
   CatalogueProduct,
   ClaimReason,
   CartItem,
-  DELIVERY_FEE,
   deleteOrderFromHistory,
   fetchCommandeCheckout,
   fetchCatalogueProducts,
@@ -52,6 +52,8 @@ import { cn } from "@/lib/utils"
 
 const CATALOGUE_REFRESH_INTERVAL_MS = 5 * 60 * 1000
 const CLAIM_WINDOW_MS = 24 * 60 * 60 * 1000
+const SEUIL = 80
+const FRAIS = 10
 
 const categories = [
   { id: "tous", label: "Tous" },
@@ -197,6 +199,7 @@ export default function CataloguePage() {
   const [claimError, setClaimError] = useState("")
   const [isSubmittingClaim, setIsSubmittingClaim] = useState(false)
   const [deletingOrderId, setDeletingOrderId] = useState<number | null>(null)
+  const [pricingSuggestions, setPricingSuggestions] = useState<CatalogueProduct[]>([])
 
   const loadOrderHistory = useCallback(async (showLoader = true) => {
     if (!isAuthenticated) {
@@ -261,6 +264,62 @@ export default function CataloguePage() {
   useEffect(() => {
     saveStoredCart(cart)
   }, [cart])
+
+  useEffect(() => {
+    if (isLoading || !isAuthenticated) {
+      setPricingSuggestions([])
+      return
+    }
+
+    const token = typeof window !== "undefined" ? window.localStorage.getItem("token") : null
+    if (!token) {
+      setPricingSuggestions([])
+      return
+    }
+
+    const controller = new AbortController()
+
+    const toCatalogueSuggestion = (item: ProduitPricingDTO): CatalogueProduct => {
+      const catalogueProduct = products.find((product) => product.id === item.id)
+      const price = item.prix_affiche ?? item.prix_kg
+
+      if (catalogueProduct) {
+        return { ...catalogueProduct, price }
+      }
+
+      const presentation = getCataloguePresentation(item.nom_fr)
+      return {
+        id: item.id,
+        name: item.nom_fr,
+        alias: item.nom_darija,
+        price,
+        unit: item.unite,
+        displayUnit: presentation.displayUnit || item.unite,
+        image: presentation.image,
+        category: presentation.category,
+        quantityStep: presentation.quantityStep || (item.unite === "kg" ? 0.5 : 1),
+        stock: 0,
+      }
+    }
+
+    getProduitsPricing(token, controller.signal)
+      .then((pricing) => {
+        const suggestions = pricing.items
+          .filter((item) => item.niveau === 3 && typeof item.prix_affiche === "number")
+          .sort((left, right) => (left.prix_affiche ?? 0) - (right.prix_affiche ?? 0))
+          .slice(0, 3)
+          .map(toCatalogueSuggestion)
+        setPricingSuggestions(suggestions)
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return
+        }
+        setPricingSuggestions([])
+      })
+
+    return () => controller.abort()
+  }, [isAuthenticated, isLoading, products])
 
   useEffect(() => {
     if (isLoading) {
@@ -404,6 +463,18 @@ export default function CataloguePage() {
         return
       }
       setCart((currentCart) => upsertCartItem(currentCart, product, quantity))
+      setShowCart(true)
+    })
+  }
+
+  const handleAddSuggestionToCart = (product: CatalogueProduct) => {
+    requireAuth("/catalogue", () => {
+      if (orderLock.isLocked) {
+        alert(orderLock.message)
+        return
+      }
+
+      setCart((currentCart) => upsertCartItem(currentCart, product, product.quantityStep))
       setShowCart(true)
     })
   }
@@ -613,7 +684,10 @@ export default function CataloguePage() {
     })
 
   const cartSubtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  const cartTotal = cartSubtotal + DELIVERY_FEE
+  const reste = Math.max(0, SEUIL - cartSubtotal)
+  const progression = Math.min(100, (cartSubtotal / SEUIL) * 100)
+  const cartDeliveryFee = cartSubtotal >= SEUIL ? 0 : FRAIS
+  const cartTotal = cartSubtotal + cartDeliveryFee
   const claimableLines =
     claimOrder?.produits.filter(
       (product) => typeof product.ligne_panier_id === "number" && product.quantite_kg > 0
@@ -1169,6 +1243,53 @@ export default function CataloguePage() {
               </div>
             ) : (
               <div className="space-y-4 pb-4">
+                <div className="rounded-[28px] border border-[#F5D7B8] bg-[#FFF7EE] p-5 shadow-sm">
+                  {reste > 0 ? (
+                    <p className="text-lg font-black leading-snug text-[#9A5C11]">
+                      <span aria-hidden="true">🚚</span> Plus que {reste.toFixed(2)} DH pour la livraison gratuite !
+                    </p>
+                  ) : (
+                    <p className="text-lg font-black leading-snug text-[#1E8A3C]">
+                      ✅ Livraison offerte !
+                    </p>
+                  )}
+
+                  <div className="mt-4 w-full rounded-full bg-white h-3 ring-1 ring-[#F3D8B2]">
+                    <div
+                      className="h-3 rounded-full transition-all duration-300"
+                      style={{
+                        width: `${progression}%`,
+                        backgroundColor: progression >= 100 ? "#1E8A3C" : "#F59E0B",
+                      }}
+                    />
+                  </div>
+                  <p className="mt-2 text-right text-xs font-bold text-[#9A5C11]">
+                    {Math.round(progression)}%
+                  </p>
+
+                  {reste > 0 && pricingSuggestions.length > 0 && (
+                    <div className="mt-5">
+                      <div className="mb-3 flex items-center gap-3 text-xs font-black uppercase tracking-[0.16em] text-[#9A5C11]">
+                        <span className="h-px flex-1 bg-[#F3D8B2]" />
+                        <span>Suggestions pour toi</span>
+                        <span className="h-px flex-1 bg-[#F3D8B2]" />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {pricingSuggestions.map((suggestion) => (
+                          <button
+                            key={suggestion.id}
+                            onClick={() => handleAddSuggestionToCart(suggestion)}
+                            disabled={orderLock.isLocked}
+                            className="rounded-full border border-[#F3D8B2] bg-white px-3 py-2 text-xs font-bold text-[#264129] shadow-sm transition-colors hover:border-[#F59E0B] hover:bg-[#FFF3DE] disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {suggestion.name} {suggestion.price.toFixed(2)} DH
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {cart.map((item) => (
                   <div
                     key={item.id}
@@ -1235,7 +1356,9 @@ export default function CataloguePage() {
                 </div>
                 <div className="flex items-center justify-between text-[#6F8070]">
                   <span>Livraison</span>
-                  <span className="font-semibold text-[#264129]">{DELIVERY_FEE.toFixed(2)} DH</span>
+                  <span className="font-semibold text-[#264129]">
+                    {cartDeliveryFee > 0 ? `${cartDeliveryFee.toFixed(2)} DH` : "Offerte ✅"}
+                  </span>
                 </div>
               </div>
 
