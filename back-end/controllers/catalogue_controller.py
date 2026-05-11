@@ -20,6 +20,10 @@ def get_suggestions(
 ):
     session = LocalSession()
     try:
-        return service.get_suggestions(session, payload.exclude_ids)
+        return service.get_suggestions(
+            session,
+            payload.exclude_ids,
+            payload.panier_total,
+        )
     finally:
         session.close()

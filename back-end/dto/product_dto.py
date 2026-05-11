@@ -9,6 +9,7 @@ class ProductResponseDTO(BaseModel):
     nom_darija: str
     prix_kg: float
     prix_affiche: Optional[float] = None
+    prix_khddar_estime: Optional[float] = None
     niveau: int = 2
     unite: str
     stock: float
@@ -19,3 +20,4 @@ class ProductResponseDTO(BaseModel):
 
 class SuggestionsRequestDTO(BaseModel):
     exclude_ids: list[int] = Field(default_factory=list, max_length=20)
+    panier_total: float = 0.0

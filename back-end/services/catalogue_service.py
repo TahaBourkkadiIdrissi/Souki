@@ -9,6 +9,22 @@ from sqlalchemy.orm import Session
 
 
 class CatalogueService(ICatalogueService):
+    COEFFICIENT_KHDDAR_PRODUIT = {
+        "patates": 1.09,
+        "tomates": 1.17,
+        "citrons": 1.17,
+        "haricots": 1.00,
+        "oignons": 1.25,
+        "carottes": 1.19,
+        "navet": 1.25,
+        "aubergine": 1.33,
+        "khyar": 1.30,
+        "feves": 1.40,
+        "concombre": 1.44,
+        "poivrons": 1.50,
+        "courgettes": 1.40,
+    }
+    COEFFICIENT_KHDDAR_NIVEAU = {1: 1.08, 2: 1.12, 3: 1.25}
 
     def __init__(
         self, product_dao: IProductDao, session: Optional[Session] = None
@@ -38,28 +54,40 @@ class CatalogueService(ICatalogueService):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._close_owned_session(rollback=exc_type is not None)
 
+    def _get_coefficient_khddar(self, produit) -> float:
+        nom = (produit.nom_darija or "").lower().strip()
+        if nom in self.COEFFICIENT_KHDDAR_PRODUIT:
+            return self.COEFFICIENT_KHDDAR_PRODUIT[nom]
+        return self.COEFFICIENT_KHDDAR_NIVEAU.get(int(produit.niveau or 2), 1.12)
+
+    def _to_product_response(self, produit) -> ProductResponseDTO:
+        prix_gros = produit.prix_gros_saisi or produit.prix_kg
+        prix_khddar_estime = round(
+            float(prix_gros) * self._get_coefficient_khddar(produit),
+            2,
+        )
+        return ProductResponseDTO(
+            id=int(produit.id),# type: ignore
+            nom_fr=str(produit.nom_fr),
+            nom_darija=str(produit.nom_darija),
+            prix_kg=float(produit.prix_kg),# type: ignore
+            prix_affiche=(
+                float(produit.prix_affiche)
+                if produit.prix_affiche is not None
+                else None
+            ),
+            prix_khddar_estime=prix_khddar_estime,
+            niveau=int(produit.niveau or 2),
+            unite=str(produit.unite),
+            stock=float(produit.stock),# type: ignore
+        )
+
     def get_catalogue_complet(self) -> List[ProductResponseDTO]:
         auto_session = self.session is None
         session = self._ensure_session()
         try:
             products = self.product_dao.get_all(session)
-            return [
-                ProductResponseDTO(
-                    id=int(p.id),# type: ignore
-                    nom_fr=str(p.nom_fr),
-                    nom_darija=str(p.nom_darija),
-                    prix_kg=float(p.prix_kg),# type: ignore
-                    prix_affiche=(
-                        float(p.prix_affiche)
-                        if p.prix_affiche is not None
-                        else None
-                    ),
-                    niveau=int(p.niveau or 2),
-                    unite=str(p.unite),
-                    stock=float(p.stock),# type: ignore
-                )
-                for p in products
-            ]
+            return [self._to_product_response(p) for p in products]
         finally:
             if auto_session:
                 self._close_owned_session()
@@ -68,25 +96,14 @@ class CatalogueService(ICatalogueService):
         self,
         session: Session,
         exclude_ids: list[int],
+        panier_total: float = 0.0,
     ) -> List[ProductResponseDTO]:
-        produits = self.product_dao.get_suggestions(session, exclude_ids)
-        return [
-            ProductResponseDTO(
-                id=int(p.id),# type: ignore
-                nom_fr=str(p.nom_fr),
-                nom_darija=str(p.nom_darija),
-                prix_kg=float(p.prix_kg),# type: ignore
-                prix_affiche=(
-                    float(p.prix_affiche)
-                    if p.prix_affiche is not None
-                    else None
-                ),
-                niveau=int(p.niveau or 2),
-                unite=str(p.unite),
-                stock=float(p.stock),# type: ignore
-            )
-            for p in produits
-        ]
+        produits = self.product_dao.get_suggestions(
+            session,
+            exclude_ids,
+            panier_total,
+        )
+        return [self._to_product_response(p) for p in produits]
 
     def valider_et_ajuster_item(
         self, item_gemini: dict

@@ -7,7 +7,22 @@ from entities.product_entity import Product
 from interfaces.produit_pricing_dao_interface import IProduitPricingDao
 
 
-COEFFICIENT_KHDDAR = {1: 1.08, 2: 1.12, 3: 1.25}
+COEFFICIENT_KHDDAR_PRODUIT = {
+    "patates": 1.09,
+    "tomates": 1.17,
+    "citrons": 1.17,
+    "haricots": 1.00,
+    "oignons": 1.25,
+    "carottes": 1.19,
+    "navet": 1.25,
+    "aubergine": 1.33,
+    "khyar": 1.30,
+    "feves": 1.40,
+    "concombre": 1.44,
+    "poivrons": 1.50,
+    "courgettes": 1.40,
+}
+COEFFICIENT_KHDDAR_NIVEAU = {1: 1.08, 2: 1.12, 3: 1.25}
 
 
 class ProduitPricingDaoBD(IProduitPricingDao):
@@ -64,7 +79,7 @@ class ProduitPricingDaoBD(IProduitPricingDao):
 
     def _to_dto(self, produit: Product) -> ProduitPricingDTO:
         niveau = int(produit.niveau or 2)
-        coefficient = COEFFICIENT_KHDDAR.get(niveau, COEFFICIENT_KHDDAR[2])
+        coefficient = self._get_coefficient_khddar(produit)
         prix_gros = float(produit.prix_gros_saisi or produit.prix_kg)
         prix_khddar_estime = round(prix_gros * coefficient, 2)
 
@@ -106,3 +121,9 @@ class ProduitPricingDaoBD(IProduitPricingDao):
             prix_khddar_estime=prix_khddar_estime,
             alerte=alerte,
         )
+
+    def _get_coefficient_khddar(self, produit: Product) -> float:
+        nom = (produit.nom_darija or "").lower().strip()
+        if nom in COEFFICIENT_KHDDAR_PRODUIT:
+            return COEFFICIENT_KHDDAR_PRODUIT[nom]
+        return COEFFICIENT_KHDDAR_NIVEAU.get(int(produit.niveau or 2), 1.12)

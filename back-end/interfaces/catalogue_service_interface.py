@@ -29,6 +29,7 @@ class ICatalogueService(ABC):
         self,
         session: Session,
         exclude_ids: list[int],
+        panier_total: float = 0.0,
     ) -> List[ProductResponseDTO]:
         """Retourne les suggestions publiques du catalogue."""
         pass

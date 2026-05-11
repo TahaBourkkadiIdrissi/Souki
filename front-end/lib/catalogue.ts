@@ -10,6 +10,7 @@ export interface CatalogueProduct {
   name: string
   alias: string
   price: number
+  prix_khddar_estime?: number | null
   niveau?: CatalogueProductDTO["niveau"]
   unit: string
   displayUnit: string
@@ -29,7 +30,7 @@ export interface BasketSelection {
 }
 
 export const CART_STORAGE_KEY = "souki-cart"
-export const DELIVERY_FEE = 10
+export const DELIVERY_FEE = 15
 
 const productPresentation: Record<
   string,
@@ -241,6 +242,7 @@ export async function fetchCatalogueProducts(): Promise<CatalogueProduct[]> {
       name: product.nom_fr,
       alias: product.nom_darija,
       price: product.prix_affiche ?? product.prix_kg,
+      prix_khddar_estime: product.prix_khddar_estime,
       niveau: product.niveau,
       unit: product.unite,
       displayUnit: presentation.displayUnit || product.unite,

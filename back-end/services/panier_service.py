@@ -12,7 +12,7 @@ from interfaces.panier_service_interface import IPanierService
 from interfaces.panier_dao_interface import IPanierDao
 from sqlalchemy.orm import Session
 
-DELIVERY_FEE = 10.0
+DELIVERY_FEE = 15.0
 
 # ── Mapping des images pour les produits ──────────────────────────────────────
 PRODUCT_IMAGES = {

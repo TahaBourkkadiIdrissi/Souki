@@ -23,6 +23,8 @@ class IProductDao(ABC):
         self,
         session: Session,
         exclude_ids: list[int],
+        panier_total: float = 0.0,
+        seuil: float = 120.0,
         limit: int = 3,
     ) -> List[Product]:
         """Retourne les suggestions publiques du catalogue."""

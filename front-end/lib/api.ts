@@ -373,6 +373,7 @@ export interface CommandeCODDemainDTO {
   nom_client?: string | null
   telephone?: string | null
   adresse?: string | null
+  is_blacklisted?: boolean | null
   montant?: number | null
   creneau_livraison?: string | null
   statut_confirmation_cod: StatutConfirmationCOD | string
@@ -481,6 +482,7 @@ export interface CatalogueProductDTO {
   nom_darija: string
   prix_kg: number
   prix_affiche: number | null
+  prix_khddar_estime: number | null
   niveau: ProduitNiveau
   unite: string
   stock: number
@@ -490,6 +492,7 @@ export type ProduitSuggestionDTO = CatalogueProductDTO
 
 export interface SuggestionsRequestDTO {
   exclude_ids: number[]
+  panier_total: number
 }
 
 export interface BlacklistParClientDTO {
@@ -871,11 +874,15 @@ export async function getProduitsPricing(token: string, signal?: AbortSignal): P
 
 export async function getCatalogueSuggestions(
   excludeIds: number[],
+  panierTotal: number,
   signal?: AbortSignal
 ): Promise<ProduitSuggestionDTO[]> {
   return apiCall<ProduitSuggestionDTO[]>("/api/catalogue/suggestions", {
     method: "POST",
-    body: { exclude_ids: excludeIds.slice(0, 20) } satisfies SuggestionsRequestDTO,
+    body: {
+      exclude_ids: excludeIds.slice(0, 20),
+      panier_total: panierTotal,
+    } satisfies SuggestionsRequestDTO,
     signal,
   })
 }

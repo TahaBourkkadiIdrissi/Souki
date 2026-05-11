@@ -51,7 +51,7 @@ import { cn } from "@/lib/utils"
 
 const CATALOGUE_REFRESH_INTERVAL_MS = 5 * 60 * 1000
 const CLAIM_WINDOW_MS = 24 * 60 * 60 * 1000
-const SEUIL = 85
+const SEUIL = 120
 const FRAIS = 15
 
 const categories = [
@@ -207,6 +207,7 @@ export default function CataloguePage() {
       name: product.nom_fr,
       alias: product.nom_darija,
       price: product.prix_affiche ?? product.prix_kg,
+      prix_khddar_estime: product.prix_khddar_estime,
       niveau: product.niveau,
       unit: product.unite,
       displayUnit: presentation.displayUnit || product.unite,
@@ -295,8 +296,9 @@ export default function CataloguePage() {
 
     const controller = new AbortController()
     const excludeIds = cart.map((item) => item.id)
+    const panierTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
-    getCatalogueSuggestions(excludeIds, controller.signal)
+    getCatalogueSuggestions(excludeIds, panierTotal, controller.signal)
       .then((suggestions) => {
         setPricingSuggestions(suggestions.map(toCatalogueProduct))
       })
@@ -1244,8 +1246,9 @@ export default function CataloguePage() {
                         {pricingSuggestions.map((suggestion) => {
                           const niveau = suggestion.niveau || 2
                           const isInCart = cart.some((item) => item.id === suggestion.id)
-                          const prixKhddar = suggestion.price * 1.12
                           const isFeaturedLevelTwo = niveau === 2 && suggestion.id === firstLevelTwoSuggestionId
+                          const resteSuggestions = Math.max(0, SEUIL - cartSubtotal)
+                          const suffitPourSeuil = resteSuggestions > 0 && suggestion.price >= resteSuggestions
 
                           return (
                           <div
@@ -1267,15 +1270,17 @@ export default function CataloguePage() {
                               />
                               <span className={cn(
                                 "absolute left-2 top-2 rounded-full px-2 py-1 text-[10px] font-bold",
-                                niveau === 3
-                                  ? "bg-green-100 text-[#1E8A3C]"
-                                  : "bg-amber-100 text-amber-700"
+                                suffitPourSeuil
+                                  ? "bg-amber-100 text-amber-700"
+                                  : "hidden"
                               )}>
-                                {niveau === 3 ? "Livraison offerte +" : "Très commandé"}
+                                Suffit pour livraison gratuite
                               </span>
-                              <span className="absolute bottom-2 right-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] text-gray-400 line-through">
-                                {prixKhddar.toFixed(2)} DH
-                              </span>
+                              {suggestion.prix_khddar_estime && (
+                                <span className="absolute bottom-2 right-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] text-gray-400 line-through">
+                                  {suggestion.prix_khddar_estime.toFixed(2)} DH
+                                </span>
+                              )}
                             </div>
                             <div className="p-3">
                               <p className="truncate text-[13px] font-medium text-[#264129]">

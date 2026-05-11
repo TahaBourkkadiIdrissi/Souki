@@ -12,7 +12,7 @@ from interfaces.checkout_service_interface import ICheckoutService
 
 
 PANIER_MINIMUM_DH = 50.0
-SEUIL_LIVRAISON_GRATUITE = 85.0
+SEUIL_LIVRAISON_GRATUITE = 120.0
 FRAIS_LIVRAISON = 15.0
 DELIVERY_FEE = FRAIS_LIVRAISON
 MOROCCO_TIMEZONE = ZoneInfo("Africa/Casablanca")
