@@ -41,6 +41,7 @@ from services.cod_confirmation_service import CODConfirmationService
 from services.commande_service import CommandeVocaleService
 from services.dispatch_service import DispatchService
 from services.livreur_service import LivreurService
+from services.ml_panier_service import MLPanierService, ml_panier_service
 from services.notification_outbox_service import NotificationOutboxService
 from services.panier_service import PanierService
 from services.souki_wallet_service import SoukiWalletService
@@ -139,6 +140,10 @@ def get_panier_service(
     panier_dao: IPanierDao = Depends(get_panier_dao)
 ) -> IPanierService:
     return PanierService(panier_dao)
+
+
+def get_ml_panier_service() -> MLPanierService:
+    return ml_panier_service
 
 
 def get_souki_wallet_service(

@@ -77,7 +77,10 @@ function CheckoutContent() {
   const commandeId = searchParams.get('commande_id')
   const panierId = searchParams.get('panier_id')
   const cartParam = searchParams.get('cart')
-  const editCartHref = panierId
+  const isSmartBasket = searchParams.get('source') === 'smart'
+  const editCartHref = isSmartBasket
+    ? "/catalogue?assistant=smart"
+    : panierId
     ? `/catalogue?panier_id=${panierId}`
     : commandeId
       ? `/catalogue?commande_id=${commandeId}`
@@ -505,12 +508,24 @@ function CheckoutContent() {
           </div>
         )}
 
+        {isSmartBasket && (
+          <div className="bg-[#1E8A3C] text-white rounded-2xl p-5 mb-8 shadow-lg flex items-start gap-4">
+            <MessageCircle className="w-8 h-8 shrink-0 mt-1" />
+            <div>
+              <h2 className="font-bold text-lg mb-1">Panier intelligent IA-SOUKI</h2>
+              <p className="text-white/90">
+                {cart.length} article{cart.length > 1 ? "s" : ""} genere{cart.length > 1 ? "s" : ""} par le modele ML, affiches dans votre checkout.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Left Column - Cart */}
           <div className="space-y-6">
             <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
               <div className="p-6 border-b border-gray-100">
-                <h2 className="text-xl font-bold text-[#1E8A3C]">{voiceData ? "Panier validé par l'IA" : panierData ? "Votre panier validé" : "Votre Panier"}</h2>
+                <h2 className="text-xl font-bold text-[#1E8A3C]">{voiceData ? "Panier validé par l'IA" : isSmartBasket ? "Panier intelligent" : panierData ? "Votre panier validé" : "Votre Panier"}</h2>
               </div>
 
               <div className="divide-y divide-gray-100">
@@ -563,7 +578,7 @@ function CheckoutContent() {
                 </div>
                 <div className="flex items-center gap-2 text-[#1E8A3C] text-sm">
                   <PartyPopper className="w-4 h-4" />
-                  <span>{voiceData ? "Commande traitée par IA-SOUKI" : `Économie vs marchand : -${savings.toFixed(2)} DH`}</span>
+                  <span>{voiceData ? "Commande traitée par IA-SOUKI" : isSmartBasket ? "Panier compose par le modele ML SOUKI" : `Économie vs marchand : -${savings.toFixed(2)} DH`}</span>
                 </div>
               </div>
             </div>

@@ -22,8 +22,11 @@ import { API_BASE_URL } from "@/lib/api"
 import {
   BasketSelection,
   CatalogueProduct,
-  buildSmartBasket,
   formatQuantity,
+  generateSmartPanier,
+  SmartBasketLine,
+  SmartBasketProfile,
+  SmartBasketResponse,
 } from "@/lib/catalogue"
 import { cn } from "@/lib/utils"
 
@@ -58,12 +61,22 @@ interface AIModalsProps {
   orderLockMessage?: string
 }
 
+const personOptions = [1, 2, 3, 4, 5, 6, 7, 8]
+const durationOptions = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+const profileOptions: Array<{ id: SmartBasketProfile; label: string }> = [
+  { id: "equilibre", label: "Equilibre" },
+  { id: "legumes_base", label: "Legumes de base" },
+  { id: "salade_fraicheur", label: "Salade fraicheur" },
+  { id: "soupe_hiver", label: "Soupe hiver" },
+  { id: "cuisine_tajine", label: "Cuisine tajine" },
+  { id: "fruits_dominant", label: "Fruits dominant" },
+]
+
 export function AIModals({
   isOpen,
   onClose,
   mode,
   products = [],
-  onApplySelections,
   isOrderLocked = false,
   orderLockMessage = "Les commandes sont fermees pour preparer les livraisons. Reouverture a 08h00.",
 }: AIModalsProps) {
@@ -75,7 +88,11 @@ export function AIModals({
   const [result, setResult] = useState<VoiceBasketResponseDTO | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [budget, setBudget] = useState("150")
-  const [duration, setDuration] = useState("1 semaine")
+  const [people, setPeople] = useState("3")
+  const [duration, setDuration] = useState("7")
+  const [profile, setProfile] = useState<SmartBasketProfile>("equilibre")
+  const [smartResult, setSmartResult] = useState<SmartBasketResponse | null>(null)
+  const [isGeneratingSmart, setIsGeneratingSmart] = useState(false)
   const [smartSelections, setSmartSelections] = useState<BasketSelection[]>([])
   const [editedBasket, setEditedBasket] = useState<LigneCommandeDTO[]>([])
 
@@ -99,6 +116,7 @@ export function AIModals({
     setIsSending(false)
     setResult(null)
     setError(null)
+    setSmartResult(null)
     setSmartSelections([])
     setEditedBasket([])
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
@@ -243,17 +261,60 @@ export function AIModals({
     }
   }
 
-  const handleSmartGeneration = () => {
+  const handleSmartGeneration = async () => {
     const parsedBudget = Number(budget)
     if (!Number.isFinite(parsedBudget) || parsedBudget <= 0) {
       setError("Entrez un budget valide pour generer le panier.")
       setSmartSelections([])
+      setSmartResult(null)
       return
     }
 
-    const selections = buildSmartBasket(products, parsedBudget, duration)
-    setSmartSelections(selections)
+    const parsedPeople = Number(people)
+    const parsedDuration = Number(duration)
+    if (!Number.isInteger(parsedPeople) || parsedPeople < 1 || parsedPeople > 8) {
+      setError("Choisissez un nombre de personnes entre 1 et 8.")
+      return
+    }
+    if (!Number.isInteger(parsedDuration) || parsedDuration < 3 || parsedDuration > 14) {
+      setError("Choisissez une duree entre 3 et 14 jours.")
+      return
+    }
+    if (!token) {
+      setError("Connectez-vous d'abord pour generer un panier intelligent.")
+      return
+    }
+
+    setIsGeneratingSmart(true)
     setError(null)
+    setSmartResult(null)
+    setSmartSelections([])
+    try {
+      const data = await generateSmartPanier(
+        {
+          budget: parsedBudget,
+          personnes: parsedPeople,
+          duree: parsedDuration,
+          profil: profile,
+        },
+        token
+      )
+      setSmartResult(data)
+      setSmartSelections(
+        data.lignes_panier.map((line) => ({
+          productId: line.product_id,
+          quantity: line.quantite_kg,
+        }))
+      )
+    } catch (generationError) {
+      setError(
+        generationError instanceof Error
+          ? generationError.message
+          : "Impossible de generer le panier intelligent."
+      )
+    } finally {
+      setIsGeneratingSmart(false)
+    }
   }
 
   const handleApplySmartBasket = () => {
@@ -262,31 +323,35 @@ export function AIModals({
       return
     }
 
-    if (smartSelections.length === 0) {
+    if (!smartResult || smartResult.lignes_panier.length === 0) {
       setError("Generez d'abord un panier intelligent.")
       return
     }
-    onApplySelections?.(smartSelections)
+
+    const checkoutCart = smartResult.lignes_panier.map((line) => ({
+      id: String(line.product_id),
+      name: line.nom_produit,
+      price: line.prix_unitaire,
+      quantity: line.quantite_kg,
+      unit: line.unite,
+      image: line.image,
+    }))
+    const encodedCart = encodeURIComponent(JSON.stringify(checkoutCart))
     closeModal()
+    router.push(`/checkout?source=smart&cart=${encodedCart}`)
   }
 
-  const smartPreview = smartSelections
-    .map((selection) => {
-      const product = products.find((item) => item.id === selection.productId)
-      if (!product) {
-        return null
-      }
-      return {
-        product,
-        quantity: selection.quantity,
-        total: product.price * selection.quantity,
-      }
-    })
-    .filter(
-      (
-        item
-      ): item is { product: CatalogueProduct; quantity: number; total: number } => item !== null
-    )
+  const smartPreview = (smartResult?.lignes_panier ?? []).map((line: SmartBasketLine) => {
+    const product = products.find((item) => item.id === line.product_id)
+    return {
+      line,
+      product,
+      name: product?.name ?? line.nom_produit,
+      unit: product?.unit ?? line.unite,
+      quantity: line.quantite_kg,
+      total: line.sous_total,
+    }
+  })
 
   if (!isOpen || !mode) {
     return null
@@ -551,7 +616,7 @@ export function AIModals({
                 </div>
                 <div>
                   <h3 className="font-bold text-[#264129]">Panier Intelligent IA-SOUKI</h3>
-                  <p className="text-xs text-[#6C7E6E]">Suggestion basee sur votre budget</p>
+                  <p className="text-xs text-[#6C7E6E]">Suggestion ML selon vos criteres</p>
                 </div>
               </div>
               <button
@@ -583,6 +648,26 @@ export function AIModals({
 
               <div>
                 <label className="mb-2 block text-sm font-semibold text-[#264129]">
+                  Nombre de personnes
+                </label>
+                <div className="relative">
+                  <select
+                    value={people}
+                    onChange={(event) => setPeople(event.target.value)}
+                    className="w-full appearance-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 pr-10 text-[#264129] outline-none transition-all focus:border-[#F07C00]"
+                  >
+                    {personOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option} personne{option > 1 ? "s" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#6C7E6E]" />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-[#264129]">
                   Pour quelle duree ?
                 </label>
                 <div className="relative">
@@ -591,10 +676,31 @@ export function AIModals({
                     onChange={(event) => setDuration(event.target.value)}
                     className="w-full appearance-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 pr-10 text-[#264129] outline-none transition-all focus:border-[#F07C00]"
                   >
-                    <option value="3 jours">3 jours</option>
-                    <option value="1 semaine">1 semaine</option>
-                    <option value="2 semaines">2 semaines</option>
-                    <option value="1 mois">1 mois</option>
+                    {durationOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option} jours
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#6C7E6E]" />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-[#264129]">
+                  Profil du panier
+                </label>
+                <div className="relative">
+                  <select
+                    value={profile}
+                    onChange={(event) => setProfile(event.target.value as SmartBasketProfile)}
+                    className="w-full appearance-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 pr-10 text-[#264129] outline-none transition-all focus:border-[#F07C00]"
+                  >
+                    {profileOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#6C7E6E]" />
                 </div>
@@ -603,7 +709,9 @@ export function AIModals({
               <div className="rounded-2xl bg-[#FFF5EB] p-4 text-sm text-[#C96A00]">
                 {isOrderLocked
                   ? orderLockMessage
-                  : "IA-SOUKI compose un panier simple avec les produits les plus utiles du jour selon votre budget."}
+                  : isGeneratingSmart
+                    ? "Le modele compose votre panier. Cela peut prendre quelques secondes."
+                    : "IA-SOUKI compose un panier avec le modele ML entraine sur les compositions SOUKI."}
               </div>
 
               {error && (
@@ -621,13 +729,13 @@ export function AIModals({
                   <div className="space-y-2">
                     {smartPreview.map((item) => (
                       <div
-                        key={item.product.id}
+                        key={item.line.product_id}
                         className="flex items-center justify-between rounded-2xl bg-white p-3"
                       >
                         <div>
-                          <p className="text-sm font-semibold text-[#264129]">{item.product.name}</p>
+                          <p className="text-sm font-semibold text-[#264129]">{item.name}</p>
                           <p className="text-xs text-[#6C7E6E]">
-                            {formatQuantity(item.quantity, item.product.unit)}
+                            {formatQuantity(item.quantity, item.unit)}
                           </p>
                         </div>
                         <span className="text-sm font-bold text-[#F07C00]">
@@ -644,22 +752,27 @@ export function AIModals({
               <div className="grid gap-3 sm:grid-cols-2">
                 <button
                   onClick={handleSmartGeneration}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-[#F5D4AE] bg-[#FFF5EB] px-4 py-3 font-semibold text-[#C96A00] transition-colors hover:bg-[#FFE8CC]"
+                  disabled={isGeneratingSmart || isOrderLocked}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-[#F5D4AE] bg-[#FFF5EB] px-4 py-3 font-semibold text-[#C96A00] transition-colors hover:bg-[#FFE8CC] disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  <Zap className="h-4 w-4" />
-                  Generer
+                  {isGeneratingSmart ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Zap className="h-4 w-4" />
+                  )}
+                  {isGeneratingSmart ? "Generation..." : "Generer"}
                 </button>
                 <button
                   onClick={handleApplySmartBasket}
-                  disabled={smartSelections.length === 0 || isOrderLocked}
+                  disabled={smartSelections.length === 0 || isOrderLocked || isGeneratingSmart}
                   className={cn(
                     "flex items-center justify-center gap-2 rounded-2xl px-4 py-3 font-semibold text-white transition-colors",
-                    smartSelections.length === 0 || isOrderLocked
+                    smartSelections.length === 0 || isOrderLocked || isGeneratingSmart
                       ? "cursor-not-allowed bg-gray-300"
                       : "bg-[#F07C00] hover:bg-[#D66B00]"
                   )}
                 >
-                  {isOrderLocked ? "Commandes fermees" : "Ajouter au panier"}
+                  {isOrderLocked ? "Commandes fermees" : "Aller au checkout"}
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </div>

@@ -25,6 +25,7 @@ from controllers.settings_controller import settings_router
 from services.catalogue_bootstrap_service import CatalogueBootstrapService
 from services.delivery_schema_sync_service import DeliverySchemaSyncService
 from services.dispatch_schema_sync_service import DispatchSchemaSyncService
+from services.ml_panier_service import ml_panier_service
 from services.rbac_bootstrap_service import RBACBootstrapService
 from services.scheduler_service import start_scheduler, stop_scheduler
 from services.supabase_storage_service import avatar_storage_service
@@ -67,6 +68,11 @@ CatalogueBootstrapService().sync_catalogue()
 async def lifespan(app: FastAPI):
     """Manage application startup and shutdown."""
     print("\n[STARTUP] Demarrage de l'application SOUKI...")
+    ml_panier_service.load_model()
+    if ml_panier_service.load_error:
+        print(f"[STARTUP] Panier intelligent en mode fallback: {ml_panier_service.load_error}")
+    else:
+        print("[STARTUP] Modele panier intelligent charge")
     start_scheduler()
     print("[STARTUP] Application SOUKI lancee avec succes\n")
 
@@ -74,6 +80,7 @@ async def lifespan(app: FastAPI):
 
     print("\n[SHUTDOWN] Arret de l'application SOUKI...")
     stop_scheduler()
+    ml_panier_service.unload_model()
     print("[SHUTDOWN] Application SOUKI arretee\n")
 
 
