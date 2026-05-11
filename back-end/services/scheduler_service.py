@@ -167,7 +167,7 @@ def start_scheduler():
             )
             scheduler.add_job(
                 job_dispatch_daily,
-                CronTrigger(hour=21, minute=35, second=0, timezone=MOROCCO_TIMEZONE),
+                CronTrigger(hour=21, minute=30, second=0, timezone=MOROCCO_TIMEZONE),
                 id="dispatch_daily_21h35",
                 name="Generation automatique des tournees a 21h35",
                 replace_existing=True,

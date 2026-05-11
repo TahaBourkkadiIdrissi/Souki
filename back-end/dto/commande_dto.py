@@ -145,6 +145,7 @@ class CommandeCODDemainDTO(BaseModel):
     nom_client: Optional[str] = None
     telephone: Optional[str] = None
     adresse: Optional[str] = None
+    is_blacklisted: Optional[bool] = None
     montant: Optional[float] = None
     creneau_livraison: Optional[str] = None
     statut_confirmation_cod: str = "NON_CONFIRMEE"

@@ -10,6 +10,7 @@ interface ApiOptions {
   body?: unknown
   token?: string
   signal?: AbortSignal
+  cache?: RequestCache
 }
 
 export class ApiError extends Error {
@@ -65,6 +66,14 @@ export interface AdminDispatchAddress {
   full_address: string | null
 }
 
+export interface AdminDispatchProduit {
+  ligne_panier_id: number | null
+  product_id: number | null
+  nom_fr: string
+  quantite_kg: number
+  sous_total: number | null
+}
+
 export interface AdminDispatchCommande {
   id: number
   client_id: number | null
@@ -77,6 +86,8 @@ export interface AdminDispatchCommande {
   date_commande: string | null
   mode_paiement: string | null
   adresse: AdminDispatchAddress | null
+  retour_depot_at?: string | null
+  produits?: AdminDispatchProduit[]
 }
 
 export interface AdminDispatchLivreur {
@@ -99,10 +110,23 @@ export interface AdminDispatchTournee {
   commandes: AdminDispatchCommande[]
 }
 
+export interface AdminDispatchAnomalie {
+  id: number
+  commande_id: number
+  type_anomalie: string
+  detected_at: string | null
+  resolved_at: string | null
+  resolution: string | null
+  date_tournee_ratee: string | null
+  livreur_defaillant: AdminDispatchLivreur
+  commande: AdminDispatchCommande | null
+}
+
 export interface AdminDispatchTourneesResponse {
   status: string
   target_date: string
   tournees: AdminDispatchTournee[]
+  anomalies?: AdminDispatchAnomalie[]
 }
 
 export interface AdminDispatchRunDailyResponse {
@@ -112,6 +136,7 @@ export interface AdminDispatchRunDailyResponse {
   tournees_created?: number
   commandes_assigned?: number
   available_livreurs?: number
+  retours_depot?: number
 }
 
 export interface ReassignDispatchResponse {
@@ -119,6 +144,14 @@ export interface ReassignDispatchResponse {
   commande_id: number
   nouvelle_tournee_id: number
   ordre_passage: number
+}
+
+export interface ResolveAnomalieResponse {
+  status: string
+  anomalie_id: number
+  commande_id: number
+  resolution: string
+  nouveau_statut: string
 }
 
 export interface DemarrerTourneeResponse {
@@ -137,7 +170,10 @@ export interface DetailProduitJIT {
   buffer_perte_10_pct: number
   volume_total_kg: number
   prix_kg: number
+  prix_achat: number
   sous_total: number
+  sous_total_ca: number
+  sous_total_achat: number
   unite: string
 }
 
@@ -147,6 +183,9 @@ export interface ResultatAgregationJIT {
   volume_total_kg: number
   details_produits: DetailProduitJIT[]
   montant_total: number
+  ca_estime_total: number
+  cout_achat_estime: number
+  marge_estimee: number
   statut: string
   message?: string | null
 }
@@ -189,6 +228,12 @@ export interface DeliveryEventRequest {
   expected_version?: number
 }
 
+export interface LivraisonDecisionRequest {
+  client_event_id: string
+  device_timestamp: string
+  expected_version?: number
+}
+
 export interface DeliveryEventResponse {
   status: string
   event_id: string
@@ -202,6 +247,17 @@ export interface DeliveryEventResponse {
   absent_at?: string | null
   device_timestamp: string
   server_timestamp: string
+  idempotent: boolean
+  message: string
+}
+
+export interface TourneeRefusResponse {
+  status: string
+  client_event_id: string
+  commandes_refusees: number
+  commande_ids: number[]
+  dispatch_reassign_triggered: boolean
+  dispatch_status?: string | null
   idempotent: boolean
   message: string
 }
@@ -317,6 +373,7 @@ export interface CommandeCODDemainDTO {
   nom_client?: string | null
   telephone?: string | null
   adresse?: string | null
+  is_blacklisted?: boolean | null
   montant?: number | null
   creneau_livraison?: string | null
   statut_confirmation_cod: StatutConfirmationCOD | string
@@ -358,7 +415,84 @@ export interface ClientBlacklistDTO {
   source: string | null
   livreur_nom: string | null
   commande_id: number | null
+  commande_statut: string | null
+  commande_date: string | null
+  montant_perdu: number
   admin_nom: string | null
+}
+
+export interface AdminClientDTO {
+  client_id: number
+  email: string | null
+  phone: string | null
+  nb_commandes: number
+  montant_total: number
+  mode_paiement_favori: string | null
+  is_blacklisted: boolean
+  date_inscription: string | null
+}
+
+export interface AdminClientsPageDTO {
+  items: AdminClientDTO[]
+  total: number
+  total_commandes: number
+  montant_total_global: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
+export type ProduitNiveau = 1 | 2 | 3
+export type ProduitVolatilite = "STABLE" | "VARIABLE" | "SAISONNIER"
+export type ProduitAlerte = "PRIX_DEPASSE_KHDDAR" | "PRIX_GROS_MANQUANT" | null
+
+export interface ProduitPricingDTO {
+  id: number
+  nom_fr: string
+  nom_darija: string
+  prix_kg: number
+  unite: string
+  marge_cible: number
+  coussin_securite: number
+  niveau: ProduitNiveau
+  volatilite: ProduitVolatilite
+  prix_gros_saisi: number | null
+  prix_affiche: number | null
+  prix_khddar_estime: number | null
+  alerte: ProduitAlerte
+}
+
+export interface ProduitPricingListDTO {
+  items: ProduitPricingDTO[]
+  total: number
+  nb_alertes: number
+}
+
+export interface ProduitPricingUpdateDTO {
+  marge_cible?: number
+  coussin_securite?: number
+  niveau?: ProduitNiveau
+  volatilite?: ProduitVolatilite
+  prix_gros_saisi?: number | null
+}
+
+export interface CatalogueProductDTO {
+  id: number
+  nom_fr: string
+  nom_darija: string
+  prix_kg: number
+  prix_affiche: number | null
+  prix_khddar_estime: number | null
+  niveau: ProduitNiveau
+  unite: string
+  stock: number
+}
+
+export type ProduitSuggestionDTO = CatalogueProductDTO
+
+export interface SuggestionsRequestDTO {
+  exclude_ids: number[]
+  panier_total: number
 }
 
 export interface BlacklistParClientDTO {
@@ -381,13 +515,93 @@ export interface BlacklistParQuartierDTO {
   montant_perdu: number
 }
 
+export interface BlacklistCommandeRefuseeDTO {
+  log_id: number
+  commande_id: number | null
+  client_id: number
+  client_label: string | null
+  phone: string | null
+  date_refus: string | null
+  date_commande: string | null
+  statut_commande: string | null
+  montant_perdu: number
+  livreur_nom: string | null
+  quartier: string | null
+  motif: string | null
+}
+
 export interface BlacklistReportDTO {
   mois: number
   annee: number
   total_refus: number
+  total_perte: number
   par_client: BlacklistParClientDTO[]
   par_livreur: BlacklistParLivreurDTO[]
   par_quartier: BlacklistParQuartierDTO[]
+  commandes_refusees: BlacklistCommandeRefuseeDTO[]
+}
+
+export type DashboardPeriod = "today" | "7d" | "30d" | "month" | "custom"
+
+export interface DashboardCurvePointDTO {
+  date: string
+  ca: number
+  nb_commandes: number
+}
+
+export interface DashboardStatusDTO {
+  statut: string
+  count: number
+  pourcentage: number
+}
+
+export interface DashboardPaymentDTO {
+  mode: string
+  count: number
+  montant: number
+  pourcentage: number
+}
+
+export interface DashboardDTO {
+  periode: DashboardPeriod
+  date_custom: string | null
+  date_debut: string
+  date_fin: string
+  derniere_maj: string
+  total_commandes: number
+  total_commandes_precedent: number
+  commandes_livrees: number
+  commandes_livrees_precedent: number
+  commandes_en_route: number
+  commandes_annulees: number
+  commandes_absentes: number
+  taux_livraison: number
+  taux_absence: number
+  ca_total: number
+  ca_total_precedent: number
+  ca_cod: number
+  ca_wallet: number
+  ca_cmi: number
+  panier_moyen: number
+  total_clients_actifs: number
+  nouveaux_clients: number
+  nouveaux_clients_precedent: number
+  clients_blacklistes: number
+  dernier_jit_statut: string | null
+  dernier_jit_volume: number
+  dernier_jit_nb_commandes: number
+  dernier_jit_date: string | null
+  jit_execute_aujourdhui: boolean
+  livreurs_disponibles: number
+  tournees_actives: number
+  cod_confirmes: number
+  cod_annules: number
+  taux_confirmation_cod: number
+  nouveaux_blacklistes: number
+  blacklists_leves: number
+  courbe_ca: DashboardCurvePointDTO[]
+  repartition_statuts: DashboardStatusDTO[]
+  repartition_paiements: DashboardPaymentDTO[]
 }
 
 export interface LiftBlacklistDTO {
@@ -409,6 +623,7 @@ export async function apiCall<T = any>(endpoint: string, options: ApiOptions = {
     method: options.method || "GET",
     headers,
     signal: options.signal,
+    cache: options.cache,
   }
 
   if (options.body !== undefined) {
@@ -472,6 +687,14 @@ export async function envoyerEvenementLivraison(
   })
 }
 
+export async function refuserTourneeLivreur(token: string, body: LivraisonDecisionRequest) {
+  return apiCall<TourneeRefusResponse>("/api/livreur/tournee/refuser", {
+    method: "POST",
+    token,
+    body,
+  })
+}
+
 export async function validerPaiementCodLivreur(token: string, commandeId: string | number) {
   return apiCall<CodValidationResponse>(`/api/livreur/livraisons/${commandeId}/cod/validate`, {
     method: "POST",
@@ -519,13 +742,16 @@ export async function getCommandesCODDemain(token: string, signal?: AbortSignal)
 
 export async function getAdminDispatchTournees(
   token: string,
-  targetDate?: string,
   signal?: AbortSignal
 ) {
-  const query = targetDate ? `?date=${encodeURIComponent(targetDate)}` : ""
-  return apiCall<AdminDispatchTourneesResponse>(`/api/v1/admin/dispatch/tournees${query}`, {
+  return apiCall<AdminDispatchTourneesResponse>(`/api/v1/admin/dispatch/tournees?_=${Date.now()}`, {
     token,
     signal,
+    cache: "no-store",
+    headers: {
+      "Cache-Control": "no-store",
+      Pragma: "no-cache",
+    },
   })
 }
 
@@ -547,6 +773,26 @@ export async function reassignAdminDispatchCommande(
       method: "PUT",
       token,
       body: { nouvelle_tournee_id: nouvelleTourneeId },
+    }
+  )
+}
+
+export async function replanifierAdminAnomalie(token: string, anomalieId: number) {
+  return apiCall<ResolveAnomalieResponse>(
+    `/api/v1/admin/anomalies/${anomalieId}/replanifier`,
+    {
+      method: "POST",
+      token,
+    }
+  )
+}
+
+export async function annulerAdminAnomalie(token: string, anomalieId: number) {
+  return apiCall<ResolveAnomalieResponse>(
+    `/api/v1/admin/anomalies/${anomalieId}/annuler`,
+    {
+      method: "POST",
+      token,
     }
   )
 }
@@ -580,6 +826,96 @@ export async function getAlerteCOD18h(token: string) {
 
 export async function getBlacklistedClients(token: string) {
   return apiCall<ClientBlacklistDTO[]>("/admin/blacklist", { token })
+}
+
+export async function getAdminDashboard(
+  token: string,
+  periode: DashboardPeriod = "today",
+  date_custom?: string,
+  signal?: AbortSignal
+) {
+  const query = new URLSearchParams({ periode })
+  if (date_custom) {
+    query.set("date_custom", date_custom)
+  }
+  return apiCall<DashboardDTO>(`/admin/dashboard?${query.toString()}`, {
+    token,
+    signal,
+  })
+}
+
+export async function getAdminClients(
+  token: string,
+  params: {
+    search?: string
+    page?: number
+    blacklisted?: boolean
+  } = {},
+  signal?: AbortSignal
+) {
+  const query = new URLSearchParams()
+  if (params.search) {
+    query.set("search", params.search)
+  }
+  if (params.page) {
+    query.set("page", String(params.page))
+  }
+  if (typeof params.blacklisted === "boolean") {
+    query.set("blacklisted", String(params.blacklisted))
+  }
+
+  const suffix = query.toString() ? `?${query.toString()}` : ""
+  return apiCall<AdminClientsPageDTO>(`/api/admin/clients${suffix}`, { token, signal })
+}
+
+export async function getProduitsPricing(token: string, signal?: AbortSignal): Promise<ProduitPricingListDTO> {
+  return apiCall<ProduitPricingListDTO>("/api/produits/pricing", { token, signal })
+}
+
+export async function getCatalogueSuggestions(
+  excludeIds: number[],
+  panierTotal: number,
+  signal?: AbortSignal
+): Promise<ProduitSuggestionDTO[]> {
+  return apiCall<ProduitSuggestionDTO[]>("/api/catalogue/suggestions", {
+    method: "POST",
+    body: {
+      exclude_ids: excludeIds.slice(0, 20),
+      panier_total: panierTotal,
+    } satisfies SuggestionsRequestDTO,
+    signal,
+  })
+}
+
+export async function updateProduitPricing(
+  token: string,
+  produitId: number,
+  data: ProduitPricingUpdateDTO
+): Promise<ProduitPricingDTO> {
+  return apiCall<ProduitPricingDTO>(`/api/produits/${produitId}/pricing`, {
+    method: "PATCH",
+    token,
+    body: data,
+  })
+}
+
+export async function recalculerTousPrix(token: string): Promise<{ recalcules: number; alertes: number }> {
+  return apiCall<{ recalcules: number; alertes: number }>("/api/produits/pricing/recalculer", {
+    method: "POST",
+    token,
+  })
+}
+
+export async function blacklistClient(
+  token: string,
+  clientId: number,
+  reason: string
+) {
+  return apiCall(`/admin/blacklist/${clientId}`, {
+    method: "PATCH",
+    token,
+    body: { reason },
+  })
 }
 
 export async function liftBlacklist(

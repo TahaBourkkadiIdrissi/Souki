@@ -13,6 +13,7 @@ from dto.commande_dto import (
 from interfaces.cod_confirmation_log_dao_interface import ICODConfirmationLogDao
 from interfaces.cod_confirmation_service_interface import ICODConfirmationService
 from interfaces.commande_dao_interface import ICommandeVocaleDao
+from services.commande_state_machine import CommandeTransitionError, changer_statut
 
 NON_CONFIRMEE = "NON_CONFIRMEE"
 CONFIRMEE_PAR_APPEL = "CONFIRMEE_PAR_APPEL"
@@ -71,6 +72,7 @@ class CODConfirmationService(ICODConfirmationService):
                     nom_client=row.get("nom_client"),
                     telephone=row.get("telephone"),
                     adresse=row.get("adresse"),
+                    is_blacklisted=row.get("is_blacklisted"),
                     montant=row.get("montant"),
                     creneau_livraison=row.get("creneau_livraison"),
                     statut_confirmation_cod=str(latest_log.statut) if latest_log else NON_CONFIRMEE,
@@ -196,6 +198,16 @@ class CODConfirmationService(ICODConfirmationService):
             raise HTTPException(status_code=409, detail="Cette commande COD est deja annulee.")
 
         if normalized_statut == ANNULEE:
+            try:
+                changer_statut(
+                    session=session,
+                    commande=commande,
+                    nouveau_statut="ANNULEE",
+                    actor_id=admin_id,
+                    reason="COD_CONFIRMATION",
+                )
+            except CommandeTransitionError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
             self.commande_dao.annuler_commande_cod(session, commande)
 
         log = self.cod_confirmation_log_dao.create_log(

@@ -12,7 +12,7 @@ from interfaces.panier_service_interface import IPanierService
 from interfaces.panier_dao_interface import IPanierDao
 from sqlalchemy.orm import Session
 
-DELIVERY_FEE = 10.0
+DELIVERY_FEE = 15.0
 
 # ── Mapping des images pour les produits ──────────────────────────────────────
 PRODUCT_IMAGES = {
@@ -112,6 +112,11 @@ class PanierService(IPanierService):
                 product = products_by_id[item.product_id]
                 requested_quantity = float(item.quantity)
                 available_stock = float(product.stock) # type: ignore
+                unit_price = (
+                    float(item.prix_unitaire)
+                    if item.prix_unitaire
+                    else float(product.prix_kg) # type: ignore
+                )
 
                 if available_stock < requested_quantity:
                     raise ValueError(
@@ -119,7 +124,7 @@ class PanierService(IPanierService):
                         f"Disponible: {available_stock} {product.unite}."
                     )
 
-                line_total = round(float(product.prix_kg) * requested_quantity, 2) # type: ignore
+                line_total = round(unit_price * requested_quantity, 2)
                 sous_total += line_total
                 total_legumes += requested_quantity
                 total_articles += 1
@@ -129,7 +134,7 @@ class PanierService(IPanierService):
                         product_id=int(product.id), # type: ignore
                         nom_produit=str(product.nom_fr),
                         quantite_kg=requested_quantity,
-                        prix_unitaire=float(product.prix_kg), # type: ignore
+                        prix_unitaire=unit_price,
                         sous_total=line_total,
                         unite=str(product.unite),
                         image=get_product_image(str(product.nom_fr)),
@@ -162,7 +167,12 @@ class PanierService(IPanierService):
             # Créer les lignes du panier
             for i, item in enumerate(payload.items):
                 product = products_by_id[item.product_id]
-                line_total = round(float(product.prix_kg) * float(item.quantity), 2) # type: ignore
+                unit_price = (
+                    float(item.prix_unitaire)
+                    if item.prix_unitaire
+                    else float(product.prix_kg) # type: ignore
+                )
+                line_total = round(unit_price * float(item.quantity), 2)
                 self.panier_dao.create_ligne_panier(
                     session=session,
                     panier_id=int(panier.id), # type: ignore
@@ -199,13 +209,20 @@ class PanierService(IPanierService):
         for ligne in lignes:
             product = self.panier_dao.get_product_by_id(session, ligne.produit_id) # type: ignore
             if product:
+                quantite_kg = float(ligne.quantite_kg) # type: ignore
+                sous_total_ligne = float(ligne.sous_total) # type: ignore
+                prix_unitaire = (
+                    round(sous_total_ligne / quantite_kg, 2)
+                    if quantite_kg > 0
+                    else float(product.prix_kg) # type: ignore
+                )
                 lignes_response.append(
                     LignePanierResponseDTO(
                         product_id=int(ligne.produit_id), # type: ignore
                         nom_produit=str(product.nom_fr),
-                        quantite_kg=float(ligne.quantite_kg), # type: ignore
-                        prix_unitaire=float(product.prix_kg), # type: ignore
-                        sous_total=float(ligne.sous_total), # type: ignore
+                        quantite_kg=quantite_kg,
+                        prix_unitaire=prix_unitaire,
+                        sous_total=sous_total_ligne,
                         unite=str(product.unite),
                         image=get_product_image(str(product.nom_fr)),
                     )

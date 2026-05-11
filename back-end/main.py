@@ -55,7 +55,6 @@ def initialize_application() -> None:
 
     avatar_storage_service.bootstrap_avatar_storage()
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application startup and shutdown."""

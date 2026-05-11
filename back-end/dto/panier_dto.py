@@ -7,6 +7,7 @@ class ManualBasketItemDTO(BaseModel):
     """Item du panier manuel"""
     product_id: int
     quantity: float  # en kg
+    prix_unitaire: Optional[float] = None
 
 
 class ManualBasketRequestDTO(BaseModel):
@@ -32,7 +33,7 @@ class ManualBasketResponseDTO(BaseModel):
     lignes_panier: List[LignePanierResponseDTO] = []
     total_dh: float = 0.0
     nombre_articles: int = 0
-    frais_livraison: float = 10.0
+    frais_livraison: float = 15.0
 
 
 class PanierDetailsDTO(BaseModel):
@@ -41,7 +42,7 @@ class PanierDetailsDTO(BaseModel):
     lignes: List[LignePanierResponseDTO]
     total_legumes: float
     sous_total: float
-    frais_livraison: float = 10.0
+    frais_livraison: float = 15.0
     montant_total: float
 
 

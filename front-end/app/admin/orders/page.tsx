@@ -4,10 +4,11 @@ import { Fragment, type ReactNode, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import {
   ArrowLeft,
+  BarChart3,
   Banknote,
   CalendarDays,
   ChevronDown,
-  ChevronUp,
+  ChevronRight,
   CheckCircle2,
   ClipboardList,
   Eye,
@@ -20,6 +21,7 @@ import {
   Scale,
   TriangleAlert,
   Unlock,
+  User,
   XCircle,
 } from "lucide-react"
 
@@ -43,7 +45,7 @@ import {
 } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { EmptyClientBlock, FicheClientPanel, type ClientBlockKey } from "@/components/admin/client-fiche-panel"
 import { useAuth } from "@/hooks/useAuth"
 import { cn } from "@/lib/utils"
 import {
@@ -56,7 +58,6 @@ import {
   updateConfirmationCOD,
   type AlerteCOD18hDTO,
   type CommandeCODDemainDTO,
-  type CommandeHistoriqueDTO,
   type DetailProduitJIT,
   type FicheClientDTO,
   type JITCommandeDeverrouillee,
@@ -87,6 +88,7 @@ interface AdminOrderRow {
   produits: string
   volumeKg: number | null
   montant: number | null
+  modePaiement: string | null
   statut: string
   creneauLivraison: string | null
   isBlacklisted: boolean | null
@@ -109,6 +111,7 @@ interface CODClientGroupDTO {
   client: string
   telephone: string | null
   adresse: string | null
+  isBlacklisted: boolean | null
   commandes: CommandeCODDemainDTO[]
   montantTotal: number
 }
@@ -349,6 +352,10 @@ function normalizeOrders(payload: unknown): AdminOrderRow[] {
           getNumber(item.montant_total) ??
           getNumber(item.total) ??
           getNumber(item.total_amount),
+        modePaiement:
+          getString(item.mode_paiement) ||
+          getString(item.modePaiement) ||
+          getString(item.payment_method),
         statut:
           getString(item.statut) ||
           getString(item.status) ||
@@ -415,6 +422,7 @@ function groupCodOrdersByClient(orders: CommandeCODDemainDTO[]): CODClientGroupD
         client: getString(order.nom_client) || "Client inconnu",
         telephone: getString(order.telephone),
         adresse: getString(order.adresse),
+        isBlacklisted: order.is_blacklisted ?? null,
         commandes: [],
         montantTotal: 0,
       }
@@ -422,6 +430,7 @@ function groupCodOrdersByClient(orders: CommandeCODDemainDTO[]): CODClientGroupD
 
     acc[key].commandes.push(order)
     acc[key].montantTotal += order.montant || 0
+    acc[key].isBlacklisted = acc[key].isBlacklisted || order.is_blacklisted || null
 
     return acc
   }, {} as Record<string, CODClientGroupDTO>)
@@ -440,6 +449,9 @@ function normalizeDetailProduit(value: unknown): DetailProduitJIT | null {
   const volumeTotalKg = getNumber(value.volume_total_kg ?? value.volume_final_kg)
   const prixKg = getNumber(value.prix_kg)
   const sousTotal = getNumber(value.sous_total)
+  const prixAchat = getNumber(value.prix_achat) ?? prixKg
+  const sousTotalCa = getNumber(value.sous_total_ca) ?? sousTotal
+  const sousTotalAchat = getNumber(value.sous_total_achat) ?? sousTotal
 
   if (
     productId === null ||
@@ -447,7 +459,10 @@ function normalizeDetailProduit(value: unknown): DetailProduitJIT | null {
     quantiteBruteKg === null ||
     volumeTotalKg === null ||
     prixKg === null ||
-    sousTotal === null
+    sousTotal === null ||
+    prixAchat === null ||
+    sousTotalCa === null ||
+    sousTotalAchat === null
   ) {
     return null
   }
@@ -460,7 +475,10 @@ function normalizeDetailProduit(value: unknown): DetailProduitJIT | null {
     buffer_perte_10_pct: getNumber(value.buffer_perte_10_pct ?? value.buffer_10_pct) ?? 0,
     volume_total_kg: volumeTotalKg,
     prix_kg: prixKg,
+    prix_achat: prixAchat,
     sous_total: sousTotal,
+    sous_total_ca: sousTotalCa,
+    sous_total_achat: sousTotalAchat,
     unite: getString(value.unite) || "kg",
   }
 }
@@ -470,17 +488,38 @@ function normalizeLogResult(log: JITLogDTO): ResultatAgregationJIT {
     .map(normalizeDetailProduit)
     .filter((detail): detail is DetailProduitJIT => detail !== null)
 
-  const montantTotal = details.reduce((sum, detail) => sum + detail.sous_total, 0)
+  const caEstimeTotal = getNumber(log.details_volumes?.ca_estime_total)
+    ?? details.reduce((sum, detail) => sum + detail.sous_total_ca, 0)
+  const coutAchatEstime = getNumber(log.details_volumes?.cout_achat_estime)
+    ?? details.reduce((sum, detail) => sum + detail.sous_total_achat, 0)
+  const margeEstimee = getNumber(log.details_volumes?.marge_estimee)
+    ?? caEstimeTotal - coutAchatEstime
 
   return {
     nombre_commandes: log.nombre_commandes,
     nombre_abonnements: log.nombre_abonnements,
     volume_total_kg: log.volume_total,
     details_produits: details,
-    montant_total: Number(montantTotal.toFixed(2)),
+    montant_total: Number(caEstimeTotal.toFixed(2)),
+    ca_estime_total: Number(caEstimeTotal.toFixed(2)),
+    cout_achat_estime: Number(coutAchatEstime.toFixed(2)),
+    marge_estimee: Number(margeEstimee.toFixed(2)),
     statut: log.statut,
     message: log.message_alerte,
   }
+}
+
+function isToday(date: Date) {
+  if (Number.isNaN(date.getTime())) {
+    return false
+  }
+
+  const today = new Date()
+  return (
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
+  )
 }
 
 function getOrdersErrorMessage(error: unknown) {
@@ -512,7 +551,7 @@ function statusBadge(status: string) {
 
   if (normalized === "confirmee") {
     return {
-      label: "Confirmee",
+      label: "Confirmée",
       className: "bg-blue-50 text-blue-800 border-blue-200",
       locked: false,
     }
@@ -520,7 +559,7 @@ function statusBadge(status: string) {
 
   if (normalized === "verrouillee") {
     return {
-      label: "Verrouillee",
+      label: "Verrouillée",
       className: "bg-slate-100 text-slate-800 border-slate-200",
       locked: true,
     }
@@ -528,7 +567,7 @@ function statusBadge(status: string) {
 
   if (normalized === "a_livrer") {
     return {
-      label: "A livrer",
+      label: "À livrer",
       className: "bg-indigo-50 text-indigo-900 border-indigo-200",
       locked: false,
     }
@@ -544,7 +583,7 @@ function statusBadge(status: string) {
 
   if (normalized === "livre" || normalized === "livree") {
     return {
-      label: "Livre",
+      label: "Livrée",
       className: "bg-emerald-50 text-emerald-900 border-emerald-200",
       locked: false,
     }
@@ -560,7 +599,7 @@ function statusBadge(status: string) {
 
   if (normalized === "annulee" || normalized === "annule") {
     return {
-      label: "Annulee",
+      label: "Annulée",
       className: "bg-red-50 text-red-900 border-red-200",
       locked: false,
     }
@@ -578,23 +617,66 @@ function codConfirmationBadge(status: string) {
 
   if (normalized === "CONFIRMEE_PAR_APPEL") {
     return {
-      label: "Confirmee par appel",
+      label: "Confirmée par appel",
       className: "bg-emerald-50 text-emerald-800 border-emerald-200",
     }
   }
 
   if (normalized === "ANNULEE") {
     return {
-      label: "Annulee",
+      label: "Annulée",
       className: "bg-red-50 text-red-800 border-red-200",
     }
   }
 
   return {
-    label: "Non confirmee",
+    label: "Non confirmée",
     className: "bg-amber-50 text-amber-800 border-amber-200 animate-pulse",
   }
 }
+
+function paiementBadge(modePaiement: string | null | undefined) {
+  const normalized = normalizeStatus(modePaiement || "")
+
+  if (normalized === "cod") {
+    return {
+      label: "COD",
+      className: "bg-amber-50 text-amber-700 border-amber-200",
+      dotClassName: "bg-amber-500",
+    }
+  }
+
+  if (normalized === "cmi") {
+    return {
+      label: "CMI",
+      className: "bg-blue-50 text-blue-700 border-blue-200",
+      dotClassName: "bg-blue-500",
+    }
+  }
+
+  if (normalized === "wallet") {
+    return {
+      label: "Wallet",
+      className: "bg-violet-50 text-violet-700 border-violet-200",
+      dotClassName: "bg-violet-500",
+    }
+  }
+
+  if (normalized === "cash") {
+    return {
+      label: "Cash",
+      className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      dotClassName: "bg-emerald-500",
+    }
+  }
+
+  return {
+    label: "N/A",
+    className: "bg-gray-50 text-gray-600 border-gray-200",
+    dotClassName: "bg-gray-400",
+  }
+}
+
 function jitLogBadge(status: string) {
   const normalized = normalizeStatus(status)
 
@@ -603,7 +685,7 @@ function jitLogBadge(status: string) {
   }
 
   if (normalized === "aucune_commande") {
-    return "bg-[#F07C00]/10 text-[#F07C00] border-[#F07C00]"
+    return "bg-amber-50 text-amber-700 border-amber-200"
   }
 
   return "bg-red-100 text-red-600 border-red-400"
@@ -624,8 +706,8 @@ function DashboardStatCard({
 }) {
   const toneClasses = {
     green: "bg-emerald-50 text-[#1E8A3C] border-emerald-100",
-    orange: "bg-orange-50 text-[#F07C00] border-orange-100",
-    blue: "bg-blue-50 text-[#1A4F8A] border-blue-100",
+    orange: "bg-amber-50 text-amber-700 border-amber-200",
+    blue: "bg-gray-50 text-gray-700 border-gray-200",
     slate: "bg-slate-50 text-slate-700 border-slate-100",
   }
 
@@ -682,7 +764,7 @@ function EmptyState({
 }) {
   return (
     <div className="px-6 py-14 text-center">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F0FAF1] text-[#1E8A3C]">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-[#1E8A3C]">
         <ClipboardList className="h-6 w-6" />
       </div>
       <p className="mt-4 text-base font-semibold text-gray-950">{title}</p>
@@ -694,7 +776,7 @@ function EmptyState({
 function ProductDetailsTable({ details }: { details: DetailProduitJIT[] }) {
   if (details.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-[#8A8A8A]">
+      <div className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500">
         Aucun détail produit disponible.
       </div>
     )
@@ -705,28 +787,32 @@ function ProductDetailsTable({ details }: { details: DetailProduitJIT[] }) {
       <table className="w-full">
         <thead className="bg-gray-50">
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Produit</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Quantité brute</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Buffer 10%</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Volume total</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Unit&eacute;</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Prix kg</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Sous-total</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Produit</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Quantité brute</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Buffer 10%</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Volume total</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Unité</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Prix vente kg</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Prix achat kg</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">CA estimé</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Coût achat</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
           {details.map((detail) => (
             <tr key={detail.product_id} className="hover:bg-gray-50">
               <td className="px-4 py-3">
-                <p className="font-medium text-[#3D3D3D]">{detail.nom_fr}</p>
-                <p className="text-xs text-[#8A8A8A]">{detail.nom_darija || "—"}</p>
+                <p className="font-medium text-gray-900">{detail.nom_fr}</p>
+                <p className="text-xs text-gray-500">{detail.nom_darija || "—"}</p>
               </td>
-              <td className="px-4 py-3 text-[#3D3D3D]">{formatWeight(detail.quantite_brute_kg)}</td>
-              <td className="px-4 py-3 text-[#3D3D3D]">{formatWeight(detail.buffer_perte_10_pct)}</td>
+              <td className="px-4 py-3 text-gray-900">{formatWeight(detail.quantite_brute_kg)}</td>
+              <td className="px-4 py-3 text-gray-900">{formatWeight(detail.buffer_perte_10_pct)}</td>
               <td className="px-4 py-3 font-semibold text-[#1E8A3C]">{formatWeight(detail.volume_total_kg)}</td>
-              <td className="px-4 py-3 text-[#3D3D3D]">{detail.unite}</td>
-              <td className="px-4 py-3 text-[#3D3D3D]">{formatMoney(detail.prix_kg)}</td>
-              <td className="px-4 py-3 font-semibold text-[#F07C00]">{formatMoney(detail.sous_total)}</td>
+              <td className="px-4 py-3 text-gray-900">{detail.unite}</td>
+              <td className="px-4 py-3 text-gray-900">{formatMoney(detail.prix_kg)}</td>
+              <td className="px-4 py-3 text-gray-900">{formatMoney(detail.prix_achat)}</td>
+              <td className="px-4 py-3 font-semibold text-[#1E8A3C]">{formatMoney(detail.sous_total_ca)}</td>
+              <td className="px-4 py-3 font-semibold text-gray-900">{formatMoney(detail.sous_total_achat)}</td>
             </tr>
           ))}
         </tbody>
@@ -735,10 +821,35 @@ function ProductDetailsTable({ details }: { details: DetailProduitJIT[] }) {
   )
 }
 
+function JITFinancialSummary({ result }: { result: ResultatAgregationJIT | null }) {
+  if (!result) {
+    return null
+  }
+
+  return (
+    <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-xl bg-green-50 px-4 py-3">
+          <p className="text-xs font-semibold uppercase text-gray-500">CA estimé demain</p>
+          <p className="mt-1 text-xl font-bold text-[#1E8A3C]">{formatMoney(result.ca_estime_total)}</p>
+        </div>
+        <div className="rounded-xl bg-amber-50 px-4 py-3">
+          <p className="text-xs font-semibold uppercase text-gray-500">Coût achat estimé</p>
+          <p className="mt-1 text-xl font-bold text-amber-700">{formatMoney(result.cout_achat_estime)}</p>
+        </div>
+        <div className="rounded-xl bg-green-50 px-4 py-3">
+          <p className="text-xs font-semibold uppercase text-gray-500">Marge estimée</p>
+          <p className="mt-1 text-xl font-bold text-[#1E8A3C]">{formatMoney(result.marge_estimee)}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function JITLogDetailsTable({ log }: { log: JITLogDTO | null }) {
   if (!Array.isArray(log?.details_volumes?.produits) || log.details_volumes.produits.length === 0) {
     return (
-      <div className="px-6 py-12 text-center text-sm text-[#8A8A8A]">
+      <div className="px-6 py-12 text-center text-sm text-gray-500">
         Aucun détail disponible
       </div>
     )
@@ -749,11 +860,11 @@ function JITLogDetailsTable({ log }: { log: JITLogDTO | null }) {
       <table className="w-full">
         <thead className="bg-gray-50">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Produit</th>
-            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Quantité brute</th>
-            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Buffer 10%</th>
-            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Volume final</th>
-            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Unité</th>
+            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Produit</th>
+            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Quantité brute</th>
+            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Buffer 10%</th>
+            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Volume final</th>
+            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Unité</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -765,11 +876,11 @@ function JITLogDetailsTable({ log }: { log: JITLogDTO | null }) {
 
             return (
               <tr key={`${detail.product_id}-${index}`} className="hover:bg-gray-50">
-                <td className="px-6 py-4 text-sm text-[#8A8A8A] max-w-[320px] whitespace-normal">{detail.nom_fr}</td>
-                <td className="px-6 py-4 text-[#3D3D3D]">{formatWeight(detail.quantite_brute_kg)}</td>
-                <td className="px-6 py-4 text-[#3D3D3D]">{formatWeight(detail.buffer_perte_10_pct)}</td>
+                <td className="px-6 py-4 text-sm text-gray-500 max-w-[320px] whitespace-normal">{detail.nom_fr}</td>
+                <td className="px-6 py-4 text-gray-900">{formatWeight(detail.quantite_brute_kg)}</td>
+                <td className="px-6 py-4 text-gray-900">{formatWeight(detail.buffer_perte_10_pct)}</td>
                 <td className="px-6 py-4 font-semibold text-[#1E8A3C]">{formatWeight(detail.volume_total_kg)}</td>
-                <td className="px-6 py-4 text-[#3D3D3D]">{detail.unite}</td>
+                <td className="px-6 py-4 text-gray-900">{detail.unite}</td>
               </tr>
             )
           })}
@@ -782,8 +893,8 @@ function JITLogDetailsTable({ log }: { log: JITLogDTO | null }) {
 function UnlockDetailsTable({ details }: { details: JITCommandeDeverrouillee[] }) {
   if (details.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-[#8A8A8A]">
-        Aucun detail de deverrouillage disponible.
+      <div className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500">
+        Aucun détail de déverrouillage disponible.
       </div>
     )
   }
@@ -793,10 +904,10 @@ function UnlockDetailsTable({ details }: { details: JITCommandeDeverrouillee[] }
       <table className="w-full">
         <thead className="bg-gray-50">
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">ID commande</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Date</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Avant</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Apres</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">ID commande</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Date</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Avant</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Après</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -807,7 +918,7 @@ function UnlockDetailsTable({ details }: { details: JITCommandeDeverrouillee[] }
             return (
               <tr key={detail.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium text-[#1E8A3C]">{detail.id}</td>
-                <td className="px-4 py-3 text-sm text-[#3D3D3D]">{formatShortDateTime(detail.date_commande)}</td>
+                <td className="px-4 py-3 text-sm text-gray-900">{formatShortDateTime(detail.date_commande)}</td>
                 <td className="px-4 py-3">
                   <span className={cn("inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium", beforeBadge.className)}>
                     {beforeBadge.locked && <Lock className="w-3 h-3" />}
@@ -829,15 +940,6 @@ function UnlockDetailsTable({ details }: { details: JITCommandeDeverrouillee[] }
   )
 }
 
-type ClientBlockKey =
-  | "identity"
-  | "orders"
-  | "voice"
-  | "sessions"
-  | "notifications"
-  | "subscription"
-  | "payments"
-
 function emptyValue(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === "") {
     return "Aucune donnée disponible"
@@ -846,308 +948,6 @@ function emptyValue(value: string | number | null | undefined) {
   return String(value)
 }
 
-function formatBool(value: boolean | null | undefined) {
-  if (value === null || value === undefined) {
-    return "Aucune donnée disponible"
-  }
-
-  return value ? "Oui" : "Non"
-}
-
-function ClientInfoGrid({ items }: { items: { label: string; value: string | number | null | undefined }[] }) {
-  return (
-    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-      {items.map((item) => (
-        <div key={item.label} className="rounded-xl bg-gray-50 px-4 py-3">
-          <p className="text-xs font-semibold uppercase text-[#8A8A8A]">{item.label}</p>
-          <p className="mt-1 text-sm font-medium text-[#3D3D3D]">{emptyValue(item.value)}</p>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function EmptyClientBlock() {
-  return (
-    <div className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-[#8A8A8A]">
-      Aucune donnée disponible
-    </div>
-  )
-}
-
-function ClientSheetBlock({
-  title,
-  count,
-  isOpen,
-  onToggle,
-  children,
-}: {
-  title: string
-  count?: number
-  isOpen: boolean
-  onToggle: () => void
-  children: ReactNode
-}) {
-  return (
-    <div className="rounded-2xl border border-gray-100 overflow-hidden bg-white">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-gray-50"
-      >
-        <span className="font-semibold text-[#3D3D3D]">
-          {title}
-          {typeof count === "number" ? <span className="ml-2 text-sm font-normal text-[#8A8A8A]">({count})</span> : null}
-        </span>
-        {isOpen ? <ChevronUp className="w-4 h-4 text-[#8A8A8A]" /> : <ChevronDown className="w-4 h-4 text-[#8A8A8A]" />}
-      </button>
-
-      {isOpen && <div className="border-t border-gray-100 p-4">{children}</div>}
-    </div>
-  )
-}
-
-function CommandeClientCard({ commande }: { commande: CommandeHistoriqueDTO }) {
-  const badge = statusBadge(commande.statut || "")
-
-  return (
-    <div className="rounded-xl border border-gray-100 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="font-semibold text-[#1E8A3C]">Commande #{commande.id}</p>
-          <p className="text-sm text-[#8A8A8A]">{formatShortDateTime(commande.date_commande)}</p>
-        </div>
-        <span className={cn("inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium", badge.className)}>
-          {badge.locked && <Lock className="w-3 h-3" />}
-          {badge.label}
-        </span>
-      </div>
-
-      <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="rounded-xl bg-gray-50 px-3 py-2">
-          <p className="text-xs uppercase text-[#8A8A8A]">Montant</p>
-          <p className="font-semibold text-[#F07C00]">{formatMoney(commande.montant_total)}</p>
-        </div>
-        <div className="rounded-xl bg-gray-50 px-3 py-2">
-          <p className="text-xs uppercase text-[#8A8A8A]">Paiement</p>
-          <p className="font-medium text-[#3D3D3D]">{emptyValue(commande.mode_paiement)}</p>
-        </div>
-        <div className="rounded-xl bg-gray-50 px-3 py-2">
-          <p className="text-xs uppercase text-[#8A8A8A]">Validé</p>
-          <p className="font-medium text-[#3D3D3D]">{formatBool(commande.payment_validated)}</p>
-        </div>
-        <div className="rounded-xl bg-gray-50 px-3 py-2">
-          <p className="text-xs uppercase text-[#8A8A8A]">À encaisser</p>
-          <p className="font-semibold text-[#3D3D3D]">{formatMoney(commande.montant_a_encaisser)}</p>
-        </div>
-      </div>
-
-      <ClientInfoGrid
-        items={[
-          { label: "Créneau", value: commande.creneau_livraison },
-          { label: "En route", value: formatShortDateTime(commande.enroute_at) },
-          { label: "Livrée", value: formatShortDateTime(commande.delivered_at) },
-          { label: "Absent", value: formatShortDateTime(commande.absent_at) },
-        ]}
-      />
-
-      <div className="mt-4">
-        <p className="mb-2 text-xs font-semibold uppercase text-[#8A8A8A]">Produits</p>
-        {commande.produits.length === 0 ? (
-          <EmptyClientBlock />
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {commande.produits.map((produit, index) => (
-              <span key={`${produit.nom_fr}-${index}`} className="rounded-full border border-[#1E8A3C]/20 bg-[#F0FAF1] px-3 py-1 text-xs font-medium text-[#1E8A3C]">
-                {produit.nom_fr} · {formatWeight(produit.quantite_kg)}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function FicheClientPanel({
-  fiche,
-  openBlocks,
-  onToggleBlock,
-}: {
-  fiche: FicheClientDTO
-  openBlocks: Record<string, boolean>
-  onToggleBlock: (blockKey: ClientBlockKey) => void
-}) {
-  const blockOrder: ClientBlockKey[] = ["identity", "orders", "voice", "sessions", "notifications", "subscription"]
-  const activeBlock = blockOrder.find((blockKey) => openBlocks[`${fiche.id}:${blockKey}`]) || "identity"
-  const paiements = fiche.commandes.filter((commande) => commande.paiement)
-
-  return (
-    <div className="rounded-2xl border border-[#1E8A3C]/20 bg-white shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#1E8A3C]">Fiche client</p>
-          <h3 className="mt-1 text-base font-bold text-gray-950">Client #{fiche.id}</h3>
-          <p className="mt-1 text-sm text-gray-500">{fiche.email || fiche.phone || "Aucune donnee disponible"}</p>
-        </div>
-        <span className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium", fiche.is_active ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-gray-200 bg-gray-50 text-gray-600")}>
-          {fiche.is_active ? "Actif" : "Inactif"}
-        </span>
-      </div>
-
-      <Tabs defaultValue={activeBlock} onValueChange={(value) => onToggleBlock(value as ClientBlockKey)} className="p-5">
-        <TabsList className="mb-5 flex h-auto w-full flex-wrap justify-start gap-2 rounded-xl bg-gray-100 p-1">
-          <TabsTrigger value="identity" className="rounded-lg px-3 py-2 text-xs data-[state=active]:bg-white data-[state=active]:text-[#1E8A3C]">Identite</TabsTrigger>
-          <TabsTrigger value="orders" className="rounded-lg px-3 py-2 text-xs data-[state=active]:bg-white data-[state=active]:text-[#1E8A3C]">Commandes</TabsTrigger>
-          <TabsTrigger value="voice" className="rounded-lg px-3 py-2 text-xs data-[state=active]:bg-white data-[state=active]:text-[#1E8A3C]">Vocal</TabsTrigger>
-          <TabsTrigger value="sessions" className="rounded-lg px-3 py-2 text-xs data-[state=active]:bg-white data-[state=active]:text-[#1E8A3C]">Sessions</TabsTrigger>
-          <TabsTrigger value="notifications" className="rounded-lg px-3 py-2 text-xs data-[state=active]:bg-white data-[state=active]:text-[#1E8A3C]">Notifs</TabsTrigger>
-          <TabsTrigger value="subscription" className="rounded-lg px-3 py-2 text-xs data-[state=active]:bg-white data-[state=active]:text-[#1E8A3C]">Abonnement</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="identity" className="space-y-4">
-          <ClientInfoGrid
-            items={[
-              { label: "Email", value: fiche.email },
-              { label: "Telephone", value: fiche.phone },
-              { label: "Inscription", value: formatDateTime(fiche.created_at) },
-              { label: "Derniere connexion", value: formatDateTime(fiche.last_login_at) },
-              { label: "Provider", value: fiche.auth_provider },
-              { label: "Email verifie", value: formatBool(fiche.is_email_verified) },
-              { label: "Telephone verifie", value: formatBool(fiche.is_phone_verified) },
-              { label: "Blacklisted", value: formatBool(fiche.is_blacklisted) },
-            ]}
-          />
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Adresses</p>
-            {(fiche.adresses || []).length === 0 ? (
-              <EmptyClientBlock />
-            ) : (
-              <div className="grid gap-3 md:grid-cols-2">
-                {(fiche.adresses || []).map((adresse, index) => (
-                  <div key={`${adresse.neighborhood || "adresse"}-${index}`} className="rounded-xl border border-gray-100 bg-slate-50 px-4 py-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="font-medium text-gray-950">
-                        {[adresse.neighborhood, adresse.street, adresse.ville].filter(Boolean).join(", ") || "Adresse sans libelle"}
-                      </p>
-                      {adresse.is_default ? (
-                        <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
-                          Principale
-                        </span>
-                      ) : null}
-                    </div>
-                    {adresse.details ? <p className="mt-1 text-sm text-gray-500">{adresse.details}</p> : null}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="orders" className="space-y-4">
-          {fiche.commandes.length === 0 ? (
-            <EmptyClientBlock />
-          ) : (
-            <div className="grid gap-3">
-              {fiche.commandes.map((commande) => (
-                <CommandeClientCard key={commande.id} commande={commande} />
-              ))}
-            </div>
-          )}
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Paiements</p>
-            {paiements.length === 0 ? (
-              <EmptyClientBlock />
-            ) : (
-              <div className="space-y-3">
-                {paiements.map((commande) => (
-                  <ClientInfoGrid
-                    key={`paiement-${commande.id}`}
-                    items={[
-                      { label: "Commande", value: `#${commande.id}` },
-                      { label: "Methode", value: commande.paiement?.methode },
-                      { label: "Montant", value: formatMoney(commande.paiement?.montant) },
-                      { label: "Valide", value: formatBool(commande.paiement?.valide) },
-                      { label: "Frais CMI", value: formatMoney(commande.paiement?.frais_cmi) },
-                      { label: "Montant net", value: formatMoney(commande.paiement?.montant_net) },
-                    ]}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="voice" className="space-y-3">
-          {fiche.commandes_vocales.length === 0 ? (
-            <EmptyClientBlock />
-          ) : (
-            fiche.commandes_vocales.map((commande) => (
-              <div key={commande.id} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-                <p className="font-semibold text-[#1E8A3C]">Commande vocale #{commande.id}</p>
-                <p className="text-sm text-gray-500">{formatShortDateTime(commande.created_at)} - {emptyValue(commande.langue_detectee)}</p>
-                <p className="mt-2 text-sm text-gray-700">{emptyValue(commande.transcription_brute)}</p>
-              </div>
-            ))
-          )}
-        </TabsContent>
-
-        <TabsContent value="sessions" className="space-y-3">
-          {fiche.sessions.length === 0 ? (
-            <EmptyClientBlock />
-          ) : (
-            fiche.sessions.map((session, index) => (
-              <ClientInfoGrid
-                key={`${session.ip || "session"}-${index}`}
-                items={[
-                  { label: "Appareil", value: session.device_name },
-                  { label: "Navigateur", value: session.browser },
-                  { label: "Localisation", value: session.location },
-                  { label: "IP", value: session.ip },
-                  { label: "Derniere activite", value: formatDateTime(session.last_active) },
-                  { label: "Creee le", value: formatDateTime(session.created_at) },
-                  { label: "Active", value: formatBool(session.is_active) },
-                ]}
-              />
-            ))
-          )}
-        </TabsContent>
-
-        <TabsContent value="notifications">
-          {!fiche.notifications ? (
-            <EmptyClientBlock />
-          ) : (
-            <ClientInfoGrid
-              items={[
-                { label: "Email", value: formatBool(fiche.notifications.email) },
-                { label: "Push", value: formatBool(fiche.notifications.push) },
-                { label: "SMS", value: formatBool(fiche.notifications.sms) },
-                { label: "Commandes", value: formatBool(fiche.notifications.order_updates) },
-                { label: "Promotions", value: formatBool(fiche.notifications.promotions) },
-                { label: "Newsletter", value: formatBool(fiche.notifications.newsletter) },
-              ]}
-            />
-          )}
-        </TabsContent>
-
-        <TabsContent value="subscription">
-          {!fiche.abonnement ? (
-            <EmptyClientBlock />
-          ) : (
-            <ClientInfoGrid
-              items={[
-                { label: "Poids garanti", value: fiche.abonnement.poids_garanti !== null && fiche.abonnement.poids_garanti !== undefined ? formatWeight(fiche.abonnement.poids_garanti) : null },
-                { label: "Frequence", value: fiche.abonnement.frequence },
-                { label: "Mensuel", value: fiche.abonnement.montant_mensuel !== null && fiche.abonnement.montant_mensuel !== undefined ? formatMoney(fiche.abonnement.montant_mensuel) : null },
-                { label: "Actif", value: formatBool(fiche.abonnement.actif) },
-              ]}
-            />
-          )}
-        </TabsContent>
-      </Tabs>
-    </div>
-  )
-}
 export default function AdminOrdersPage() {
   const { token, isLoading: isAuthLoading } = useAuth()
   const [orders, setOrders] = useState<AdminOrderRow[]>([])
@@ -1193,6 +993,7 @@ export default function AdminOrdersPage() {
   const [openClientId, setOpenClientId] = useState<number | null>(null)
   const [openOrdersClientKey, setOpenOrdersClientKey] = useState<string | null>(null)
   const [openCodClientKey, setOpenCodClientKey] = useState<string | null>(null)
+  const [closedDefaultCodClientKeys, setClosedDefaultCodClientKeys] = useState<Record<string, boolean>>({})
   const [clientSheets, setClientSheets] = useState<Record<number, FicheClientDTO>>({})
   const [clientSheetErrors, setClientSheetErrors] = useState<Record<number, string>>({})
   const [clientSheetLoadingId, setClientSheetLoadingId] = useState<number | null>(null)
@@ -1315,6 +1116,55 @@ export default function AdminOrdersPage() {
     }
   }
 
+  async function handleToggleCodClientSheet(clientId: number | null) {
+    if (!token || !clientId) {
+      return
+    }
+
+    if (openClientId === clientId) {
+      setOpenClientId(null)
+      return
+    }
+
+    setOpenClientId(clientId)
+
+    if (clientSheets[clientId]) {
+      return
+    }
+
+    setClientSheetLoadingId(clientId)
+    setClientSheetErrors((current) => ({ ...current, [clientId]: "" }))
+
+    try {
+      const fiche = await getFicheClient(token, clientId)
+      setClientSheets((current) => ({ ...current, [clientId]: fiche }))
+    } catch (error) {
+      setClientSheetErrors((current) => ({
+        ...current,
+        [clientId]: error instanceof Error ? error.message : "Impossible de charger la fiche client.",
+      }))
+    } finally {
+      setClientSheetLoadingId(null)
+    }
+  }
+
+  function toggleCodGroup(group: CODClientGroupDTO, isOpen: boolean) {
+    if (isOpen) {
+      setOpenCodClientKey(null)
+      if (group.commandes.length > 1) {
+        setClosedDefaultCodClientKeys((current) => ({ ...current, [group.key]: true }))
+      }
+      return
+    }
+
+    setOpenCodClientKey(group.key)
+    setClosedDefaultCodClientKeys((current) => {
+      const next = { ...current }
+      delete next[group.key]
+      return next
+    })
+  }
+
   function toggleClientBlock(clientId: number, blockKey: ClientBlockKey) {
     const key = `${clientId}:${blockKey}`
     setOpenClientBlocks((current) => ({ ...current, [key]: !(current[key] ?? blockKey === "identity") }))
@@ -1357,6 +1207,13 @@ export default function AdminOrdersPage() {
     }
   }, [isAuthLoading, token])
 
+  useEffect(() => {
+    if (lastLog?.date_execution && isToday(new Date(lastLog.date_execution))) {
+      setJitResult(normalizeLogResult(lastLog))
+      setJitResultSource("execute")
+    }
+  }, [lastLog])
+
   async function handlePreview() {
     if (!token || isPreviewLoading) {
       return
@@ -1384,7 +1241,7 @@ export default function AdminOrdersPage() {
     }
 
     if (hasLockedOrdersToday) {
-      setJitError("Le JIT du jour est deja lance. Deverrouillez les commandes avant de le relancer.")
+      setJitError("Le JIT du jour est déjà lancé. Déverrouillez les commandes avant de le relancer.")
       return
     }
 
@@ -1474,7 +1331,7 @@ export default function AdminOrdersPage() {
       setCodFeedback(response.message)
       await loadOrders(token, false)
     } catch (error) {
-      setCodError(error instanceof Error ? error.message : "Impossible de mettre a jour la confirmation COD.")
+      setCodError(error instanceof Error ? error.message : "Impossible de mettre à jour la confirmation COD.")
     } finally {
       setCodActionId(null)
     }
@@ -1514,7 +1371,7 @@ export default function AdminOrdersPage() {
       setCodOrders((current) => current.filter((order) => !successIds.has(order.id)))
       setCodFeedback(
         response.failed.length > 0
-          ? `${response.message} IDs en echec: ${response.failed.join(", ")}.`
+          ? `${response.message} IDs en échec: ${response.failed.join(", ")}.`
           : response.message
       )
       setPendingCodCancellation(null)
@@ -1567,12 +1424,12 @@ export default function AdminOrdersPage() {
       )
       setCodFeedback(
         response.failed.length > 0
-          ? `${response.message} IDs en echec: ${response.failed.join(", ")}.`
+          ? `${response.message} IDs en échec: ${response.failed.join(", ")}.`
           : `${response.message} Client: ${group.client}.`
       )
       await loadOrders(token, false)
     } catch (error) {
-      setCodError(error instanceof Error ? error.message : "Impossible de mettre a jour les confirmations COD.")
+      setCodError(error instanceof Error ? error.message : "Impossible de mettre à jour les confirmations COD.")
     } finally {
       setCodGroupActionKey(null)
     }
@@ -1649,11 +1506,11 @@ export default function AdminOrdersPage() {
     return groupCodOrdersByClient(filteredOrders)
   }, [codOrders, codSearch, codStatusFilter])
   const sidebarItems = [
-    { id: "overview" as const, label: "Vue generale", icon: "📊", count: null },
-    { id: "commandes" as const, label: "Commandes du jour", icon: "📦", count: orders.length },
-    { id: "jit" as const, label: "JIT", icon: "⚡", count: null },
-    { id: "cod" as const, label: "COD", icon: "📞", count: codUncalledClientsCount },
-    { id: "logs" as const, label: "Logs", icon: "📋", count: null },
+    { id: "overview" as const, label: "Vue generale", icon: BarChart3, count: null },
+    { id: "commandes" as const, label: "Commandes du jour", icon: Package, count: orders.length },
+    { id: "jit" as const, label: "JIT", icon: Rocket, count: null },
+    { id: "cod" as const, label: "COD", icon: PhoneCall, count: codUncalledClientsCount },
+    { id: "logs" as const, label: "Logs", icon: ClipboardList, count: null },
   ]
 
   if (isAuthLoading) {
@@ -1661,7 +1518,7 @@ export default function AdminOrdersPage() {
       <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center px-6">
         <div className="rounded-3xl bg-white shadow-sm border border-gray-100 px-8 py-10 text-center max-w-md">
           <Spinner className="mx-auto mb-4 size-6 text-[#1E8A3C]" />
-          <p className="text-sm uppercase tracking-[0.25em] text-[#8A8A8A]">Back-office</p>
+          <p className="text-sm uppercase tracking-[0.25em] text-gray-500">Back-office</p>
           <h1 className="mt-3 text-2xl font-bold text-[#1E8A3C]">Chargement des commandes</h1>
           <p className="mt-3 text-[#6F6F6F]">Nous préparons le tableau de suivi JIT.</p>
         </div>
@@ -1696,7 +1553,7 @@ export default function AdminOrdersPage() {
                   <h1 className="truncate text-xl font-semibold tracking-tight text-gray-900">Gestion des Commandes</h1>
                   <span className="hidden text-xs font-medium text-gray-400 md:inline">{todayLabel}</span>
                 </div>
-                <p className="hidden text-xs text-gray-500 md:block">Vue d&apos;ensemble operationnelle</p>
+                <p className="hidden text-xs text-gray-500 md:block">Vue d&apos;ensemble opérationnelle</p>
               </div>
             </div>
           </div>
@@ -1707,7 +1564,7 @@ export default function AdminOrdersPage() {
               disabled={!token || isPreviewLoading || isExecuteLoading}
               className="hidden items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-all duration-150 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 sm:inline-flex"
             >
-              {isPreviewLoading ? <Spinner className="size-4 text-[#1E8A3C]" /> : <Eye className="w-4 h-4 text-[#1A4F8A]" />}
+              {isPreviewLoading ? <Spinner className="size-4 text-[#1E8A3C]" /> : <Eye className="w-4 h-4 text-gray-500" />}
               Prévisualiser
             </button>
             <button
@@ -1751,10 +1608,11 @@ export default function AdminOrdersPage() {
 
       <aside className="fixed left-0 top-16 z-20 hidden h-[calc(100vh-4rem)] w-64 flex-col border-r border-gray-200 bg-white lg:flex">
         <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-          {sidebarItems.map((item) => {
-            const isActive = activeSection === item.id
+              {sidebarItems.map((item) => {
+                const isActive = activeSection === item.id
+                const Icon = item.icon
 
-            return (
+                return (
               <button
                 key={item.id}
                 type="button"
@@ -1763,9 +1621,9 @@ export default function AdminOrdersPage() {
                   "inline-flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
                   isActive ? "bg-[#F0FDF4] text-[#1E8A3C]" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                 )}
-              >
-                <span className="inline-flex items-center gap-2">
-                  <span aria-hidden="true">{item.icon}</span>
+                >
+                  <span className="inline-flex items-center gap-2">
+                  <Icon className="h-4 w-4" aria-hidden="true" />
                   {item.label}
                 </span>
                 {typeof item.count === "number" ? (
@@ -1805,15 +1663,15 @@ export default function AdminOrdersPage() {
         <section className={cn("overflow-hidden rounded-3xl border border-[#DDE7DE] bg-white shadow-sm", activeSection !== "overview" && "hidden")}>
           <div className="relative p-6 lg:p-8">
             <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-[#1E8A3C]/10 blur-3xl" />
-            <div className="absolute bottom-0 right-20 h-24 w-24 rounded-full bg-[#F07C00]/10 blur-3xl" />
+            <div className="absolute bottom-0 right-20 h-24 w-24 rounded-full bg-amber-50 blur-3xl" />
             <div className="relative flex flex-wrap items-start justify-between gap-5">
               <div>
-                <p className="inline-flex items-center rounded-full border border-[#1E8A3C]/15 bg-[#F0FAF1] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#1E8A3C]">
+                <p className="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-green-600">
                   Back-office commandes
                 </p>
                 <h1 className="mt-4 text-3xl font-bold tracking-tight text-gray-950 lg:text-4xl">Gestion des Commandes</h1>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-500">
-                  Pilotage des commandes du jour, verrouillage JIT et validation COD depuis un dashboard operationnel unique.
+                  Pilotage des commandes du jour, verrouillage JIT et validation COD depuis un dashboard opérationnel unique.
                 </p>
               </div>
 
@@ -1828,9 +1686,9 @@ export default function AdminOrdersPage() {
 
         <section className={cn("grid gap-4 md:grid-cols-2 xl:grid-cols-4", activeSection !== "overview" && "hidden")}>
           <DashboardStatCard icon={Package} label="Commandes du jour" value={orders.length} tone="green" helper={`${clientGroups.length} client(s)`} />
-          <DashboardStatCard icon={Scale} label="Volume total" value={formatWeight(ordersTotalVolume)} tone="blue" helper={`${lockedOrdersCount} verrouillee(s)`} />
+          <DashboardStatCard icon={Scale} label="Volume total" value={formatWeight(ordersTotalVolume)} tone="blue" helper={`${lockedOrdersCount} verrouillée(s)`} />
           <DashboardStatCard icon={Banknote} label="Montant total" value={formatMoney(ordersTotalAmount)} tone="orange" helper="Estimation commandes" />
-          <DashboardStatCard icon={PhoneCall} label="COD confirmes" value={`${codCalledClientsCount} / ${codGroups.length}`} tone="slate" helper={`${codOrders.length} commande(s) COD`} />
+          <DashboardStatCard icon={PhoneCall} label="COD confirmés" value={`${codCalledClientsCount} / ${codGroups.length}`} tone="slate" helper={`${codOrders.length} commande(s) COD`} />
         </section>
 
         <section className={cn("grid gap-4 md:grid-cols-2", activeSection !== "overview" && "hidden")}>
@@ -1839,7 +1697,10 @@ export default function AdminOrdersPage() {
             onClick={() => setActiveSection("commandes")}
             className="rounded-xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all duration-150 hover:border-[#1E8A3C]/30 hover:shadow-md"
           >
-            <p className="text-xs font-medium uppercase tracking-wider text-gray-500">📦 Commandes du jour</p>
+            <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-gray-500">
+              <Package className="h-3.5 w-3.5" aria-hidden="true" />
+              Commandes du jour
+            </p>
             <p className="mt-3 text-2xl font-bold text-gray-900">{orders.length} commandes</p>
             <p className="mt-1 text-sm text-gray-500">{clientGroups.length} clients uniques, {orderStatuses.length} statut(s)</p>
             <p className="mt-5 text-sm font-semibold text-[#1E8A3C]">Voir commandes →</p>
@@ -1850,10 +1711,13 @@ export default function AdminOrdersPage() {
             onClick={() => setActiveSection("jit")}
             className="rounded-xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all duration-150 hover:border-[#1E8A3C]/30 hover:shadow-md"
           >
-            <p className="text-xs font-medium uppercase tracking-wider text-gray-500">⚡ JIT</p>
+            <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-gray-500">
+              <Rocket className="h-3.5 w-3.5" aria-hidden="true" />
+              JIT
+            </p>
             <p className="mt-3 text-2xl font-bold text-gray-900">{lastLog ? formatWeight(lastLog.volume_total) : "Aucun log"}</p>
-            <p className="mt-1 text-sm text-gray-500">{lastLog ? `Derniere exec: ${formatShortDateTime(lastLog.date_execution)}` : "Pret pour aggregation"}</p>
-            <p className="mt-5 text-sm font-semibold text-[#1E8A3C]">Gerer JIT →</p>
+            <p className="mt-1 text-sm text-gray-500">{lastLog ? `Dernière exec: ${formatShortDateTime(lastLog.date_execution)}` : "Prêt pour agrégation"}</p>
+            <p className="mt-5 text-sm font-semibold text-[#1E8A3C]">Gérer JIT →</p>
           </button>
 
           <button
@@ -1862,10 +1726,13 @@ export default function AdminOrdersPage() {
             className="relative rounded-xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all duration-150 hover:border-[#1E8A3C]/30 hover:shadow-md"
           >
             {codUncalledClientsCount > 0 ? <span className="absolute right-4 top-4 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">{codUncalledClientsCount} a appeler</span> : null}
-            <p className="text-xs font-medium uppercase tracking-wider text-gray-500">📞 COD</p>
+            <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-gray-500">
+              <PhoneCall className="h-3.5 w-3.5" aria-hidden="true" />
+              COD
+            </p>
             <p className="mt-3 text-2xl font-bold text-gray-900">{codOrders.length} commandes COD</p>
-            <p className="mt-1 text-sm text-gray-500">{codCalledClientsCount} clients appeles, {formatMoney(codTotalAmount)} a encaisser</p>
-            <p className="mt-5 text-sm font-semibold text-[#1E8A3C]">Gerer COD →</p>
+            <p className="mt-1 text-sm text-gray-500">{codCalledClientsCount} clients appelés, {formatMoney(codTotalAmount)} à encaisser</p>
+            <p className="mt-5 text-sm font-semibold text-[#1E8A3C]">Gérer COD →</p>
           </button>
 
           <button
@@ -1873,7 +1740,10 @@ export default function AdminOrdersPage() {
             onClick={() => setActiveSection("logs")}
             className="rounded-xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all duration-150 hover:border-[#1E8A3C]/30 hover:shadow-md"
           >
-            <p className="text-xs font-medium uppercase tracking-wider text-gray-500">📋 Logs</p>
+            <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-gray-500">
+              <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />
+              Logs
+            </p>
             <p className="mt-3 text-2xl font-bold text-gray-900">{lastLog?.statut || "Aucun log"}</p>
             <p className="mt-1 text-sm text-gray-500">{lastLog ? `${lastLog.nombre_commandes} commandes - ${formatShortDateTime(lastLog.date_execution)}` : "Dernier cycle indisponible"}</p>
             <p className="mt-5 text-sm font-semibold text-[#1E8A3C]">Voir logs →</p>
@@ -1884,7 +1754,7 @@ export default function AdminOrdersPage() {
           <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-800 shadow-sm">
             <div className="flex items-start gap-3">
               <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
-              <span>{codAlerte18h.nb_non_confirmees} commandes COD non confirmees. Il est passe 18h00, priorisez les appels avant la tournee.</span>
+              <span>{codAlerte18h.nb_non_confirmees} commandes COD non confirmées. Il est passé 18h00, priorisez les appels avant la tournée.</span>
             </div>
           </div>
         )}
@@ -1894,15 +1764,15 @@ export default function AdminOrdersPage() {
         <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           <div className="p-6 border-b border-gray-100 flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-[#3D3D3D]">Commandes du jour</h2>
-              <p className="text-sm text-[#8A8A8A] mt-1">
+              <h2 className="text-lg font-bold text-gray-900">Commandes du jour</h2>
+              <p className="text-sm text-gray-500 mt-1">
                 Auto-refresh toutes les 30 secondes
                 {lastOrdersRefresh ? ` • Dernière mise à jour ${lastOrdersRefresh}` : ""}
               </p>
             </div>
 
-            <div className="px-4 py-2 bg-[#F0FAF1] rounded-xl">
-              <p className="text-sm text-[#8A8A8A]">Clients visibles</p>
+            <div className="px-4 py-2 bg-green-50 rounded-xl">
+              <p className="text-sm text-gray-500">Clients visibles</p>
               <p className="text-2xl font-bold text-[#1E8A3C]">{filteredClientGroups.length}</p>
             </div>
           </div>
@@ -1936,12 +1806,6 @@ export default function AdminOrdersPage() {
                     <option key={status} value={status}>{status}</option>
                   ))}
                 </select>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-all duration-150 hover:bg-gray-50"
-                >
-                  Exporter
-                </button>
               </div>
             </div>
           </div>
@@ -1958,13 +1822,13 @@ export default function AdminOrdersPage() {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Client</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Téléphone</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Nb commandes</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Statuts</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Volume total</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Montant total</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Client</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Téléphone</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Nb commandes</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Statuts</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Volume total</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Montant total</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -1983,7 +1847,7 @@ export default function AdminOrdersPage() {
                           className="hover:bg-gray-50 cursor-pointer"
                           onClick={() => setOpenOrdersClientKey(isOrdersOpen ? null : group.key)}
                         >
-                          <td className="px-6 py-4 text-[#3D3D3D]">
+                          <td className="px-6 py-4 text-gray-900">
                             <div className="flex flex-wrap items-center gap-2">
                               <span>{group.client}</span>
                               {group.isBlacklisted ? (
@@ -1993,7 +1857,7 @@ export default function AdminOrdersPage() {
                               ) : null}
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-sm text-[#3D3D3D]">{emptyValue(group.clientPhone)}</td>
+                          <td className="px-6 py-4 text-sm text-gray-900">{emptyValue(group.clientPhone)}</td>
                           <td className="px-6 py-4 font-semibold text-[#1E8A3C]">{group.commandes.length}</td>
                           <td className="px-6 py-4">
                             <div className="flex flex-wrap gap-2">
@@ -2015,8 +1879,8 @@ export default function AdminOrdersPage() {
                               })}
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-[#3D3D3D]">{formatWeight(group.volumeTotal)}</td>
-                          <td className="px-6 py-4 font-semibold text-[#F07C00]">{formatMoney(group.montantTotal)}</td>
+                          <td className="px-6 py-4 text-gray-900">{formatWeight(group.volumeTotal)}</td>
+                          <td className="px-6 py-4 font-semibold text-gray-900">{formatMoney(group.montantTotal)}</td>
                           <td className="px-6 py-4">
                             <div className="flex flex-wrap gap-2">
                               <button
@@ -2025,9 +1889,15 @@ export default function AdminOrdersPage() {
                                   event.stopPropagation()
                                   setOpenOrdersClientKey(isOrdersOpen ? null : group.key)
                                 }}
-                                className="cursor-pointer px-4 py-2 border border-[#1A4F8A]/20 bg-[#1A4F8A]/10 rounded-xl font-medium text-[#1A4F8A] hover:bg-[#1A4F8A]/15 flex items-center gap-2 whitespace-nowrap"
+                                className={cn(
+                                  "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-all duration-150",
+                                  isOrdersOpen
+                                    ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#1E8A3C] hover:bg-[#DCFCE7]"
+                                    : "border-transparent text-gray-500 hover:border-gray-200 hover:bg-gray-100 hover:text-gray-900"
+                                )}
                               >
-                                {isOrdersOpen ? "Masquer commandes" : "Voir commandes"}
+                                {isOrdersOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                {isOrdersOpen ? "Masquer" : "Voir commandes"}
                               </button>
                             <button
                               type="button"
@@ -2036,9 +1906,10 @@ export default function AdminOrdersPage() {
                                 void handleToggleClientSheet(firstOrder)
                               }}
                               disabled={!group.clientId || isFicheLoading}
-                              className="cursor-pointer px-4 py-2 border border-[#1E8A3C]/20 bg-[#F0FAF1] rounded-xl font-medium text-[#1E8A3C] hover:bg-[#E7F5E8] disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-1.5 text-xs font-semibold text-[#1E8A3C] shadow-sm transition-all duration-150 hover:border-[#1E8A3C] hover:bg-[#1E8A3C] hover:text-white hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               {isFicheLoading && <Spinner className="size-4 text-[#1E8A3C]" />}
+                              {!isFicheLoading && <User className="h-3.5 w-3.5" />}
                               {isClientOpen ? "Masquer fiche" : "Fiche client"}
                             </button>
                             </div>
@@ -2051,26 +1922,39 @@ export default function AdminOrdersPage() {
                                 <table className="w-full">
                                   <thead className="bg-gray-50">
                                     <tr>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">ID</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Date</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Produits</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Volume kg</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Montant</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Statut</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Créneau</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">ID</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Date</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Produits</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Volume kg</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Montant</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Paiement</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Statut</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Créneau</th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-gray-100">
                                     {group.commandes.map((order) => {
                                       const badge = statusBadge(order.statut)
+                                      const paymentBadge = paiementBadge(order.modePaiement)
 
                                       return (
                                         <tr key={order.id} className="hover:bg-gray-50">
                                           <td className="px-4 py-3 font-medium text-[#1E8A3C]">{order.id}</td>
-                                          <td className="px-4 py-3 text-sm text-[#3D3D3D]">{formatShortDateTime(order.dateCommande)}</td>
-                                          <td className="px-4 py-3 text-sm text-[#8A8A8A] max-w-[320px] whitespace-normal">{order.produits}</td>
-                                          <td className="px-4 py-3 text-[#3D3D3D]">{formatWeight(order.volumeKg)}</td>
-                                          <td className="px-4 py-3 font-semibold text-[#F07C00]">{formatMoney(order.montant)}</td>
+                                          <td className="px-4 py-3 text-sm text-gray-900">{formatShortDateTime(order.dateCommande)}</td>
+                                          <td className="px-4 py-3 text-sm text-gray-500 max-w-[320px] whitespace-normal">{order.produits}</td>
+                                          <td className="px-4 py-3 text-gray-900">{formatWeight(order.volumeKg)}</td>
+                                          <td className="px-4 py-3 font-semibold text-gray-900">{formatMoney(order.montant)}</td>
+                                          <td className="px-4 py-3">
+                                            <span
+                                              className={cn(
+                                                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                                                paymentBadge.className
+                                              )}
+                                            >
+                                              <span className={cn("h-1.5 w-1.5 rounded-full", paymentBadge.dotClassName)} aria-hidden="true" />
+                                              {paymentBadge.label}
+                                            </span>
+                                          </td>
                                           <td className="px-4 py-3">
                                             <span
                                               className={cn(
@@ -2082,7 +1966,7 @@ export default function AdminOrdersPage() {
                                               {badge.label}
                                             </span>
                                           </td>
-                                          <td className="px-4 py-3 text-sm text-[#3D3D3D]">{emptyValue(order.creneauLivraison)}</td>
+                                          <td className="px-4 py-3 text-sm text-gray-900">{emptyValue(order.creneauLivraison)}</td>
                                         </tr>
                                       )
                                     })}
@@ -2096,9 +1980,9 @@ export default function AdminOrdersPage() {
                           <tr className="bg-[#F8FBF8]">
                             <td colSpan={7} className="px-6 py-4">
                               {isFicheLoading ? (
-                                <div className="rounded-2xl border border-gray-100 bg-white px-6 py-8 text-center">
-                                  <Spinner className="mx-auto size-6 text-[#1E8A3C]" />
-                                  <p className="mt-3 text-sm text-[#8A8A8A]">Chargement de la fiche clientâ€¦</p>
+                                <div className="flex items-center justify-center gap-3 rounded-2xl border border-gray-100 bg-white py-8">
+                                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#1E8A3C] border-t-transparent" />
+                                  <span className="text-sm font-medium text-gray-500">Chargement de la fiche client...</span>
                                 </div>
                               ) : ficheError ? (
                                 <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -2127,26 +2011,41 @@ export default function AdminOrdersPage() {
 
           </div>
 
-          <aside className={cn("space-y-6 xl:sticky xl:top-24 xl:self-start", activeSection !== "jit" && "hidden")}>
+          <section className={cn("space-y-6", activeSection !== "jit" && "hidden")}>
         <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between gap-4 mb-6">
             <div>
-              <h2 className="text-lg font-bold text-[#3D3D3D]">Agrégation JIT</h2>
-              <p className="text-sm text-[#8A8A8A] mt-1">
+              <h2 className="text-lg font-bold text-gray-900">Agrégation JIT</h2>
+              <p className="text-sm text-gray-500 mt-1">
                 Prévisualisez l&apos;agrégation ou lancez le verrouillage immédiat des commandes.
               </p>
-              <span className="mt-3 inline-flex items-center rounded-full border border-[#1E8A3C]/20 bg-[#F0FAF1] px-3 py-1 text-xs font-medium text-[#1E8A3C]">
-                Agrégation du {todayLabel}
-              </span>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-600">
+                  Agrégation du {todayLabel}
+                </span>
+                {jitResultSource === "execute" ? (
+                  <span className="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-600">
+                    ✅ JIT exécuté aujourd&apos;hui
+                  </span>
+                ) : jitResultSource === "preview" ? (
+                  <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+                    👁 Prévisualisation
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-500">
+                    ⏳ JIT non lancé
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center gap-3">
               <button
                 onClick={() => void handlePreview()}
                 disabled={!token || isPreviewLoading || isExecuteLoading}
-                className="px-4 py-2 border border-gray-200 rounded-xl font-medium text-[#3D3D3D] hover:bg-gray-50 disabled:opacity-70 flex items-center gap-2"
+                className="px-4 py-2 border border-gray-200 rounded-lg font-medium text-gray-900 hover:bg-gray-50 disabled:opacity-70 flex items-center gap-2"
               >
-                {isPreviewLoading ? <Spinner className="size-4 text-[#1E8A3C]" /> : <Eye className="w-4 h-4 text-[#1A4F8A]" />}
+                {isPreviewLoading ? <Spinner className="size-4 text-[#1E8A3C]" /> : <Eye className="w-4 h-4 text-gray-500" />}
                 Prévisualiser
               </button>
             <button
@@ -2168,36 +2067,36 @@ export default function AdminOrdersPage() {
           )}
 
           {jitFeedback && (
-            <div className="mb-4 rounded-xl border border-[#4CB84A]/20 bg-[#F0FAF1] px-4 py-3 text-sm text-[#1E8A3C]">
+            <div className="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-600">
               {jitFeedback}
             </div>
           )}
 
           {hasLockedOrdersToday && (
-            <div className="mb-4 rounded-xl border border-[#F5C400]/40 bg-[#F5C400]/10 px-4 py-3 text-sm font-medium text-[#8B6A00] flex items-start gap-3">
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700 flex items-start gap-3">
               <TriangleAlert className="w-4 h-4 mt-0.5 shrink-0" />
               <span>Le JIT du jour est déjà lancé. Déverrouillez les commandes avant de relancer une agrégation.</span>
             </div>
           )}
 
           <div className="grid md:grid-cols-3 gap-4 mb-6">
-            <div className="p-4 bg-[#F0FAF1] rounded-xl">
-              <p className="text-sm text-[#8A8A8A]">Commandes verrouillées</p>
-              <p className="mt-2 text-3xl font-bold text-[#1E8A3C]">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p className="text-sm text-gray-500">Commandes verrouillées</p>
+              <p className="mt-1 text-2xl font-bold text-gray-900">
                 {jitResultSource === "execute" && jitResult ? jitResult.nombre_commandes : "—"}
               </p>
             </div>
 
-            <div className="p-4 bg-[#F07C00]/5 rounded-xl">
-              <p className="text-sm text-[#8A8A8A]">Volume agrégé</p>
-              <p className="mt-2 text-3xl font-bold text-[#F07C00]">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p className="text-sm text-gray-500">Volume agrégé</p>
+              <p className="mt-1 text-2xl font-bold text-gray-900">
                 {jitResult ? formatWeight(jitResult.volume_total_kg) : "—"}
               </p>
             </div>
 
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <p className="text-sm text-[#8A8A8A]">Montant estimé</p>
-              <p className="mt-2 text-3xl font-bold text-[#3D3D3D]">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p className="text-sm text-gray-500">Montant estimé</p>
+              <p className="mt-1 text-2xl font-bold text-gray-900">
                 {jitResult ? formatMoney(jitResult.montant_total) : "—"}
               </p>
             </div>
@@ -2206,8 +2105,8 @@ export default function AdminOrdersPage() {
           <div className="rounded-2xl border border-gray-100 overflow-hidden">
             <div className="p-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="font-semibold text-[#3D3D3D]">Détail par produit</h3>
-                <p className="text-sm text-[#8A8A8A]">
+                <h3 className="font-semibold text-gray-900">Détail par produit</h3>
+                <p className="text-sm text-gray-500">
                   {jitResultSource === "preview" && "Résultat de la prévisualisation"}
                   {jitResultSource === "execute" && "Résultat de la dernière exécution JIT"}
                   {!jitResultSource && "Aucun résultat JIT disponible pour le moment"}
@@ -2228,6 +2127,7 @@ export default function AdminOrdersPage() {
 
             <div className="p-4">
               <ProductDetailsTable details={jitResult?.details_produits || []} />
+              <JITFinancialSummary result={jitResult} />
             </div>
           </div>
         </section>
@@ -2235,8 +2135,8 @@ export default function AdminOrdersPage() {
         <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-[#3D3D3D]">Déverrouillage JIT</h2>
-              <p className="text-sm text-[#8A8A8A] mt-1">
+              <h2 className="text-lg font-bold text-gray-900">Déverrouillage JIT</h2>
+              <p className="text-sm text-gray-500 mt-1">
                 Permet d&apos;annuler le verrouillage JIT si une correction opérationnelle est nécessaire.
               </p>
             </div>
@@ -2245,9 +2145,9 @@ export default function AdminOrdersPage() {
               <AlertDialogTrigger asChild>
                 <button
                   disabled={!token || isUnlocking}
-                  className="px-4 py-2 border border-gray-200 rounded-xl font-medium text-[#3D3D3D] hover:bg-gray-50 disabled:opacity-70 flex items-center gap-2"
+                  className="px-4 py-2 border border-gray-200 rounded-lg font-medium text-gray-900 hover:bg-gray-50 disabled:opacity-70 flex items-center gap-2"
                 >
-                  {isUnlocking ? <Spinner className="size-4 text-[#1E8A3C]" /> : <Unlock className="w-4 h-4 text-[#F07C00]" />}
+                  {isUnlocking ? <Spinner className="size-4 text-[#1E8A3C]" /> : <Unlock className="w-4 h-4 text-amber-500" />}
                   Déverrouiller
                 </button>
               </AlertDialogTrigger>
@@ -2266,7 +2166,7 @@ export default function AdminOrdersPage() {
                       event.preventDefault()
                       void handleUnlock()
                     }}
-                    className="rounded-xl bg-[#F07C00] hover:bg-[#D66B00]"
+                    className="rounded-lg bg-red-500 hover:bg-red-600"
                   >
                     {isUnlocking ? <Spinner className="size-4" /> : <Unlock className="w-4 h-4" />}
                     Confirmer
@@ -2283,20 +2183,20 @@ export default function AdminOrdersPage() {
           )}
 
           {(unlockFeedback || lastUnlockedCount !== null) && !unlockError && (
-            <div className="mt-6 rounded-xl border border-[#4CB84A]/20 bg-[#F0FAF1] px-4 py-4">
+            <div className="mt-6 rounded-xl border border-green-200 bg-green-50 px-4 py-4">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm text-[#8A8A8A]">Commandes rouvertes</p>
+                  <p className="text-sm text-gray-500">Commandes rouvertes</p>
                   <p className="mt-2 text-3xl font-bold text-[#1E8A3C]">{lastUnlockedCount ?? 0}</p>
-                  {unlockFeedback && <p className="mt-2 text-sm text-[#1E8A3C]">{unlockFeedback}</p>}
+                  {unlockFeedback && <p className="mt-2 text-sm text-green-600">{unlockFeedback}</p>}
                 </div>
 
                 <button
                   onClick={() => setIsUnlockDetailsOpen(true)}
                   disabled={lastUnlockedDetails.length === 0}
-                  className="px-4 py-2 border border-[#4CB84A]/30 bg-white rounded-xl font-medium text-[#3D3D3D] hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2"
+                  className="px-4 py-2 border border-gray-300 bg-white rounded-lg font-medium text-gray-900 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2"
                 >
-                  <Eye className="w-4 h-4 text-[#1A4F8A]" />
+                  <Eye className="w-4 h-4 text-gray-500" />
                   Voir le détail
                 </button>
               </div>
@@ -2304,7 +2204,7 @@ export default function AdminOrdersPage() {
           )}
 
           {!unlockFeedback && lastUnlockedCount === null && !unlockError && (
-            <div className="mt-6 rounded-xl border border-dashed border-gray-200 px-4 py-6 text-sm text-[#8A8A8A]">
+            <div className="mt-6 rounded-xl border border-dashed border-gray-200 px-4 py-6 text-sm text-gray-500">
               Aucune action de déverrouillage n&apos;a encore été lancée.
             </div>
           )}
@@ -2314,7 +2214,7 @@ export default function AdminOrdersPage() {
           <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
             <div>
               <h2 className="text-base font-semibold text-gray-950">Dernier log JIT</h2>
-              <p className="mt-1 text-sm text-gray-500">Cycle JIT le plus recent.</p>
+              <p className="mt-1 text-sm text-gray-500">Cycle JIT le plus récent.</p>
             </div>
 
             <button
@@ -2322,8 +2222,8 @@ export default function AdminOrdersPage() {
               disabled={!lastLog}
               className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Eye className="h-3.5 w-3.5 text-[#1A4F8A]" />
-              {showDetails ? "Masquer" : "Details"}
+              <Eye className="h-3.5 w-3.5 text-gray-500" />
+              {showDetails ? "Masquer" : "Détails"}
             </button>
           </div>
 
@@ -2352,7 +2252,7 @@ export default function AdminOrdersPage() {
                 </div>
                 <div className="rounded-xl bg-gray-50 p-3">
                   <p className="text-xs text-gray-500">Volume</p>
-                  <p className="mt-1 text-xl font-bold text-[#F07C00]">{formatWeight(lastLog.volume_total)}</p>
+                  <p className="mt-1 text-xl font-bold text-gray-900">{formatWeight(lastLog.volume_total)}</p>
                 </div>
               </div>
               <span className={cn("inline-flex w-fit items-center rounded-full border px-2.5 py-0.5 text-xs font-medium", jitLogBadge(lastLog.statut))}>
@@ -2377,18 +2277,18 @@ export default function AdminOrdersPage() {
           )}
         </section>
 
-          </aside>
+          </section>
         </div>
 
         <section className={cn("overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm", activeSection !== "cod" && "hidden")}>
           <div className="p-6 border-b border-gray-100 space-y-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <div className="inline-flex items-center rounded-full border border-[#F07C00]/20 bg-[#F07C00]/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#B15B00]">
+                <div className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-700">
                   Validation COD
                 </div>
-                <h2 className="mt-3 text-lg font-bold text-[#3D3D3D]">Commandes COD verrouillees par le JIT</h2>
-                <p className="text-sm text-[#8A8A8A] mt-1">
+                <h2 className="mt-3 text-lg font-bold text-gray-900">Commandes COD verrouillées par le JIT</h2>
+                <p className="text-sm text-gray-500 mt-1">
                   Une ligne par client pour appeler une seule fois, puis traiter toutes ses commandes COD verrouillées.
                 </p>
               </div>
@@ -2397,29 +2297,29 @@ export default function AdminOrdersPage() {
                 type="button"
                 onClick={() => token && void loadCodOrders(token, true)}
                 disabled={!token || isCodLoading}
-                className="px-4 py-2 border border-gray-200 rounded-xl font-medium text-[#3D3D3D] hover:bg-gray-50 disabled:opacity-70 flex items-center gap-2"
+                className="px-4 py-2 border border-gray-200 rounded-lg font-medium text-gray-900 hover:bg-gray-50 disabled:opacity-70 flex items-center gap-2"
               >
-                {isCodLoading ? <Spinner className="size-4 text-[#1E8A3C]" /> : <RefreshCw className="w-4 h-4 text-[#1A4F8A]" />}
+                {isCodLoading ? <Spinner className="size-4 text-[#1E8A3C]" /> : <RefreshCw className="w-4 h-4 text-gray-500" />}
                 Rafraîchir COD
               </button>
             </div>
 
             <div className="grid gap-3 md:grid-cols-4">
-              <div className="rounded-2xl border border-[#1E8A3C]/10 bg-[#F0FAF1] px-4 py-3">
-                <p className="text-xs font-semibold uppercase text-[#1E8A3C]">Clients appelés</p>
-                <p className="mt-2 text-2xl font-bold text-[#1E8A3C]">{codCalledClientsCount}</p>
+              <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3">
+                <p className="text-xs font-semibold uppercase text-green-600">Clients appelés</p>
+                <p className="mt-2 text-2xl font-bold text-green-600">{codCalledClientsCount}</p>
               </div>
-              <div className="rounded-2xl border border-[#F07C00]/10 bg-[#F07C00]/5 px-4 py-3">
-                <p className="text-xs font-semibold uppercase text-[#B15B00]">Commandes COD</p>
-                <p className="mt-2 text-2xl font-bold text-[#F07C00]">{codOrders.length}</p>
+              <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                <p className="text-xs font-semibold uppercase text-gray-500">Commandes COD</p>
+                <p className="mt-2 text-2xl font-bold text-gray-900">{codOrders.length}</p>
               </div>
-              <div className="rounded-2xl border border-[#F5C400]/20 bg-[#F5C400]/10 px-4 py-3">
-                <p className="text-xs font-semibold uppercase text-[#8B6A00]">Clients non appelés</p>
-                <p className="mt-2 text-2xl font-bold text-[#8B6A00]">{codUncalledClientsCount}</p>
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <p className="text-xs font-semibold uppercase text-amber-700">Clients non appelés</p>
+                <p className="mt-2 text-2xl font-bold text-amber-700">{codUncalledClientsCount}</p>
               </div>
-              <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-                <p className="text-xs font-semibold uppercase text-[#8A8A8A]">Montant COD</p>
-                <p className="mt-2 text-2xl font-bold text-[#3D3D3D]">{formatMoney(codTotalAmount)}</p>
+              <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                <p className="text-xs font-semibold uppercase text-gray-500">Montant COD</p>
+                <p className="mt-2 text-2xl font-bold text-gray-900">{formatMoney(codTotalAmount)}</p>
               </div>
             </div>
           </div>
@@ -2427,14 +2327,14 @@ export default function AdminOrdersPage() {
             {codAlerte18h?.alerte_active && (
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 flex items-start gap-3">
                 <TriangleAlert className="w-4 h-4 mt-0.5 shrink-0" />
-                <span>{codAlerte18h.nb_non_confirmees} commandes COD non confirmees - Il est passe 18h00</span>
+                <span>{codAlerte18h.nb_non_confirmees} commandes COD non confirmées - Il est passé 18h00</span>
               </div>
             )}
 
             {isAfterCodAlertTime && hasUnconfirmedCodOrders && (
-              <div className="rounded-xl border border-[#F5C400]/40 bg-[#F5C400]/10 px-4 py-3 text-sm font-medium text-[#8B6A00] flex items-start gap-3">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700 flex items-start gap-3">
                 <TriangleAlert className="w-4 h-4 mt-0.5 shrink-0" />
-                <span>Certaines commandes COD verrouillees par le JIT ne sont pas encore confirmees par appel.</span>
+                <span>Certaines commandes COD verrouillées par le JIT ne sont pas encore confirmées par appel.</span>
               </div>
             )}
 
@@ -2445,19 +2345,19 @@ export default function AdminOrdersPage() {
             )}
 
             {codFeedback && (
-              <div className="rounded-xl border border-[#4CB84A]/20 bg-[#F0FAF1] px-4 py-3 text-sm text-[#1E8A3C]">
+              <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-600">
                 {codFeedback}
               </div>
             )}
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <label className="relative block w-full md:max-w-xl">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8A8A8A]" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
                 <input
                   value={codSearch}
                   onChange={(event) => setCodSearch(event.target.value)}
                   placeholder="Filtrer par client, téléphone, adresse, créneau..."
-                  className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm text-[#3D3D3D] outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                  className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm text-gray-900 outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
                 />
               </label>
 
@@ -2475,113 +2375,105 @@ export default function AdminOrdersPage() {
           </div>
 
           {isCodLoading ? (
-            <TableSkeleton rows={5} columns={8} />
+            <TableSkeleton rows={5} columns={5} />
           ) : filteredCodGroups.length === 0 ? (
             <EmptyState
-              title="Aucune commande COD a confirmer"
-              description={codSearch || codStatusFilter !== "tous" ? "Aucun resultat ne correspond aux filtres actuels." : "Aucune commande COD verrouillee par le JIT pour le moment."}
+              title="Aucune commande COD à confirmer"
+              description={codSearch || codStatusFilter !== "tous" ? "Aucun résultat ne correspond aux filtres actuels." : "Aucune commande COD verrouillée par le JIT pour le moment."}
             />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Client</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Téléphone</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Adresse</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Commandes</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Montant total</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Créneaux</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Statut confirmation</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Client</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Téléphone</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Commandes COD</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Montant total</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filteredCodGroups.map((group) => {
-                    const isCodOpen = openCodClientKey === group.key
+                    const defaultOpen = group.commandes.length > 1 && !closedDefaultCodClientKeys[group.key]
+                    const isCodOpen = openCodClientKey === group.key || (openCodClientKey !== group.key && defaultOpen)
+                    const isClientSheetOpen = group.clientId !== null && openClientId === group.clientId
                     const isGroupUpdating = codGroupActionKey === group.key
                     const allConfirmed = group.commandes.every(
                       (order) => normalizeStatus(order.statut_confirmation_cod).toUpperCase() === "CONFIRMEE_PAR_APPEL"
                     )
-                    const creneaux = Array.from(
-                      new Set(group.commandes.map((order) => getString(order.creneau_livraison)).filter(Boolean))
-                    )
-                    const statuses = Array.from(
-                      new Set(group.commandes.map((order) => order.statut_confirmation_cod || "NON_CONFIRMEE"))
-                    )
+                    const fiche = group.clientId ? clientSheets[group.clientId] : null
+                    const ficheError = group.clientId ? clientSheetErrors[group.clientId] : null
+                    const isFicheLoading = group.clientId !== null && clientSheetLoadingId === group.clientId
 
                     return (
                       <Fragment key={group.key}>
                         <tr className="hover:bg-gray-50">
-                          <td className="px-6 py-4 text-[#3D3D3D]">
-                            <p className="font-medium">{emptyValue(group.client)}</p>
-                            <p className="text-xs text-[#8A8A8A]">{group.commandes.length} commande(s) COD</p>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-[#3D3D3D]">{emptyValue(group.telephone)}</td>
-                          <td className="px-6 py-4 text-sm text-[#3D3D3D] max-w-[320px] whitespace-normal">{emptyValue(group.adresse)}</td>
-                          <td className="px-6 py-4 text-sm text-[#3D3D3D]">
-                            {group.commandes.map((order) => `#${order.id}`).join(", ")}
-                          </td>
-                          <td className="px-6 py-4 font-semibold text-[#F07C00]">{formatMoney(group.montantTotal)}</td>
-                          <td className="px-6 py-4 text-sm text-[#3D3D3D]">{creneaux.length ? creneaux.join(", ") : "Aucun créneau"}</td>
-                          <td className="px-6 py-4">
-                            <div className="flex flex-wrap gap-2">
-                              {statuses.map((status) => {
-                                const badge = codConfirmationBadge(status)
-
-                                return (
-                                  <span
-                                    key={status}
-                                    className={cn("inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium", badge.className)}
-                                  >
-                                    {badge.label}
-                                  </span>
-                                )
-                              })}
+                          <td className="px-6 py-4 text-gray-900">
+                            <button
+                              type="button"
+                              onClick={() => toggleCodGroup(group, isCodOpen)}
+                              className="flex items-center gap-2 text-left"
+                            >
+                              <ChevronDown className={cn("h-4 w-4 text-gray-500 transition-transform", !isCodOpen && "-rotate-90")} />
+                              <span className="font-medium">{emptyValue(group.client)}</span>
+                            </button>
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                              <span className="text-xs text-gray-500">{emptyValue(group.adresse)}</span>
+                              {group.isBlacklisted ? (
+                                <span className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-600">
+                                  ⚠️ Blacklist
+                                </span>
+                              ) : null}
                             </div>
                           </td>
+                          <td className="px-6 py-4 text-sm text-gray-900">{emptyValue(group.telephone)}</td>
+                          <td className="px-6 py-4 text-sm font-semibold text-gray-900">{group.commandes.length} commande(s) COD</td>
+                          <td className="px-6 py-4 font-semibold text-gray-900">{formatMoney(group.montantTotal)}</td>
                           <td className="px-6 py-4">
                             <div className="flex flex-wrap gap-2">
                               <button
                                 type="button"
-                                onClick={() => setOpenCodClientKey(isCodOpen ? null : group.key)}
-                                className="px-4 py-2 border border-[#1A4F8A]/20 bg-[#1A4F8A]/10 rounded-xl font-medium text-[#1A4F8A] hover:bg-[#1A4F8A]/15 flex items-center gap-2 whitespace-nowrap"
+                                onClick={() => void handleToggleCodClientSheet(group.clientId)}
+                                disabled={!group.clientId}
+                                className="px-4 py-2 border border-gray-300 bg-white rounded-lg font-medium text-gray-900 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
                               >
-                                {isCodOpen ? "Masquer commandes" : "Voir commandes"}
+                                <User className="w-4 h-4 text-gray-500" />
+                                {isClientSheetOpen ? "Masquer fiche" : "Voir fiche"}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => void handleCodGroupConfirmation(group, "CONFIRMEE_PAR_APPEL")}
                                 disabled={isGroupUpdating || codActionId !== null || isCodCancellationSubmitting || allConfirmed}
-                                className="px-4 py-2 border border-[#1E8A3C]/20 bg-[#F0FAF1] rounded-xl font-medium text-[#1E8A3C] hover:bg-[#E7F5E8] disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                                className="px-4 py-2 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
                               >
-                                {isGroupUpdating ? <Spinner className="size-4 text-[#1E8A3C]" /> : <CheckCircle2 className="w-4 h-4" />}
-                                Confirmer toutes
+                                {isGroupUpdating ? <Spinner className="size-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                                Tout confirmer
                               </button>
                               <button
                                 type="button"
                                 onClick={() => void handleCodGroupConfirmation(group, "ANNULEE")}
                                 disabled={isGroupUpdating || codActionId !== null || isCodCancellationSubmitting || allConfirmed}
-                                className="px-4 py-2 border border-red-200 bg-red-50 rounded-xl font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                                className="px-4 py-2 rounded-lg font-medium bg-red-500 text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
                               >
-                                {isGroupUpdating ? <Spinner className="size-4 text-red-700" /> : <XCircle className="w-4 h-4" />}
-                                Annuler toutes
+                                {isGroupUpdating ? <Spinner className="size-4" /> : <XCircle className="w-4 h-4" />}
+                                Tout annuler
                               </button>
                             </div>
                           </td>
                         </tr>
                         {isCodOpen && (
                           <tr className="bg-gray-50">
-                            <td colSpan={8} className="px-6 py-4">
+                            <td colSpan={5} className="px-6 py-4">
                               <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white">
                                 <table className="w-full">
                                   <thead className="bg-gray-50">
                                     <tr>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">ID</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Montant</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Créneau</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Statut confirmation</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Actions</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500"># Commande</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Montant</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Créneau</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Statut</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Actions</th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-gray-100">
@@ -2594,8 +2486,8 @@ export default function AdminOrdersPage() {
                                       return (
                                         <tr key={order.id} className="hover:bg-gray-50">
                                           <td className="px-4 py-3 font-medium text-[#1E8A3C]">#{order.id}</td>
-                                          <td className="px-4 py-3 font-semibold text-[#F07C00]">{formatMoney(order.montant ?? null)}</td>
-                                          <td className="px-4 py-3 text-sm text-[#3D3D3D]">{emptyValue(order.creneau_livraison)}</td>
+                                          <td className="px-4 py-3 font-semibold text-gray-900">{formatMoney(order.montant ?? null)}</td>
+                                          <td className="px-4 py-3 text-sm text-gray-900">{emptyValue(order.creneau_livraison)}</td>
                                           <td className="px-4 py-3">
                                             <span
                                               className={cn(
@@ -2612,19 +2504,19 @@ export default function AdminOrdersPage() {
                                                 type="button"
                                                 onClick={() => void handleCodConfirmation(order.id, "CONFIRMEE_PAR_APPEL")}
                                                 disabled={isUpdating || isCodCancellationSubmitting || isConfirmed}
-                                                className="px-4 py-2 border border-[#1E8A3C]/20 bg-[#F0FAF1] rounded-xl font-medium text-[#1E8A3C] hover:bg-[#E7F5E8] disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                                                className="px-4 py-2 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
                                               >
-                                                {isUpdating ? <Spinner className="size-4 text-[#1E8A3C]" /> : <CheckCircle2 className="w-4 h-4" />}
-                                                Confirmee
+                                                {isUpdating ? <Spinner className="size-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                                                Confirmer
                                               </button>
                                               <button
                                                 type="button"
                                                 onClick={() => void handleCodConfirmation(order.id, "ANNULEE")}
                                                 disabled={isUpdating || isCodCancellationSubmitting || isConfirmed}
-                                                className="px-4 py-2 border border-red-200 bg-red-50 rounded-xl font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                                                className="px-4 py-2 rounded-lg font-medium bg-red-500 text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
                                               >
-                                                {isUpdating ? <Spinner className="size-4 text-red-700" /> : <XCircle className="w-4 h-4" />}
-                                                Annulee
+                                                {isUpdating ? <Spinner className="size-4" /> : <XCircle className="w-4 h-4" />}
+                                                Annuler
                                               </button>
                                             </div>
                                           </td>
@@ -2634,6 +2526,30 @@ export default function AdminOrdersPage() {
                                   </tbody>
                                 </table>
                               </div>
+                            </td>
+                          </tr>
+                        )}
+                        {isClientSheetOpen && (
+                          <tr className="bg-gray-50">
+                            <td colSpan={5} className="px-6 py-4">
+                              {isFicheLoading ? (
+                                <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-5">
+                                  <Spinner className="size-5 text-[#1E8A3C]" />
+                                  <span className="text-sm font-medium text-gray-500">Chargement de la fiche client...</span>
+                                </div>
+                              ) : ficheError ? (
+                                <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+                                  {ficheError}
+                                </div>
+                              ) : fiche ? (
+                                <FicheClientPanel
+                                  fiche={fiche}
+                                  openBlocks={openClientBlocks}
+                                  onToggleBlock={(blockKey) => toggleClientBlock(fiche.id, blockKey)}
+                                />
+                              ) : (
+                                <EmptyClientBlock />
+                              )}
                             </td>
                           </tr>
                         )}
@@ -2649,8 +2565,8 @@ export default function AdminOrdersPage() {
         <section className={cn("rounded-2xl border border-gray-200 bg-white p-6 shadow-sm", activeSection !== "logs" && "hidden")}>
           <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
             <div>
-              <h2 className="text-lg font-bold text-[#3D3D3D]">Dernier log JIT</h2>
-              <p className="text-sm text-[#8A8A8A] mt-1">
+              <h2 className="text-lg font-bold text-gray-900">Dernier log JIT</h2>
+              <p className="text-sm text-gray-500 mt-1">
                 Suivi du dernier cycle JIT exécuté depuis le back-office.
               </p>
             </div>
@@ -2658,15 +2574,15 @@ export default function AdminOrdersPage() {
             <button
               onClick={() => setShowDetails(!showDetails)}
               disabled={!lastLog}
-              className="px-4 py-2 border border-gray-200 rounded-xl font-medium text-[#3D3D3D] hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2"
+              className="px-4 py-2 border border-gray-200 rounded-lg font-medium text-gray-900 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2"
             >
-              <Eye className="w-4 h-4 text-[#1A4F8A]" />
+              <Eye className="w-4 h-4 text-gray-500" />
               {showDetails ? "Masquer détails" : "Voir détails"}
             </button>
           </div>
 
           {logError && (
-            <div className="rounded-xl border border-[#F07C00]/20 bg-[#F07C00]/5 px-4 py-3 text-sm text-[#B15B00]">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
               {logError}
             </div>
           )}
@@ -2674,16 +2590,16 @@ export default function AdminOrdersPage() {
           {isLogLoading ? (
             <div className="py-10 text-center">
               <Spinner className="mx-auto size-6 text-[#1E8A3C]" />
-              <p className="mt-3 text-sm text-[#8A8A8A]">Chargement du log JIT…</p>
+              <p className="mt-3 text-sm text-gray-500">Chargement du log JIT…</p>
             </div>
           ) : lastLog ? (
             <div className="grid md:grid-cols-4 gap-4">
               <div className="p-4 bg-gray-50 rounded-xl">
-                <p className="text-sm text-[#8A8A8A]">Date</p>
-                <p className="mt-2 font-semibold text-[#3D3D3D]">{formatDateTime(lastLog.date_execution)}</p>
+                <p className="text-sm text-gray-500">Date</p>
+                <p className="mt-2 font-semibold text-gray-900">{formatDateTime(lastLog.date_execution)}</p>
               </div>
               <div className="p-4 bg-gray-50 rounded-xl">
-                <p className="text-sm text-[#8A8A8A]">Statut</p>
+                <p className="text-sm text-gray-500">Statut</p>
                 <span
                   className={cn(
                     "mt-2 inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium",
@@ -2694,18 +2610,18 @@ export default function AdminOrdersPage() {
                 </span>
               </div>
               <div className="p-4 bg-gray-50 rounded-xl">
-                <p className="text-sm text-[#8A8A8A]">Nb commandes</p>
+                <p className="text-sm text-gray-500">Nb commandes</p>
                 <p className="mt-2 text-2xl font-bold text-[#1E8A3C]">{lastLog.nombre_commandes}</p>
               </div>
               <div className="p-4 bg-gray-50 rounded-xl">
-                <p className="text-sm text-[#8A8A8A]">Volume total</p>
-                <p className="mt-2 text-2xl font-bold text-[#F07C00]">{formatWeight(lastLog.volume_total)}</p>
+                <p className="text-sm text-gray-500">Volume total</p>
+                <p className="mt-2 text-2xl font-bold text-gray-900">{formatWeight(lastLog.volume_total)}</p>
               </div>
             </div>
           ) : null}
 
           {lastLog?.message_alerte && (
-            <div className="mt-4 rounded-xl border border-[#F5C400]/30 bg-[#F5C400]/10 px-4 py-3 text-sm text-[#8B6A00] flex items-start gap-3">
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 flex items-start gap-3">
               <TriangleAlert className="w-4 h-4 mt-0.5 shrink-0" />
               <span>{lastLog.message_alerte}</span>
             </div>
@@ -2782,9 +2698,9 @@ export default function AdminOrdersPage() {
         <Dialog open={isUnlockDetailsOpen} onOpenChange={setIsUnlockDetailsOpen}>
           <DialogContent className="max-w-4xl rounded-2xl p-0 overflow-hidden">
             <DialogHeader className="px-6 pt-6">
-              <DialogTitle>Details du deverrouillage JIT</DialogTitle>
+              <DialogTitle>Détails du déverrouillage JIT</DialogTitle>
               <DialogDescription>
-                Commandes rouvertes lors de la derniere action de deverrouillage.
+                Commandes rouvertes lors de la dernière action de déverrouillage.
               </DialogDescription>
             </DialogHeader>
 

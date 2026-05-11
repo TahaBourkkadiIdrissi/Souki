@@ -11,6 +11,7 @@ from entities.commande_entity import Commande
 from entities.panier_entity import Panier
 from interfaces.jit_dao_interface import IJITDao
 from interfaces.jit_service_interface import IJITService
+from services.commande_state_machine import changer_statut
 
 
 PENDING_JIT_STATUSES = ("EN_ATTENTE", "CONFIRMEE")
@@ -77,11 +78,17 @@ class JITService(IJITService):
                 quantite = ligne.quantite_kg or 0.0
 
                 if product_id not in volumes_par_produit:
+                    prix_achat = (
+                        produit.prix_gros_saisi
+                        if produit.prix_gros_saisi is not None
+                        else produit.prix_kg
+                    )
                     volumes_par_produit[product_id] = {
                         "nom_fr": produit.nom_fr,
                         "nom_darija": produit.nom_darija,
                         "quantite_brute": 0.0,
-                        "prix_kg": produit.prix_kg,
+                        "prix_kg": produit.prix_affiche or produit.prix_kg,
+                        "prix_achat": prix_achat,
                         "unite": produit.unite,
                     }
 
@@ -101,7 +108,8 @@ class JITService(IJITService):
         buffer_perte = 0.10
         details_produits: List[DetailProduitJIT] = []
         volume_total = 0.0
-        montant_total = 0.0
+        ca_estime_total = 0.0
+        cout_achat_estime = 0.0
 
         for product_id, info in volumes_par_produit.items():
             quantite_brute = info["quantite_brute"]
@@ -110,7 +118,9 @@ class JITService(IJITService):
             volume_final = math.ceil(volume_avec_buffer)
 
             prix_kg = info["prix_kg"]
-            sous_total = quantite_brute * prix_kg
+            prix_achat = info["prix_achat"]
+            sous_total_ca = quantite_brute * prix_kg
+            sous_total_achat = quantite_brute * prix_achat
 
             detail = DetailProduitJIT(
                 product_id=product_id,
@@ -120,13 +130,17 @@ class JITService(IJITService):
                 buffer_perte_10_pct=round(buffer, 2),
                 volume_total_kg=float(volume_final),
                 prix_kg=prix_kg,
-                sous_total=round(sous_total, 2),
+                prix_achat=prix_achat,
+                sous_total=round(sous_total_ca, 2),
+                sous_total_ca=round(sous_total_ca, 2),
+                sous_total_achat=round(sous_total_achat, 2),
                 unite=info["unite"],
             )
 
             details_produits.append(detail)
             volume_total += volume_final
-            montant_total += sous_total
+            ca_estime_total += sous_total_ca
+            cout_achat_estime += sous_total_achat
 
         statut = "succès" if len(commandes) > 0 else "aucune_commande"
         message = None
@@ -140,12 +154,15 @@ class JITService(IJITService):
             nombre_abonnements=nombre_abonnements,
             volume_total_kg=round(volume_total, 2),
             details_produits=details_produits,
-            montant_total=round(montant_total, 2),
+            montant_total=round(ca_estime_total, 2),
+            ca_estime_total=round(ca_estime_total, 2),
+            cout_achat_estime=round(cout_achat_estime, 2),
+            marge_estimee=round(ca_estime_total - cout_achat_estime, 2),
             statut=statut,
             message=message,
         )
 
-    def verrouiller_commandes(self, session: Session) -> int:
+    def verrouiller_commandes(self, session: Session, actor_id: int = 0) -> int:
         """
         Verrouille toutes les commandes EN_ATTENTE ou CONFIRMEE.
         Retourne le nombre de commandes verrouillees.
@@ -165,7 +182,22 @@ class JITService(IJITService):
 
             nombre_verrouillees = 0
             for commande in commandes:
-                setattr(commande, "statut", LOCKED_JIT_STATUS)  # type: ignore
+                current_status = str(commande.statut or "").strip().upper()
+                if current_status == "EN_ATTENTE":
+                    changer_statut(
+                        session=session,
+                        commande=commande,
+                        nouveau_statut="CONFIRMEE",
+                        actor_id=actor_id,
+                        reason="JIT_CONFIRMATION",
+                    )
+                changer_statut(
+                    session=session,
+                    commande=commande,
+                    nouveau_statut=LOCKED_JIT_STATUS,
+                    actor_id=actor_id,
+                    reason="JIT_LOCK",
+                )
                 nombre_verrouillees += 1
 
             session.flush()
@@ -174,7 +206,7 @@ class JITService(IJITService):
             print(f"Erreur lors du verrouillage des commandes: {exc}")
             raise
 
-    def deverrouiller_commandes(self, session: Session) -> Dict:
+    def deverrouiller_commandes(self, session: Session, actor_id: int = 0) -> Dict:
         """
         Deverrouille toutes les commandes verrouillees par le JIT.
         Retourne le nombre et le detail des commandes rouvertes.
@@ -195,7 +227,13 @@ class JITService(IJITService):
             commandes_deverrouillees = []
             for commande in commandes:
                 statut_avant = str(commande.statut) if commande.statut else None
-                setattr(commande, "statut", UNLOCKED_JIT_STATUS)  # type: ignore
+                changer_statut(
+                    session=session,
+                    commande=commande,
+                    nouveau_statut=UNLOCKED_JIT_STATUS,
+                    actor_id=actor_id,
+                    reason="JIT_UNLOCK",
+                )
                 commandes_deverrouillees.append(
                     {
                         "id": int(commande.id),  # type: ignore
@@ -214,7 +252,7 @@ class JITService(IJITService):
             print(f"Erreur lors du deverrouillage des commandes: {exc}")
             raise
 
-    def executer_job_jit(self, session: Session) -> JITLogDTO:
+    def executer_job_jit(self, session: Session, actor_id: int = 0) -> JITLogDTO:
         """
         Execute le job JIT complet:
         1. Agreger les commandes
@@ -238,7 +276,7 @@ class JITService(IJITService):
             )
 
             if resultat.statut == "succès":
-                nombre_verrouillees = self.verrouiller_commandes(session)
+                nombre_verrouillees = self.verrouiller_commandes(session, actor_id=actor_id)
                 print(f"{nombre_verrouillees} commandes verrouillees")
 
             details_json = {
@@ -250,10 +288,16 @@ class JITService(IJITService):
                         "buffer_10_pct": detail.buffer_perte_10_pct,
                         "volume_final_kg": detail.volume_total_kg,
                         "prix_kg": detail.prix_kg,
+                        "prix_achat": detail.prix_achat,
                         "sous_total": detail.sous_total,
+                        "sous_total_ca": detail.sous_total_ca,
+                        "sous_total_achat": detail.sous_total_achat,
                     }
                     for detail in resultat.details_produits
-                ]
+                ],
+                "ca_estime_total": resultat.ca_estime_total,
+                "cout_achat_estime": resultat.cout_achat_estime,
+                "marge_estimee": resultat.marge_estimee,
             }
 
             log = self.jit_dao.create_log(

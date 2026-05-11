@@ -1,178 +1,482 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { useAuth } from "@/hooks/useAuth"
-import { 
-  Leaf,
-  LayoutDashboard,
-  Package,
-  Users,
-  Bike,
-  Truck,
-  ShoppingBasket,
+import type { LucideIcon } from "lucide-react"
+import {
+  AlertTriangle,
+  ArrowRight,
   BarChart3,
-  Wallet,
-  Settings,
+  Bell,
+  CalendarDays,
+  CheckCircle2,
+  CircleDollarSign,
+  LayoutDashboard,
+  Leaf,
   LogOut,
   Menu,
+  Package,
+  RefreshCw,
+  Settings,
+  ShoppingBasket,
+  ShoppingCart,
+  Truck,
+  Users,
+  Wallet,
   X,
-  Bell,
-  Zap,
-  AlertTriangle,
-  CheckCircle,
-  Phone,
-  ChevronDown,
-  TrendingUp,
-  Clock
 } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { KPICard } from "@/components/souki/kpi-card"
-import { StatusBadge } from "@/components/souki/status-badge"
 import {
-  LineChart,
-  Line,
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend
 } from "recharts"
+
+import { useAuth } from "@/hooks/useAuth"
+import {
+  getAdminDashboard,
+  type DashboardCurvePointDTO,
+  type DashboardDTO,
+  type DashboardPaymentDTO,
+  type DashboardPeriod,
+} from "@/lib/api"
+import { cn } from "@/lib/utils"
 
 const adminNavItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/admin", active: true },
   { icon: Package, label: "Commandes du jour", href: "/admin/orders" },
-  { icon: Users, label: "Clients & Blacklist", href: "/admin/blacklist" },
+  { icon: Users, label: "Clients", href: "/admin/clients" },
+  { icon: AlertTriangle, label: "Blackliste", href: "/admin/blacklist" },
   { icon: Truck, label: "Logistique & Livreurs", href: "/admin/livreur" },
   { icon: ShoppingBasket, label: "Gestion Produits & Prix", href: "/admin/produits" },
+  { icon: CircleDollarSign, label: "Pricing", href: "/admin/pricing" },
   { icon: BarChart3, label: "Analytics", href: "/admin/analytics" },
   { icon: Users, label: "Abonnements Parentaux", href: "/admin/subscriptions" },
   { icon: Wallet, label: "Transactions Wallet", href: "/admin/wallet" },
-  { icon: Settings, label: "Paramètres Système", href: "/admin/settings" },
+  { icon: Settings, label: "Parametres Systeme", href: "/admin/settings" },
 ]
 
 const adminNavPermissions: Record<string, string> = {
   "/admin": "admin.panel.access",
   "/admin/orders": "orders.read",
+  "/admin/clients": "clients.read",
   "/admin/blacklist": "clients.blacklist",
   "/admin/livreur": "admin.panel.access",
   "/admin/produits": "products.manage",
+  "/admin/pricing": "admin.panel.access",
   "/admin/analytics": "stats.read",
   "/admin/subscriptions": "parent.dashboard.access",
   "/admin/wallet": "wallets.read",
   "/admin/settings": "users.manage_roles",
 }
 
-const ordersToday = [
-  { id: "CMD-2847", client: "Youssef M.", products: "Tomates, Oignons", total: 201, payment: "COD", livreur: "Mohammed B.", status: "enroute" as const },
-  { id: "CMD-2848", client: "Fatima B.", products: "Carottes, Herbes", total: 89, payment: "Wallet", livreur: "Ahmed K.", status: "delivered" as const },
-  { id: "CMD-2849", client: "Rachid K.", products: "Pommes de Terre", total: 156, payment: "COD", livreur: "-", status: "pending" as const },
-  { id: "CMD-2850", client: "Khadija L.", products: "Aubergines, Piments", total: 134, payment: "CMI", livreur: "Mohammed B.", status: "preparing" as const },
-  { id: "CMD-2851", client: "Omar S.", products: "Courgettes, Concombre", total: 178, payment: "COD", livreur: "-", status: "pending" as const },
+const periodOptions: Array<{ value: DashboardPeriod; label: string }> = [
+  { value: "today", label: "Aujourd'hui" },
+  { value: "7d", label: "7 jours" },
+  { value: "30d", label: "30 jours" },
+  { value: "month", label: "Ce mois" },
+  { value: "custom", label: "Jour precis" },
 ]
 
-const stockPricing = [
-  { product: "Tomates", prixGros: 7, coutReel: 7.5, prixVente: 7, marge: -6.7, strategy: "appel" },
-  { product: "Pommes de Terre", prixGros: 6, coutReel: 6.4, prixVente: 6, marge: -6.3, strategy: "appel" },
-  { product: "Oignons", prixGros: 9, coutReel: 9.6, prixVente: 9, marge: -6.3, strategy: "lissage" },
-  { product: "Carottes", prixGros: 8.5, coutReel: 9.1, prixVente: 10, marge: 9.9, strategy: "lissage" },
-  { product: "Courgettes", prixGros: 13, coutReel: 13.9, prixVente: 13, marge: -6.5, strategy: "perte" },
-]
+const statusColors: Record<string, string> = {
+  LIVRE: "#1E8A3C",
+  EN_ROUTE: "#3B82F6",
+  ANNULEE: "#EF4444",
+  ABSENT: "#F97316",
+  CONFIRMEE: "#10B981",
+  INCONNU: "#9CA3AF",
+}
 
-const weeklyTrend = [
-  { day: "Lun", revenue: 450, orders: 6 },
-  { day: "Mar", revenue: 520, orders: 7 },
-  { day: "Mer", revenue: 380, orders: 5 },
-  { day: "Jeu", revenue: 610, orders: 8 },
-  { day: "Ven", revenue: 590, orders: 8 },
-  { day: "Sam", revenue: 720, orders: 10 },
-  { day: "Dim", revenue: 593, orders: 8 },
-]
+const paymentColors: Record<string, string> = {
+  COD: "#F59E0B",
+  WALLET: "#8B5CF6",
+  CMI: "#3B82F6",
+  CASH: "#10B981",
+  INCONNU: "#9CA3AF",
+}
 
-const alerts = [
-  { type: "danger", code: "7.14", message: "Prix tomates +45% au gros — Substitution activée : Courgettes" },
-  { type: "warning", code: "7.6", message: "Client Rachid M. — 2 refus COD consécutifs — Confirmation requise" },
-  { type: "success", code: "7.13", message: "Serveur nominal — Bot WhatsApp backup en veille" },
-]
+function formatMoney(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "0 DH"
+  }
+  return `${value.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} DH`
+}
 
-export default function AdminDashboard() {
-  const { can } = useAuth()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [selectedFilter, setSelectedFilter] = useState("tous")
-  const [timeUntilCutoff, setTimeUntilCutoff] = useState({ hours: 0, minutes: 0 })
-  const [currentDate, setCurrentDate] = useState("")
+function formatPreciseMoney(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "0.00 DH"
+  }
+  return `${value.toLocaleString("fr-FR", { maximumFractionDigits: 2, minimumFractionDigits: 2 })} DH`
+}
 
-  useEffect(() => {
-    // Set current date on client only
-    setCurrentDate(new Date().toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    }))
+function formatNumber(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "0"
+  }
+  return value.toLocaleString("fr-FR")
+}
 
-    // Calculate time until 20h00
-    const calculateTime = () => {
-      const now = new Date()
-      const cutoff = new Date()
-      cutoff.setHours(20, 0, 0, 0)
-      const diff = cutoff.getTime() - now.getTime()
-      const hours = Math.max(0, Math.floor(diff / (1000 * 60 * 60)))
-      const minutes = Math.max(0, Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)))
-      setTimeUntilCutoff({ hours, minutes })
-    }
+function formatDateTime(value: string | null | undefined) {
+  if (!value) {
+    return "-"
+  }
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+  return date.toLocaleString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
 
-    calculateTime()
-    const interval = setInterval(calculateTime, 60000) // Update every minute
-    return () => clearInterval(interval)
-  }, [])
+function todayInputValue() {
+  return new Date().toISOString().slice(0, 10)
+}
 
-  const hoursUntil = timeUntilCutoff.hours
-  const minutesUntil = timeUntilCutoff.minutes
-  const codOrdersCount = ordersToday.filter(o => o.payment === "COD" && o.status === "pending").length
-  const visibleAdminNavItems = adminNavItems.filter((item) =>
-    can(adminNavPermissions[item.href] || "admin.panel.access")
+function formatKg(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "0.00 kg"
+  }
+  return `${value.toLocaleString("fr-FR", { maximumFractionDigits: 2, minimumFractionDigits: 2 })} kg`
+}
+
+function normalizeLabel(value: string) {
+  return value.replace(/_/g, " ")
+}
+
+function getStatusColor(status: string) {
+  return statusColors[status.toUpperCase()] || "#9CA3AF"
+}
+
+function getPaymentColor(mode: string) {
+  return paymentColors[mode.toUpperCase()] || "#9CA3AF"
+}
+
+function variation(current: number, previous: number) {
+  if (!Number.isFinite(current) || !Number.isFinite(previous) || previous <= 0) {
+    return null
+  }
+  return ((current - previous) / previous) * 100
+}
+
+function SkeletonBlock({ className }: { className?: string }) {
+  return <div className={cn("animate-pulse rounded-xl border border-[#E5E7EB] bg-white shadow-sm", className)} />
+}
+
+function graphTitle(periode: DashboardPeriod, customDate: string) {
+  if (periode === "today") {
+    return "CA du jour (DH)"
+  }
+  if (periode === "7d") {
+    return "CA 7 derniers jours (DH)"
+  }
+  if (periode === "30d") {
+    return "CA 30 derniers jours (DH)"
+  }
+  if (periode === "month") {
+    return "CA ce mois (DH)"
+  }
+  return `CA autour du ${customDate} (DH)`
+}
+
+function JitExecutionBadge({ executed }: { executed: boolean }) {
+  return (
+    <div
+      className={cn(
+        "mt-2 border-t border-[#E5E7EB] pt-2 text-xs font-bold",
+        executed ? "text-[#1E8A3C]" : "text-amber-700"
+      )}
+    >
+      {executed ? "● JIT execute" : "⏳ JIT en attente"}
+    </div>
   )
+}
+
+function MetricCard({
+  label,
+  value,
+  helper,
+  icon: Icon,
+  colorClass,
+  variationValue,
+  footer,
+  highlight = false,
+}: {
+  label: string
+  value: string
+  helper: string
+  icon: LucideIcon
+  colorClass: string
+  variationValue?: number | null
+  footer?: React.ReactNode
+  highlight?: boolean
+}) {
+  const positive = typeof variationValue === "number" && variationValue > 0
+  const negative = typeof variationValue === "number" && variationValue < 0
+  const neutral = variationValue === null || variationValue === 0
 
   return (
-    <div className="min-h-screen bg-[#F5F5F0]">
-      {/* Top Bar */}
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-        <div className="flex items-center justify-between px-4 lg:px-6 h-16">
+    <div className={cn("min-h-[116px] rounded-xl border border-[#E5E7EB] bg-white px-3 py-3 shadow-sm", highlight && "border-emerald-200 bg-[#F0FDF4]")}>
+      <div className="flex items-start gap-2.5">
+        <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", colorClass)}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-semibold uppercase text-[#6B7280]">{label}</p>
+          <p className="mt-1 break-words text-[1.28rem] font-bold leading-tight text-[#1F2937] 2xl:text-[1.38rem]">{value}</p>
+        </div>
+      </div>
+      <div className="mt-2 flex min-h-5 items-center justify-between gap-2 text-xs">
+        <span className="truncate font-medium text-[#6B7280]">{helper}</span>
+        {variationValue !== undefined ? (
+          <span
+            className={cn(
+              "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 font-bold",
+              positive && "bg-[#F0FDF4] text-[#1E8A3C]",
+              negative && "bg-red-50 text-red-600",
+              neutral && "bg-gray-100 text-[#6B7280]"
+            )}
+          >
+            {positive ? `▲ +${variationValue.toFixed(1)}%` : null}
+            {negative ? `▼ ${variationValue.toFixed(1)}%` : null}
+            {neutral ? (variationValue === 0 ? "— 0%" : "—") : null}
+          </span>
+        ) : null}
+      </div>
+      {footer}
+    </div>
+  )
+}
+
+function AreaTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean
+  payload?: Array<{ payload?: DashboardCurvePointDTO }>
+  label?: string
+}) {
+  if (!active || !payload?.length) {
+    return null
+  }
+  const point = payload[0]?.payload
+  return (
+    <div className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-xs shadow-sm">
+      <p className="font-bold text-[#1F2937]">{label}</p>
+      <p className="text-[#1E8A3C]">CA: {formatPreciseMoney(point?.ca)}</p>
+      <p className="text-[#6B7280]">Commandes: {formatNumber(point?.nb_commandes)}</p>
+    </div>
+  )
+}
+
+function PaymentTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean
+  payload?: Array<{ payload?: DashboardPaymentDTO }>
+}) {
+  if (!active || !payload?.length) {
+    return null
+  }
+  const point = payload[0]?.payload
+  return (
+    <div className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-xs shadow-sm">
+      <p className="font-bold text-[#1F2937]">{point?.mode}</p>
+      <p className="text-[#1E8A3C]">{formatPreciseMoney(point?.montant)}</p>
+      <p className="text-[#6B7280]">{formatNumber(point?.count)} commande(s)</p>
+    </div>
+  )
+}
+
+function StatusBadge({ value }: { value: string | null }) {
+  const normalized = (value || "INCONNU").toUpperCase()
+  const success = normalized.includes("SUCC")
+  const error = normalized.includes("ERREUR")
+  const empty = normalized.includes("AUCUNE")
+
+  return (
+    <span
+      className={cn(
+        "inline-flex rounded-full border px-2.5 py-1 text-xs font-bold",
+        success && "border-emerald-200 bg-[#F0FDF4] text-[#1E8A3C]",
+        error && "border-red-200 bg-red-50 text-red-700",
+        empty && "border-amber-200 bg-amber-50 text-amber-700",
+        !success && !error && !empty && "border-gray-200 bg-gray-50 text-[#6B7280]"
+      )}
+    >
+      {value || "Aucun JIT"}
+    </span>
+  )
+}
+
+export default function AdminDashboard() {
+  const { token, can } = useAuth()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [periode, setPeriode] = useState<DashboardPeriod>("today")
+  const [customDate, setCustomDate] = useState(todayInputValue())
+  const [dashboard, setDashboard] = useState<DashboardDTO | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
+
+  const loadDashboard = useCallback(async (showLoader = true, signal?: AbortSignal) => {
+    if (!token) {
+      setIsLoading(false)
+      return
+    }
+
+    if (showLoader) {
+      setIsLoading(true)
+    }
+
+    try {
+      const result = await getAdminDashboard(token, periode, periode === "custom" ? customDate : undefined, signal)
+      setDashboard(result)
+      setError("")
+    } catch (loadError) {
+      if (loadError instanceof Error && loadError.name === "AbortError") {
+        return
+      }
+      setError(loadError instanceof Error ? loadError.message : "Impossible de charger le dashboard.")
+    } finally {
+      if (showLoader) {
+        setIsLoading(false)
+      }
+    }
+  }, [customDate, periode, token])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    void loadDashboard(true, controller.signal)
+
+    const intervalId = window.setInterval(() => {
+      void loadDashboard(false)
+    }, 300000)
+
+    return () => {
+      controller.abort()
+      window.clearInterval(intervalId)
+    }
+  }, [loadDashboard])
+
+  const visibleAdminNavItems = useMemo(
+    () => adminNavItems.filter((item) => can(adminNavPermissions[item.href] || "admin.panel.access")),
+    [can]
+  )
+
+  const metrics = dashboard
+    ? (() => {
+        const kpi4 = periode === "today"
+          ? {
+              label: "En route",
+              value: formatNumber(dashboard.commandes_en_route),
+              helper: "Commandes en livraison",
+              icon: Truck,
+              colorClass: "bg-blue-50 text-blue-600",
+            }
+          : {
+              label: "Panier moyen",
+              value: formatMoney(dashboard.panier_moyen),
+              helper: "Sans variation",
+              icon: ShoppingCart,
+              colorClass: "bg-teal-50 text-teal-600",
+            }
+
+        return [
+          {
+            label: "CA Total",
+            value: formatMoney(dashboard.ca_total),
+            helper: "Livrees uniquement",
+            icon: CircleDollarSign,
+            colorClass: "bg-[#F0FDF4] text-[#1E8A3C]",
+            variationValue: variation(dashboard.ca_total, dashboard.ca_total_precedent),
+            highlight: true,
+          },
+          {
+            label: "Commandes",
+            value: formatNumber(dashboard.total_commandes),
+            helper: `${formatNumber(dashboard.commandes_en_route)} en route`,
+            icon: Package,
+            colorClass: "bg-blue-50 text-blue-600",
+            variationValue: variation(dashboard.total_commandes, dashboard.total_commandes_precedent),
+            footer: periode === "today" ? <JitExecutionBadge executed={dashboard.jit_execute_aujourdhui} /> : undefined,
+          },
+          {
+            label: "Livrees",
+            value: `${formatNumber(dashboard.commandes_livrees)} (${dashboard.taux_livraison.toFixed(1)}%)`,
+            helper: `${formatNumber(dashboard.commandes_absentes)} absentes`,
+            icon: CheckCircle2,
+            colorClass: "bg-[#F0FDF4] text-[#1E8A3C]",
+            variationValue: variation(dashboard.commandes_livrees, dashboard.commandes_livrees_precedent),
+          },
+          kpi4,
+          {
+            label: "Nouveaux clients",
+            value: formatNumber(dashboard.nouveaux_clients),
+            helper: "Periode selectionnee",
+            icon: Users,
+            colorClass: "bg-[#F0FDF4] text-[#1E8A3C]",
+            variationValue: variation(dashboard.nouveaux_clients, dashboard.nouveaux_clients_precedent),
+          },
+          {
+            label: "Taux absence",
+            value: `${dashboard.taux_absence.toFixed(1)}%`,
+            helper: `${formatNumber(dashboard.commandes_absentes)} absentes`,
+            icon: AlertTriangle,
+            colorClass: dashboard.taux_absence > 10 ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600",
+          },
+        ]
+      })()
+    : []
+
+  const netBlacklist = (dashboard?.nouveaux_blacklistes ?? 0) - (dashboard?.blacklists_leves ?? 0)
+  const panierPhysique = dashboard && dashboard.dernier_jit_nb_commandes > 0
+    ? dashboard.dernier_jit_volume / dashboard.dernier_jit_nb_commandes
+    : 0
+
+  return (
+    <div className="min-h-screen bg-[#F8F9FA]">
+      <header className="sticky top-0 z-50 border-b border-[#E5E7EB] bg-white shadow-sm">
+        <div className="flex h-14 items-center justify-between px-4 lg:px-6">
           <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2"
-            >
-              <Menu className="w-6 h-6 text-[#3D3D3D]" />
+            <button type="button" onClick={() => setSidebarOpen(true)} className="rounded-lg p-2 text-[#1F2937] hover:bg-gray-100 lg:hidden">
+              <Menu className="h-5 w-5" />
             </button>
             <Link href="/admin" className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-xl shadow-sm overflow-hidden flex items-center justify-center bg-white p-0.5 pointer-events-none">
-                <img src="/logo3.png" alt="SOUKI" className="w-[175%] h-full max-w-none object-cover" style={{ objectPosition: "left center" }} />
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-100 bg-[#F0FDF4] text-[#1E8A3C]">
+                <Leaf className="h-5 w-5" />
               </div>
               <div className="hidden sm:block">
-                <span className="text-xl font-bold text-[#1E8A3C]">SOUKI</span>
-                <span className="text-sm text-[#8A8A8A] ml-1">Admin</span>
+                <span className="text-lg font-bold text-[#1E8A3C]">SOUKI</span>
+                <span className="ml-1 text-sm text-[#6B7280]">Admin</span>
               </div>
             </Link>
           </div>
 
-          <div className="flex items-center gap-2 px-4 py-2 bg-[#F07C00]/10 rounded-xl">
-            <Zap className="w-5 h-5 text-[#F07C00]" />
-            <span className="text-[#F07C00] font-medium text-sm hidden sm:inline">
-              Agrégation commandes dans {hoursUntil}h{minutesUntil.toString().padStart(2, '0')} (20h00)
-            </span>
-            <span className="text-[#F07C00] font-medium text-sm sm:hidden">
-              {hoursUntil}h{minutesUntil.toString().padStart(2, '0')}
-            </span>
+          <div className="hidden text-center md:block">
+            <p className="text-sm font-bold text-[#1F2937]">SOUKI Dashboard</p>
+            <p className="text-xs text-[#6B7280]">Suivi global des performances</p>
           </div>
 
           <div className="flex items-center gap-3">
-            <button className="relative p-2 text-[#3D3D3D] hover:bg-gray-100 rounded-xl">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+            <button type="button" className="relative rounded-xl p-2 text-[#1F2937] hover:bg-gray-100">
+              <Bell className="h-5 w-5" />
+              <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
             </button>
-            <div className="w-10 h-10 bg-[#1E8A3C] rounded-full flex items-center justify-center text-white font-bold">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1E8A3C] font-bold text-white">
               A
             </div>
           </div>
@@ -180,287 +484,281 @@ export default function AdminDashboard() {
       </header>
 
       <div className="flex">
-        {/* Sidebar */}
-        <aside className={cn(
-          "fixed lg:sticky top-0 lg:top-16 left-0 z-40 w-64 h-screen lg:h-[calc(100vh-64px)] bg-[#1E8A3C] flex flex-col transition-transform lg:translate-x-0",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        )}>
-          <button 
-            onClick={() => setSidebarOpen(false)}
-            className="lg:hidden absolute top-4 right-4 p-2 text-white"
-          >
-            <X className="w-5 h-5" />
+        <aside
+          className={cn(
+            "fixed left-0 top-0 z-40 flex h-screen w-20 flex-col bg-[#1E8A3C] transition-transform lg:sticky lg:top-14 lg:h-[calc(100vh-56px)] lg:translate-x-0",
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          )}
+        >
+          <button type="button" onClick={() => setSidebarOpen(false)} className="absolute right-4 top-4 rounded-lg p-2 text-white hover:bg-white/10 lg:hidden">
+            <X className="h-5 w-5" />
           </button>
 
-          <nav className="flex-1 p-4 space-y-1 overflow-y-auto mt-12 lg:mt-0">
+          <nav className="mt-12 flex-1 space-y-2 overflow-y-auto p-3 lg:mt-0">
             {visibleAdminNavItems.map((item) => (
               <Link
-                key={item.label}
+                key={item.href}
                 href={item.href}
+                title={item.label}
+                aria-label={item.label}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors",
-                  item.active
-                    ? "bg-white/20 text-white"
-                    : "text-white/70 hover:bg-white/10 hover:text-white"
+                  "flex h-11 w-11 items-center justify-center rounded-xl font-medium transition-colors",
+                  item.active ? "bg-white/20 text-white" : "text-white/75 hover:bg-white/10 hover:text-white"
                 )}
               >
-                <item.icon className="w-5 h-5" />
-                <span className="text-sm">{item.label}</span>
+                <item.icon className="h-5 w-5" />
               </Link>
             ))}
           </nav>
 
-          <div className="p-4 border-t border-white/20">
-            <button className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-white/70 hover:bg-white/10 hover:text-white transition-colors">
-              <LogOut className="w-5 h-5" />
-              <span className="font-medium">Déconnexion</span>
+          <div className="border-t border-white/20 p-3">
+            <button type="button" title="Deconnexion" aria-label="Deconnexion" className="flex h-11 w-11 items-center justify-center rounded-xl text-white/75 transition-colors hover:bg-white/10 hover:text-white">
+              <LogOut className="h-5 w-5" />
             </button>
           </div>
         </aside>
 
-        {/* Overlay */}
-        {sidebarOpen && (
-          <div 
-            className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
+        {sidebarOpen ? <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} /> : null}
 
-        {/* Main Content */}
-        <main className="flex-1 p-4 lg:p-8 overflow-x-hidden">
-          <div className="max-w-7xl mx-auto">
-            {/* Header */}
-            <div className="mb-6">
-              <h1 className="text-2xl lg:text-3xl font-bold text-[#1E8A3C]">
-                Dashboard Opérationnel — {currentDate}
-              </h1>
-            </div>
+        <main className="min-w-0 flex-1">
+          <div className="sticky top-14 z-30 border-b border-[#E5E7EB] bg-white px-4 py-3 lg:px-6">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                  <h1 className="text-2xl font-bold tracking-tight text-[#1F2937]">SOUKI Dashboard</h1>
+                  <span className="text-xs font-semibold text-[#6B7280]">
+                    Derniere maj : {formatDateTime(dashboard?.derniere_maj)}
+                  </span>
+                </div>
+                <p className="text-sm text-[#6B7280]">Suivi global des performances</p>
+              </div>
 
-            {/* Alert Banner */}
-            {codOrdersCount > 0 && (
-              <div className="mb-6 p-4 bg-[#F07C00] text-white rounded-2xl flex items-center gap-3">
-                <Clock className="w-5 h-5 flex-shrink-0" />
-                <span className="font-medium">
-                  {codOrdersCount} commande{codOrdersCount > 1 ? 's' : ''} COD à confirmer par appel avant 19h00
-                </span>
-                <button className="ml-auto px-4 py-1.5 bg-white text-[#F07C00] rounded-lg font-semibold hover:bg-white/90 transition-colors flex items-center gap-2">
-                  <Phone className="w-4 h-4" />
-                  Appeler
+              <div className="flex flex-wrap items-center gap-2">
+                {periodOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setPeriode(option.value)}
+                    className={cn(
+                      "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold transition-colors",
+                      periode === option.value
+                        ? "border-[#1E8A3C] bg-[#1E8A3C] text-white"
+                        : "border-[#E5E7EB] bg-white text-[#1F2937] hover:bg-[#F0FDF4] hover:text-[#1E8A3C]"
+                    )}
+                  >
+                    {option.value === "custom" ? <CalendarDays className="h-4 w-4" /> : null}
+                    {option.label}
+                  </button>
+                ))}
+                {periode === "custom" ? (
+                  <input
+                    type="date"
+                    value={customDate}
+                    max={todayInputValue()}
+                    onChange={(event) => setCustomDate(event.target.value)}
+                    className="rounded-lg border border-[#1E8A3C] bg-white px-3 py-2 text-sm font-bold text-[#1F2937] outline-none focus:ring-2 focus:ring-[#1E8A3C]/20"
+                  />
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => void loadDashboard(true)}
+                  disabled={isLoading}
+                  className="inline-flex items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-sm font-bold text-[#1F2937] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <RefreshCw className={cn("h-4 w-4 text-[#1E8A3C]", isLoading && "animate-spin")} />
+                  Actualiser
                 </button>
               </div>
-            )}
-
-            {/* KPI Cards */}
-            <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-              <KPICard
-                title="Commandes aujourd'hui"
-                value="23"
-                icon={Package}
-                trend={{ value: 5, label: " vs hier" }}
-              />
-              <KPICard
-                title="Revenu net estimé"
-                value="592,94 DH"
-                icon={TrendingUp}
-                variant="success"
-              />
-              <KPICard
-                title="Livreurs actifs"
-                value="3/4"
-                icon={Bike}
-              />
-              <KPICard
-                title="Total Wallet"
-                value="3.250 DH"
-                icon={Wallet}
-              />
-              <KPICard
-                title="Clients blacklistés"
-                value="2"
-                icon={AlertTriangle}
-                variant="warning"
-              />
             </div>
+          </div>
 
-            {/* Chart & Alerts Row */}
-            <div className="grid lg:grid-cols-3 gap-6 mb-8">
-              {/* Weekly Trend Chart */}
-              <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm p-6">
-                <h2 className="text-lg font-bold text-[#3D3D3D] mb-4">Tendance hebdomadaire</h2>
-                <ResponsiveContainer width="100%" height={250}>
-                  <LineChart data={weeklyTrend}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fill: '#8A8A8A' }} />
-                    <YAxis yAxisId="left" tickLine={false} axisLine={false} tick={{ fill: '#8A8A8A' }} />
-                    <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tick={{ fill: '#8A8A8A' }} />
-                    <Tooltip />
-                    <Legend />
-                    <Line yAxisId="left" type="monotone" dataKey="revenue" stroke="#1E8A3C" strokeWidth={2} name="Revenue (DH)" dot={{ fill: '#1E8A3C' }} />
-                    <Line yAxisId="right" type="monotone" dataKey="orders" stroke="#F07C00" strokeWidth={2} name="Commandes" dot={{ fill: '#F07C00' }} />
-                  </LineChart>
-                </ResponsiveContainer>
+          <div className="space-y-4 px-4 py-4 lg:px-6">
+            {error ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                {error}
               </div>
+            ) : null}
 
-              {/* Alerts */}
-              <div className="bg-white rounded-2xl shadow-sm p-6">
-                <h2 className="text-lg font-bold text-[#3D3D3D] mb-4">Alertes & Risques</h2>
-                <div className="space-y-3">
-                  {alerts.map((alert, index) => (
-                    <div
-                      key={index}
-                      className={cn(
-                        "p-4 rounded-xl border-l-4",
-                        alert.type === "danger" && "bg-red-50 border-red-500",
-                        alert.type === "warning" && "bg-[#F07C00]/10 border-[#F07C00]",
-                        alert.type === "success" && "bg-[#4CB84A]/10 border-[#4CB84A]"
-                      )}
-                    >
-                      <div className="flex items-start gap-2">
-                        {alert.type === "danger" && <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />}
-                        {alert.type === "warning" && <AlertTriangle className="w-4 h-4 text-[#F07C00] flex-shrink-0 mt-0.5" />}
-                        {alert.type === "success" && <CheckCircle className="w-4 h-4 text-[#4CB84A] flex-shrink-0 mt-0.5" />}
-                        <div>
-                          <p className="text-xs font-semibold text-[#8A8A8A] mb-1">Risk {alert.code}</p>
-                          <p className="text-sm text-[#3D3D3D]">{alert.message}</p>
+            {isLoading && !dashboard ? (
+              <>
+                <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <SkeletonBlock key={index} className="h-28" />
+                  ))}
+                </section>
+                <section className="grid gap-4 xl:grid-cols-[2fr_1fr_1fr]">
+                  <SkeletonBlock className="h-[340px]" />
+                  <SkeletonBlock className="h-[340px]" />
+                  <SkeletonBlock className="h-[340px]" />
+                </section>
+                <section className="grid gap-4 xl:grid-cols-3">
+                  <SkeletonBlock className="h-40" />
+                  <SkeletonBlock className="h-40" />
+                  <SkeletonBlock className="h-40" />
+                </section>
+              </>
+            ) : dashboard ? (
+              <>
+                <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+                  {metrics.map((metric) => (
+                    <MetricCard key={metric.label} {...metric} />
+                  ))}
+                </section>
+
+                <section className="grid gap-4 xl:grid-cols-[2fr_1fr_1fr]">
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+                    <div className="mb-3 flex items-end justify-between gap-3">
+                      <div>
+                        <h2 className="text-base font-bold text-[#1F2937]">{graphTitle(periode, customDate)}</h2>
+                        <p className="text-xs text-[#6B7280]">{periode === "custom" ? "Fenetre fixe de 30 jours" : "Periode selectionnee"}</p>
+                      </div>
+                      <span className="text-sm font-bold text-[#1E8A3C]">{formatPreciseMoney(dashboard.ca_total)}</span>
+                    </div>
+                    <div className="h-[270px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={dashboard.courbe_ca} margin={{ left: 0, right: 12, top: 8, bottom: 0 }}>
+                          <CartesianGrid stroke="#E5E7EB" strokeDasharray="3 3" vertical={false} />
+                          <XAxis dataKey="date" tick={{ fill: "#6B7280", fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={18} />
+                          <YAxis tick={{ fill: "#6B7280", fontSize: 11 }} tickFormatter={(value) => `${value} DH`} tickLine={false} axisLine={false} width={58} />
+                          <Tooltip content={<AreaTooltip />} />
+                          <Area type="monotone" dataKey="ca" stroke="#1E8A3C" strokeWidth={2} fill="#1E8A3C26" name="CA" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+                    <h2 className="text-base font-bold text-[#1F2937]">Statuts commandes</h2>
+                    <div className="mt-2 h-[170px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={dashboard.repartition_statuts} dataKey="count" nameKey="statut" innerRadius={55} outerRadius={78} paddingAngle={3}>
+                            {dashboard.repartition_statuts.map((entry) => (
+                              <Cell key={entry.statut} fill={getStatusColor(entry.statut)} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-2 max-h-28 overflow-hidden rounded-lg border border-[#E5E7EB]">
+                      <table className="w-full text-xs">
+                        <tbody className="divide-y divide-[#E5E7EB]">
+                          {dashboard.repartition_statuts.slice(0, 4).map((row) => (
+                            <tr key={row.statut}>
+                              <td className="px-2 py-1.5 font-semibold text-[#1F2937]">{normalizeLabel(row.statut)}</td>
+                              <td className="px-2 py-1.5 text-right text-[#6B7280]">{formatNumber(row.count)}</td>
+                              <td className="px-2 py-1.5 text-right font-bold text-[#1E8A3C]">{row.pourcentage.toFixed(1)}%</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+                    <h2 className="text-base font-bold text-[#1F2937]">CA par mode paiement</h2>
+                    <div className="mt-4 h-[250px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={dashboard.repartition_paiements} layout="vertical" margin={{ left: 0, right: 12, top: 4, bottom: 4 }}>
+                          <CartesianGrid stroke="#E5E7EB" strokeDasharray="3 3" horizontal={false} />
+                          <XAxis type="number" tick={{ fill: "#6B7280", fontSize: 11 }} tickFormatter={(value) => `${value} DH`} tickLine={false} axisLine={false} />
+                          <YAxis dataKey="mode" type="category" tick={{ fill: "#6B7280", fontSize: 11 }} tickLine={false} axisLine={false} width={62} />
+                          <Tooltip content={<PaymentTooltip />} />
+                          <Bar dataKey="montant" radius={[0, 8, 8, 0]} barSize={18}>
+                            {dashboard.repartition_paiements.map((entry) => (
+                              <Cell key={entry.mode} fill={getPaymentColor(entry.mode)} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {dashboard.repartition_paiements.slice(0, 4).map((row) => (
+                        <div key={row.mode} className="rounded-lg bg-gray-50 px-2 py-1.5">
+                          <p className="font-bold text-[#1F2937]">{row.mode}</p>
+                          <p className="text-[#6B7280]">{formatMoney(row.montant)} · {formatNumber(row.count)}</p>
                         </div>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+
+                <section className="grid gap-4 xl:grid-cols-3">
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h2 className="text-base font-bold text-[#1F2937]">JIT</h2>
+                        <p className="mt-1 text-sm text-[#6B7280]">Tournees actives : {formatNumber(dashboard.tournees_actives)}</p>
+                      </div>
+                      <StatusBadge value={dashboard.dernier_jit_statut} />
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-[#6B7280]">Volume</p>
+                        <p className="text-xl font-bold text-[#1F2937]">{formatKg(dashboard.dernier_jit_volume)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-[#6B7280]">Commandes</p>
+                        <p className="text-xl font-bold text-[#1F2937]">{formatNumber(dashboard.dernier_jit_nb_commandes)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-[#6B7280]">Panier physique</p>
+                        <p className="text-sm font-bold text-[#1F2937]">{formatKg(panierPhysique)}/commande</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-[#6B7280]">Dernier job</p>
+                        <p className="text-sm font-bold text-[#1F2937]">{formatDateTime(dashboard.dernier_jit_date)}</p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+                    <Link href="/admin/orders#jit" className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#1E8A3C] hover:text-[#166d30]">
+                      Gerer JIT
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
 
-            {/* Orders Table */}
-            <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-8">
-              <div className="p-6 border-b border-gray-100 flex flex-wrap items-center justify-between gap-4">
-                <h2 className="text-lg font-bold text-[#3D3D3D]">Commandes du jour</h2>
-                <div className="flex gap-2">
-                  {["tous", "COD", "Wallet", "CMI"].map(filter => (
-                    <button
-                      key={filter}
-                      onClick={() => setSelectedFilter(filter)}
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+                    <h2 className="text-base font-bold text-[#1F2937]">COD</h2>
+                    <p className="mt-3 text-3xl font-bold text-[#1F2937]">{dashboard.taux_confirmation_cod.toFixed(1)}%</p>
+                    <p className="text-xs font-semibold uppercase text-[#6B7280]">Taux confirmation</p>
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-red-100">
+                      <div className="h-full rounded-full bg-[#1E8A3C]" style={{ width: `${Math.min(100, dashboard.taux_confirmation_cod)}%` }} />
+                    </div>
+                    <p className="mt-2 text-sm font-medium text-[#6B7280]">
+                      {formatNumber(dashboard.cod_confirmes)} confirmees | {formatNumber(dashboard.cod_annules)} annulees
+                    </p>
+                    <Link href="/admin/orders" className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#1E8A3C] hover:text-[#166d30]">
+                      Gerer COD
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+                    <h2 className="text-base font-bold text-[#1F2937]">Blacklist periode</h2>
+                    <p className="mt-3 text-3xl font-bold text-[#1F2937]">{formatNumber(dashboard.clients_blacklistes)}</p>
+                    <p className="text-xs font-semibold uppercase text-[#6B7280]">Blacklistes actifs</p>
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                      <p className="rounded-lg bg-red-50 px-3 py-2 font-bold text-red-700">Nouveaux : +{formatNumber(dashboard.nouveaux_blacklistes)}</p>
+                      <p className="rounded-lg bg-[#F0FDF4] px-3 py-2 font-bold text-[#1E8A3C]">Leves : -{formatNumber(dashboard.blacklists_leves)}</p>
+                    </div>
+                    <p
                       className={cn(
-                        "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                        selectedFilter === filter
-                          ? "bg-[#1E8A3C] text-white"
-                          : "bg-gray-100 text-[#3D3D3D] hover:bg-gray-200"
+                        "mt-2 rounded-lg bg-gray-50 px-3 py-2 text-sm font-bold",
+                        netBlacklist > 0 && "bg-red-50 text-red-700",
+                        netBlacklist < 0 && "bg-[#F0FDF4] text-[#1E8A3C]",
+                        netBlacklist === 0 && "text-[#6B7280]"
                       )}
                     >
-                      {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">#ID</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Client</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Produits</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Total</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Paiement</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Livreur</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Statut</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {ordersToday
-                      .filter(order => selectedFilter === "tous" || order.payment === selectedFilter)
-                      .map((order) => (
-                      <tr key={order.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 font-medium text-[#1E8A3C]">{order.id}</td>
-                        <td className="px-6 py-4 text-[#3D3D3D]">{order.client}</td>
-                        <td className="px-6 py-4 text-[#8A8A8A] text-sm">{order.products}</td>
-                        <td className="px-6 py-4 font-semibold text-[#F07C00]">{order.total} DH</td>
-                        <td className="px-6 py-4">
-                          <span className={cn(
-                            "px-2 py-1 rounded-full text-xs font-medium",
-                            order.payment === "COD" && "bg-yellow-100 text-yellow-700",
-                            order.payment === "Wallet" && "bg-green-100 text-green-700",
-                            order.payment === "CMI" && "bg-blue-100 text-blue-700"
-                          )}>
-                            {order.payment}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-[#3D3D3D]">{order.livreur}</td>
-                        <td className="px-6 py-4">
-                          <StatusBadge status={order.status} size="sm" />
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex gap-2">
-                            {order.livreur === "-" && (
-                              <button className="px-3 py-1 bg-[#1E8A3C] text-white rounded-lg text-xs font-medium hover:bg-[#176B2E]">
-                                Assigner
-                              </button>
-                            )}
-                            <button className="px-3 py-1 border border-gray-200 rounded-lg text-xs font-medium hover:bg-gray-50">
-                              Détails
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Stock & Pricing */}
-            <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-              <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-                <h2 className="text-lg font-bold text-[#3D3D3D]">Stock & Prix du Marché</h2>
-                <button className="px-4 py-2 bg-[#F07C00] text-white rounded-lg font-medium flex items-center gap-2 hover:bg-[#D66B00]">
-                  <Zap className="w-4 h-4" />
-                  Relancer Algo Substitution
-                </button>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Produit</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Prix Gros</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Coût Réel</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Prix Vente</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Marge %</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-[#8A8A8A] uppercase">Stratégie</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {stockPricing.map((item) => (
-                      <tr key={item.product} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 font-medium text-[#3D3D3D]">{item.product}</td>
-                        <td className="px-6 py-4 text-[#3D3D3D]">{item.prixGros} DH</td>
-                        <td className="px-6 py-4 text-[#3D3D3D]">{item.coutReel} DH</td>
-                        <td className="px-6 py-4 font-semibold text-[#F07C00]">{item.prixVente} DH</td>
-                        <td className={cn(
-                          "px-6 py-4 font-semibold",
-                          item.marge >= 0 ? "text-[#4CB84A]" : "text-red-500"
-                        )}>
-                          {item.marge >= 0 ? "+" : ""}{item.marge.toFixed(1)}%
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={cn(
-                            "px-3 py-1 rounded-full text-xs font-medium",
-                            item.strategy === "appel" && "bg-green-100 text-green-700",
-                            item.strategy === "lissage" && "bg-yellow-100 text-yellow-700",
-                            item.strategy === "perte" && "bg-red-100 text-red-700"
-                          )}>
-                            {item.strategy === "appel" && "Produit d'appel"}
-                            {item.strategy === "lissage" && "Lissage marge"}
-                            {item.strategy === "perte" && "Perte stratégique"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                      Solde net : {netBlacklist > 0 ? "+" : ""}{formatNumber(netBlacklist)}
+                    </p>
+                    <Link href="/admin/blacklist" className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#1E8A3C] hover:text-[#166d30]">
+                      Voir blacklist
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+                </section>
+              </>
+            ) : null}
           </div>
         </main>
       </div>
