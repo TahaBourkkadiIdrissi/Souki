@@ -170,7 +170,10 @@ export interface DetailProduitJIT {
   buffer_perte_10_pct: number
   volume_total_kg: number
   prix_kg: number
+  prix_achat: number
   sous_total: number
+  sous_total_ca: number
+  sous_total_achat: number
   unite: string
 }
 
@@ -180,6 +183,9 @@ export interface ResultatAgregationJIT {
   volume_total_kg: number
   details_produits: DetailProduitJIT[]
   montant_total: number
+  ca_estime_total: number
+  cout_achat_estime: number
+  marge_estimee: number
   statut: string
   message?: string | null
 }
@@ -367,6 +373,7 @@ export interface CommandeCODDemainDTO {
   nom_client?: string | null
   telephone?: string | null
   adresse?: string | null
+  is_blacklisted?: boolean | null
   montant?: number | null
   creneau_livraison?: string | null
   statut_confirmation_cod: StatutConfirmationCOD | string
@@ -433,6 +440,59 @@ export interface AdminClientsPageDTO {
   page: number
   page_size: number
   total_pages: number
+}
+
+export type ProduitNiveau = 1 | 2 | 3
+export type ProduitVolatilite = "STABLE" | "VARIABLE" | "SAISONNIER"
+export type ProduitAlerte = "PRIX_DEPASSE_KHDDAR" | "PRIX_GROS_MANQUANT" | null
+
+export interface ProduitPricingDTO {
+  id: number
+  nom_fr: string
+  nom_darija: string
+  prix_kg: number
+  unite: string
+  marge_cible: number
+  coussin_securite: number
+  niveau: ProduitNiveau
+  volatilite: ProduitVolatilite
+  prix_gros_saisi: number | null
+  prix_affiche: number | null
+  prix_khddar_estime: number | null
+  alerte: ProduitAlerte
+}
+
+export interface ProduitPricingListDTO {
+  items: ProduitPricingDTO[]
+  total: number
+  nb_alertes: number
+}
+
+export interface ProduitPricingUpdateDTO {
+  marge_cible?: number
+  coussin_securite?: number
+  niveau?: ProduitNiveau
+  volatilite?: ProduitVolatilite
+  prix_gros_saisi?: number | null
+}
+
+export interface CatalogueProductDTO {
+  id: number
+  nom_fr: string
+  nom_darija: string
+  prix_kg: number
+  prix_affiche: number | null
+  prix_khddar_estime: number | null
+  niveau: ProduitNiveau
+  unite: string
+  stock: number
+}
+
+export type ProduitSuggestionDTO = CatalogueProductDTO
+
+export interface SuggestionsRequestDTO {
+  exclude_ids: number[]
+  panier_total: number
 }
 
 export interface BlacklistParClientDTO {
@@ -806,6 +866,44 @@ export async function getAdminClients(
 
   const suffix = query.toString() ? `?${query.toString()}` : ""
   return apiCall<AdminClientsPageDTO>(`/api/admin/clients${suffix}`, { token, signal })
+}
+
+export async function getProduitsPricing(token: string, signal?: AbortSignal): Promise<ProduitPricingListDTO> {
+  return apiCall<ProduitPricingListDTO>("/api/produits/pricing", { token, signal })
+}
+
+export async function getCatalogueSuggestions(
+  excludeIds: number[],
+  panierTotal: number,
+  signal?: AbortSignal
+): Promise<ProduitSuggestionDTO[]> {
+  return apiCall<ProduitSuggestionDTO[]>("/api/catalogue/suggestions", {
+    method: "POST",
+    body: {
+      exclude_ids: excludeIds.slice(0, 20),
+      panier_total: panierTotal,
+    } satisfies SuggestionsRequestDTO,
+    signal,
+  })
+}
+
+export async function updateProduitPricing(
+  token: string,
+  produitId: number,
+  data: ProduitPricingUpdateDTO
+): Promise<ProduitPricingDTO> {
+  return apiCall<ProduitPricingDTO>(`/api/produits/${produitId}/pricing`, {
+    method: "PATCH",
+    token,
+    body: data,
+  })
+}
+
+export async function recalculerTousPrix(token: string): Promise<{ recalcules: number; alertes: number }> {
+  return apiCall<{ recalcules: number; alertes: number }>("/api/produits/pricing/recalculer", {
+    method: "POST",
+    token,
+  })
 }
 
 export async function blacklistClient(

@@ -440,6 +440,9 @@ function normalizeDetailProduit(value: unknown): DetailProduitJIT | null {
   const volumeTotalKg = getNumber(value.volume_total_kg ?? value.volume_final_kg)
   const prixKg = getNumber(value.prix_kg)
   const sousTotal = getNumber(value.sous_total)
+  const prixAchat = getNumber(value.prix_achat) ?? prixKg
+  const sousTotalCa = getNumber(value.sous_total_ca) ?? sousTotal
+  const sousTotalAchat = getNumber(value.sous_total_achat) ?? sousTotal
 
   if (
     productId === null ||
@@ -447,7 +450,10 @@ function normalizeDetailProduit(value: unknown): DetailProduitJIT | null {
     quantiteBruteKg === null ||
     volumeTotalKg === null ||
     prixKg === null ||
-    sousTotal === null
+    sousTotal === null ||
+    prixAchat === null ||
+    sousTotalCa === null ||
+    sousTotalAchat === null
   ) {
     return null
   }
@@ -460,7 +466,10 @@ function normalizeDetailProduit(value: unknown): DetailProduitJIT | null {
     buffer_perte_10_pct: getNumber(value.buffer_perte_10_pct ?? value.buffer_10_pct) ?? 0,
     volume_total_kg: volumeTotalKg,
     prix_kg: prixKg,
+    prix_achat: prixAchat,
     sous_total: sousTotal,
+    sous_total_ca: sousTotalCa,
+    sous_total_achat: sousTotalAchat,
     unite: getString(value.unite) || "kg",
   }
 }
@@ -470,14 +479,22 @@ function normalizeLogResult(log: JITLogDTO): ResultatAgregationJIT {
     .map(normalizeDetailProduit)
     .filter((detail): detail is DetailProduitJIT => detail !== null)
 
-  const montantTotal = details.reduce((sum, detail) => sum + detail.sous_total, 0)
+  const caEstimeTotal = getNumber(log.details_volumes?.ca_estime_total)
+    ?? details.reduce((sum, detail) => sum + detail.sous_total_ca, 0)
+  const coutAchatEstime = getNumber(log.details_volumes?.cout_achat_estime)
+    ?? details.reduce((sum, detail) => sum + detail.sous_total_achat, 0)
+  const margeEstimee = getNumber(log.details_volumes?.marge_estimee)
+    ?? caEstimeTotal - coutAchatEstime
 
   return {
     nombre_commandes: log.nombre_commandes,
     nombre_abonnements: log.nombre_abonnements,
     volume_total_kg: log.volume_total,
     details_produits: details,
-    montant_total: Number(montantTotal.toFixed(2)),
+    montant_total: Number(caEstimeTotal.toFixed(2)),
+    ca_estime_total: Number(caEstimeTotal.toFixed(2)),
+    cout_achat_estime: Number(coutAchatEstime.toFixed(2)),
+    marge_estimee: Number(margeEstimee.toFixed(2)),
     statut: log.statut,
     message: log.message_alerte,
   }
@@ -710,8 +727,10 @@ function ProductDetailsTable({ details }: { details: DetailProduitJIT[] }) {
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Buffer 10%</th>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Volume total</th>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Unit&eacute;</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Prix kg</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Sous-total</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Prix vente kg</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Prix achat kg</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">CA estimÃ©</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">CoÃ»t achat</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -726,11 +745,38 @@ function ProductDetailsTable({ details }: { details: DetailProduitJIT[] }) {
               <td className="px-4 py-3 font-semibold text-[#1E8A3C]">{formatWeight(detail.volume_total_kg)}</td>
               <td className="px-4 py-3 text-[#3D3D3D]">{detail.unite}</td>
               <td className="px-4 py-3 text-[#3D3D3D]">{formatMoney(detail.prix_kg)}</td>
-              <td className="px-4 py-3 font-semibold text-[#F07C00]">{formatMoney(detail.sous_total)}</td>
+              <td className="px-4 py-3 text-[#3D3D3D]">{formatMoney(detail.prix_achat)}</td>
+              <td className="px-4 py-3 font-semibold text-[#1E8A3C]">{formatMoney(detail.sous_total_ca)}</td>
+              <td className="px-4 py-3 font-semibold text-[#F07C00]">{formatMoney(detail.sous_total_achat)}</td>
             </tr>
           ))}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+function JITFinancialSummary({ result }: { result: ResultatAgregationJIT | null }) {
+  if (!result) {
+    return null
+  }
+
+  return (
+    <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-xl bg-[#F0FAF1] px-4 py-3">
+          <p className="text-xs font-semibold uppercase text-[#8A8A8A]">CA estimÃ© demain</p>
+          <p className="mt-1 text-xl font-bold text-[#1E8A3C]">{formatMoney(result.ca_estime_total)}</p>
+        </div>
+        <div className="rounded-xl bg-amber-50 px-4 py-3">
+          <p className="text-xs font-semibold uppercase text-[#8A8A8A]">CoÃ»t achat estimÃ©</p>
+          <p className="mt-1 text-xl font-bold text-amber-700">{formatMoney(result.cout_achat_estime)}</p>
+        </div>
+        <div className="rounded-xl bg-[#F0FAF1] px-4 py-3">
+          <p className="text-xs font-semibold uppercase text-[#8A8A8A]">Marge estimÃ©e</p>
+          <p className="mt-1 text-xl font-bold text-[#1E8A3C]">{formatMoney(result.marge_estimee)}</p>
+        </div>
+      </div>
     </div>
   )
 }
@@ -2228,6 +2274,7 @@ export default function AdminOrdersPage() {
 
             <div className="p-4">
               <ProductDetailsTable details={jitResult?.details_produits || []} />
+              <JITFinancialSummary result={jitResult} />
             </div>
           </div>
         </section>

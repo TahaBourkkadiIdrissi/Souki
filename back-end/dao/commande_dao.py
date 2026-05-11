@@ -573,6 +573,9 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                     "nom_client": self._build_client_label(commande),
                     "telephone": str(user.phone) if user and user.phone else None,
                     "adresse": self._get_client_address(session, int(commande.client_id)) if commande.client_id else None,
+                    "is_blacklisted": bool(commande.client.is_blacklisted)
+                    if commande.client and commande.client.is_blacklisted is not None
+                    else None,
                     "montant": float(commande.montant_total or 0.0),
                     "creneau_livraison": str(commande.creneau_livraison) if commande.creneau_livraison else None,
                 }

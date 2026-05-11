@@ -87,7 +87,7 @@ class JITService(IJITService):
                         "nom_fr": produit.nom_fr,
                         "nom_darija": produit.nom_darija,
                         "quantite_brute": 0.0,
-                        "prix_kg": produit.prix_kg,
+                        "prix_kg": produit.prix_affiche or produit.prix_kg,
                         "prix_achat": prix_achat,
                         "unite": produit.unite,
                     }
