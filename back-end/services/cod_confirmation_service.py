@@ -72,6 +72,7 @@ class CODConfirmationService(ICODConfirmationService):
                     nom_client=row.get("nom_client"),
                     telephone=row.get("telephone"),
                     adresse=row.get("adresse"),
+                    is_blacklisted=row.get("is_blacklisted"),
                     montant=row.get("montant"),
                     creneau_livraison=row.get("creneau_livraison"),
                     statut_confirmation_cod=str(latest_log.statut) if latest_log else NON_CONFIRMEE,

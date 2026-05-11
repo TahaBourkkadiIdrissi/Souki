@@ -1,22 +1,17 @@
-import type { CommandeHistoriqueDTO } from "@/lib/api"
+import type { CatalogueProductDTO, CommandeHistoriqueDTO } from "@/lib/api"
 import { apiCall } from "@/lib/api"
 
 export type CatalogueCategory = "legumes" | "fruits" | "herbes"
 
-export interface ApiCatalogueProduct {
-  id: number
-  nom_fr: string
-  nom_darija: string
-  prix_kg: number
-  unite: string
-  stock: number
-}
+export type ApiCatalogueProduct = CatalogueProductDTO
 
 export interface CatalogueProduct {
   id: number
   name: string
   alias: string
   price: number
+  prix_khddar_estime?: number | null
+  niveau?: CatalogueProductDTO["niveau"]
   unit: string
   displayUnit: string
   image: string
@@ -35,7 +30,7 @@ export interface BasketSelection {
 }
 
 export const CART_STORAGE_KEY = "souki-cart"
-export const DELIVERY_FEE = 10
+export const DELIVERY_FEE = 15
 
 const productPresentation: Record<
   string,
@@ -246,7 +241,9 @@ export async function fetchCatalogueProducts(): Promise<CatalogueProduct[]> {
       id: product.id,
       name: product.nom_fr,
       alias: product.nom_darija,
-      price: product.prix_kg,
+      price: product.prix_affiche ?? product.prix_kg,
+      prix_khddar_estime: product.prix_khddar_estime,
+      niveau: product.niveau,
       unit: product.unite,
       displayUnit: presentation.displayUnit || product.unite,
       image: presentation.image,
@@ -429,6 +426,7 @@ export async function submitManualBasket(cart: CartItem[]): Promise<ManualBasket
   const items = cart.map((item) => ({
     product_id: typeof item.id === "string" ? parseInt(item.id) : item.id,
     quantity: typeof item.quantity === "string" ? parseFloat(item.quantity) : item.quantity,
+    prix_unitaire: item.price,
   }))
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null

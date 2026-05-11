@@ -26,13 +26,13 @@ import {
 import { AIModals } from "@/components/souki/ai-modals"
 import { ProductCard } from "@/components/souki/product-card"
 import { useAuth } from "@/hooks/useAuth"
-import type { CommandeHistoriqueDTO } from "@/lib/api"
+import type { CommandeHistoriqueDTO, ProduitSuggestionDTO } from "@/lib/api"
+import { getCatalogueSuggestions } from "@/lib/api"
 import {
   BasketSelection,
   CatalogueProduct,
   ClaimReason,
   CartItem,
-  DELIVERY_FEE,
   deleteOrderFromHistory,
   fetchCommandeCheckout,
   fetchCatalogueProducts,
@@ -51,6 +51,8 @@ import { cn } from "@/lib/utils"
 
 const CATALOGUE_REFRESH_INTERVAL_MS = 5 * 60 * 1000
 const CLAIM_WINDOW_MS = 24 * 60 * 60 * 1000
+const SEUIL = 120
+const FRAIS = 15
 
 const categories = [
   { id: "tous", label: "Tous" },
@@ -195,6 +197,26 @@ export default function CataloguePage() {
   const [claimError, setClaimError] = useState("")
   const [isSubmittingClaim, setIsSubmittingClaim] = useState(false)
   const [deletingOrderId, setDeletingOrderId] = useState<number | null>(null)
+  const [pricingSuggestions, setPricingSuggestions] = useState<CatalogueProduct[]>([])
+  const [addedSuggestionIds, setAddedSuggestionIds] = useState<number[]>([])
+
+  const toCatalogueProduct = (product: ProduitSuggestionDTO): CatalogueProduct => {
+    const presentation = getCataloguePresentation(product.nom_fr)
+    return {
+      id: product.id,
+      name: product.nom_fr,
+      alias: product.nom_darija,
+      price: product.prix_affiche ?? product.prix_kg,
+      prix_khddar_estime: product.prix_khddar_estime,
+      niveau: product.niveau,
+      unit: product.unite,
+      displayUnit: presentation.displayUnit || product.unite,
+      image: presentation.image,
+      category: presentation.category,
+      quantityStep: presentation.quantityStep || (product.unite === "kg" ? 0.5 : 1),
+      stock: product.stock,
+    }
+  }
 
   const loadOrderHistory = useCallback(async (showLoader = true) => {
     if (!isAuthenticated) {
@@ -233,6 +255,12 @@ export default function CataloguePage() {
         }
         setError("")
         setProducts(catalogue)
+        setCart((currentCart) =>
+          currentCart.map((item) => {
+            const updated = catalogue.find((product) => product.id === item.id)
+            return updated ? { ...item, price: updated.price } : item
+          })
+        )
       } catch (fetchError) {
         if (isMounted && showLoader) {
           setError("Impossible de charger le catalogue pour le moment.")
@@ -259,6 +287,30 @@ export default function CataloguePage() {
   useEffect(() => {
     saveStoredCart(cart)
   }, [cart])
+
+  useEffect(() => {
+    if (isLoading || !isAuthenticated || cart.length === 0) {
+      setPricingSuggestions([])
+      return
+    }
+
+    const controller = new AbortController()
+    const excludeIds = cart.map((item) => item.id)
+    const panierTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+
+    getCatalogueSuggestions(excludeIds, panierTotal, controller.signal)
+      .then((suggestions) => {
+        setPricingSuggestions(suggestions.map(toCatalogueProduct))
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return
+        }
+        setPricingSuggestions([])
+      })
+
+    return () => controller.abort()
+  }, [cart, isAuthenticated, isLoading])
 
   useEffect(() => {
     if (isLoading) {
@@ -397,6 +449,16 @@ export default function CataloguePage() {
         return
       }
       setCart((currentCart) => upsertCartItem(currentCart, product, quantity))
+      setShowCart(true)
+    })
+  }
+
+  const handleAddSuggestionToCart = (product: CatalogueProduct) => {
+    requireAuth("/catalogue", () => {
+      setAddedSuggestionIds((currentIds) =>
+        currentIds.includes(product.id) ? currentIds : [...currentIds, product.id]
+      )
+      setCart((currentCart) => upsertCartItem(currentCart, product, product.quantityStep))
       setShowCart(true)
     })
   }
@@ -592,7 +654,18 @@ export default function CataloguePage() {
     })
 
   const cartSubtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  const cartTotal = cartSubtotal + DELIVERY_FEE
+  const reste = Math.max(0, SEUIL - cartSubtotal)
+  const progression = Math.min(100, (cartSubtotal / SEUIL) * 100)
+  const cartDeliveryFee = cartSubtotal >= SEUIL ? 0 : FRAIS
+  const cartTotal = cartSubtotal + cartDeliveryFee
+  const firstLevelTwoSuggestionId = pricingSuggestions.find(
+    (suggestion) => suggestion.niveau === 2
+  )?.id
+  const addedSuggestionItems = cart.filter((item) => addedSuggestionIds.includes(item.id))
+  const suggestionSavings = addedSuggestionItems.reduce(
+    (sum, item) => sum + item.price * 0.12,
+    0
+  )
   const claimableLines =
     claimOrder?.produits.filter(
       (product) => typeof product.ligne_panier_id === "number" && product.quantite_kg > 0
@@ -1129,6 +1202,129 @@ export default function CataloguePage() {
               </div>
             ) : (
               <div className="space-y-4 pb-4">
+                <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 shadow-sm">
+                  {reste > 0 ? (
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-bold leading-snug text-[#264129]">
+                        Plus que {reste.toFixed(2)} DH pour la livraison gratuite 🎁
+                      </p>
+                      <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[#9A5C11]">
+                        Livraison {FRAIS.toFixed(0)} DH
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-bold text-[#1E8A3C]">Livraison offerte ✅</p>
+                      <span className="shrink-0 rounded-full bg-[#F0FDF4] px-2.5 py-1 text-xs font-bold text-[#1E8A3C]">
+                        Gratuite
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="mt-3 w-full rounded-full bg-white h-2 ring-1 ring-gray-200">
+                    <div
+                      className="h-2 rounded-full bg-[#1E8A3C] transition-all duration-300"
+                      style={{
+                        width: `${progression}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="mt-2 text-right text-[11px] font-semibold text-[#6F8070]">
+                    {cartSubtotal.toFixed(2)} / {SEUIL.toFixed(0)} DH
+                  </p>
+
+                  {pricingSuggestions.length > 0 && (
+                    <div className="mt-5">
+                      <div className="mb-3 flex items-center gap-3">
+                        <span className="h-px flex-1 bg-gray-200" />
+                        <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                          À ne pas manquer
+                        </span>
+                        <span className="h-px flex-1 bg-gray-200" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {pricingSuggestions.map((suggestion) => {
+                          const niveau = suggestion.niveau || 2
+                          const isInCart = cart.some((item) => item.id === suggestion.id)
+                          const isFeaturedLevelTwo = niveau === 2 && suggestion.id === firstLevelTwoSuggestionId
+                          const resteSuggestions = Math.max(0, SEUIL - cartSubtotal)
+                          const suffitPourSeuil = resteSuggestions > 0 && suggestion.price >= resteSuggestions
+
+                          return (
+                          <div
+                            key={suggestion.id}
+                            className={cn(
+                              "overflow-hidden rounded-xl border bg-white shadow-sm transition-shadow hover:shadow-md",
+                              niveau === 3
+                                ? "border-2 border-amber-400"
+                                : isFeaturedLevelTwo
+                                  ? "border-2 border-[#1E8A3C]"
+                                  : "border-gray-200"
+                            )}
+                          >
+                            <div className="relative flex h-[110px] items-center justify-center bg-gray-50">
+                              <img
+                                src={suggestion.image}
+                                alt={suggestion.name}
+                                className="h-full w-full object-cover"
+                              />
+                              <span className={cn(
+                                "absolute left-2 top-2 rounded-full px-2 py-1 text-[10px] font-bold",
+                                suffitPourSeuil
+                                  ? "bg-amber-100 text-amber-700"
+                                  : "hidden"
+                              )}>
+                                Suffit pour livraison gratuite
+                              </span>
+                              {suggestion.prix_khddar_estime && (
+                                <span className="absolute bottom-2 right-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] text-gray-400 line-through">
+                                  {suggestion.prix_khddar_estime.toFixed(2)} DH
+                                </span>
+                              )}
+                            </div>
+                            <div className="p-3">
+                              <p className="truncate text-[13px] font-medium text-[#264129]">
+                                {suggestion.name}
+                              </p>
+                              <p className="mt-1 truncate text-[11px] text-gray-400">
+                                Ajout malin pour compléter ton panier
+                              </p>
+                              <div className="mt-3 flex items-center justify-between gap-2">
+                                <span className="text-[15px] font-medium text-[#1E8A3C]">
+                                  {suggestion.price.toFixed(2)} DH
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddSuggestionToCart(suggestion)}
+                                  className={cn(
+                                    "flex h-8 w-8 items-center justify-center rounded-full border text-sm font-bold transition-colors",
+                                    isInCart
+                                      ? "border-[#1E8A3C] bg-[#1E8A3C] text-white"
+                                      : "border-gray-300 bg-white text-[#264129] hover:border-[#1E8A3C] hover:text-[#1E8A3C]"
+                                  )}
+                                  aria-label={`Ajouter ${suggestion.name}`}
+                                >
+                                  {isInCart ? "✓" : "+"}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                          )
+                        })}
+                      </div>
+
+                      {cart.length > 0 && addedSuggestionItems.length > 0 && (
+                        <div className="mt-4 flex items-center gap-3 rounded-xl border border-green-200 bg-[#F0FDF4] px-4 py-3">
+                          <Leaf className="h-5 w-5 shrink-0 text-[#1E8A3C]" />
+                          <p className="text-sm font-semibold text-[#264129]">
+                            Tu économises {suggestionSavings.toFixed(2)} DH vs le khddar sur cette sélection 🌿
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {cart.map((item) => (
                   <div
                     key={item.id}
@@ -1193,7 +1389,9 @@ export default function CataloguePage() {
                 </div>
                 <div className="flex items-center justify-between text-[#6F8070]">
                   <span>Livraison</span>
-                  <span className="font-semibold text-[#264129]">{DELIVERY_FEE.toFixed(2)} DH</span>
+                  <span className="font-semibold text-[#264129]">
+                    {cartDeliveryFee > 0 ? `${cartDeliveryFee.toFixed(2)} DH` : "Offerte ✅"}
+                  </span>
                 </div>
               </div>
 
