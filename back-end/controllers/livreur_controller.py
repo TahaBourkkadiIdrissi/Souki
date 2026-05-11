@@ -7,6 +7,8 @@ from dto.livreur_dto import (
     DeliveryEventRequestDTO,
     DeliveryEventResponseDTO,
     DemarrerTourneeResponseDTO,
+    LivraisonDecisionRequestDTO,
+    TourneeRefusResponseDTO,
     TourneeResponseDTO,
 )
 from interfaces.livreur_service_interface import ILivreurService
@@ -41,6 +43,16 @@ def apply_delivery_event(
 ):
     with service:
         return service.apply_delivery_event(principal.user_id, commande_id, payload)
+
+
+@router_livreur.post("/tournee/refuser", response_model=TourneeRefusResponseDTO)
+def refuser_tournee(
+    payload: LivraisonDecisionRequestDTO,
+    principal=Depends(require_permission("livreur.dashboard.access", "deliveries.start_tour")),
+    service: ILivreurService = Depends(get_livreur_service),
+):
+    with service:
+        return service.refuser_tournee(principal.user_id, payload)
 
 
 @router_livreur.post("/livraisons/{commande_id}/cod/validate", response_model=CodValidationResponseDTO)

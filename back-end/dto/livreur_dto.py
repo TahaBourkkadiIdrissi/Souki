@@ -59,6 +59,12 @@ class DeliveryEventRequestDTO(BaseModel):
     expected_version: Optional[int] = Field(default=None, ge=1)
 
 
+class LivraisonDecisionRequestDTO(BaseModel):
+    client_event_id: UUID
+    device_timestamp: datetime
+    expected_version: Optional[int] = Field(default=None, ge=1)
+
+
 class DeliveryEventResponseDTO(BaseModel):
     status: str = "success"
     event_id: UUID
@@ -72,6 +78,17 @@ class DeliveryEventResponseDTO(BaseModel):
     absent_at: Optional[datetime] = None
     device_timestamp: datetime
     server_timestamp: datetime
+    idempotent: bool = False
+    message: str
+
+
+class TourneeRefusResponseDTO(BaseModel):
+    status: str = "success"
+    client_event_id: UUID
+    commandes_refusees: int = Field(default=0, ge=0)
+    commande_ids: List[int] = Field(default_factory=list)
+    dispatch_reassign_triggered: bool = False
+    dispatch_status: Optional[str] = None
     idempotent: bool = False
     message: str
 

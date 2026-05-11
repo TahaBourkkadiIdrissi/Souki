@@ -16,7 +16,7 @@ from controllers.catalogue_controller import router_catalogue
 from controllers.claim_controller import claim_router
 from controllers.checkout_controller import router_checkout
 from controllers.commande_controller import router_voice
-from controllers.dispatch_controller import dispatch_router
+from controllers.dispatch_controller import anomalies_router, dispatch_router
 from controllers.jit_controller import router_jit
 from controllers.livreur_controller import router_livreur
 from controllers.panier_controller import router_panier
@@ -55,13 +55,6 @@ def initialize_application() -> None:
 
     avatar_storage_service.bootstrap_avatar_storage()
 
-
-Base.metadata.create_all(bind=engine)
-WalletSchemaSyncService.sync()
-DeliverySchemaSyncService.sync()
-DispatchSchemaSyncService.sync()
-RBACBootstrapService().sync_rbac()
-CatalogueBootstrapService().sync_catalogue()
 
 
 @asynccontextmanager
@@ -130,6 +123,7 @@ app.include_router(router_checkout)
 app.include_router(pricing_router)
 app.include_router(claim_router)
 app.include_router(dispatch_router)
+app.include_router(anomalies_router)
 app.include_router(router_jit)
 app.include_router(router_livreur)
 app.include_router(admin_router)

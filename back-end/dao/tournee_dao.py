@@ -6,7 +6,9 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from entities.client_entity import Client
 from entities.commande_entity import Commande
+from entities.ligne_panier_entity import LignePanier
 from entities.livreur_entity import Livreur
+from entities.panier_entity import Panier
 from entities.tournee_entity import Tournee
 from entities.user_entity import User
 from interfaces.tournee_dao_interface import ITourneeDao
@@ -50,7 +52,10 @@ class TourneeDaoBD(ITourneeDao):
                 .joinedload(Commande.client)
                 .joinedload(Client.user)
                 .selectinload(User.addresses),
-                selectinload(Tournee.commandes).joinedload(Commande.panier),
+                selectinload(Tournee.commandes)
+                .joinedload(Commande.panier)
+                .selectinload(Panier.lignes)
+                .joinedload(LignePanier.produit),
             )
             .filter(Tournee.date_tournee == target_date)
             .order_by(Tournee.id.asc())

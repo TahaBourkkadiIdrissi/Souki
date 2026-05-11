@@ -151,6 +151,24 @@ class LivreurDaoBD(ILivreurDao):
         )
         return int(session.execute(statement).scalar_one() or 0)
 
+    def get_commandes_for_tournee_refus(
+        self,
+        session: Session,
+        livreur_id: int,
+        statuses: Iterable[str],
+    ) -> list[Commande]:
+        normalized_statuses = [status.upper() for status in statuses]
+        statement = (
+            select(Commande)
+            .where(
+                Commande.livreur_id == livreur_id,
+                func.upper(func.coalesce(Commande.statut, "")).in_(normalized_statuses),
+            )
+            .order_by(Commande.ordre_passage.asc(), Commande.id.asc())
+            .with_for_update(of=Commande)
+        )
+        return list(session.execute(statement).scalars().all())
+
     def get_commande_delivery_context(
         self,
         session: Session,
@@ -187,6 +205,17 @@ class LivreurDaoBD(ILivreurDao):
             "client_phone": details_row.client_phone if details_row else None,
             "payment_validated": details_row.payment_validated if details_row else None,
         }
+
+    def get_commande_by_id(
+        self,
+        session: Session,
+        commande_id: int,
+        for_update: bool = False,
+    ) -> Optional[Commande]:
+        statement = select(Commande).where(Commande.id == commande_id)
+        if for_update:
+            statement = statement.with_for_update(of=Commande)
+        return session.execute(statement).scalar_one_or_none()
 
     def get_delivery_event_by_client_event_id(
         self,

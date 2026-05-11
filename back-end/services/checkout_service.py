@@ -12,13 +12,14 @@ from interfaces.checkout_service_interface import ICheckoutService
 
 
 PANIER_MINIMUM_DH = 50.0
-SEUIL_LIVRAISON_GRATUITE = 80.0
-FRAIS_LIVRAISON = 10.0
+SEUIL_LIVRAISON_GRATUITE = 120.0
+FRAIS_LIVRAISON = 15.0
 DELIVERY_FEE = FRAIS_LIVRAISON
 MOROCCO_TIMEZONE = ZoneInfo("Africa/Casablanca")
 ORDER_CUTOFF_START = time(21, 30)
 ORDER_CUTOFF_END = time(8, 0)
 ORDER_CUTOFF_MESSAGE = "Les commandes sont actuellement fermees."
+ORDER_CUTOFF_ENABLED = False
 
 
 def is_order_cutoff_active(now: Optional[datetime] = None) -> bool:
@@ -60,7 +61,7 @@ class CheckoutService(ICheckoutService):
     def create_checkout(
         self, user_id: int, payload: CheckoutRequestDTO
     ) -> CheckoutResponseDTO:
-        if is_order_cutoff_active():
+        if ORDER_CUTOFF_ENABLED and is_order_cutoff_active():
             raise HTTPException(status_code=403, detail=ORDER_CUTOFF_MESSAGE)
 
         if not payload.items:

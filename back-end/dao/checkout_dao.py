@@ -126,12 +126,13 @@ class CheckoutDaoBD(ICheckoutDao):
         mode_paiement: str,
         montant_total: float,
     ) -> Commande:
+        statut_propre = str(statut or "EN_ATTENTE").strip().upper().replace(" ", "_")
+
         commande = Commande(
             client_id=client_id,
             panier_id=panier_id,
             brouillon_vocal_id=brouillon_vocal_id,
-            livreur_id=None,
-            statut=statut,
+            statut=statut_propre,
             creneau_livraison=creneau_livraison,
             mode_paiement=mode_paiement,
             montant_total=montant_total,
