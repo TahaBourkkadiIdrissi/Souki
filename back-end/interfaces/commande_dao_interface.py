@@ -68,6 +68,7 @@ class ICommandeVocaleDao(ABC):
         self,
         session: Session,
         commande_ids: Optional[Iterable[int]] = None,
+        statuts: Optional[Iterable[str]] = None,
     ) -> List[Commande]:
         """Retourne les commandes dispatchables non rattachees a une tournee."""
         pass
