@@ -56,14 +56,6 @@ def initialize_application() -> None:
     avatar_storage_service.bootstrap_avatar_storage()
 
 
-Base.metadata.create_all(bind=engine)
-WalletSchemaSyncService.sync()
-DeliverySchemaSyncService.sync()
-DispatchSchemaSyncService.sync()
-RBACBootstrapService().sync_rbac()
-CatalogueBootstrapService().sync_catalogue()
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application startup and shutdown."""
