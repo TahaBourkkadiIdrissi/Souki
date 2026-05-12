@@ -36,12 +36,32 @@ type ReassignTarget = {
   sourceTourneeId: number
 } | null
 
+type LivreurTourneesGroup = {
+  key: string
+  livreur: AdminDispatchTournee["livreur"]
+  tournees: AdminDispatchTournee[]
+  totalCommandes: number
+}
+
+type DisplayedTournee = AdminDispatchTournee & {
+  tourneeIds: number[]
+}
+
 function todayAsIsoDate() {
-  const today = new Date()
-  const year = today.getFullYear()
-  const month = String(today.getMonth() + 1).padStart(2, "0")
-  const day = String(today.getDate()).padStart(2, "0")
+  const parts = new Intl.DateTimeFormat("fr-MA", {
+    timeZone: "Africa/Casablanca",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date())
+  const year = parts.find((part) => part.type === "year")?.value || ""
+  const month = parts.find((part) => part.type === "month")?.value || ""
+  const day = parts.find((part) => part.type === "day")?.value || ""
   return `${year}-${month}-${day}`
+}
+
+function isSameIsoDate(value: string | null | undefined, isoDate: string) {
+  return value?.split("T")[0] === isoDate
 }
 
 function formatDispatchDate(value: string) {
@@ -105,6 +125,7 @@ function getStatusClassName(status: string) {
 
 function formatStatus(status: string) {
   const labels: Record<string, string> = {
+    EN_ATTENTE_LIVREUR: "En attente livreur",
     A_LIVRER: "A livrer",
     EN_ROUTE: "En route",
     LIVRE: "Livree",
@@ -118,7 +139,7 @@ function formatStatus(status: string) {
 }
 
 function isCommandeReassignable(status: string) {
-  return ["A_LIVRER", "PLANIFIEE"].includes(status.toUpperCase())
+  return ["EN_ATTENTE_LIVREUR", "A_LIVRER", "PLANIFIEE"].includes(status.toUpperCase())
 }
 
 export default function AdminLivreurPage() {
@@ -152,9 +173,16 @@ export default function AdminLivreurPage() {
           setIsRefreshing(true)
         }
         const response = await getAdminDispatchTournees(token)
-        setDispatchDate(response.target_date || todayAsIsoDate())
-        setTournees(response.tournees || [])
-        setAnomalies(response.anomalies || [])
+        const today = todayAsIsoDate()
+        const todaysTournees = (response.tournees || []).filter((tournee) =>
+          isSameIsoDate(tournee.date_tournee, today)
+        )
+        const todaysAnomalies = (response.anomalies || []).filter((anomalie) =>
+          isSameIsoDate(anomalie.detected_at || anomalie.date_tournee_ratee, today)
+        )
+        setDispatchDate(today)
+        setTournees(todaysTournees)
+        setAnomalies(todaysAnomalies)
         setError("")
       } catch (loadError) {
         setError(
@@ -186,6 +214,55 @@ export default function AdminLivreurPage() {
     () => tournees.reduce((sum, tournee) => sum + tournee.commandes.length, 0),
     [tournees]
   )
+  const livreurTourneeGroups = useMemo<LivreurTourneesGroup[]>(() => {
+    const groupsByLivreur = new Map<string, LivreurTourneesGroup>()
+
+    for (const tournee of tournees) {
+      const livreurKey =
+        tournee.livreur.user_id !== null
+          ? `livreur-${tournee.livreur.user_id}`
+          : `livreur-${tournee.livreur.email || tournee.livreur.phone || tournee.livreur.nom}`
+      const existingGroup = groupsByLivreur.get(livreurKey)
+
+      if (existingGroup) {
+        existingGroup.tournees.push(tournee)
+        existingGroup.totalCommandes += tournee.commandes.length
+      } else {
+        groupsByLivreur.set(livreurKey, {
+          key: livreurKey,
+          livreur: tournee.livreur,
+          tournees: [tournee],
+          totalCommandes: tournee.commandes.length,
+        })
+      }
+    }
+
+    return Array.from(groupsByLivreur.values())
+  }, [tournees])
+  const displayedTournees = useMemo<DisplayedTournee[]>(
+    () =>
+      livreurTourneeGroups.map((group) => {
+        const firstTournee = group.tournees[0]
+        return {
+          ...firstTournee,
+          livreur: group.livreur,
+          commandes: group.tournees.flatMap((tournee) => tournee.commandes),
+          tourneeIds: group.tournees.map((tournee) => tournee.id),
+        }
+      }),
+    [livreurTourneeGroups]
+  )
+  const commandeSourceTourneeIds = useMemo(() => {
+    const sourceIds = new Map<number, number>()
+
+    for (const tournee of tournees) {
+      for (const commande of tournee.commandes) {
+        sourceIds.set(commande.id, tournee.id)
+      }
+    }
+
+    return sourceIds
+  }, [tournees])
   const dispatchDateLabel = useMemo(() => formatDispatchDate(dispatchDate), [dispatchDate])
   const hasAnomalies = anomalies.length > 0
   const hasDispatchData = totalCommandes > 0 || hasAnomalies
@@ -247,7 +324,7 @@ export default function AdminLivreurPage() {
     setIsSubmittingReassign(true)
     try {
       await reassignAdminDispatchCommande(token, reassignTarget.commande.id, nextTourneeId)
-      setToast(`Commande #${reassignTarget.commande.id} reassignee avec succes.`)
+      setToast(`Commande #${reassignTarget.commande.id} réassignée avec succes.`)
       setReassignTarget(null)
       setSelectedTourneeId("")
       await loadTournees(false)
@@ -290,7 +367,11 @@ export default function AdminLivreurPage() {
   }
 
   const availableTargetTournees = reassignTarget
-    ? tournees.filter((tournee) => tournee.id !== reassignTarget.sourceTourneeId)
+    ? tournees.filter(
+        (tournee) =>
+          tournee.id !== reassignTarget.sourceTourneeId &&
+          isSameIsoDate(tournee.date_tournee, todayAsIsoDate())
+      )
     : []
 
   return (
@@ -530,9 +611,9 @@ export default function AdminLivreurPage() {
               </section>
             )}
 
-            {tournees.length > 0 && totalCommandes > 0 && (
+            {displayedTournees.length > 0 && totalCommandes > 0 && (
               <div className="flex gap-5 overflow-x-auto pb-6">
-                {tournees.map((tournee) => (
+                {displayedTournees.map((tournee) => (
                   <section
                     key={tournee.id}
                     className="flex max-h-[calc(100vh-240px)] min-w-[320px] max-w-[360px] flex-1 flex-col rounded-[28px] border border-[#DDEBDD] bg-white shadow-[0_20px_60px_-40px_rgba(18,58,29,0.3)]"
@@ -541,7 +622,9 @@ export default function AdminLivreurPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#F07C00]">
-                            Tournee #{tournee.id}
+                            {tournee.tourneeIds.length > 1
+                              ? `${tournee.tourneeIds.length} tournees`
+                              : `Tournee #${tournee.id}`}
                           </p>
                           <h2 className="mt-1 text-lg font-black text-[#1E8A3C]">
                             {tournee.livreur.nom}
@@ -550,6 +633,11 @@ export default function AdminLivreurPage() {
                             <Bike className="h-4 w-4" />
                             {tournee.livreur.vehicule || "Vehicule non renseigne"}
                           </p>
+                          {tournee.tourneeIds.length > 1 && (
+                            <p className="mt-2 text-xs font-semibold text-[#7A8A7C]">
+                              Tournees #{tournee.tourneeIds.join(", #")}
+                            </p>
+                          )}
                         </div>
                         <span className="rounded-full bg-[#F0FAF1] px-3 py-1 text-xs font-bold text-[#1E8A3C]">
                           {tournee.commandes.length}
@@ -574,7 +662,8 @@ export default function AdminLivreurPage() {
                               <div className="flex items-start justify-between gap-3">
                                 <div>
                                   <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#8A9A8C]">
-                                    Passage {commande.ordre_passage ?? "-"}
+                                    Tournee #{commandeSourceTourneeIds.get(commande.id) ?? tournee.id} - Passage{" "}
+                                    {commande.ordre_passage ?? "-"}
                                   </p>
                                   <h3 className="mt-1 font-black text-[#264129]">
                                     CMD-{commande.id}
@@ -608,11 +697,16 @@ export default function AdminLivreurPage() {
                                 </span>
                                 {canReassign && (
                                   <button
-                                    onClick={() => openReassignModal(commande, tournee.id)}
+                                    onClick={() =>
+                                      openReassignModal(
+                                        commande,
+                                        commandeSourceTourneeIds.get(commande.id) ?? tournee.id
+                                      )
+                                    }
                                     className="inline-flex items-center gap-1.5 rounded-xl border border-[#F5D7B8] bg-white px-3 py-2 text-xs font-bold text-[#9A5C11] transition hover:bg-[#FFF7EE]"
                                   >
                                     <ArrowLeftRight className="h-3.5 w-3.5" />
-                                    Reassigner
+                                    Réassigner
                                   </button>
                                 )}
                               </div>
@@ -635,7 +729,7 @@ export default function AdminLivreurPage() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#F07C00]">
-                  Reassignation
+                  Réassignation
                 </p>
                 <h2 className="mt-2 text-2xl font-black text-[#264129]">
                   Commande #{reassignTarget.commande.id}
@@ -685,7 +779,7 @@ export default function AdminLivreurPage() {
                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#1E8A3C] px-5 py-3 font-bold text-white transition hover:bg-[#176B2E] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmittingReassign && <Loader2 className="h-4 w-4 animate-spin" />}
-                Valider la reassignation
+                Valider la réassignation
               </button>
             </div>
           </div>

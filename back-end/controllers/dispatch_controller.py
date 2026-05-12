@@ -1,11 +1,10 @@
-from datetime import date
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from auth_dependencies import require_permission
 from dependencies import get_dispatch_service
 from interfaces.dispatch_service_interface import IDispatchService
+from services.date_utils import today_morocco
 from services.dispatch_service import DispatchNoLivreurError, DispatchServiceError
 
 
@@ -22,7 +21,7 @@ def run_daily_dispatch(
     principal=Depends(require_permission("admin.panel.access")),
     service: IDispatchService = Depends(get_dispatch_service),
 ):
-    target_date = date.today()
+    target_date = today_morocco()
     try:
         with service:
             return service.generate_daily_routes(target_date)
@@ -38,7 +37,7 @@ def get_dispatch_tournees(
     service: IDispatchService = Depends(get_dispatch_service),
 ):
     _ = principal
-    target_date = date.today()
+    target_date = today_morocco()
     try:
         with service:
             return service.get_tournees_details(target_date)

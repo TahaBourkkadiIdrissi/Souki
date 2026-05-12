@@ -28,7 +28,7 @@ from entities.user_notification_preferences_entity import UserNotificationPrefer
 from entities.user_session_entity import UserSession
 
 
-DISPATCHABLE_COMMANDE_STATUSES = ("EN_ATTENTE", "CONFIRMEE", "VERROUILLEE", "REFUS_LIVREUR")
+DISPATCHABLE_COMMANDE_STATUSES = ("VERROUILLEE",)
 
 
 class CommandeVocaleDaoBD(ICommandeVocaleDao):
@@ -423,7 +423,17 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
         self,
         session: Session,
         commande_ids: Optional[Iterable[int]] = None,
+        statuts: Optional[Iterable[str]] = None,
     ) -> List[Commande]:
+        status_source = statuts if statuts is not None else DISPATCHABLE_COMMANDE_STATUSES
+        allowed_statuses = tuple(
+            str(statut).strip().upper()
+            for statut in status_source
+            if str(statut).strip()
+        )
+        if not allowed_statuses:
+            return []
+
         query = (
             session.query(Commande)
             .options(
@@ -436,7 +446,7 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                 with_loader_criteria(Address, Address.is_default.is_(True), include_aliases=True),
             )
             .filter(
-                func.upper(func.coalesce(Commande.statut, "")).in_(DISPATCHABLE_COMMANDE_STATUSES),
+                func.upper(func.trim(func.coalesce(Commande.statut, ""))).in_(allowed_statuses),
                 Commande.tournee_id.is_(None),
             )
         )
