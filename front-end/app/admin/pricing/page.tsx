@@ -7,21 +7,26 @@ import {
   AlertTriangle,
   BarChart3,
   Bell,
+  Camera,
   CheckCircle2,
   CircleDollarSign,
   Edit3,
+  Image as ImageIcon,
   LayoutDashboard,
   Leaf,
   LogOut,
   Menu,
   Package,
+  Plus,
   RefreshCw,
   Save,
   Settings,
   ShieldAlert,
   ShoppingBasket,
+  Trash2,
   TrendingDown,
   Truck,
+  Upload,
   Users,
   Wallet,
   X,
@@ -42,9 +47,14 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { useAuth } from "@/hooks/useAuth"
 import {
+  createProduit,
+  deleteProduit,
   getProduitsPricing,
   recalculerTousPrix,
+  updateProduitImageUrl,
   updateProduitPricing,
+  uploadProduitImage,
+  type ProductCreateDTO,
   type ProduitAlerte,
   type ProduitNiveau,
   type ProduitPricingDTO,
@@ -91,6 +101,28 @@ interface EditValues {
   coussin_securite: string
   niveau: ProduitNiveau
   volatilite: ProduitVolatilite
+}
+
+interface CreateValues {
+  nom_fr: string
+  nom_darija: string
+  prix_kg: string
+  unite: string
+  niveau: ProduitNiveau
+  marge_cible: string
+  coussin_securite: string
+  volatilite: ProduitVolatilite
+}
+
+const defaultCreateValues: CreateValues = {
+  nom_fr: "",
+  nom_darija: "",
+  prix_kg: "",
+  unite: "kg",
+  niveau: 2,
+  marge_cible: "25",
+  coussin_securite: "10",
+  volatilite: "STABLE",
 }
 
 function countAlerts(items: ProduitPricingDTO[]) {
@@ -285,6 +317,15 @@ export default function AdminPricingPage() {
   const [savingId, setSavingId] = useState<number | null>(null)
   const [isRecalculateOpen, setIsRecalculateOpen] = useState(false)
   const [isRecalculating, setIsRecalculating] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [createValues, setCreateValues] = useState<CreateValues>(defaultCreateValues)
+  const [isCreating, setIsCreating] = useState(false)
+  const [imageTarget, setImageTarget] = useState<ProduitPricingDTO | null>(null)
+  const [imageUrlInput, setImageUrlInput] = useState("")
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imageSavingId, setImageSavingId] = useState<number | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<ProduitPricingDTO | null>(null)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
 
   const produits = pricingList?.items ?? []
   const totalProduits = pricingList?.total ?? 0
@@ -361,6 +402,25 @@ export default function AdminPricingPage() {
 
   function updateEditValue<Key extends keyof EditValues>(key: Key, value: EditValues[Key]) {
     setEditValues((current) => current ? { ...current, [key]: value } : current)
+  }
+
+  function updateCreateValue<Key extends keyof CreateValues>(key: Key, value: CreateValues[Key]) {
+    setCreateValues((current) => ({ ...current, [key]: value }))
+  }
+
+  function updateProduitInList(updatedProduit: ProduitPricingDTO) {
+    setPricingList((current) => {
+      if (!current) {
+        return current
+      }
+
+      const items = current.items.map((item) => item.id === updatedProduit.id ? updatedProduit : item)
+      return {
+        items,
+        total: items.length,
+        nb_alertes: countAlerts(items),
+      }
+    })
   }
 
   async function saveEdit(produit: ProduitPricingDTO) {
@@ -440,6 +500,163 @@ export default function AdminPricingPage() {
     }
   }
 
+  async function createProduct() {
+    if (!token || isCreating) {
+      return
+    }
+
+    const prixKg = getNumberFromInput(createValues.prix_kg)
+    const marge = getNumberFromInput(createValues.marge_cible)
+    const coussin = getNumberFromInput(createValues.coussin_securite)
+
+    if (!createValues.nom_fr.trim() || !createValues.nom_darija.trim() || !createValues.unite.trim()) {
+      setError("Nom FR, nom Darija et unite sont obligatoires.")
+      return
+    }
+
+    if (prixKg === null || prixKg <= 0) {
+      setError("Prix kg invalide.")
+      return
+    }
+
+    if (marge === null || marge < 0 || marge > 100) {
+      setError("Marge invalide. Valeur attendue entre 0 et 100.")
+      return
+    }
+
+    if (coussin === null || coussin < 0 || coussin > 20) {
+      setError("Coussin invalide. Valeur attendue entre 0 et 20.")
+      return
+    }
+
+    const payload: ProductCreateDTO = {
+      nom_fr: createValues.nom_fr.trim(),
+      nom_darija: createValues.nom_darija.trim(),
+      prix_kg: prixKg,
+      unite: createValues.unite.trim(),
+      niveau: createValues.niveau,
+      marge_cible: marge / 100,
+      coussin_securite: coussin / 100,
+      volatilite: createValues.volatilite,
+    }
+
+    setIsCreating(true)
+    try {
+      const createdProduit = await createProduit(token, payload)
+      setPricingList((current) => {
+        if (!current) {
+          return { items: [createdProduit], total: 1, nb_alertes: countAlerts([createdProduit]) }
+        }
+
+        const items = [...current.items, createdProduit].sort((a, b) => a.id - b.id)
+        return {
+          items,
+          total: items.length,
+          nb_alertes: countAlerts(items),
+        }
+      })
+      setCreateValues(defaultCreateValues)
+      setShowCreateModal(false)
+      setError("")
+      setToast(`${createdProduit.nom_fr} cree. Stock initialise a 0.`)
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : "Impossible de creer le produit.")
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  function openImageModal(produit: ProduitPricingDTO) {
+    setImageTarget(produit)
+    setImageUrlInput(produit.image_url || "")
+    setImageFile(null)
+  }
+
+  async function saveImageUrl() {
+    if (!token || !imageTarget || imageSavingId !== null) {
+      return
+    }
+
+    const imageUrl = imageUrlInput.trim()
+    if (!imageUrl) {
+      setError("URL image obligatoire.")
+      return
+    }
+    if (imageUrl.toLowerCase().startsWith("data:image/")) {
+      setError("Utilise l'upload fichier pour une image locale, ou colle une URL publique.")
+      return
+    }
+    if (imageUrl.length > 500) {
+      setError("L'URL image ne doit pas depasser 500 caracteres.")
+      return
+    }
+
+    setImageSavingId(imageTarget.id)
+    try {
+      const updatedProduit = await updateProduitImageUrl(token, imageTarget.id, imageUrl)
+      updateProduitInList(updatedProduit)
+      setImageTarget(null)
+      setImageUrlInput("")
+      setError("")
+      setToast(`Image de ${updatedProduit.nom_fr} mise a jour.`)
+    } catch (imageError) {
+      setError(imageError instanceof Error ? imageError.message : "Impossible de sauvegarder l'image.")
+    } finally {
+      setImageSavingId(null)
+    }
+  }
+
+  async function uploadImageFile() {
+    if (!token || !imageTarget || !imageFile || imageSavingId !== null) {
+      return
+    }
+
+    setImageSavingId(imageTarget.id)
+    try {
+      const updatedProduit = await uploadProduitImage(token, imageTarget.id, imageFile)
+      updateProduitInList(updatedProduit)
+      setImageTarget(null)
+      setImageFile(null)
+      setImageUrlInput("")
+      setError("")
+      setToast(`Photo de ${updatedProduit.nom_fr} televersee.`)
+    } catch (imageError) {
+      setError(imageError instanceof Error ? imageError.message : "Impossible de televerser l'image.")
+    } finally {
+      setImageSavingId(null)
+    }
+  }
+
+  async function confirmDeleteProduct() {
+    if (!token || !deleteTarget || deletingId !== null) {
+      return
+    }
+
+    setDeletingId(deleteTarget.id)
+    try {
+      await deleteProduit(token, deleteTarget.id)
+      setPricingList((current) => {
+        if (!current) {
+          return current
+        }
+
+        const items = current.items.filter((item) => item.id !== deleteTarget.id)
+        return {
+          items,
+          total: items.length,
+          nb_alertes: countAlerts(items),
+        }
+      })
+      setToast(`${deleteTarget.nom_fr} masque du catalogue.`)
+      setDeleteTarget(null)
+      setError("")
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Impossible de supprimer le produit.")
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
       {toast ? (
@@ -447,6 +664,225 @@ export default function AdminPricingPage() {
           {toast}
         </div>
       ) : null}
+
+      {showCreateModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-950">Nouveau produit</h2>
+                <p className="mt-1 text-sm text-gray-500">Le stock initial sera cree a 0.0.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
+                aria-label="Fermer"
+                title="Fermer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
+                Nom FR
+                <input
+                  value={createValues.nom_fr}
+                  onChange={(event) => updateCreateValue("nom_fr", event.target.value)}
+                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                />
+              </label>
+              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
+                Nom Darija
+                <input
+                  value={createValues.nom_darija}
+                  onChange={(event) => updateCreateValue("nom_darija", event.target.value)}
+                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                />
+              </label>
+              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
+                Prix kg
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={createValues.prix_kg}
+                  onChange={(event) => updateCreateValue("prix_kg", event.target.value)}
+                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                />
+              </label>
+              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
+                Unite
+                <input
+                  value={createValues.unite}
+                  onChange={(event) => updateCreateValue("unite", event.target.value)}
+                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                />
+              </label>
+              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
+                Niveau
+                <select
+                  value={createValues.niveau}
+                  onChange={(event) => updateCreateValue("niveau", Number(event.target.value) as ProduitNiveau)}
+                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                >
+                  {niveauOptions.map((option) => (
+                    <option key={option} value={option}>N{option}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
+                Volatilite
+                <select
+                  value={createValues.volatilite}
+                  onChange={(event) => updateCreateValue("volatilite", event.target.value as ProduitVolatilite)}
+                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                >
+                  {volatiliteOptions.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
+                Marge %
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={createValues.marge_cible}
+                  onChange={(event) => updateCreateValue("marge_cible", event.target.value)}
+                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                />
+              </label>
+              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
+                Coussin %
+                <input
+                  type="number"
+                  min="0"
+                  max="20"
+                  step="0.1"
+                  value={createValues.coussin_securite}
+                  onChange={(event) => updateCreateValue("coussin_securite", event.target.value)}
+                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                />
+              </label>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                disabled={isCreating}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={() => void createProduct()}
+                disabled={isCreating}
+                className="inline-flex items-center gap-2 rounded-lg bg-[#1E8A3C] px-4 py-2 text-sm font-semibold text-white hover:bg-[#166d30] disabled:opacity-60"
+              >
+                {isCreating ? <Spinner className="size-4 text-white" /> : <Plus className="h-4 w-4" />}
+                Creer le produit
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {imageTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-950">Photo produit</h2>
+                <p className="mt-1 text-sm text-gray-500">{imageTarget.nom_fr}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setImageTarget(null)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
+                aria-label="Fermer"
+                title="Fermer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-5">
+              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
+                URL externe
+                <input
+                  value={imageUrlInput}
+                  onChange={(event) => setImageUrlInput(event.target.value)}
+                  placeholder="https://..."
+                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => void saveImageUrl()}
+                disabled={imageSavingId === imageTarget.id}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-60"
+              >
+                {imageSavingId === imageTarget.id ? <Spinner className="size-4 text-[#1E8A3C]" /> : <ImageIcon className="h-4 w-4" />}
+                Enregistrer l'URL
+              </button>
+
+              <div className="border-t border-gray-100 pt-5">
+                <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
+                  Upload fichier local
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-normal file:mr-3 file:rounded-md file:border-0 file:bg-[#F0FDF4] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[#1E8A3C]"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => void uploadImageFile()}
+                  disabled={!imageFile || imageSavingId === imageTarget.id}
+                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#1E8A3C] px-4 py-2 text-sm font-semibold text-white hover:bg-[#166d30] disabled:opacity-60"
+                >
+                  {imageSavingId === imageTarget.id ? <Spinner className="size-4 text-white" /> : <Upload className="h-4 w-4" />}
+                  Televerser
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce produit ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Il sera masque du catalogue et de la page pricing. Cette action ne supprime pas l'historique existant.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl" disabled={deletingId !== null}>
+              Annuler
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault()
+                void confirmDeleteProduct()
+              }}
+              disabled={deletingId !== null}
+              className="rounded-xl bg-red-600 hover:bg-red-700"
+            >
+              {deletingId !== null ? <Spinner className="size-4 text-white" /> : <Trash2 className="h-4 w-4" />}
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <header className="sticky top-0 z-50 border-b border-[#E5E7EB] bg-white shadow-sm">
         <div className="flex h-14 items-center justify-between px-4 lg:px-6">
@@ -540,41 +976,53 @@ export default function AdminPricingPage() {
                 <p className="text-sm text-[#6B7280]">Niveaux de marge, coussins de securite, prix affiches</p>
               </div>
 
-              <AlertDialog open={isRecalculateOpen} onOpenChange={setIsRecalculateOpen}>
+              <div className="flex flex-wrap gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsRecalculateOpen(true)}
-                  disabled={!token || isRecalculating || isLoading}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1E8A3C] px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-[#166d30] disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => setShowCreateModal(true)}
+                  disabled={!token || isLoading}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isRecalculating ? <Spinner className="size-4 text-white" /> : <RefreshCw className="h-4 w-4" />}
-                  Recalculer tous les prix
+                  <Plus className="h-4 w-4" />
+                  Nouveau produit
                 </button>
-                <AlertDialogContent className="rounded-2xl">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Recalculer les prix pour tous les produits ?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Cette action met a jour prix_affiche selon les marges et coussins configures.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-xl" disabled={isRecalculating}>
-                      Annuler
-                    </AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={(event) => {
-                        event.preventDefault()
-                        void confirmRecalculate()
-                      }}
-                      disabled={isRecalculating}
-                      className="rounded-xl bg-[#1E8A3C] hover:bg-[#166d30]"
-                    >
-                      {isRecalculating ? <Spinner className="size-4 text-white" /> : <RefreshCw className="h-4 w-4" />}
-                      Recalculer
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+
+                <AlertDialog open={isRecalculateOpen} onOpenChange={setIsRecalculateOpen}>
+                  <button
+                    type="button"
+                    onClick={() => setIsRecalculateOpen(true)}
+                    disabled={!token || isRecalculating || isLoading}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1E8A3C] px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-[#166d30] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isRecalculating ? <Spinner className="size-4 text-white" /> : <RefreshCw className="h-4 w-4" />}
+                    Recalculer tous les prix
+                  </button>
+                  <AlertDialogContent className="rounded-2xl">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Recalculer les prix pour tous les produits ?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Cette action met a jour prix_affiche selon les marges et coussins configures.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="rounded-xl" disabled={isRecalculating}>
+                        Annuler
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={(event) => {
+                          event.preventDefault()
+                          void confirmRecalculate()
+                        }}
+                        disabled={isRecalculating}
+                        className="rounded-xl bg-[#1E8A3C] hover:bg-[#166d30]"
+                      >
+                        {isRecalculating ? <Spinner className="size-4 text-white" /> : <RefreshCw className="h-4 w-4" />}
+                        Recalculer
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
           </div>
 
@@ -630,8 +1078,23 @@ export default function AdminPricingPage() {
                         return (
                           <tr key={produit.id} className={cn("transition-colors hover:bg-gray-50", isEditing && "bg-[#F0FDF4]/40")}>
                             <td className="px-4 py-4">
-                              <p className="font-semibold text-gray-950">{produit.nom_fr}</p>
-                              <p className="text-xs text-gray-500">#{produit.id} - {formatMoney(produit.prix_kg)} / {produit.unite}</p>
+                              <div className="flex items-center gap-3">
+                                {produit.image_url ? (
+                                  <img
+                                    src={produit.image_url}
+                                    alt={produit.nom_fr}
+                                    className="h-9 w-9 rounded-lg object-cover"
+                                  />
+                                ) : (
+                                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#F0FDF4] text-lg">
+                                    🥬
+                                  </span>
+                                )}
+                                <div>
+                                  <p className="font-semibold text-gray-950">{produit.nom_fr}</p>
+                                  <p className="text-xs text-gray-500">#{produit.id} - {formatMoney(produit.prix_kg)} / {produit.unite}</p>
+                                </div>
+                              </div>
                             </td>
                             <td className="px-4 py-4 text-sm text-[#3D3D3D]">{produit.nom_darija}</td>
                             <td className="px-4 py-4">
@@ -740,15 +1203,35 @@ export default function AdminPricingPage() {
                                   </button>
                                 </div>
                               ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => startEdit(produit)}
-                                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[#1E8A3C] hover:bg-[#F0FDF4]"
-                                  title="Modifier"
-                                  aria-label="Modifier"
-                                >
-                                  <Edit3 className="h-4 w-4" />
-                                </button>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => startEdit(produit)}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[#1E8A3C] hover:bg-[#F0FDF4]"
+                                    title="Modifier"
+                                    aria-label="Modifier"
+                                  >
+                                    <Edit3 className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => openImageModal(produit)}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-gray-700 hover:bg-gray-50"
+                                    title="Photo"
+                                    aria-label="Photo"
+                                  >
+                                    <Camera className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeleteTarget(produit)}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                                    title="Supprimer"
+                                    aria-label="Supprimer"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
                               )}
                             </td>
                           </tr>

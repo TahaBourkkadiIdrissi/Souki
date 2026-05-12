@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from dto.produit_pricing_dto import (
+    ProductCreateDTO,
     ProduitPricingDTO,
     ProduitPricingListDTO,
     ProduitPricingUpdateDTO,
@@ -102,6 +103,40 @@ class ProduitPricingServiceBD(IProduitPricingService):
             produits_recalcules = self.dao.get_all_produits_pricing(session)
             alertes = sum(1 for produit in produits_recalcules if produit.alerte is not None)
             return {"recalcules": recalcules, "alertes": alertes}
+        except Exception:
+            session.rollback()
+            raise
+
+    def create_product(self, session: Session, data: ProductCreateDTO) -> ProduitPricingDTO:
+        try:
+            product = self.dao.create_product(session, data)
+            session.commit()
+
+            produit = self.dao.get_produit_pricing(session, int(product.id))
+            if produit is None:
+                raise HTTPException(status_code=404, detail="Produit introuvable.")
+            return produit
+        except Exception:
+            session.rollback()
+            raise
+
+    def deactivate_product(self, session: Session, produit_id: int) -> None:
+        try:
+            self.dao.deactivate_product(session, produit_id)
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+
+    def update_image(self, session: Session, produit_id: int, image_url: str) -> ProduitPricingDTO:
+        try:
+            self.dao.update_image_url(session, produit_id, image_url)
+            session.commit()
+
+            produit = self.dao.get_produit_pricing(session, produit_id)
+            if produit is None:
+                raise HTTPException(status_code=404, detail="Produit introuvable.")
+            return produit
         except Exception:
             session.rollback()
             raise

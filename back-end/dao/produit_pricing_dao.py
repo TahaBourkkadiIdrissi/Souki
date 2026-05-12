@@ -2,7 +2,9 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from dto.produit_pricing_dto import ProduitPricingDTO, ProduitPricingUpdateDTO
+from fastapi import HTTPException
+
+from dto.produit_pricing_dto import ProductCreateDTO, ProduitPricingDTO, ProduitPricingUpdateDTO
 from entities.product_entity import Product
 from interfaces.produit_pricing_dao_interface import IProduitPricingDao
 
@@ -28,7 +30,12 @@ COEFFICIENT_KHDDAR_NIVEAU = {1: 1.08, 2: 1.12, 3: 1.25}
 class ProduitPricingDaoBD(IProduitPricingDao):
 
     def get_all_produits_pricing(self, session: Session) -> List[ProduitPricingDTO]:
-        produits = session.query(Product).order_by(Product.id.asc()).all()
+        produits = (
+            session.query(Product)
+            .filter(Product.is_active == True)  # noqa: E712
+            .order_by(Product.id.asc())
+            .all()
+        )
         return [self._to_dto(produit) for produit in produits]
 
     def get_produit_pricing(
@@ -39,6 +46,7 @@ class ProduitPricingDaoBD(IProduitPricingDao):
         produit = (
             session.query(Product)
             .filter(Product.id == produit_id)
+            .filter(Product.is_active == True)  # noqa: E712
             .first()
         )
         if produit is None:
@@ -54,6 +62,7 @@ class ProduitPricingDaoBD(IProduitPricingDao):
         produit = (
             session.query(Product)
             .filter(Product.id == produit_id)
+            .filter(Product.is_active == True)  # noqa: E712
             .first()
         )
         if produit is None:
@@ -69,12 +78,56 @@ class ProduitPricingDaoBD(IProduitPricingDao):
         produit = (
             session.query(Product)
             .filter(Product.id == produit_id)
+            .filter(Product.is_active == True)  # noqa: E712
             .first()
         )
         if produit is None:
             return
 
         produit.prix_affiche = prix
+        session.flush()
+
+    def create_product(self, session: Session, data: ProductCreateDTO) -> Product:
+        product = Product(
+            nom_fr=data.nom_fr,
+            nom_darija=data.nom_darija,
+            prix_kg=data.prix_kg,
+            unite=data.unite,
+            stock=900.0,
+            is_active=True,
+            niveau=data.niveau or 2,
+            marge_cible=data.marge_cible or 0.25,
+            coussin_securite=data.coussin_securite or 0.10,
+            volatilite=data.volatilite or "STABLE",
+        )
+        session.add(product)
+        session.flush()
+        return product
+
+    def deactivate_product(self, session: Session, produit_id: int) -> None:
+        product = (
+            session.query(Product)
+            .filter(Product.id == produit_id)
+            .filter(Product.is_active == True)  # noqa: E712
+            .first()
+        )
+        if not product:
+            raise HTTPException(status_code=404, detail="Produit non trouve")
+
+        product.is_active = False
+        session.flush()
+
+    def update_image_url(self, session: Session, produit_id: int, image_url: str) -> None:
+        product = (
+            session.query(Product)
+            .filter(Product.id == produit_id)
+            .filter(Product.is_active == True)  # noqa: E712
+            .first()
+        )
+        if not product:
+            raise HTTPException(status_code=404, detail="Produit non trouve")
+
+        product.image_url = image_url
         session.flush()
 
     def _to_dto(self, produit: Product) -> ProduitPricingDTO:
@@ -96,6 +149,8 @@ class ProduitPricingDaoBD(IProduitPricingDao):
             nom_darija=str(produit.nom_darija),
             prix_kg=float(produit.prix_kg),
             unite=str(produit.unite),
+            is_active=bool(produit.is_active) if produit.is_active is not None else True,
+            image_url=str(produit.image_url) if produit.image_url else None,
             marge_cible=(
                 float(produit.marge_cible)
                 if produit.marge_cible is not None
