@@ -1,10 +1,11 @@
 "use client"
 
 import Link from "next/link"
+import { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { User, Users, Truck } from "lucide-react"
 
-export default function PreLoginPage() {
+function PreLoginContent() {
   const searchParams = useSearchParams()
   const redirectTarget = searchParams.get("redirect")
 
@@ -153,5 +154,13 @@ export default function PreLoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function PreLoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-white" />}>
+      <PreLoginContent />
+    </Suspense>
   )
 }

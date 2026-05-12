@@ -30,7 +30,10 @@ export interface BasketSelection {
 }
 
 export const CART_STORAGE_KEY = "souki-cart"
-export const DELIVERY_FEE = 15
+export const FREE_DELIVERY_THRESHOLD = 80
+export const DELIVERY_FEE = 10
+export const POTATO_IMAGE_URL =
+  "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=800&h=600&fit=crop"
 
 const productPresentation: Record<
   string,
@@ -38,7 +41,7 @@ const productPresentation: Record<
 > = {
   "Pommes de terre": {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=800&h=600&fit=crop",
+    image: POTATO_IMAGE_URL,
   },
   "Oignons rouge": {
     category: "legumes",
@@ -194,6 +197,9 @@ const normalizedPresentationEntries = new Map(
 
 const excludedCatalogueNames = new Set(
   [
+    "Tomate test",
+    "Taha",
+    "Hamza",
     "Test Supabase Lag",
     "Panier Essentiel",
     "Panier Essentiel V2",
@@ -232,6 +238,14 @@ export function getCataloguePresentation(name: string) {
   )
 }
 
+export function resolveCatalogueImage(name: string, imageUrl?: string | null) {
+  const presentation = getCataloguePresentation(name)
+  if (normalizeProductName(name) === "pommes de terre") {
+    return presentation.image
+  }
+  return imageUrl || presentation.image
+}
+
 export async function fetchCatalogueProducts(): Promise<CatalogueProduct[]> {
   const data = (await apiCall("/api/catalogue")) as ApiCatalogueProduct[]
   return data.filter((product) => !excludedCatalogueNames.has(normalizeProductName(product.nom_fr))).map((product) => {
@@ -246,7 +260,7 @@ export async function fetchCatalogueProducts(): Promise<CatalogueProduct[]> {
       niveau: product.niveau,
       unit: product.unite,
       displayUnit: presentation.displayUnit || product.unite,
-      image: product.image_url || presentation.image,
+      image: resolveCatalogueImage(product.nom_fr, product.image_url),
       category: presentation.category,
       quantityStep: presentation.quantityStep || (product.unite === "kg" ? 0.5 : 1),
       stock: product.stock,
@@ -328,31 +342,21 @@ export function buildSmartBasket(
     "1 mois": 2.4,
   }
 
-  const preferredNames = [
-    "Tomates",
-    "Pommes de terre",
-    "Oignons rouge",
-    "Carottes",
-    "Courgettes",
-    "Concombres",
-    "Poivrons",
-    "Haricots verts",
-    "Laitue",
-    "Oranges",
-    "Citrons",
-    "Menthe fraiche",
+  const levelOne = products.filter((product) => product.niveau === 1)
+  const levelTwo = products.filter((product) => product.niveau === 2)
+  const levelThree = products.filter((product) => product.niveau === 3)
+  const preferredProducts = [
+    ...levelOne.slice(0, 4),
+    ...levelTwo.slice(0, 5),
+    ...levelThree.slice(0, 4),
+    ...products.filter((product) => ![1, 2, 3].includes(Number(product.niveau))),
   ]
 
   const factor = durationFactor[duration] || 1
   const baseSelections: BasketSelection[] = []
   let total = 0
 
-  for (const name of preferredNames) {
-    const product = products.find((item) => item.name === name)
-    if (!product) {
-      continue
-    }
-
+  for (const product of preferredProducts) {
     const quantity =
       product.unit === "kg"
         ? Math.max(0.5, Math.round(factor * 2) / 2)

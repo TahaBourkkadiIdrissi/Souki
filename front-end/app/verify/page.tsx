@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { Suspense, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { REGEXP_ONLY_DIGITS } from "input-otp"
@@ -227,7 +227,7 @@ function OTPVerificationForm({
   )
 }
 
-export default function VerifyPage() {
+function VerifyContent() {
   const searchParams = useSearchParams()
   const userId = Number(searchParams.get("userId") || "0")
   const channel = searchParams.get("channel") || "email"
@@ -302,5 +302,19 @@ export default function VerifyPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function VerifyPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-[#1E8A3C]" />
+        </div>
+      }
+    >
+      <VerifyContent />
+    </Suspense>
   )
 }

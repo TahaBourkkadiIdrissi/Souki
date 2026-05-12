@@ -1,9 +1,11 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { Suspense, useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
+  ArrowRight,
+  BadgeCheck,
   ChevronDown,
   Clock,
   AlertCircle,
@@ -12,10 +14,12 @@ import {
   Leaf,
   Menu,
   MessageCircle,
+  Mic,
   PackageCheck,
   ReceiptText,
   Search,
   ShoppingCart,
+  Sparkles,
   Trash2,
   X,
   Zap,
@@ -33,6 +37,8 @@ import {
   CatalogueProduct,
   ClaimReason,
   CartItem,
+  DELIVERY_FEE,
+  FREE_DELIVERY_THRESHOLD,
   deleteOrderFromHistory,
   fetchCommandeCheckout,
   fetchCatalogueProducts,
@@ -42,6 +48,7 @@ import {
   getCataloguePresentation,
   loadStoredCart,
   mergeSelectionsIntoCart,
+  resolveCatalogueImage,
   saveStoredCart,
   submitClaim,
   submitManualBasket,
@@ -51,8 +58,8 @@ import { cn } from "@/lib/utils"
 
 const CATALOGUE_REFRESH_INTERVAL_MS = 5 * 60 * 1000
 const CLAIM_WINDOW_MS = 24 * 60 * 60 * 1000
-const SEUIL = 120
-const FRAIS = 15
+const SEUIL = FREE_DELIVERY_THRESHOLD
+const FRAIS = DELIVERY_FEE
 
 const categories = [
   { id: "tous", label: "Tous" },
@@ -168,7 +175,130 @@ const getClaimWindowLabel = (order: CommandeHistoriqueDTO) => {
   return `SAV ouvert jusqu'au ${formatOrderDate(deadline.toISOString())}`
 }
 
-export default function CataloguePage() {
+function SoukiAvatarIllustration({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 180 190"
+      className={className}
+      role="img"
+      aria-label="Amine, assistant Souki"
+    >
+      <circle cx="90" cy="95" r="78" fill="#F0FAF1" />
+      <path d="M43 155c7-28 25-43 48-43s41 15 48 43" fill="#1E8A3C" />
+      <path d="M58 157c4-19 16-30 33-30s29 11 33 30" fill="#4CB84A" opacity="0.45" />
+      <path d="M67 60c4-22 20-35 43-30 17 4 27 16 29 34l-6 4c-22-8-42-8-61 0l-5-8Z" fill="#264129" />
+      <circle cx="92" cy="75" r="37" fill="#F2C7A0" />
+      <path d="M61 72c5-21 18-32 39-32 17 0 30 9 36 24-23-8-46-7-69 4l-6 4Z" fill="#264129" />
+      <circle cx="78" cy="79" r="3" fill="#264129" />
+      <circle cx="105" cy="79" r="3" fill="#264129" />
+      <path d="M82 96c7 5 15 5 23 0" fill="none" stroke="#264129" strokeLinecap="round" strokeWidth="4" />
+      <path d="M91 83c-2 5-2 9 1 12" fill="none" stroke="#C78662" strokeLinecap="round" strokeWidth="3" />
+      <path d="M58 132h66c10 0 19 8 19 19v19H39v-19c0-10 8-19 19-19Z" fill="#1E8A3C" />
+      <path d="M75 132l17 19 17-19" fill="#FFFFFF" opacity="0.92" />
+      <rect x="80" y="153" width="24" height="8" rx="4" fill="#F07C00" />
+      <g className="souki-avatar-wave">
+        <path d="M134 118c11-13 18-28 21-46" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="13" />
+        <path d="M154 72c6-9 8-18 6-27" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="9" />
+        <path d="M153 70l-9-17" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="7" />
+        <path d="M158 70l3-18" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="7" />
+      </g>
+    </svg>
+  )
+}
+
+function AmineWarmWelcome() {
+  return (
+    <div className="pointer-events-none absolute right-5 top-5 z-20 hidden w-40 xl:block 2xl:w-44">
+      <div className="relative pt-8">
+        <div className="absolute right-20 top-0 z-30 whitespace-nowrap rounded-2xl border border-[#F3D8B2] bg-white px-3 py-2 text-center text-sm font-black text-[#9A5C11] shadow-[0_12px_30px_-22px_rgba(154,92,17,0.55)] 2xl:text-base">
+          Ach heb lkhater ?
+        </div>
+        <svg
+          viewBox="0 0 210 210"
+          className="relative z-10 h-auto w-full drop-shadow-[0_18px_24px_rgba(30,65,41,0.16)]"
+          role="img"
+          aria-label="Amine de Souki accueille chaleureusement les clients"
+        >
+          <circle cx="112" cy="108" r="86" fill="#F0FAF1" />
+          <path d="M57 174c8-34 28-52 58-52s50 18 58 52" fill="#1E8A3C" />
+          <path d="M73 176c5-22 20-35 42-35s37 13 42 35" fill="#4CB84A" opacity="0.42" />
+          <path d="M78 63c5-25 24-39 50-33 20 4 32 18 35 39l-8 5c-25-10-49-10-72 0l-5-11Z" fill="#264129" />
+          <circle cx="116" cy="84" r="40" fill="#F2C7A0" />
+          <path d="M81 82c6-24 22-37 46-36 18 1 32 11 39 28-27-9-54-8-80 5l-5 3Z" fill="#264129" />
+          <circle cx="101" cy="89" r="3.5" fill="#264129" />
+          <circle cx="130" cy="89" r="3.5" fill="#264129" />
+          <path d="M105 107c8 7 20 7 29 0" fill="none" stroke="#264129" strokeLinecap="round" strokeWidth="5" />
+          <path d="M116 92c-2 6-2 11 1 15" fill="none" stroke="#C78662" strokeLinecap="round" strokeWidth="3.5" />
+          <path d="M82 144l34 35 34-35" fill="#FFFFFF" opacity="0.92" />
+          <rect x="103" y="167" width="28" height="9" rx="4.5" fill="#F07C00" />
+          <g className="souki-open-hands">
+            <path d="M64 139C43 128 28 113 18 94" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="15" />
+            <path d="M18 94c-8-5-13-12-15-21" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="9" />
+            <path d="M20 93 9 83" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="7" />
+            <path d="M24 90 19 75" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="7" />
+            <path d="M166 139c21-11 36-26 46-45" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="15" />
+            <path d="M212 94c8-5 13-12 15-21" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="9" />
+            <path d="m210 93 11-10" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="7" />
+            <path d="m206 90 5-15" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="7" />
+          </g>
+        </svg>
+      </div>
+    </div>
+  )
+}
+
+function SoukiGuideAvatar({
+  cartCount,
+  cartSubtotal,
+  remainingForFreeDelivery,
+  compact = false,
+}: {
+  cartCount: number
+  cartSubtotal: number
+  remainingForFreeDelivery: number
+  compact?: boolean
+}) {
+  const guideMessage =
+    cartCount === 0
+      ? "Salam, je peux te composer un panier frais en moins d'une minute."
+      : remainingForFreeDelivery > 0
+        ? `Encore ${remainingForFreeDelivery.toFixed(0)} DH pour profiter de la livraison offerte.`
+        : "Ton panier est bien parti. Tu peux valider ou ajouter quelques favoris."
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-3 rounded-2xl border border-[#D7EBD9] bg-white/85 p-3 shadow-[0_14px_40px_-34px_rgba(30,65,41,0.35)]">
+        <SoukiAvatarIllustration className="h-20 w-20 shrink-0 sm:h-24 sm:w-24" />
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-[#1E8A3C]">
+            Amine de Souki
+          </p>
+          <p className="mt-1 text-sm font-bold leading-5 text-[#264129]">{guideMessage}</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-[#D7EBD9] bg-white p-4 shadow-[0_18px_50px_-36px_rgba(30,65,41,0.35)]">
+      <div className="absolute right-4 top-4 rounded-full bg-[#F0FAF1] px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-[#1E8A3C]">
+        Assistant Souki
+      </div>
+      <div className="flex items-end justify-center pt-5">
+        <SoukiAvatarIllustration className="h-40 w-40 sm:h-44 sm:w-44" />
+      </div>
+      <div className="mt-2 rounded-2xl bg-[#F7FCF7] p-4">
+        <p className="text-sm font-bold text-[#264129]">{guideMessage}</p>
+        <div className="mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-[#6F8070]">
+          <span>{cartCount} article{cartCount > 1 ? "s" : ""}</span>
+          <span>{cartSubtotal.toFixed(2)} DH</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CatalogueContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { isAuthenticated, isLoading } = useAuth()
@@ -211,7 +341,7 @@ export default function CataloguePage() {
       niveau: product.niveau,
       unit: product.unite,
       displayUnit: presentation.displayUnit || product.unite,
-      image: product.image_url || presentation.image,
+      image: resolveCatalogueImage(product.nom_fr, product.image_url),
       category: presentation.category,
       quantityStep: presentation.quantityStep || (product.unite === "kg" ? 0.5 : 1),
       stock: product.stock,
@@ -663,7 +793,9 @@ export default function CataloguePage() {
   )?.id
   const addedSuggestionItems = cart.filter((item) => addedSuggestionIds.includes(item.id))
   const suggestionSavings = addedSuggestionItems.reduce(
-    (sum, item) => sum + item.price * 0.12,
+    (sum, item) =>
+      sum +
+      Math.max(0, Number(item.prix_khddar_estime || 0) - item.price) * item.quantity,
     0
   )
   const claimableLines =
@@ -682,7 +814,7 @@ export default function CataloguePage() {
   return (
     <div className="min-h-screen bg-[#FBFDF9]">
       <div className="bg-[#F07C00] px-4 py-3 text-center text-sm font-semibold text-white">
-        Commandes ouvertes - Livraison demain pour garantir la fraicheur
+        Paniers ouverts apres 20h - Livraison demain, prix recalcules au moment de la validation
       </div>
 
       <nav className="sticky top-0 z-40 border-b border-[#E7F0E8] bg-white/90 backdrop-blur">
@@ -690,7 +822,7 @@ export default function CataloguePage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowSidebar((value) => !value)}
-              className="rounded-xl p-2 text-[#264129] lg:hidden"
+              className="rounded-xl p-2 text-[#264129] xl:hidden"
             >
               <Menu className="h-6 w-6" />
             </button>
@@ -715,7 +847,7 @@ export default function CataloguePage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowCart((value) => !value)}
-              className="relative rounded-xl p-2 text-[#264129] lg:hidden"
+              className="relative rounded-xl p-2 text-[#264129] xl:hidden"
             >
               <ShoppingCart className="h-6 w-6" />
               {cart.length > 0 && (
@@ -728,16 +860,16 @@ export default function CataloguePage() {
         </div>
       </nav>
 
-      <div className="mx-auto flex max-w-[1600px]">
+      <div className="mx-auto flex max-w-[1680px]">
         <aside
           className={cn(
-            "fixed left-0 top-0 z-30 h-screen w-72 overflow-y-auto border-r border-[#E6F0E7] bg-[#F2FAF2] p-6 transition-transform lg:sticky lg:top-20 lg:h-[calc(100vh-80px)] lg:translate-x-0",
-            showSidebar ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+            "fixed left-0 top-0 z-50 h-[100dvh] w-[min(100vw,18rem)] overflow-y-auto border-r border-[#E6F0E7] bg-[#F2FAF2] p-6 transition-transform xl:sticky xl:top-20 xl:h-[calc(100vh-80px)] xl:translate-x-0",
+            showSidebar ? "translate-x-0" : "-translate-x-full xl:translate-x-0"
           )}
         >
           <button
             onClick={() => setShowSidebar(false)}
-            className="absolute right-4 top-4 rounded-xl p-2 text-[#264129] lg:hidden"
+            className="absolute right-4 top-4 rounded-xl p-2 text-[#264129] xl:hidden"
           >
             <X className="h-5 w-5" />
           </button>
@@ -825,44 +957,140 @@ export default function CataloguePage() {
           </div>
         </aside>
 
-        <main className="flex-1 px-4 py-6 lg:px-8 lg:py-8">
-          <div className="mb-8 rounded-[32px] bg-gradient-to-br from-[#F7FFF6] via-white to-[#FFF7EF] p-6 shadow-[0_18px_50px_-32px_rgba(0,0,0,0.18)] lg:p-8">
-            <div className="mb-6 flex flex-col gap-5">
-              <div className="max-w-3xl">
-                <div className="mb-3 flex items-center gap-2 text-[#1E8A3C]">
-                  <Leaf className="h-6 w-6" />
-                  <span className="text-sm font-bold uppercase tracking-[0.22em]">
+        <main className="min-w-0 flex-1 px-4 py-6 lg:px-8 lg:py-8">
+          <div className="relative mb-6 overflow-hidden rounded-2xl border border-[#D7EBD9] bg-[linear-gradient(135deg,#FFFFFF_0%,#F7FCF7_58%,#FFF7EE_100%)] p-5 shadow-[0_18px_50px_-34px_rgba(0,0,0,0.2)] lg:p-6">
+            <AmineWarmWelcome />
+            <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_19rem]">
+              <div className="min-w-0 xl:pr-40 2xl:pr-0">
+                <div className="mb-4 flex flex-wrap items-center gap-3">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-[#1E8A3C] ring-1 ring-[#D7EBD9]">
+                    <Leaf className="h-4 w-4" />
                     Catalogue du jour
                   </span>
+                  <span className="inline-flex items-center gap-2 rounded-full bg-[#FFF7EE] px-3 py-1.5 text-xs font-bold text-[#9A5C11] ring-1 ring-[#F3D8B2]">
+                    <Sparkles className="h-4 w-4" />
+                    Guide d'achat actif
+                  </span>
                 </div>
-                <h1 className="text-3xl font-black text-[#1E8A3C] lg:text-4xl">
-                  Fruits, legumes et herbes fraiches au prix du marche
+
+                <h1 className="max-w-4xl text-2xl font-black leading-tight text-[#1E8A3C] lg:text-3xl">
+                  Salam, je t'aide a composer un panier frais sans perdre de temps
                 </h1>
-                <p className="mt-3 max-w-2xl text-sm text-[#6F8070] lg:text-base">
-                  Le catalogue est charge depuis votre back-end. Le panier et la validation de
-                  commande passent par les routes de l'application.
+                <p className="mt-3 max-w-3xl text-sm leading-6 text-[#5F735F] lg:text-base">
+                  Choisis toi-meme tes produits, parle a l'assistant vocal, ou laisse Souki composer
+                  un panier malin selon ton budget.
                 </p>
+
+                <div className="mt-4 2xl:hidden">
+                  <SoukiGuideAvatar
+                    cartCount={cart.length}
+                    cartSubtotal={cartSubtotal}
+                    remainingForFreeDelivery={reste}
+                    compact
+                  />
+                </div>
+
+                <div className="mt-5 grid gap-3 lg:grid-cols-3">
+                  <button
+                    onClick={() => requireAuth("/catalogue", () => setActiveModal("smart"))}
+                    className="group flex min-h-[104px] min-w-0 flex-col justify-between rounded-2xl bg-[#F07C00] p-4 text-left text-white shadow-[0_16px_35px_-22px_rgba(240,124,0,0.75)] transition-transform hover:-translate-y-0.5 hover:bg-[#D66B00]"
+                  >
+                    <span className="flex items-center justify-between gap-3">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/18">
+                        <Zap className="h-5 w-5" />
+                      </span>
+                      <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                    </span>
+                    <span>
+                      <span className="block text-base font-black">Panier intelligent</span>
+                      <span className="mt-1 block text-xs font-semibold text-white/85">
+                        Budget, duree, foyer: Souki compose.
+                      </span>
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => requireAuth("/catalogue", () => setActiveModal("voice"))}
+                    className="group flex min-h-[104px] min-w-0 flex-col justify-between rounded-2xl border border-[#CFE6D2] bg-white p-4 text-left text-[#264129] transition-transform hover:-translate-y-0.5 hover:bg-[#F7FCF7]"
+                  >
+                    <span className="flex items-center justify-between gap-3">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F0FAF1] text-[#1E8A3C]">
+                        <Mic className="h-5 w-5" />
+                      </span>
+                      <ArrowRight className="h-5 w-5 text-[#9AB49C] transition-transform group-hover:translate-x-1" />
+                    </span>
+                    <span>
+                      <span className="block text-base font-black">Assistant vocal</span>
+                      <span className="mt-1 block text-xs font-semibold text-[#6F8070]">
+                        Dis les produits, on prepare le panier.
+                      </span>
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      document
+                        .getElementById("catalogue-products")
+                        ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                    }
+                    className="group flex min-h-[104px] min-w-0 flex-col justify-between rounded-2xl border border-[#E6F0E7] bg-white p-4 text-left text-[#264129] transition-transform hover:-translate-y-0.5 hover:bg-[#FBFDF9]"
+                  >
+                    <span className="flex items-center justify-between gap-3">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FFF7EE] text-[#F07C00]">
+                        <ShoppingCart className="h-5 w-5" />
+                      </span>
+                      <ArrowRight className="h-5 w-5 text-[#9AB49C] transition-transform group-hover:translate-x-1" />
+                    </span>
+                    <span>
+                      <span className="block text-base font-black">Commander moi-meme</span>
+                      <span className="mt-1 block text-xs font-semibold text-[#6F8070]">
+                        Parcours le catalogue a ton rythme.
+                      </span>
+                    </span>
+                  </button>
+                </div>
+
+                <div className="mt-4 grid gap-3 text-sm font-semibold text-[#607061] md:grid-cols-3">
+                  <div className="flex items-center gap-2 rounded-xl bg-white/75 px-3 py-2 ring-1 ring-[#E6F0E7]">
+                    <BadgeCheck className="h-4 w-4 shrink-0 text-[#1E8A3C]" />
+                    Produits frais du marche
+                  </div>
+                  <div className="flex items-center gap-2 rounded-xl bg-white/75 px-3 py-2 ring-1 ring-[#E6F0E7]">
+                    <Clock className="h-4 w-4 shrink-0 text-[#1E8A3C]" />
+                    Livraison demain matin
+                  </div>
+                  <div className="flex items-center gap-2 rounded-xl bg-white/75 px-3 py-2 ring-1 ring-[#E6F0E7]">
+                    <MessageCircle className="h-4 w-4 shrink-0 text-[#1E8A3C]" />
+                    Aide disponible a chaque etape
+                  </div>
+                </div>
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <button
-                  onClick={() => requireAuth("/catalogue", () => setActiveModal("voice"))}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-[#CFE6D2] bg-white px-5 py-3 font-semibold text-[#1E8A3C] transition-colors hover:bg-[#F0FAF1] disabled:cursor-not-allowed disabled:opacity-55"
-                >
-                  <MessageCircle className="h-5 w-5" />
-                  Assistant vocale IA
-                </button>
-                <button
-                  onClick={() => requireAuth("/catalogue", () => setActiveModal("smart"))}
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-[#F07C00] px-5 py-3 font-semibold text-white transition-colors hover:bg-[#D66B00] disabled:cursor-not-allowed disabled:bg-gray-300"
-                >
-                  <Zap className="h-5 w-5" />
-                  Panier intelligent
-                </button>
+              <div className="hidden 2xl:block">
+                <SoukiGuideAvatar
+                  cartCount={cart.length}
+                  cartSubtotal={cartSubtotal}
+                  remainingForFreeDelivery={reste}
+                />
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="mt-5 grid gap-3 border-t border-[#EEF2EE] pt-4 sm:grid-cols-3">
+              <div className="rounded-xl bg-[#F7FCF7] px-4 py-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#7B8B7D]">Seuil confort</p>
+                <p className="mt-1 text-lg font-black text-[#264129]">{SEUIL} DH livraison offerte</p>
+              </div>
+              <div className="rounded-xl bg-[#FFF7EE] px-4 py-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#9A5C11]">Apres 20h</p>
+                <p className="mt-1 text-lg font-black text-[#264129]">En attente pour demain</p>
+              </div>
+              <div className="rounded-xl bg-white px-4 py-3 ring-1 ring-[#E6F0E7]">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#7B8B7D]">Prix</p>
+                <p className="mt-1 text-lg font-black text-[#264129]">Recalcules a validation</p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
               <p className="text-sm text-[#6F8070]">
                 {showOrderHistory
                   ? `${orderHistory.length} commande${orderHistory.length > 1 ? "s" : ""} dans l'historique`
@@ -921,6 +1149,25 @@ export default function CataloguePage() {
 
           {isAuthenticated && showOrderHistory && (
             <section className="mb-8">
+              <div className="mb-5 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-[#E6F0E7] bg-white px-4 py-3 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#7B8B7D]">Commandes</p>
+                  <p className="mt-1 text-2xl font-black text-[#264129]">{orderHistory.length}</p>
+                </div>
+                <div className="rounded-2xl border border-[#E6F0E7] bg-white px-4 py-3 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#7B8B7D]">Depense totale</p>
+                  <p className="mt-1 text-2xl font-black text-[#F07C00]">
+                    {orderHistory.reduce((sum, order) => sum + Number(order.montant_total || 0), 0).toFixed(2)} DH
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-[#E6F0E7] bg-white px-4 py-3 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#7B8B7D]">SAV</p>
+                  <p className="mt-1 text-2xl font-black text-[#1E8A3C]">
+                    {orderHistory.filter(canClaimOrder).length} ouvert
+                  </p>
+                </div>
+              </div>
+
               <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                 <div>
                   <div className="flex items-center gap-2 text-[#1E8A3C]">
@@ -982,9 +1229,10 @@ export default function CataloguePage() {
                   {orderHistory.map((order) => (
                     <article
                       key={order.id}
-                      className="rounded-[24px] border border-[#E6F0E7] bg-white p-5 shadow-sm"
+                      className="overflow-hidden rounded-2xl border border-[#E6F0E7] bg-white shadow-[0_18px_55px_-36px_rgba(30,65,41,0.35)]"
                     >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="h-1.5 bg-gradient-to-r from-[#1E8A3C] via-[#4CB84A] to-[#F07C00]" />
+                      <div className="flex flex-wrap items-start justify-between gap-3 p-5 pb-0">
                         <div>
                           <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#7B8B7D]">
                             Commande N-{order.id}
@@ -1013,7 +1261,7 @@ export default function CataloguePage() {
                         </div>
                       </div>
 
-                      <div className="mt-4 space-y-3">
+                      <div className="mt-4 space-y-3 px-5">
                         {order.produits.map((product, index) => (
                           <div
                             key={`${order.id}-${product.nom_fr}-${index}`}
@@ -1041,7 +1289,7 @@ export default function CataloguePage() {
                         ))}
                       </div>
 
-                      <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                      <div className="mt-4 grid gap-3 px-5 text-sm sm:grid-cols-2">
                         <div className="rounded-2xl bg-[#FBFDF9] p-3">
                           <p className="text-[#7B8B7D]">Paiement</p>
                           <p className="mt-1 font-bold text-[#264129]">
@@ -1064,7 +1312,7 @@ export default function CataloguePage() {
                         </div>
                       </div>
 
-                      <div className="mt-4 grid gap-2 text-xs font-semibold text-[#6F8070] sm:grid-cols-2">
+                      <div className="mt-4 grid gap-2 px-5 text-xs font-semibold text-[#6F8070] sm:grid-cols-2">
                         {order.creneau_livraison && (
                           <p>
                             Creneau: <span className="text-[#264129]">{order.creneau_livraison}</span>
@@ -1087,7 +1335,7 @@ export default function CataloguePage() {
                         )}
                       </div>
 
-                      <div className="mt-4 space-y-2">
+                      <div className="mt-4 space-y-2 bg-[#FBFDF9] p-5">
                         <button
                           onClick={() => openClaimModal(order)}
                           disabled={!canClaimOrder(order)}
@@ -1113,7 +1361,7 @@ export default function CataloguePage() {
           )}
 
           {!showOrderHistory && isFetching && (
-            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr))] sm:gap-6">
               {Array.from({ length: 6 }).map((_, index) => (
                 <div
                   key={index}
@@ -1131,7 +1379,10 @@ export default function CataloguePage() {
 
           {!showOrderHistory && !isFetching && !error && (
             <>
-              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              <div
+                id="catalogue-products"
+                className="grid scroll-mt-28 gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr))] sm:gap-6"
+              >
                 {filteredProducts.map((product) => (
                   <ProductCard
                     key={product.id}
@@ -1139,6 +1390,8 @@ export default function CataloguePage() {
                     name={product.name}
                     image={product.image}
                     price={product.price}
+                    prixKhddarEstime={product.prix_khddar_estime}
+                    niveau={product.niveau}
                     unit={product.unit}
                     displayUnit={product.displayUnit}
                     quantityStep={product.quantityStep}
@@ -1159,18 +1412,18 @@ export default function CataloguePage() {
 
         <aside
           className={cn(
-            "fixed right-0 top-0 z-30 flex h-screen w-80 flex-col border-l border-[#E6F0E7] bg-white transition-transform lg:sticky lg:top-20 lg:h-[calc(100vh-80px)] lg:w-[22rem] lg:translate-x-0 xl:w-[25rem]",
-            showCart ? "translate-x-0" : "translate-x-full lg:translate-x-0"
+            "fixed right-0 top-0 z-50 flex h-[100dvh] w-[min(100vw,22rem)] flex-col border-l border-[#E6F0E7] bg-white transition-transform xl:sticky xl:top-20 xl:h-[calc(100vh-80px)] xl:w-[20rem] xl:translate-x-0 2xl:w-[22rem]",
+            showCart ? "translate-x-0" : "translate-x-full xl:translate-x-0"
           )}
         >
           <button
             onClick={() => setShowCart(false)}
-            className="absolute right-4 top-4 rounded-xl p-2 text-[#264129] lg:hidden"
+            className="absolute right-4 top-4 rounded-xl p-2 text-[#264129] xl:hidden"
           >
             <X className="h-5 w-5" />
           </button>
 
-          <div className="border-b border-[#EEF2EE] p-6">
+          <div className="border-b border-[#EEF2EE] p-4 xl:p-5">
             <div className="flex items-center gap-2 text-[#1E8A3C]">
               <ShoppingCart className="h-5 w-5" />
               <h2 className="text-xl font-black">Votre panier</h2>
@@ -1182,7 +1435,7 @@ export default function CataloguePage() {
             </p>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-3 xl:p-4">
             {!isAuthenticated && !isLoading ? (
               <div className="rounded-[28px] border border-[#F3D8B2] bg-[#FFF7EE] p-5">
                 <p className="text-sm font-semibold text-[#9A5C11]">
@@ -1262,7 +1515,7 @@ export default function CataloguePage() {
                                   : "border-gray-200"
                             )}
                           >
-                            <div className="relative flex h-[110px] items-center justify-center bg-gray-50">
+                            <div className="relative flex h-24 items-center justify-center bg-gray-50 2xl:h-[105px]">
                               <img
                                 src={suggestion.image}
                                 alt={suggestion.name}
@@ -1328,12 +1581,12 @@ export default function CataloguePage() {
                 {cart.map((item) => (
                   <div
                     key={item.id}
-                    className="flex gap-3 rounded-[24px] border border-[#E6F0E7] bg-[#F7FCF7] p-4"
+                    className="flex gap-3 rounded-2xl border border-[#E6F0E7] bg-[#F7FCF7] p-3"
                   >
                     <img
                       src={item.image}
                       alt={item.name}
-                      className="h-16 w-16 shrink-0 rounded-2xl object-cover"
+                      className="h-14 w-14 shrink-0 rounded-xl object-cover 2xl:h-16 2xl:w-16 2xl:rounded-2xl"
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
@@ -1351,20 +1604,20 @@ export default function CataloguePage() {
                         </button>
                       </div>
 
-                      <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
                         <div className="flex shrink-0 items-center rounded-full border border-[#CDE8D0] bg-white">
                           <button
                             onClick={() => updateCartQuantity(item.id, -item.quantityStep)}
-                            className="p-2 text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] disabled:cursor-not-allowed disabled:opacity-40"
+                            className="p-1.5 text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] disabled:cursor-not-allowed disabled:opacity-40 2xl:p-2"
                           >
                             <Minus className="h-3 w-3" />
                           </button>
-                          <span className="min-w-[90px] px-3 text-center text-xs font-semibold text-[#264129]">
+                          <span className="min-w-[72px] px-2 text-center text-xs font-semibold text-[#264129] 2xl:min-w-[90px] 2xl:px-3">
                             {formatQuantity(item.quantity, item.unit)}
                           </span>
                           <button
                             onClick={() => updateCartQuantity(item.id, item.quantityStep)}
-                            className="p-2 text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] disabled:cursor-not-allowed disabled:opacity-40"
+                            className="p-1.5 text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] disabled:cursor-not-allowed disabled:opacity-40 2xl:p-2"
                           >
                             <Plus className="h-3 w-3" />
                           </button>
@@ -1381,7 +1634,7 @@ export default function CataloguePage() {
           </div>
 
           {isAuthenticated && cart.length > 0 && (
-            <div className="border-t border-[#EEF2EE] p-5">
+            <div className="border-t border-[#EEF2EE] p-4 xl:p-5">
               <div className="space-y-2 text-sm">
                 <div className="flex items-center justify-between text-[#6F8070]">
                   <span>Sous-total</span>
@@ -1397,7 +1650,7 @@ export default function CataloguePage() {
 
               <div className="mt-4 flex items-center justify-between border-t border-[#EEF2EE] pt-4">
                 <span className="text-lg font-black text-[#264129]">Total</span>
-                <span className="text-2xl font-black text-[#F07C00]">{cartTotal.toFixed(2)} DH</span>
+                <span className="text-xl font-black text-[#F07C00] 2xl:text-2xl">{cartTotal.toFixed(2)} DH</span>
               </div>
 
               <button
@@ -1418,7 +1671,7 @@ export default function CataloguePage() {
 
       {(showSidebar || showCart) && (
         <div
-          className="fixed inset-0 z-20 bg-black/40 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/40 xl:hidden"
           onClick={() => {
             setShowSidebar(false)
             setShowCart(false)
@@ -1547,5 +1800,19 @@ export default function CataloguePage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function CataloguePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#FBFDF9] flex items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#1E8A3C] border-t-transparent" />
+        </div>
+      }
+    >
+      <CatalogueContent />
+    </Suspense>
   )
 }

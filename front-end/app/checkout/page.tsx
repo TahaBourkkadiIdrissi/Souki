@@ -24,12 +24,17 @@ import {
 } from "lucide-react"
 import { API_BASE_URL } from "@/lib/api"
 import { cn } from "@/lib/utils"
-import { fetchCatalogueProducts, getCataloguePresentation } from "@/lib/catalogue"
+import {
+  DELIVERY_FEE,
+  FREE_DELIVERY_THRESHOLD,
+  fetchCatalogueProducts,
+  getCataloguePresentation,
+} from "@/lib/catalogue"
 import { MapboxLocator } from "@/components/souki/mapbox-locator"
 
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&h=300&fit=crop"
-const SEUIL = 120
-const FRAIS = 15
+const SEUIL = FREE_DELIVERY_THRESHOLD
+const FRAIS = DELIVERY_FEE
 
 interface CartItem {
   id: string
@@ -106,6 +111,7 @@ function CheckoutContent() {
   const [instructions, setInstructions] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [catalogueImages, setCatalogueImages] = useState<Record<number, string>>({})
+  const [cataloguePrices, setCataloguePrices] = useState<Record<number, number>>({})
   const [mapboxModalOpen, setMapboxModalOpen] = useState(false)
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
 
@@ -140,7 +146,10 @@ function CheckoutContent() {
       .map((line: any) => {
         const productId = Number(line.id ?? line.product_id)
         const productName = line.name || line.nom_produit || line.nom_fr || "Produit inconnu"
-        const price = Number(line.price ?? line.prix_unitaire ?? line.prix_kg ?? 0)
+        const currentCataloguePrice = Number.isFinite(productId) ? cataloguePrices[productId] : undefined
+        const price = Number(
+          currentCataloguePrice ?? line.price ?? line.prix_unitaire ?? line.prix_kg ?? 0
+        )
         const quantity = Number(
           line.quantity ?? line.quantite_effective ?? line.quantite_kg ?? 1
         )
@@ -257,7 +266,12 @@ function CheckoutContent() {
           acc[product.id] = product.image
           return acc
         }, {})
+        const priceMap = products.reduce<Record<number, number>>((acc, product) => {
+          acc[product.id] = product.price
+          return acc
+        }, {})
         setCatalogueImages(imageMap)
+        setCataloguePrices(priceMap)
       })
       .catch(() => {
         // Fallback already handled in resolveCartItemImage.
@@ -326,7 +340,7 @@ function CheckoutContent() {
         { id: "4", name: "Carottes", price: 8.5, quantity: 2, unit: "kg", image: "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400&h=300&fit=crop" },
       ])
     }
-  }, [commandeId, panierId, cartParam, catalogueImages, token])
+  }, [commandeId, panierId, cartParam, catalogueImages, cataloguePrices, token])
 
   const merchantPrice = cart.reduce((sum, item) => sum + (item.price * 1.1) * item.quantity, 0)
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
@@ -387,7 +401,8 @@ function CheckoutContent() {
         delivery_city: city.trim(),
         delivery_instructions: instructions.trim() || null,
         // On envoie l'ID du brouillon vocal s'il existe, sinon null
-        brouillon_vocal_id: commandeId ? parseInt(commandeId) : null
+        brouillon_vocal_id: commandeId ? parseInt(commandeId) : null,
+        panier_id: panierId ? parseInt(panierId) : null
       }
 
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null

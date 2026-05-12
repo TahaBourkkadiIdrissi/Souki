@@ -165,6 +165,20 @@
   100% { transform: scale(1.1); }
 }
 
+@keyframes souki-wave {
+  0%, 100% { transform: rotate(0deg); }
+  12% { transform: rotate(-8deg); }
+  24% { transform: rotate(8deg); }
+  36% { transform: rotate(-6deg); }
+  48% { transform: rotate(5deg); }
+  60% { transform: rotate(0deg); }
+}
+
+@keyframes souki-open-hands {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-2px) scale(1.025); }
+}
+
 .animate-pulse-cta {
   animation: pulse-cta 2s ease-in-out infinite;
 }
@@ -179,6 +193,18 @@
 
 .animate-slow-zoom {
   animation: slow-zoom 20s linear infinite alternate;
+}
+
+.souki-avatar-wave {
+  animation: souki-wave 4.5s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 15% 85%;
+}
+
+.souki-open-hands {
+  animation: souki-open-hands 3.8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 .delivery-sheet-scroll {
