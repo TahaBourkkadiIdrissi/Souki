@@ -57,7 +57,7 @@ class ProductDaoBD(IProductDao):
         normalized_alias = self._normalize_alias(alias)
         singular_alias = self._singularize(normalized_alias)
 
-        for product in session.query(Product).all():
+        for product in session.query(Product).filter(Product.is_active == True).all():  # noqa: E712
             aliases = self._build_aliases(product)
             if (
                 normalized_alias in aliases
@@ -71,7 +71,12 @@ class ProductDaoBD(IProductDao):
         return None
 
     def get_all(self, session: Session) -> List[Product]:
-        return session.query(Product).order_by(Product.id.asc()).all()
+        return (
+            session.query(Product)
+            .filter(Product.is_active == True)  # noqa: E712
+            .order_by(Product.id.asc())
+            .all()
+        )
 
     def get_suggestions(
         self,
@@ -85,6 +90,7 @@ class ProductDaoBD(IProductDao):
         query = (
             session.query(Product)
             .filter(Product.niveau.in_([2, 3]))
+            .filter(Product.is_active == True)  # noqa: E712
             .filter(Product.prix_affiche.isnot(None))
             .filter(Product.stock > 0)
         )

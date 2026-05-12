@@ -10,6 +10,8 @@ class ProductResponseDTO(BaseModel):
     prix_kg: float
     prix_affiche: Optional[float] = None
     prix_khddar_estime: Optional[float] = None
+    is_active: bool = True
+    image_url: Optional[str] = None
     niveau: int = 2
     unite: str
     stock: float

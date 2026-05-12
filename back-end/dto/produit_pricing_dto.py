@@ -9,6 +9,8 @@ class ProduitPricingDTO(BaseModel):
     nom_darija: str
     prix_kg: float
     unite: str
+    is_active: bool = True
+    image_url: Optional[str] = None
     marge_cible: float = 0.25
     coussin_securite: float = 0.10
     niveau: int = 2
@@ -25,6 +27,21 @@ class ProduitPricingUpdateDTO(BaseModel):
     niveau: Optional[int] = None
     volatilite: Optional[str] = None
     prix_gros_saisi: Optional[float] = None
+
+
+class ProductCreateDTO(BaseModel):
+    nom_fr: str
+    nom_darija: str
+    prix_kg: float
+    unite: str
+    niveau: int = 2
+    marge_cible: float = 0.25
+    coussin_securite: float = 0.10
+    volatilite: str = "STABLE"
+
+
+class ProductImageDTO(BaseModel):
+    image_url: str
 
 
 class ProduitPricingListDTO(BaseModel):

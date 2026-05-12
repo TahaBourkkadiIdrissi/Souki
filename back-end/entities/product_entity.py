@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float
+from sqlalchemy import Boolean, Column, Integer, String, Float
 from sqlalchemy.orm import relationship
 from config import Base
 
@@ -12,6 +12,8 @@ class Product(Base):
     prix_kg    = Column(Float,       nullable=False)
     unite      = Column(String(50),  nullable=False)
     stock      = Column(Float,       nullable=False, default=0.0)
+    is_active  = Column(Boolean,     default=True)
+    image_url  = Column(String(500), nullable=True)
 
     # Colonnes pricing — ajoutées après migration Supabase Mai 2026
     marge_cible       = Column(Float,      default=0.25)
