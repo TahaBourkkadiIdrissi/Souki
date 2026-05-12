@@ -3,7 +3,8 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from dto.produit_pricing_dto import ProduitPricingUpdateDTO
+from dto.produit_pricing_dto import ProductCreateDTO, ProduitPricingUpdateDTO
+from entities.product_entity import Product
 
 
 class IProduitPricingDao(ABC):
@@ -27,4 +28,16 @@ class IProduitPricingDao(ABC):
 
     @abstractmethod
     def update_prix_affiche(self, session: Session, produit_id: int, prix: float) -> None:
+        pass
+
+    @abstractmethod
+    def create_product(self, session: Session, data: ProductCreateDTO) -> Product:
+        pass
+
+    @abstractmethod
+    def deactivate_product(self, session: Session, produit_id: int) -> None:
+        pass
+
+    @abstractmethod
+    def update_image_url(self, session: Session, produit_id: int, image_url: str) -> None:
         pass

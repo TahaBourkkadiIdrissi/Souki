@@ -452,6 +452,8 @@ export interface ProduitPricingDTO {
   nom_darija: string
   prix_kg: number
   unite: string
+  is_active: boolean
+  image_url: string | null
   marge_cible: number
   coussin_securite: number
   niveau: ProduitNiveau
@@ -476,6 +478,21 @@ export interface ProduitPricingUpdateDTO {
   prix_gros_saisi?: number | null
 }
 
+export interface ProductCreateDTO {
+  nom_fr: string
+  nom_darija: string
+  prix_kg: number
+  unite: string
+  niveau: ProduitNiveau
+  marge_cible: number
+  coussin_securite: number
+  volatilite: ProduitVolatilite
+}
+
+export interface ProductImageDTO {
+  image_url: string
+}
+
 export interface CatalogueProductDTO {
   id: number
   nom_fr: string
@@ -483,6 +500,8 @@ export interface CatalogueProductDTO {
   prix_kg: number
   prix_affiche: number | null
   prix_khddar_estime: number | null
+  is_active: boolean
+  image_url: string | null
   niveau: ProduitNiveau
   unite: string
   stock: number
@@ -610,8 +629,9 @@ export interface LiftBlacklistDTO {
 
 export async function apiCall<T = any>(endpoint: string, options: ApiOptions = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`
+  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...options.headers,
   }
 
@@ -627,7 +647,7 @@ export async function apiCall<T = any>(endpoint: string, options: ApiOptions = {
   }
 
   if (options.body !== undefined) {
-    fetchOptions.body = JSON.stringify(options.body)
+    fetchOptions.body = isFormData ? options.body as BodyInit : JSON.stringify(options.body)
   }
 
   const response = await fetch(url, fetchOptions)
@@ -870,6 +890,48 @@ export async function getAdminClients(
 
 export async function getProduitsPricing(token: string, signal?: AbortSignal): Promise<ProduitPricingListDTO> {
   return apiCall<ProduitPricingListDTO>("/api/produits/pricing", { token, signal })
+}
+
+export async function createProduit(token: string, data: ProductCreateDTO): Promise<ProduitPricingDTO> {
+  return apiCall<ProduitPricingDTO>("/api/produits", {
+    method: "POST",
+    token,
+    body: data,
+  })
+}
+
+export async function deleteProduit(token: string, produitId: number): Promise<{ success: boolean; message: string }> {
+  return apiCall<{ success: boolean; message: string }>(`/api/produits/${produitId}`, {
+    method: "DELETE",
+    token,
+  })
+}
+
+export async function uploadProduitImage(
+  token: string,
+  produitId: number,
+  file: File
+): Promise<ProduitPricingDTO> {
+  const formData = new FormData()
+  formData.append("file", file)
+
+  return apiCall<ProduitPricingDTO>(`/api/produits/${produitId}/image/upload`, {
+    method: "POST",
+    token,
+    body: formData,
+  })
+}
+
+export async function updateProduitImageUrl(
+  token: string,
+  produitId: number,
+  imageUrl: string
+): Promise<ProduitPricingDTO> {
+  return apiCall<ProduitPricingDTO>(`/api/produits/${produitId}/image/url`, {
+    method: "PATCH",
+    token,
+    body: { image_url: imageUrl } satisfies ProductImageDTO,
+  })
 }
 
 export async function getCatalogueSuggestions(

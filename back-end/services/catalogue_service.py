@@ -77,6 +77,8 @@ class CatalogueService(ICatalogueService):
                 else None
             ),
             prix_khddar_estime=prix_khddar_estime,
+            is_active=bool(produit.is_active) if produit.is_active is not None else True,
+            image_url=str(produit.image_url) if produit.image_url else None,
             niveau=int(produit.niveau or 2),
             unite=str(produit.unite),
             stock=float(produit.stock),# type: ignore

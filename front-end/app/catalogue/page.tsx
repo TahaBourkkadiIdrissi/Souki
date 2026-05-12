@@ -211,7 +211,7 @@ export default function CataloguePage() {
       niveau: product.niveau,
       unit: product.unite,
       displayUnit: presentation.displayUnit || product.unite,
-      image: presentation.image,
+      image: product.image_url || presentation.image,
       category: presentation.category,
       quantityStep: presentation.quantityStep || (product.unite === "kg" ? 0.5 : 1),
       stock: product.stock,

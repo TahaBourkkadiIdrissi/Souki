@@ -1,6 +1,7 @@
 from datetime import date, datetime, timezone
 from typing import Any, Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from config import LocalSession
@@ -18,16 +19,18 @@ from services.commande_state_machine import (
     changer_statut,
     process_end_of_day_returns,
 )
+from services.date_utils import today_morocco
 
 
 DISPATCH_TARGET_STATUS = "EN_ATTENTE_LIVREUR"
+LOCKED_DISPATCH_STATUS = "VERROUILLEE"
 DISPATCH_STATUS_PROGRESSIONS = {
     "EN_ATTENTE": ("CONFIRMEE", "VERROUILLEE", DISPATCH_TARGET_STATUS),
     "CONFIRMEE": ("VERROUILLEE", DISPATCH_TARGET_STATUS),
     "VERROUILLEE": (DISPATCH_TARGET_STATUS,),
     "REFUS_LIVREUR": (DISPATCH_TARGET_STATUS,),
 }
-REASSIGNABLE_COMMANDE_STATUSES = {"A_LIVRER", "PLANIFIEE"}
+REASSIGNABLE_COMMANDE_STATUSES = {"EN_ATTENTE_LIVREUR", "A_LIVRER", "PLANIFIEE"}
 
 
 class DispatchServiceError(ValueError):
@@ -94,7 +97,14 @@ class DispatchService(IDispatchService):
                 commandes = self.commande_dao.get_commandes_non_assignees(
                     session,
                     commande_ids=commande_ids,
+                    statuts={LOCKED_DISPATCH_STATUS},
                 )
+                # Filtre critique: le dispatch quotidien n'assigne que les commandes verrouillees par le JIT.
+                commandes = [
+                    commande
+                    for commande in commandes
+                    if self._is_commande_locked_for_dispatch(commande)
+                ]
                 if not commandes:
                     return {
                         "status": "no_orders",
@@ -160,8 +170,12 @@ class DispatchService(IDispatchService):
 
     def get_tournees_details(self, target_date: date) -> dict[str, Any]:
         session = self._ensure_session()
-        tournees = self.tournee_dao.get_tournees_with_details(session, target_date)
-        anomalies = self._get_anomalies_non_resolues(session)
+        tournees = [
+            tournee
+            for tournee in self.tournee_dao.get_tournees_with_details(session, target_date)
+            if tournee.date_tournee == target_date
+        ]
+        anomalies = self._get_anomalies_non_resolues(session, target_date)
         return {
             "status": "success",
             "target_date": target_date.isoformat(),
@@ -176,7 +190,7 @@ class DispatchService(IDispatchService):
         target_date: Optional[date] = None,
     ) -> dict[str, Any]:
         session = self._ensure_session()
-        reassignment_date = target_date or date.today()
+        reassignment_date = target_date or today_morocco()
         normalized_commande_ids = {int(commande_id) for commande_id in commande_ids}
         transaction = session.begin_nested() if session.in_transaction() else session.begin()
 
@@ -185,6 +199,7 @@ class DispatchService(IDispatchService):
                 commandes = self.commande_dao.get_commandes_non_assignees(
                     session,
                     commande_ids=normalized_commande_ids,
+                    statuts={"REFUS_LIVREUR"},
                 )
                 commandes = [
                     commande
@@ -287,6 +302,7 @@ class DispatchService(IDispatchService):
 
     def reassign_commande(self, commande_id: int, nouvelle_tournee_id: int) -> dict[str, Any]:
         session = self._ensure_session()
+        target_date = today_morocco()
         transaction = session.begin_nested() if session.in_transaction() else session.begin()
 
         try:
@@ -305,6 +321,20 @@ class DispatchService(IDispatchService):
                         "Impossible de réassigner une commande qui est déjà en cours de traitement ou finalisée."
                     )
 
+                if commande.tournee_id is None:
+                    raise DispatchServiceError("La commande n'est rattachee a aucune tournee.")
+
+                source_tournee = self.tournee_dao.get_tournee_by_id(
+                    session,
+                    int(commande.tournee_id),
+                    for_update=True,
+                )
+                if source_tournee is None:
+                    raise DispatchNotFoundError("Tournee source introuvable.")
+
+                if source_tournee.date_tournee != target_date:
+                    raise DispatchServiceError("Seules les tournees du jour peuvent etre reassignees.")
+
                 tournee = self.tournee_dao.get_tournee_by_id(
                     session,
                     nouvelle_tournee_id,
@@ -315,6 +345,12 @@ class DispatchService(IDispatchService):
 
                 if tournee.livreur_id is None:
                     raise DispatchServiceError("La tournee cible n'a pas de livreur assigne.")
+
+                if tournee.date_tournee != target_date:
+                    raise DispatchServiceError("La tournee cible doit etre une tournee du jour.")
+
+                if int(tournee.id) == int(source_tournee.id):
+                    raise DispatchServiceError("La tournee cible doit etre differente de la tournee source.")
 
                 ordre_passage = self.tournee_dao.get_next_ordre_passage(session, nouvelle_tournee_id)
                 self.commande_dao.reassign_commande_to_tournee(
@@ -419,6 +455,9 @@ class DispatchService(IDispatchService):
             ),
         )
 
+    def _is_commande_locked_for_dispatch(self, commande: Commande) -> bool:
+        return str(commande.statut or "").strip().upper() == LOCKED_DISPATCH_STATUS
+
     def _mettre_commande_en_attente_livreur(self, session: Session, commande: Commande, actor_id: int) -> None:
         current_status = str(commande.statut or "").strip().upper()
         status_steps = DISPATCH_STATUS_PROGRESSIONS.get(current_status)
@@ -521,7 +560,7 @@ class DispatchService(IDispatchService):
             "produits": self._serialize_commande_products(commande),
         }
 
-    def _get_anomalies_non_resolues(self, session: Session) -> list[AnomalieLogistique]:
+    def _get_anomalies_non_resolues(self, session: Session, target_date: date) -> list[AnomalieLogistique]:
         return (
             session.query(AnomalieLogistique)
             .options(
@@ -535,7 +574,10 @@ class DispatchService(IDispatchService):
                 .selectinload(Panier.lignes)
                 .joinedload(LignePanier.produit),
             )
-            .filter(AnomalieLogistique.resolved_at.is_(None))
+            .filter(
+                AnomalieLogistique.resolved_at.is_(None),
+                func.date(AnomalieLogistique.detected_at) == target_date,
+            )
             .order_by(AnomalieLogistique.detected_at.desc(), AnomalieLogistique.id.desc())
             .all()
         )
