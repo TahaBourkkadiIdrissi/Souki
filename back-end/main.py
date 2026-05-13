@@ -17,6 +17,7 @@ from controllers.claim_controller import claim_router
 from controllers.checkout_controller import router_checkout
 from controllers.commande_controller import router_voice
 from controllers.dispatch_controller import anomalies_router, dispatch_router
+from controllers.fournisseur_controller import router_admin_supplier, router_supplier
 from controllers.jit_controller import router_jit
 from controllers.livreur_controller import router_livreur
 from controllers.panier_controller import router_panier
@@ -28,6 +29,7 @@ from services.delivery_schema_sync_service import DeliverySchemaSyncService
 from services.dispatch_schema_sync_service import DispatchSchemaSyncService
 from services.rbac_bootstrap_service import RBACBootstrapService
 from services.scheduler_service import start_scheduler, stop_scheduler
+from services.supplier_schema_sync_service import SupplierSchemaSyncService
 from services.supabase_storage_service import avatar_storage_service
 from services.wallet_schema_sync_service import WalletSchemaSyncService
 
@@ -38,6 +40,7 @@ def initialize_application() -> None:
         WalletSchemaSyncService.sync()
         DeliverySchemaSyncService.sync()
         DispatchSchemaSyncService.sync()
+        SupplierSchemaSyncService.sync()
         avatar_storage_service.ensure_avatar_column()
     except OperationalError as exc:
         raise RuntimeError(
@@ -61,6 +64,7 @@ def initialize_application() -> None:
 async def lifespan(app: FastAPI):
     """Manage application startup and shutdown."""
     print("\n[STARTUP] Demarrage de l'application SOUKI...")
+    initialize_application()
     start_scheduler()
     print("[STARTUP] Application SOUKI lancee avec succes\n")
 
@@ -126,8 +130,10 @@ app.include_router(dispatch_router)
 app.include_router(anomalies_router)
 app.include_router(router_jit)
 app.include_router(router_livreur)
+app.include_router(router_supplier)
 app.include_router(admin_router)
 app.include_router(api_admin_router)
+app.include_router(router_admin_supplier)
 
 
 if __name__ == "__main__":

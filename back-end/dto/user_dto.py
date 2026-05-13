@@ -1,5 +1,5 @@
 import re
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, EmailStr, Field, validator
 
@@ -60,7 +60,7 @@ class GoogleLoginRequest(BaseModel):
     @validator("role")
     def validate_role(cls, v):
         role = v.upper()
-        if role not in {"CLIENT", "PARENT", "LIVREUR"}:
+        if role not in {"CLIENT", "PARENT", "LIVREUR", "FOURNISSEUR"}:
             raise ValueError("Role invalide")
         return role
 
@@ -124,6 +124,7 @@ class OTPVerificationResponse(BaseModel):
 
 
 class CurrentUserResponse(BaseModel):
+    user: Optional[Dict[str, Any]] = None
     id: int
     email: Optional[str]
     phone: Optional[str]
@@ -134,3 +135,4 @@ class CurrentUserResponse(BaseModel):
     is_verified: bool
     is_active: bool = True
     default_dashboard: str = "/"
+    profiles: Dict[str, Any] = Field(default_factory=dict)

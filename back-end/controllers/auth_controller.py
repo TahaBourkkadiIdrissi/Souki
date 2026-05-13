@@ -36,7 +36,14 @@ def login(data: LoginRequest, request: Request):
     if not token:
         raise HTTPException(status_code=401, detail="Identifiants incorrects.")
     _register_session_for_token(token, request)
-    return {"access_token": token, "token_type": "bearer"}
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "roles": payload.get("roles", []),
+        "role": payload.get("role"),
+        "default_dashboard": payload.get("default_dashboard", "/"),
+    }
 
 
 @auth_router.post("/admin/login")
@@ -45,7 +52,14 @@ def admin_login(data: AdminLoginRequest, request: Request):
     if not token:
         raise HTTPException(status_code=401, detail="Identifiants incorrects.")
     _register_session_for_token(token, request)
-    return {"access_token": token, "token_type": "bearer"}
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "roles": payload.get("roles", []),
+        "role": payload.get("role"),
+        "default_dashboard": payload.get("default_dashboard", "/admin"),
+    }
 
 
 @auth_router.post("/verify-otp", response_model=OTPVerificationResponse)
@@ -68,7 +82,14 @@ def google_login(data: GoogleLoginRequest, request: Request):
     if not token:
         raise HTTPException(status_code=401, detail="Token Google invalide ou expire.")
     _register_session_for_token(token, request)
-    return {"access_token": token, "token_type": "bearer"}
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "roles": payload.get("roles", []),
+        "role": payload.get("role"),
+        "default_dashboard": payload.get("default_dashboard", "/"),
+    }
 
 
 @auth_router.post("/google-login")
@@ -77,23 +98,19 @@ def google_login_legacy(data: GoogleLoginRequest, request: Request):
     if not token:
         raise HTTPException(status_code=401, detail="Token Google invalide ou expire.")
     _register_session_for_token(token, request)
-    return {"access_token": token, "token_type": "bearer"}
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "roles": payload.get("roles", []),
+        "role": payload.get("role"),
+        "default_dashboard": payload.get("default_dashboard", "/"),
+    }
 
 
 @auth_router.get("/me", response_model=CurrentUserResponse)
 def get_me(principal=Depends(require_auth)):
-    return {
-        "id": principal.user_id,
-        "email": principal.email,
-        "phone": principal.phone,
-        "role": principal.primary_role,
-        "legacy_role": principal.legacy_role,
-        "roles": sorted(principal.roles),
-        "permissions": sorted(principal.permissions),
-        "is_verified": principal.is_verified,
-        "is_active": principal.is_active,
-        "default_dashboard": principal.default_dashboard,
-    }
+    return AuthService().export_current_principal(principal)
 
 
 get_current_user = require_auth

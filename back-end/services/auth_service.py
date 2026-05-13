@@ -10,6 +10,7 @@ from config import GOOGLE_CLIENT_ID, LocalSession
 from dao.user_dao import UserDao
 from entities.client_entity import Client
 from entities.client_blacklist_log_entity import ClientBlacklistLog
+from entities.fournisseur_entity import Fournisseur
 from entities.livreur_entity import Livreur
 from entities.parent_entity import Parent
 from entities.user_entity import User
@@ -117,7 +118,7 @@ class AuthService:
                 self._assert_target_access(principal, target_role)
                 self._ensure_profile_for_role(db, user, target_role)
                 db.commit()
-                return self._issue_access_token(user, principal)
+                return self._issue_access_token(user, principal, selected_role=target_role)
 
             return None
         finally:
@@ -261,9 +262,10 @@ class AuthService:
             try:
                 user = _dao.find_by_email(db, email)
                 if not user:
+                    initial_role = "CLIENT" if normalized_role == "FOURNISSEUR" else normalized_role
                     user = User(
                         email=email,
-                        role=normalized_role,
+                        role=initial_role,
                         password=None,
                         is_verified=True,
                         is_email_verified=True,
@@ -272,7 +274,7 @@ class AuthService:
                     )
                     db.add(user)
                     db.flush()
-                    self._ensure_rbac_role_assignment(db, user, normalized_role)
+                    self._ensure_rbac_role_assignment(db, user, initial_role)
                 else:
                     user.is_verified = True
                     user.is_email_verified = True
@@ -285,7 +287,7 @@ class AuthService:
                 self._assert_target_access(principal, normalized_role)
                 self._ensure_profile_for_role(db, user, normalized_role)
                 db.commit()
-                return self._issue_access_token(user, principal)
+                return self._issue_access_token(user, principal, selected_role=normalized_role)
             finally:
                 db.close()
         except ValueError:
@@ -298,7 +300,7 @@ class AuthService:
             if not user:
                 return None
             principal = self._build_principal(db, user)
-            return self._export_current_user(principal)
+            return self._export_current_user(principal, db)
         finally:
             db.close()
 
@@ -460,18 +462,34 @@ class AuthService:
             detail=f"Acces refuse. Ce compte appartient au profil {profile_label}, vous ne pouvez pas vous connecter sur l'espace {target_role}."
         )
 
-    def _issue_access_token(self, user: User, principal: AuthorizationPrincipal) -> str:
+    def _issue_access_token(
+        self,
+        user: User,
+        principal: AuthorizationPrincipal,
+        selected_role: Optional[str] = None,
+    ) -> str:
+        token_role = selected_role if selected_role and principal.has_role(selected_role) else principal.primary_role
         return create_access_token(
             {
                 "sub": str(user.id),
-                "role": principal.primary_role,
+                "email": user.email,
+                "role": token_role,
+                "roles": sorted(principal.roles),
                 "legacy_role": principal.legacy_role,
                 "default_dashboard": principal.default_dashboard,
             }
         )
 
-    def _export_current_user(self, principal: AuthorizationPrincipal) -> dict:
+    def _export_current_user(self, principal: AuthorizationPrincipal, db=None) -> dict:
+        profiles = self._load_profiles(db, principal.user_id) if db is not None else {}
+        user_payload = {
+            "id": principal.user_id,
+            "email": principal.email,
+            "phone": principal.phone,
+            "name": principal.email or principal.phone,
+        }
         return {
+            "user": user_payload,
             "id": principal.user_id,
             "email": principal.email,
             "phone": principal.phone,
@@ -482,4 +500,43 @@ class AuthService:
             "is_verified": principal.is_verified,
             "is_active": principal.is_active,
             "default_dashboard": principal.default_dashboard,
+            "profiles": profiles,
         }
+
+    def export_current_principal(self, principal: AuthorizationPrincipal) -> dict:
+        db = LocalSession()
+        try:
+            return self._export_current_user(principal, db)
+        finally:
+            db.close()
+
+    def _load_profiles(self, db, user_id: int) -> dict:
+        profiles = {}
+        client = db.query(Client).filter(Client.user_id == user_id).first()
+        if client:
+            profiles["client"] = {
+                "code_parrainage": client.code_parrainage,
+                "is_blacklisted": bool(client.is_blacklisted),
+            }
+
+        livreur = db.query(Livreur).filter(Livreur.user_id == user_id).first()
+        if livreur:
+            profiles["livreur"] = {
+                "vehicule": livreur.vehicule,
+                "disponible": bool(livreur.disponible),
+                "note_moyenne": livreur.note_moyenne,
+            }
+
+        parent = db.query(Parent).filter(Parent.user_id == user_id).first()
+        if parent:
+            profiles["parent"] = {"user_id": parent.user_id}
+
+        fournisseur = db.query(Fournisseur).filter(Fournisseur.user_id == user_id).first()
+        if fournisseur:
+            profiles["fournisseur"] = {
+                "shop_name": fournisseur.shop_name,
+                "shop_slug": fournisseur.shop_slug,
+                "statut": fournisseur.statut,
+            }
+
+        return profiles
