@@ -51,7 +51,7 @@ import { cn } from "@/lib/utils"
 
 const CATALOGUE_REFRESH_INTERVAL_MS = 5 * 60 * 1000
 const CLAIM_WINDOW_MS = 24 * 60 * 60 * 1000
-const SEUIL = 120
+const SEUIL = 300
 const FRAIS = 15
 const DEFAULT_CATALOGUE_IMAGE = getCataloguePresentation("").image
 
