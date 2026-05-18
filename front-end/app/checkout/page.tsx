@@ -22,7 +22,13 @@ import {
   Navigation,
   AlertTriangle
 } from "lucide-react"
-import { API_BASE_URL } from "@/lib/api"
+import {
+  API_BASE_URL,
+  getBlacklistStatus,
+  markBlacklistLiftNotificationSeen,
+  requestBlacklistLift,
+  type BlacklistStatusDTO,
+} from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { fetchCatalogueProducts, getCataloguePresentation } from "@/lib/catalogue"
 import { MapboxLocator } from "@/components/souki/mapbox-locator"
@@ -107,6 +113,12 @@ function CheckoutContent() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [catalogueImages, setCatalogueImages] = useState<Record<number, string>>({})
   const [mapboxModalOpen, setMapboxModalOpen] = useState(false)
+  const [blacklistStatus, setBlacklistStatus] = useState<BlacklistStatusDTO | null>(null)
+  const [showLiftModal, setShowLiftModal] = useState(false)
+  const [hideLiftNotification, setHideLiftNotification] = useState(false)
+  const [liftMotif, setLiftMotif] = useState("")
+  const [isSendingLiftRequest, setIsSendingLiftRequest] = useState(false)
+  const [liftRequestMessage, setLiftRequestMessage] = useState("")
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
 
   const isGenericImage = (imageUrl: string) =>
@@ -247,6 +259,30 @@ function CheckoutContent() {
   }, [token])
 
   useEffect(() => {
+    if (!token) {
+      setBlacklistStatus(null)
+      return
+    }
+
+    let isMounted = true
+    getBlacklistStatus(token)
+      .then((status) => {
+        if (isMounted) {
+          setBlacklistStatus(status)
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setBlacklistStatus(null)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [token])
+
+  useEffect(() => {
     let isMounted = true
     fetchCatalogueProducts()
       .then((products) => {
@@ -336,6 +372,18 @@ function CheckoutContent() {
   const walletDiscount = 0
   const total = subtotal + deliveryFee - walletDiscount
   const savings = merchantPrice - subtotal
+  const isCodBlocked = Boolean(blacklistStatus?.is_blacklisted)
+  const shouldShowLiftNotification = Boolean(
+    blacklistStatus?.last_action === "LIFTED" &&
+    !blacklistStatus.lift_notification_seen &&
+    !hideLiftNotification
+  )
+
+  useEffect(() => {
+    if (isCodBlocked && selectedPayment === "cod") {
+      setSelectedPayment("wallet")
+    }
+  }, [isCodBlocked, selectedPayment])
 
   const updateQuantity = (id: string, delta: number) => {
     setCart(prev => prev.map(item => {
@@ -368,7 +416,52 @@ function CheckoutContent() {
     !isPhoneMissing &&
     !isAddressMissing &&
     !isCityMissing &&
+    !(isCodBlocked && selectedPayment === "cod") &&
     !isSubmitting
+
+  const submitLiftRequest = async () => {
+    if (!token) {
+      setLiftRequestMessage("Connectez-vous pour envoyer la demande.")
+      return
+    }
+
+    const motif = liftMotif.trim()
+    if (!motif) {
+      setLiftRequestMessage("Expliquez la situation avant l'envoi.")
+      return
+    }
+
+    setIsSendingLiftRequest(true)
+    setLiftRequestMessage("")
+    try {
+      await requestBlacklistLift(token, motif)
+      const status = await getBlacklistStatus(token)
+      setBlacklistStatus(status)
+      setLiftMotif("")
+      setShowLiftModal(false)
+      setLiftRequestMessage("Demande envoyee.")
+    } catch (error) {
+      setLiftRequestMessage(error instanceof Error ? error.message : "Impossible d'envoyer la demande.")
+    } finally {
+      setIsSendingLiftRequest(false)
+    }
+  }
+
+  const acknowledgeLiftNotification = async () => {
+    if (!token) {
+      setHideLiftNotification(true)
+      return
+    }
+
+    try {
+      await markBlacklistLiftNotificationSeen(token)
+      setBlacklistStatus((current) => current ? { ...current, lift_notification_seen: true } : current)
+    } catch {
+      // Keep the alert visible if the backend cannot persist the read receipt.
+      return
+    }
+    setHideLiftNotification(true)
+  }
 
   const handleFinalSubmit = async () => {
     if (!canSubmitOrder) return
@@ -471,6 +564,53 @@ function CheckoutContent() {
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-2xl lg:text-3xl font-bold text-[#1E8A3C] mb-8">Finaliser ma commande</h1>
+
+        {blacklistStatus && (blacklistStatus.is_blacklisted || shouldShowLiftNotification) && (
+          <div className={cn("mb-6 rounded-2xl border p-4", blacklistStatus.is_blacklisted ? "border-red-200 bg-red-50" : "border-emerald-200 bg-emerald-50")}>
+            <div className="flex items-start gap-3">
+              <AlertTriangle className={cn("mt-0.5 h-5 w-5 shrink-0", blacklistStatus.is_blacklisted ? "text-red-600" : "text-[#1E8A3C]")} />
+              <div className="min-w-0">
+                <p className={cn("text-sm font-semibold", blacklistStatus.is_blacklisted ? "text-red-700" : "text-[#1E8A3C]")}>
+                  {blacklistStatus.is_blacklisted ? "Votre compte ne peut plus passer de commandes COD" : "Restriction COD levee"}
+                </p>
+                <p className={cn("mt-1 text-xs", blacklistStatus.is_blacklisted ? "text-red-500" : "text-[#1E8A3C]")}>
+                  {blacklistStatus.is_blacklisted ? "Suite a un refus de livraison. Wallet et CMI restent disponibles." : "Vous pouvez a nouveau choisir le paiement a la livraison."}
+                </p>
+                {blacklistStatus.last_action === "LIFT_REQUESTED" && (
+                  <p className="mt-2 text-xs font-medium text-amber-600">Demande de levee en attente de decision admin.</p>
+                )}
+                {blacklistStatus.last_action === "LIFT_REJECTED" && (
+                  <p className="mt-2 text-xs font-medium text-red-600">Demande refusee. Motif : {blacklistStatus.last_reason}</p>
+                )}
+                {shouldShowLiftNotification && (
+                  <p className="mt-2 text-xs font-medium text-[#1E8A3C]">Restriction levee. COD disponible a nouveau.</p>
+                )}
+                {shouldShowLiftNotification && (
+                  <button
+                    type="button"
+                    onClick={() => void acknowledgeLiftNotification()}
+                    className="mt-3 rounded-lg border border-[#1E8A3C] bg-white px-3 py-1.5 text-xs font-semibold text-[#1E8A3C] transition hover:bg-[#F0FAF1]"
+                  >
+                    J'ai compris
+                  </button>
+                )}
+                {liftRequestMessage && <p className="mt-2 text-xs font-medium text-[#1E8A3C]">{liftRequestMessage}</p>}
+                {blacklistStatus.last_action !== "LIFT_REQUESTED" && blacklistStatus.last_action !== "LIFTED" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLiftRequestMessage("")
+                      setShowLiftModal(true)
+                    }}
+                    className="mt-3 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                  >
+                    Demander la levee de restriction
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {voiceData && (
           <div className="bg-[#1E8A3C] text-white rounded-2xl p-5 mb-8 shadow-lg flex items-start gap-4">
@@ -666,12 +806,22 @@ function CheckoutContent() {
               <div className="space-y-3">
                 {/* Cash on Delivery */}
                 <button
-                  onClick={() => setSelectedPayment("cod")}
-                  className={cn("w-full p-4 rounded-xl border-2 text-left transition-all flex items-start gap-4", selectedPayment === "cod" ? "border-[#F07C00] bg-[#F07C00]/5" : "border-gray-200 hover:border-gray-300")}
+                  onClick={() => {
+                    if (!isCodBlocked) {
+                      setSelectedPayment("cod")
+                    }
+                  }}
+                  disabled={isCodBlocked}
+                  className={cn("w-full p-4 rounded-xl border-2 text-left transition-all flex items-start gap-4", selectedPayment === "cod" ? "border-[#F07C00] bg-[#F07C00]/5" : "border-gray-200 hover:border-gray-300", isCodBlocked && "cursor-not-allowed opacity-60")}
                 >
                   <div className={cn("p-2 rounded-lg", selectedPayment === "cod" ? "bg-[#F07C00] text-white" : "bg-gray-100 text-[#3D3D3D]")}><Banknote className="w-5 h-5" /></div>
                   <div className="flex-1">
                     <p className="font-semibold text-[#3D3D3D]">Cash on Delivery</p>
+                    {isCodBlocked && (
+                      <p className="mt-1 text-xs font-semibold text-red-500">
+                        Indisponible tant que la restriction est active.
+                      </p>
+                    )}
                     <p className="text-sm text-[#8A8A8A] mt-1">Payez à la porte, confirmation appel la veille</p>
                   </div>
                   {selectedPayment === "cod" && (
@@ -752,6 +902,45 @@ function CheckoutContent() {
           </div>
         </div>
       </main>
+
+      {showLiftModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-[#3D3D3D]">Demande de levee</h3>
+            <p className="mt-2 text-sm text-[#8A8A8A]">Expliquez la situation pour que l'admin puisse prendre une decision.</p>
+            <textarea
+              value={liftMotif}
+              onChange={(event) => setLiftMotif(event.target.value)}
+              placeholder="Expliquez la situation..."
+              rows={5}
+              className="mt-4 w-full resize-none rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-[#3D3D3D] outline-none transition-colors focus:border-red-300"
+            />
+            {liftRequestMessage && <p className="mt-2 text-xs font-medium text-red-500">{liftRequestMessage}</p>}
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLiftModal(false)
+                  setLiftMotif("")
+                  setLiftRequestMessage("")
+                }}
+                disabled={isSendingLiftRequest}
+                className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-[#3D3D3D] transition hover:bg-gray-50 disabled:opacity-60"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={() => void submitLiftRequest()}
+                disabled={isSendingLiftRequest || liftMotif.trim().length === 0}
+                className="rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSendingLiftRequest ? "Envoi..." : "Envoyer la demande"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mapbox Locator Modal */}
       <MapboxLocator

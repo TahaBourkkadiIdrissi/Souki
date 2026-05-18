@@ -27,6 +27,31 @@ class LiftBlacklistDTO(BaseModel):
     reason: Optional[str] = None
 
 
+class BlacklistStatusDTO(BaseModel):
+    is_blacklisted: bool
+    last_action: Optional[str] = None
+    last_reason: Optional[str] = None
+    last_date: Optional[datetime] = None
+    lift_notification_seen: bool = False
+
+
+class LiftRequestDTO(BaseModel):
+    motif: str
+
+
+class LiftRejectDTO(BaseModel):
+    motif: str
+
+
+class PendingLiftRequestDTO(BaseModel):
+    log_id: int
+    client_id: int
+    client_label: Optional[str] = None
+    phone: Optional[str] = None
+    motif: Optional[str] = None
+    created_at: datetime
+
+
 class BlacklistParClientDTO(BaseModel):
     client_id: int
     email: Optional[str] = None

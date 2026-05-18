@@ -279,7 +279,13 @@ class SupabaseStorageService:
         object_path = parse.quote(f"{user_id}/profile.{extension}", safe="/.")
         return f"{self._resolve_supabase_url()}/storage/v1/object/public/{self.bucket}/{object_path}"
 
-    def upload_product_image(self, content: bytes, filename: str, content_type: str = "image/jpeg") -> str:
+    def upload_product_image(
+        self,
+        content: bytes,
+        filename: str,
+        content_type: str = "image/jpeg",
+        product_id: int | None = None,
+    ) -> str:
         extension = ALLOWED_PRODUCT_IMAGE_MIME_TYPES.get(content_type)
         if not extension:
             raise SupabaseStorageError("Choisissez une image JPG, PNG ou WEBP.")
@@ -289,7 +295,11 @@ class SupabaseStorageService:
         supabase_url = self._resolve_supabase_url()
         service_role_key = self._service_role_key()
         safe_filename = self._safe_product_filename(filename, extension)
-        object_path = f"products/{safe_filename}"
+        object_path = (
+            f"products/{product_id}/{safe_filename}"
+            if product_id is not None
+            else f"products/{safe_filename}"
+        )
         encoded_object_path = parse.quote(object_path, safe="/.")
 
         upload_request = request.Request(
@@ -310,7 +320,6 @@ class SupabaseStorageService:
                 response.read()
         except error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="ignore")
-            print("[SupabaseStorage] Product upload failed:", exc.code, detail)
             raise SupabaseStorageError(self._normalize_storage_error(detail)) from exc
         except error.URLError as exc:
             raise SupabaseStorageError("Impossible de joindre Supabase Storage pour le moment.") from exc

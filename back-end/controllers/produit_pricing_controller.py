@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from urllib.parse import urlparse
 
 from auth_dependencies import require_permission
 from config import LocalSession
@@ -22,18 +23,26 @@ router = APIRouter(prefix="/api/produits", tags=["Pricing Produits"])
 MAX_IMAGE_URL_LENGTH = 500
 
 
-def _validate_image_url(image_url: str) -> None:
-    normalized_url = image_url.strip().lower()
+def _validate_image_url(image_url: str) -> str:
+    cleaned_url = image_url.strip()
+    normalized_url = cleaned_url.lower()
     if normalized_url.startswith("data:image/"):
         raise HTTPException(
             status_code=400,
             detail="Utilisez l'upload fichier pour une image locale, ou collez une URL publique.",
         )
-    if len(image_url) > MAX_IMAGE_URL_LENGTH:
+    if len(cleaned_url) > MAX_IMAGE_URL_LENGTH:
         raise HTTPException(
             status_code=400,
             detail=f"L'URL image ne doit pas depasser {MAX_IMAGE_URL_LENGTH} caracteres.",
         )
+    parsed_url = urlparse(cleaned_url)
+    if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
+        raise HTTPException(
+            status_code=400,
+            detail="L'URL image doit commencer par http:// ou https://.",
+        )
+    return cleaned_url
 
 
 @router.post("", response_model=ProduitPricingDTO)
@@ -107,6 +116,7 @@ async def upload_produit_image(
             content,
             file.filename or f"produit-{produit_id}",
             file.content_type or "image/jpeg",
+            product_id=produit_id,
         )
     except SupabaseStorageConfigError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -128,10 +138,10 @@ def update_produit_image_url(
     service: IProduitPricingService = Depends(get_produit_pricing_service),
 ):
     _ = principal
-    _validate_image_url(data.image_url)
+    image_url = _validate_image_url(data.image_url)
     session = LocalSession()
     try:
-        return service.update_image(session, produit_id, data.image_url)
+        return service.update_image(session, produit_id, image_url)
     finally:
         session.close()
 

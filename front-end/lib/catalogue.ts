@@ -15,6 +15,7 @@ export interface CatalogueProduct {
   unit: string
   displayUnit: string
   image: string
+  fallbackImage?: string
   category: CatalogueCategory
   quantityStep: number
   stock: number
@@ -247,6 +248,7 @@ export async function fetchCatalogueProducts(): Promise<CatalogueProduct[]> {
       unit: product.unite,
       displayUnit: presentation.displayUnit || product.unite,
       image: product.image_url || presentation.image,
+      fallbackImage: presentation.image,
       category: presentation.category,
       quantityStep: presentation.quantityStep || (product.unite === "kg" ? 0.5 : 1),
       stock: product.stock,

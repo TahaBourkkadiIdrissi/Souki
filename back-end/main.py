@@ -15,6 +15,7 @@ from controllers.auth_controller import auth_router
 from controllers.catalogue_controller import router_catalogue
 from controllers.claim_controller import claim_router
 from controllers.checkout_controller import router_checkout
+from controllers.client_blacklist_controller import client_blacklist_router
 from controllers.commande_controller import router_voice
 from controllers.dispatch_controller import anomalies_router, dispatch_router
 from controllers.jit_controller import router_jit
@@ -120,6 +121,7 @@ app.include_router(router_catalogue)
 app.include_router(router_voice)
 app.include_router(router_panier)
 app.include_router(router_checkout)
+app.include_router(client_blacklist_router)
 app.include_router(pricing_router)
 app.include_router(claim_router)
 app.include_router(dispatch_router)

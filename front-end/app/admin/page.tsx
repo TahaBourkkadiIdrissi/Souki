@@ -188,7 +188,38 @@ function graphTitle(periode: DashboardPeriod, customDate: string) {
   if (periode === "month") {
     return "CA ce mois (DH)"
   }
-  return `CA autour du ${customDate} (DH)`
+  return `CA — 30 jours autour du ${customDate} (DH)`
+}
+
+function parseInputDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number)
+  if (!year || !month || !day) {
+    return null
+  }
+  return new Date(year, month - 1, day)
+}
+
+function formatGraphDate(value: Date) {
+  return value.toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  })
+}
+
+function graphSubtitle(periode: DashboardPeriod, customDate: string) {
+  if (periode !== "custom") {
+    return null
+  }
+
+  const endDate = parseInputDate(customDate)
+  if (!endDate) {
+    return null
+  }
+
+  const startDate = new Date(endDate)
+  startDate.setDate(startDate.getDate() - 29)
+  return `Fenêtre : ${formatGraphDate(startDate)} → ${formatGraphDate(endDate)}`
 }
 
 function JitExecutionBadge({ executed }: { executed: boolean }) {
@@ -446,6 +477,7 @@ export default function AdminDashboard() {
   const panierPhysique = dashboard && dashboard.dernier_jit_nb_commandes > 0
     ? dashboard.dernier_jit_volume / dashboard.dernier_jit_nb_commandes
     : 0
+  const courbeCaSubtitle = graphSubtitle(periode, customDate)
 
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
@@ -610,7 +642,7 @@ export default function AdminDashboard() {
                     <div className="mb-3 flex items-end justify-between gap-3">
                       <div>
                         <h2 className="text-base font-bold text-[#1F2937]">{graphTitle(periode, customDate)}</h2>
-                        <p className="text-xs text-[#6B7280]">{periode === "custom" ? "Fenetre fixe de 30 jours" : "Periode selectionnee"}</p>
+                        {courbeCaSubtitle ? <p className="text-xs text-gray-400">{courbeCaSubtitle}</p> : null}
                       </div>
                       <span className="text-sm font-bold text-[#1E8A3C]">{formatPreciseMoney(dashboard.ca_total)}</span>
                     </div>
@@ -737,6 +769,7 @@ export default function AdminDashboard() {
                     <h2 className="text-base font-bold text-[#1F2937]">Blacklist periode</h2>
                     <p className="mt-3 text-3xl font-bold text-[#1F2937]">{formatNumber(dashboard.clients_blacklistes)}</p>
                     <p className="text-xs font-semibold uppercase text-[#6B7280]">Blacklistes actifs</p>
+                    <p className="mt-1 text-xs text-gray-400">Basé sur le statut compte</p>
                     <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                       <p className="rounded-lg bg-red-50 px-3 py-2 font-bold text-red-700">Nouveaux : +{formatNumber(dashboard.nouveaux_blacklistes)}</p>
                       <p className="rounded-lg bg-[#F0FDF4] px-3 py-2 font-bold text-[#1E8A3C]">Leves : -{formatNumber(dashboard.blacklists_leves)}</p>

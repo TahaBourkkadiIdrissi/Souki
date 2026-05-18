@@ -75,6 +75,10 @@ class DashboardDaoBD(IDashboardDao):
         )
         last_jit = self._get_last_jit(session)
         cod_total = cod_counts.get("CONFIRMEE_PAR_APPEL", 0) + cod_counts.get("ANNULEE", 0)
+        # Source : is_blacklisted=True sur t_clients
+        # Peut differer de /admin/blacklist si client blackliste sans log
+        # Comportement voulu : source de verite = champ is_blacklisted
+        clients_blacklistes = self.client_admin_dao.count_blacklisted_clients(session)
 
         return DashboardDTO(
             periode=periode,
@@ -100,7 +104,7 @@ class DashboardDaoBD(IDashboardDao):
             total_clients_actifs=self.client_admin_dao.count_active_clients(session),
             nouveaux_clients=self.client_admin_dao.count_new_clients(session, date_debut, date_fin),
             nouveaux_clients_precedent=self.client_admin_dao.count_new_clients(session, prec_debut, prec_fin),
-            clients_blacklistes=self.client_admin_dao.count_blacklisted_clients(session),
+            clients_blacklistes=clients_blacklistes,
             dernier_jit_statut=last_jit.statut if last_jit else None,
             dernier_jit_volume=float(last_jit.volume_total or 0.0) if last_jit else 0.0,
             dernier_jit_nb_commandes=int(last_jit.nombre_commandes or 0) if last_jit else 0,

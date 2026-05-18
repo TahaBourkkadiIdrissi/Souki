@@ -1691,6 +1691,10 @@ export default function AdminOrdersPage() {
           <DashboardStatCard icon={PhoneCall} label="COD confirmés" value={`${codCalledClientsCount} / ${codGroups.length}`} tone="slate" helper={`${codOrders.length} commande(s) COD`} />
         </section>
 
+        <p className={cn("text-xs text-gray-400", activeSection !== "overview" && "hidden")}>
+          Calculé sur les commandes chargées
+        </p>
+
         <section className={cn("grid gap-4 md:grid-cols-2", activeSection !== "overview" && "hidden")}>
           <button
             type="button"

@@ -627,6 +627,31 @@ export interface LiftBlacklistDTO {
   reason?: string
 }
 
+export interface BlacklistStatusDTO {
+  is_blacklisted: boolean
+  last_action: string | null
+  last_reason: string | null
+  last_date: string | null
+  lift_notification_seen: boolean
+}
+
+export interface LiftRequestDTO {
+  motif: string
+}
+
+export interface LiftRejectDTO {
+  motif: string
+}
+
+export interface PendingLiftRequestDTO {
+  log_id: number
+  client_id: number
+  client_label: string | null
+  phone: string | null
+  motif: string | null
+  created_at: string
+}
+
 export async function apiCall<T = any>(endpoint: string, options: ApiOptions = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`
   const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData
@@ -848,6 +873,29 @@ export async function getBlacklistedClients(token: string) {
   return apiCall<ClientBlacklistDTO[]>("/admin/blacklist", { token })
 }
 
+export async function getBlacklistStatus(token: string) {
+  return apiCall<BlacklistStatusDTO>("/api/client/blacklist/status", { token })
+}
+
+export async function requestBlacklistLift(token: string, motif: string) {
+  return apiCall<{ message: string }>("/api/client/blacklist/lift-request", {
+    method: "POST",
+    token,
+    body: { motif } satisfies LiftRequestDTO,
+  })
+}
+
+export async function markBlacklistLiftNotificationSeen(token: string): Promise<void> {
+  await apiCall<{ ok: boolean }>("/api/client/blacklist/lift-notification-seen", {
+    method: "PATCH",
+    token,
+  })
+}
+
+export async function getPendingLiftRequests(token: string) {
+  return apiCall<PendingLiftRequestDTO[]>("/admin/blacklist/lift-requests", { token })
+}
+
 export async function getAdminDashboard(
   token: string,
   periode: DashboardPeriod = "today",
@@ -989,6 +1037,18 @@ export async function liftBlacklist(
     method: "PATCH",
     token,
     body: { reason },
+  })
+}
+
+export async function rejectLiftRequest(
+  token: string,
+  clientId: number,
+  motif: string
+) {
+  return apiCall(`/admin/blacklist/${clientId}/lift-reject`, {
+    method: "POST",
+    token,
+    body: { motif } satisfies LiftRejectDTO,
   })
 }
 

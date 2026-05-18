@@ -590,6 +590,10 @@ export default function AdminPricingPage() {
       setError("L'URL image ne doit pas depasser 500 caracteres.")
       return
     }
+    if (!/^https?:\/\/[^/]+\S*$/i.test(imageUrl)) {
+      setError("L'URL image doit commencer par http:// ou https://.")
+      return
+    }
 
     setImageSavingId(imageTarget.id)
     try {

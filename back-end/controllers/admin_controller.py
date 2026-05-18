@@ -10,7 +10,13 @@ from config import ALGORITHM, LocalSession, SECRET_KEY
 from dao.livreur_dao import LivreurDaoBD
 from dependencies import get_blacklist_service, get_client_admin_service, get_dashboard_service
 from dto.client_admin_dto import AdminClientsPageDTO
-from dto.client_blacklist_dto import BlacklistReportDTO, ClientBlacklistDTO, LiftBlacklistDTO
+from dto.client_blacklist_dto import (
+    BlacklistReportDTO,
+    ClientBlacklistDTO,
+    LiftBlacklistDTO,
+    LiftRejectDTO,
+    PendingLiftRequestDTO,
+)
 from dto.dashboard_dto import DashboardDTO
 from interfaces.client_admin_service_interface import IClientAdminService
 from interfaces.client_blacklist_service_interface import IClientBlacklistService
@@ -152,6 +158,34 @@ def get_monthly_report(
     session = LocalSession()
     try:
         return service.get_monthly_report(session, year, month)
+    finally:
+        session.close()
+
+
+@admin_router.get("/blacklist/lift-requests", response_model=List[PendingLiftRequestDTO])
+def get_blacklist_lift_requests(
+    principal=Depends(require_permission("admin.panel.access", "clients.blacklist")),
+    service: IClientBlacklistService = Depends(get_blacklist_service),
+):
+    _ = principal
+    session = LocalSession()
+    try:
+        return service.get_pending_lift_requests(session)
+    finally:
+        session.close()
+
+
+@admin_router.post("/blacklist/{client_id}/lift-reject")
+def reject_blacklist_lift_request(
+    client_id: int,
+    payload: LiftRejectDTO,
+    principal=Depends(require_permission("admin.panel.access", "clients.blacklist")),
+    service: IClientBlacklistService = Depends(get_blacklist_service),
+):
+    session = LocalSession()
+    try:
+        service.reject_lift(session, client_id, principal.user_id, payload.motif)
+        return {"message": "Demande de levee rejetee"}
     finally:
         session.close()
 

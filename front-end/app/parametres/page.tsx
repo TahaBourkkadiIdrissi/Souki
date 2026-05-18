@@ -5,9 +5,15 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft, User, Bell, Shield, CreditCard, MapPin, Phone, Mail, Camera, Save, Trash2, LogOut,
-  Moon, Sun, Globe, Smartphone, Lock, Eye, EyeOff, Check, ChevronRight, Wallet, Loader2, Copy, ShieldCheck, Sparkles
+  Moon, Sun, Globe, Smartphone, Lock, Eye, EyeOff, Check, ChevronRight, Wallet, Loader2, Copy, ShieldCheck, Sparkles, AlertTriangle
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import {
+  getBlacklistStatus,
+  markBlacklistLiftNotificationSeen,
+  requestBlacklistLift,
+  type BlacklistStatusDTO,
+} from "@/lib/api"
 import { useProfile } from "@/hooks/useProfile"
 import { useNotifications, type NotificationPrefs } from "@/hooks/useNotifications"
 import { useSecurity } from "@/hooks/useSecurity"
@@ -104,6 +110,12 @@ export default function ParametresPage() {
   const [walletCreate, setWalletCreate] = useState({ password: "", confirm_password: "" })
   const [photoUploading, setPhotoUploading] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
+  const [blacklistStatus, setBlacklistStatus] = useState<BlacklistStatusDTO | null>(null)
+  const [showLiftModal, setShowLiftModal] = useState(false)
+  const [hideLiftNotification, setHideLiftNotification] = useState(false)
+  const [liftMotif, setLiftMotif] = useState("")
+  const [liftRequestMessage, setLiftRequestMessage] = useState("")
+  const [isSendingLiftRequest, setIsSendingLiftRequest] = useState(false)
 
   const showSaved = () => { setSaved(true); setTimeout(() => setSaved(false), 2000) }
 
@@ -159,6 +171,30 @@ export default function ParametresPage() {
     callApi,
   ])
 
+  useEffect(() => {
+    if (!token || isAuthLoading || !isAuthenticated) {
+      setBlacklistStatus(null)
+      return
+    }
+
+    let isMounted = true
+    getBlacklistStatus(token)
+      .then((status) => {
+        if (isMounted) {
+          setBlacklistStatus(status)
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setBlacklistStatus(null)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [isAuthLoading, isAuthenticated, token])
+
   const sidebarName = `${personal.prenom} ${personal.nom}`.trim() || "Utilisateur"
   const initialLetter = (personal.nom?.[0] || personal.prenom?.[0] || "U").toUpperCase()
 
@@ -180,6 +216,33 @@ export default function ParametresPage() {
   const onDisconnectSession = async (id: number) => { await securityApi.disconnectSession(id); setSessions((prev) => prev.filter((s) => s.id !== id)) }
   const onDisconnectAll = async () => { await securityApi.disconnectAll(); logout(); router.push("/login/client") }
   const onDeleteAccount = async () => { await securityApi.deleteAccount("SUPPRIMER"); logout(); router.push("/app?page=deleted") }
+  const onRequestLift = async () => {
+    if (!token) {
+      setLiftRequestMessage("Connectez-vous pour envoyer la demande.")
+      return
+    }
+
+    const motif = liftMotif.trim()
+    if (!motif) {
+      setLiftRequestMessage("Expliquez la situation avant l'envoi.")
+      return
+    }
+
+    setIsSendingLiftRequest(true)
+    setLiftRequestMessage("")
+    try {
+      await requestBlacklistLift(token, motif)
+      const status = await getBlacklistStatus(token)
+      setBlacklistStatus(status)
+      setLiftMotif("")
+      setShowLiftModal(false)
+      setLiftRequestMessage("Demande envoyee.")
+    } catch (e) {
+      setLiftRequestMessage(e instanceof Error ? e.message : "Impossible d'envoyer la demande.")
+    } finally {
+      setIsSendingLiftRequest(false)
+    }
+  }
 
   const onClickCamera = () => fileInputRef.current?.click()
   const onUploadPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -269,6 +332,26 @@ export default function ParametresPage() {
     { key: "newsletter", label: "Newsletter SOUKI", desc: "Actualites et conseils hebdomadaires", icon: Globe },
   ] as const, [])
   const walletPasswordState = useMemo(() => walletPasswordChecks(walletCreate.password), [walletCreate.password])
+  const shouldShowLiftNotification = Boolean(
+    blacklistStatus?.last_action === "LIFTED" &&
+    !blacklistStatus.lift_notification_seen &&
+    !hideLiftNotification
+  )
+
+  const acknowledgeLiftNotification = async () => {
+    if (!token) {
+      setHideLiftNotification(true)
+      return
+    }
+
+    try {
+      await markBlacklistLiftNotificationSeen(token)
+      setBlacklistStatus((current) => current ? { ...current, lift_notification_seen: true } : current)
+    } catch {
+      return
+    }
+    setHideLiftNotification(true)
+  }
 
   if (pageLoading || isAuthLoading) {
     return (
@@ -287,6 +370,35 @@ export default function ParametresPage() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {saved && <div className="fixed top-24 right-6 z-50 flex items-center gap-2 bg-[#1E8A3C] text-white px-4 py-3 rounded-xl shadow-lg animate-in slide-in-from-right-5 duration-300"><Check className="w-4 h-4" />Modifications enregistrees !</div>}
         {errors.page && <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{errors.page}</div>}
+        {blacklistStatus && (blacklistStatus.is_blacklisted || shouldShowLiftNotification) && (
+          <div className={cn("mb-6 rounded-2xl border p-4", blacklistStatus.is_blacklisted ? "border-red-200 bg-red-50" : "border-emerald-200 bg-emerald-50")}>
+            <div className="flex items-start gap-3">
+              <AlertTriangle className={cn("mt-0.5 h-5 w-5 shrink-0", blacklistStatus.is_blacklisted ? "text-red-600" : "text-[#1E8A3C]")} />
+              <div className="min-w-0">
+                <p className={cn("text-sm font-semibold", blacklistStatus.is_blacklisted ? "text-red-700" : "text-[#1E8A3C]")}>
+                  {blacklistStatus.is_blacklisted ? "Votre compte ne peut plus passer de commandes COD" : "Restriction COD levee"}
+                </p>
+                <p className={cn("mt-1 text-xs", blacklistStatus.is_blacklisted ? "text-red-500" : "text-[#1E8A3C]")}>
+                  {blacklistStatus.is_blacklisted ? "Suite a un refus de livraison. Wallet et CMI restent disponibles." : "Vous pouvez a nouveau choisir le paiement a la livraison."}
+                </p>
+                {blacklistStatus.last_action === "LIFT_REQUESTED" && <p className="mt-2 text-xs font-medium text-amber-600">Demande de levee en attente de decision admin.</p>}
+                {blacklistStatus.last_action === "LIFT_REJECTED" && <p className="mt-2 text-xs font-medium text-red-600">Demande refusee. Motif : {blacklistStatus.last_reason}</p>}
+                {shouldShowLiftNotification && <p className="mt-2 text-xs font-medium text-[#1E8A3C]">Restriction levee. COD disponible a nouveau.</p>}
+                {shouldShowLiftNotification && (
+                  <button
+                    type="button"
+                    onClick={() => void acknowledgeLiftNotification()}
+                    className="mt-3 rounded-lg border border-[#1E8A3C] bg-white px-3 py-1.5 text-xs font-semibold text-[#1E8A3C] transition hover:bg-[#F0FAF1]"
+                  >
+                    J'ai compris
+                  </button>
+                )}
+                {liftRequestMessage && <p className="mt-2 text-xs font-medium text-[#1E8A3C]">{liftRequestMessage}</p>}
+                {blacklistStatus.last_action !== "LIFT_REQUESTED" && blacklistStatus.last_action !== "LIFTED" && <button type="button" onClick={() => { setLiftRequestMessage(""); setShowLiftModal(true) }} className="mt-3 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50">Demander la levee de restriction</button>}
+              </div>
+            </div>
+          </div>
+        )}
         <div className="flex flex-col lg:flex-row gap-8">
           <aside className="lg:w-64 flex-shrink-0">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-4"><div className="flex items-center gap-4"><div className="relative"><div className="relative w-14 h-14 rounded-xl bg-[#F0FAF1] overflow-hidden flex items-center justify-center font-bold text-[#1E8A3C]">{photoUrl ? <img src={photoUrl} alt={sidebarName} className="w-full h-full object-cover" /> : initialLetter}{photoUploading && <div className="absolute inset-0 bg-black/30 flex items-center justify-center"><Loader2 className="w-5 h-5 animate-spin text-white" /></div>}</div><button onClick={onClickCamera} className="absolute -bottom-1 -right-1 w-6 h-6 bg-[#1E8A3C] rounded-full flex items-center justify-center text-white shadow-sm hover:bg-[#176B2E] transition-colors"><Camera className="w-3 h-3" /></button><input ref={fileInputRef} onChange={onUploadPhoto} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" /></div><div><p className="font-bold text-[#3D3D3D]">{sidebarName}</p><p className="text-sm text-[#8A8A8A]">{personal.email}</p>{emailVerified && <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-[#F0FAF1] text-[#1E8A3C] rounded-full text-xs font-medium"><Check className="w-3 h-3" /> Verifie</span>}{errors.photo && <p className="text-xs text-red-500">{errors.photo}</p>}</div></div></div>
@@ -457,6 +569,7 @@ export default function ParametresPage() {
           </main>
         </div>
       </div>
+      {showLiftModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"><div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"><h3 className="text-lg font-bold text-[#3D3D3D]">Demande de levee</h3><p className="mt-2 text-sm text-[#8A8A8A]">Expliquez la situation pour que l'admin puisse prendre une decision.</p><textarea value={liftMotif} onChange={(e) => setLiftMotif(e.target.value)} placeholder="Expliquez la situation..." rows={5} className="mt-4 w-full resize-none rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-[#3D3D3D] outline-none transition-colors focus:border-red-300" />{liftRequestMessage && <p className="mt-2 text-xs font-medium text-red-500">{liftRequestMessage}</p>}<div className="mt-5 flex justify-end gap-3"><button type="button" onClick={() => { setShowLiftModal(false); setLiftMotif(""); setLiftRequestMessage("") }} disabled={isSendingLiftRequest} className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-[#3D3D3D] transition hover:bg-gray-50 disabled:opacity-60">Annuler</button><button type="button" onClick={() => void onRequestLift()} disabled={isSendingLiftRequest || liftMotif.trim().length === 0} className="rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60">{isSendingLiftRequest ? "Envoi..." : "Envoyer la demande"}</button></div></div></div>}
       {showDeleteModal && <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"><div className="bg-white rounded-2xl w-full max-w-md p-6"><h3 className="font-bold text-lg text-[#3D3D3D]">Confirmer la suppression</h3><p className="text-sm text-[#8A8A8A] mt-2">Tapez SUPPRIMER pour confirmer</p><input value={deleteText} onChange={(e) => setDeleteText(e.target.value)} className="mt-4 w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-red-400 focus:outline-none" /><div className="mt-4 flex gap-2 justify-end"><button onClick={() => setShowDeleteModal(false)} className="px-4 py-2 border border-gray-200 rounded-xl">Annuler</button><button disabled={deleteText !== "SUPPRIMER"} onClick={onDeleteAccount} className="px-4 py-2 bg-red-500 text-white rounded-xl disabled:opacity-50">Supprimer</button></div></div></div>}
       {showWalletIdModal && <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"><div className="w-full max-w-lg rounded-3xl border border-[#4CB84A]/30 bg-white p-6 shadow-[0_20px_70px_rgba(30,138,60,0.18)]"><div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F0FAF1] text-[#1E8A3C]"><Wallet className="h-5 w-5" /></div><div><h3 className="font-bold text-[#3D3D3D]">Portefeuille Souki cree</h3><p className="text-sm text-[#8A8A8A]">Ce code complet n'est affiche qu'une seule fois.</p></div></div><div className="mt-5 rounded-2xl border border-gray-200 bg-[#FAFAF8] px-4 py-4"><p className="text-xs uppercase tracking-[0.22em] text-[#8A8A8A]">Code portefeuille</p><p className="mt-2 break-all font-mono text-lg font-semibold tracking-[0.18em] text-[#1E8A3C]">{walletIdFull}</p></div><div className="mt-5 flex flex-wrap justify-end gap-3"><button onClick={() => navigator.clipboard.writeText(walletIdFull)} className="inline-flex items-center gap-2 rounded-xl border border-[#1E8A3C] px-4 py-2 text-[#1E8A3C] transition hover:bg-[#F0FAF1]"><Copy className="h-4 w-4" />Copier le code</button><button onClick={() => setShowWalletIdModal(false)} className="rounded-xl bg-[#1E8A3C] px-4 py-2 text-white transition hover:bg-[#176B2E]">J'ai note mon code</button></div></div></div>}
     </div>

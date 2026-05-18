@@ -59,13 +59,13 @@ async def executer_job_jit(
     Execute le job JIT complet:
     1. Agrege les commandes
     2. Verrouille les commandes
-    3. Envoie la liste d'achats par email
-    4. Cree un log
+    3. Enregistre un log JIT consultable dans le back-office
 
     ADMIN ONLY - Authentification requise
     """
     session = LocalSession()
     try:
+        # Enregistre un log JIT consultable dans le back-office
         log = service.executer_job_jit(session, actor_id=int(admin_user.user_id))
 
         if not log:
