@@ -126,6 +126,9 @@ class CODConfirmationService(ICODConfirmationService):
         admin_id: int,
     ) -> BatchConfirmationCODResponseDTO:
         session = self._ensure_session()
+        if len(payload.commande_ids) > 100:
+            raise HTTPException(status_code=400, detail="Maximum 100 commandes par batch.")
+
         normalized_statut = (payload.statut or "").strip().upper()
 
         if normalized_statut not in {CONFIRMEE_PAR_APPEL, ANNULEE}:

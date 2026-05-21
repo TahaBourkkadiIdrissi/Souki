@@ -2,6 +2,7 @@ import math
 from datetime import date, datetime, time
 from typing import Dict, List
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from config import LocalSession
@@ -17,6 +18,7 @@ from services.commande_state_machine import changer_statut
 PENDING_JIT_STATUSES = ("EN_ATTENTE", "CONFIRMEE")
 LOCKED_JIT_STATUS = "VERROUILLEE"
 UNLOCKED_JIT_STATUS = "CONFIRMEE"
+JIT_LOCK_ID = 20240520
 
 
 class JITAlreadyExecutedError(Exception):
@@ -259,14 +261,23 @@ class JITService(IJITService):
         2. Verrouiller les commandes
         3. Creer un log avec la liste d'achats en base
         """
-        locked_count = self._count_locked_commandes_today(session)
-        if locked_count > 0:
-            raise JITAlreadyExecutedError(
-                f"Le JIT du jour est deja lance: {locked_count} commande(s) verrouillee(s). "
-                "Deverrouillez le JIT avant de le relancer."
-            )
-
         try:
+            acquired = session.execute(
+                text("SELECT pg_try_advisory_xact_lock(:lock_id)"),
+                {"lock_id": JIT_LOCK_ID},
+            ).scalar()
+            if not acquired:
+                raise JITAlreadyExecutedError(
+                    "JIT deja en cours d'execution. Reessayez dans quelques secondes."
+                )
+
+            locked_count = self._count_locked_commandes_today(session)
+            if locked_count > 0:
+                raise JITAlreadyExecutedError(
+                    f"Le JIT du jour est deja lance: {locked_count} commande(s) verrouillee(s). "
+                    "Deverrouillez le JIT avant de le relancer."
+                )
+
             print("Demarrage du job JIT d'agregation des commandes...")
 
             resultat = self.agreger_commandes(session)
@@ -323,6 +334,9 @@ class JITService(IJITService):
                 message_alerte="Erreur lors de la creation du log",
             )
 
+        except JITAlreadyExecutedError:
+            session.rollback()
+            raise
         except Exception as exc:
             print(f"Erreur lors de l'execution du job JIT: {exc}")
             session.rollback()

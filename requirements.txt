@@ -30,3 +30,4 @@ typing_extensions==4.15.0
 uvicorn==0.44.0
 supabase
 python-multipart
+Pillow>=10.0.0

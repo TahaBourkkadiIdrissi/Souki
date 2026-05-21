@@ -156,3 +156,5 @@ vite.config.ts.timestamp-*
 .venv
 
 regles.txt
+*.md
+*.mmd
