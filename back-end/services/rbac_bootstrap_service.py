@@ -85,7 +85,7 @@ class RBACBootstrapService:
             role_code = (user.role or "CLIENT").upper()
             if role_code == "ADMIN":
                 target_role = "ADMIN"
-            elif role_code in {"CLIENT", "PARENT", "LIVREUR"}:
+            elif role_code in {"CLIENT", "PARENT", "LIVREUR", "FOURNISSEUR"}:
                 target_role = role_code
             else:
                 target_role = "CLIENT"
