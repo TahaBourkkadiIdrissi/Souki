@@ -62,9 +62,13 @@ class CatalogueService(ICatalogueService):
 
     def _to_product_response(self, produit) -> ProductResponseDTO:
         prix_gros = produit.prix_gros_saisi or produit.prix_kg
-        prix_khddar_estime = round(
-            float(prix_gros) * self._get_coefficient_khddar(produit),
-            2,
+        prix_khddar_estime = (
+            float(produit.prix_khddar_reel)
+            if produit.prix_khddar_reel is not None
+            else round(
+                float(prix_gros) * self._get_coefficient_khddar(produit),
+                2,
+            )
         )
         return ProductResponseDTO(
             id=int(produit.id),# type: ignore

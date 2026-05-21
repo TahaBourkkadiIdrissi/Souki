@@ -97,6 +97,7 @@ const volatiliteOptions: ProduitVolatilite[] = ["STABLE", "VARIABLE", "SAISONNIE
 
 interface EditValues {
   prix_gros_saisi: string
+  prix_khddar_reel: string
   marge_cible: string
   coussin_securite: string
   niveau: ProduitNiveau
@@ -388,6 +389,7 @@ export default function AdminPricingPage() {
     setEditingId(produit.id)
     setEditValues({
       prix_gros_saisi: produit.prix_gros_saisi === null ? "" : String(produit.prix_gros_saisi),
+      prix_khddar_reel: produit.prix_khddar_reel == null ? "" : String(produit.prix_khddar_reel),
       marge_cible: percentInputValue(produit.marge_cible),
       coussin_securite: percentInputValue(produit.coussin_securite),
       niveau: produit.niveau,
@@ -429,11 +431,17 @@ export default function AdminPricingPage() {
     }
 
     const prixGros = getNumberFromInput(editValues.prix_gros_saisi)
+    const prixKhddarReel = getNumberFromInput(editValues.prix_khddar_reel)
     const marge = getNumberFromInput(editValues.marge_cible)
     const coussin = getNumberFromInput(editValues.coussin_securite)
 
     if (editValues.prix_gros_saisi.trim() && prixGros === null) {
       setError("Prix gros saisi invalide.")
+      return
+    }
+
+    if (editValues.prix_khddar_reel.trim() && prixKhddarReel === null) {
+      setError("Prix khddar reel invalide.")
       return
     }
 
@@ -449,6 +457,7 @@ export default function AdminPricingPage() {
 
     const payload: ProduitPricingUpdateDTO = {
       prix_gros_saisi: prixGros,
+      prix_khddar_reel: prixKhddarReel,
       marge_cible: marge / 100,
       coussin_securite: coussin / 100,
       niveau: editValues.niveau,
@@ -1057,7 +1066,7 @@ export default function AdminPricingPage() {
                 <EmptyState />
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[1180px]">
+                  <table className="w-full min-w-[1280px]">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Produit</th>
@@ -1068,6 +1077,7 @@ export default function AdminPricingPage() {
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Coussin %</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Prix affiche</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">vs Khddar</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Prix khddar reel</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Alerte</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Actions</th>
                       </tr>
@@ -1164,6 +1174,21 @@ export default function AdminPricingPage() {
                             </td>
                             <td className="px-4 py-4 font-bold text-[#1E8A3C]">{formatMoney(produit.prix_affiche)}</td>
                             <td className="px-4 py-4 text-sm">{khddarComparison(produit)}</td>
+                            <td className="px-4 py-4">
+                              {isEditing && editValues ? (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.1"
+                                  placeholder="Optionnel"
+                                  value={editValues.prix_khddar_reel}
+                                  onChange={(event) => updateEditValue("prix_khddar_reel", event.target.value)}
+                                  className="w-28 rounded-lg border border-[#E5E7EB] bg-white px-2 py-2 text-sm outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                                />
+                              ) : (
+                                <span className="text-sm text-gray-600">{formatMoney(produit.prix_khddar_reel)}</span>
+                              )}
+                            </td>
                             <td className="px-4 py-4">
                               {isEditing && editValues ? (
                                 <select

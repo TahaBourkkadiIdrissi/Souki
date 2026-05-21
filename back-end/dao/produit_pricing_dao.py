@@ -134,7 +134,11 @@ class ProduitPricingDaoBD(IProduitPricingDao):
         niveau = int(produit.niveau or 2)
         coefficient = self._get_coefficient_khddar(produit)
         prix_gros = float(produit.prix_gros_saisi or produit.prix_kg)
-        prix_khddar_estime = round(prix_gros * coefficient, 2)
+        prix_khddar_estime = (
+            float(produit.prix_khddar_reel)
+            if produit.prix_khddar_reel is not None
+            else round(prix_gros * coefficient, 2)
+        )
 
         if produit.prix_gros_saisi is None:
             alerte = "PRIX_GROS_MANQUANT"
@@ -166,6 +170,11 @@ class ProduitPricingDaoBD(IProduitPricingDao):
             prix_gros_saisi=(
                 float(produit.prix_gros_saisi)
                 if produit.prix_gros_saisi is not None
+                else None
+            ),
+            prix_khddar_reel=(
+                float(produit.prix_khddar_reel)
+                if produit.prix_khddar_reel is not None
                 else None
             ),
             prix_affiche=(

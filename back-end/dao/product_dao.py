@@ -120,56 +120,24 @@ class ProductDaoBD(IProductDao):
         return False
 
     def sync_catalogue(self, session: Session, products_data: List[dict]) -> None:
-        """
-        Synchronize the product catalogue with the provided data.
-        This method will:
-        1. First clear any products with duplicate nom_darija that conflict with catalog data
-        2. Then upsert products based on ID matching
-        """
-        # First pass: Clear conflicting duplicates
-        catalog_darija_map = {p["nom_darija"].lower(): p["id"] for p in products_data}
-        
-        # Delete products with nom_darija that conflict with our catalog
-        # but don't match the expected ID
-        for product in session.query(Product).all():
-            if product.nom_darija:
-                darija_lower = str(product.nom_darija).lower()
-                expected_id = catalog_darija_map.get(darija_lower)
-                # If this nom_darija should belong to a different ID, delete this product
-                if expected_id is not None and product.id != expected_id:
-                    session.delete(product)
-        
-        session.flush()  # Flush deletions before syncing
-        
-        with session.no_autoflush:
-            existing_products = session.query(Product).all()
-            products_by_id = {product.id: product for product in existing_products}
-            products_by_name = {str(product.nom_fr).lower(): product for product in existing_products}
+        active_count = (
+            session.query(Product)
+            .filter(Product.is_active == True)  # noqa: E712
+            .count()
+        )
+        if active_count > 0:
+            print(f"[CatalogueSync] {active_count} produits existants - sync ignoree")
+            return
 
-            for product_data in products_data:
-                # Try to find product by ID first
-                product = products_by_id.get(product_data["id"])
-                
-                # If not found by ID, try by French name
-                if product is None:
-                    product = products_by_name.get(str(product_data["nom_fr"]).lower())
+        print("[CatalogueSync] BDD vide - seed initial en cours...")
+        for product_data in products_data:
+            existing = (
+                session.query(Product)
+                .filter(Product.nom_darija == product_data["nom_darija"])
+                .first()
+            )
+            if existing is None:
+                session.add(Product(**product_data))
 
-                if product is None:
-                    # New product, add it
-                    new_product = Product(**product_data)
-                    session.add(new_product)
-                else:
-                    # Update existing product
-                    product.nom_fr = product_data["nom_fr"]
-                    product.nom_darija = product_data["nom_darija"]
-                    product.prix_kg = product_data["prix_kg"]
-                    product.unite = product_data["unite"]
-                    if float(product.stock or 0) <= 0:
-                        product.stock = product_data["stock"]
-
-        try:
-            session.commit()
-        except Exception as e:
-            session.rollback()
-            print(f"Erreur sync catalogue: {e}")
-            raise
+        session.flush()
+        print("[CatalogueSync] Seed initial termine")

@@ -32,6 +32,9 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
+  Legend,
+  Line,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -177,7 +180,7 @@ function SkeletonBlock({ className }: { className?: string }) {
 
 function graphTitle(periode: DashboardPeriod, customDate: string) {
   if (periode === "today") {
-    return "CA du jour (DH)"
+    return "Activite du jour - heure par heure"
   }
   if (periode === "7d") {
     return "CA 7 derniers jours (DH)"
@@ -647,15 +650,30 @@ export default function AdminDashboard() {
                       <span className="text-sm font-bold text-[#1E8A3C]">{formatPreciseMoney(dashboard.ca_total)}</span>
                     </div>
                     <div className="h-[270px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={dashboard.courbe_ca} margin={{ left: 0, right: 12, top: 8, bottom: 0 }}>
-                          <CartesianGrid stroke="#E5E7EB" strokeDasharray="3 3" vertical={false} />
-                          <XAxis dataKey="date" tick={{ fill: "#6B7280", fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={18} />
-                          <YAxis tick={{ fill: "#6B7280", fontSize: 11 }} tickFormatter={(value) => `${value} DH`} tickLine={false} axisLine={false} width={58} />
-                          <Tooltip content={<AreaTooltip />} />
-                          <Area type="monotone" dataKey="ca" stroke="#1E8A3C" strokeWidth={2} fill="#1E8A3C26" name="CA" />
-                        </AreaChart>
-                      </ResponsiveContainer>
+                      {periode === "today" ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart data={dashboard.courbe_ca} margin={{ left: 0, right: 12, top: 8, bottom: 0 }}>
+                            <CartesianGrid stroke="#E5E7EB" strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="date" tick={{ fill: "#6B7280", fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={10} />
+                            <YAxis yAxisId="left" tick={{ fill: "#6B7280", fontSize: 11 }} tickLine={false} axisLine={false} width={38} />
+                            <YAxis yAxisId="right" orientation="right" tick={{ fill: "#6B7280", fontSize: 11 }} tickFormatter={(value) => `${value} DH`} tickLine={false} axisLine={false} width={58} />
+                            <Tooltip content={<AreaTooltip />} />
+                            <Legend wrapperStyle={{ fontSize: 12 }} />
+                            <Bar yAxisId="left" dataKey="nb_commandes" name="Commandes" fill="#1E8A3C" opacity={0.8} radius={[4, 4, 0, 0]} />
+                            <Line yAxisId="right" type="monotone" dataKey="ca" name="CA (DH)" stroke="#F59E0B" strokeWidth={2} dot={{ fill: "#F59E0B", r: 3 }} />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={dashboard.courbe_ca} margin={{ left: 0, right: 12, top: 8, bottom: 0 }}>
+                            <CartesianGrid stroke="#E5E7EB" strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="date" tick={{ fill: "#6B7280", fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={18} />
+                            <YAxis tick={{ fill: "#6B7280", fontSize: 11 }} tickFormatter={(value) => `${value} DH`} tickLine={false} axisLine={false} width={58} />
+                            <Tooltip content={<AreaTooltip />} />
+                            <Area type="monotone" dataKey="ca" stroke="#1E8A3C" strokeWidth={2} fill="#1E8A3C26" name="CA" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      )}
                     </div>
                   </div>
 

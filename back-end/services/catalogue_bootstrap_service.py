@@ -39,5 +39,9 @@ class CatalogueBootstrapService:
         session = LocalSession()
         try:
             self.product_dao.sync_catalogue(session, CATALOGUE_PRODUCTS)
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
         finally:
             session.close()

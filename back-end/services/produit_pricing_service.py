@@ -68,6 +68,7 @@ class ProduitPricingServiceBD(IProduitPricingService):
                 marge_cible=produit.marge_cible,
                 coussin_securite=produit.coussin_securite,
                 coefficient_khddar=coefficient_khddar,
+                prix_khddar_reel=produit.prix_khddar_reel,
             )
             self.dao.update_prix_affiche(session, produit_id, prix_affiche)
             session.commit()
@@ -94,6 +95,7 @@ class ProduitPricingServiceBD(IProduitPricingService):
                     marge_cible=produit.marge_cible,
                     coussin_securite=produit.coussin_securite,
                     coefficient_khddar=coefficient_khddar,
+                    prix_khddar_reel=produit.prix_khddar_reel,
                 )
                 self.dao.update_prix_affiche(session, produit.id, prix_affiche)
                 recalcules += 1
@@ -148,6 +150,7 @@ class ProduitPricingServiceBD(IProduitPricingService):
         marge_cible: float,
         coussin_securite: float,
         coefficient_khddar: float,
+        prix_khddar_reel: float | None = None,
     ) -> float:
         if niveau == 1:
             return math.ceil(prix_gros * 10) / 10
@@ -155,7 +158,11 @@ class ProduitPricingServiceBD(IProduitPricingService):
         prix = prix_gros * (1 + marge_cible) * (1 + coussin_securite)
         prix_arrondi = math.ceil(prix * 10) / 10
 
-        prix_khddar = prix_gros * coefficient_khddar
+        prix_khddar = (
+            prix_khddar_reel
+            if prix_khddar_reel is not None
+            else prix_gros * coefficient_khddar
+        )
         coussin_courant = coussin_securite
 
         while prix_arrondi > prix_khddar and coussin_courant >= 0:

@@ -43,6 +43,7 @@ class DashboardDaoBD(IDashboardDao):
         today: date,
         curve_start_datetime: datetime,
         curve_end_datetime: datetime,
+        is_today: bool = False,
     ) -> DashboardDTO:
         total_commandes = self._get_order_count(session, date_debut, date_fin)
         total_commandes_precedent = self._get_order_count(
@@ -119,7 +120,12 @@ class DashboardDaoBD(IDashboardDao):
             else 0.0,
             nouveaux_blacklistes=blacklist_counts.get("BLACKLISTED", 0),
             blacklists_leves=blacklist_counts.get("LIFTED", 0),
-            courbe_ca=self._get_revenue_curve(session, curve_start_datetime, curve_end_datetime),
+            courbe_ca=self._get_revenue_curve(
+                session,
+                curve_start_datetime,
+                curve_end_datetime,
+                is_today=is_today,
+            ),
             repartition_statuts=self._get_status_repartition(status_counts, total_commandes),
             repartition_paiements=self._get_payment_repartition(session, date_debut, date_fin),
         )
@@ -273,8 +279,46 @@ class DashboardDaoBD(IDashboardDao):
         return {str(row.statut): int(row.count or 0) for row in rows}
 
     def _get_revenue_curve(
-        self, session: Session, start_datetime: datetime, end_datetime: datetime
+        self,
+        session: Session,
+        start_datetime: datetime,
+        end_datetime: datetime,
+        is_today: bool = False,
     ) -> list[DashboardPointDTO]:
+        if is_today:
+            hour_expr = func.date_part("hour", Commande.date_commande)
+            rows = (
+                session.query(
+                    hour_expr.label("heure"),
+                    func.coalesce(func.sum(Commande.montant_total), 0).label("ca"),
+                    func.count(Commande.id).label("nb_commandes"),
+                )
+                .filter(
+                    Commande.date_commande >= start_datetime,
+                    Commande.date_commande <= end_datetime,
+                    self._non_draft_filter(),
+                    self._status_filter("LIVRE"),
+                )
+                .group_by(hour_expr)
+                .order_by(hour_expr.asc())
+                .all()
+            )
+            rows_by_hour = {
+                int(row.heure): {
+                    "ca": float(row.ca or 0.0),
+                    "nb_commandes": int(row.nb_commandes or 0),
+                }
+                for row in rows
+            }
+            return [
+                DashboardPointDTO(
+                    date=f"{hour:02d}h00",
+                    ca=rows_by_hour.get(hour, {}).get("ca", 0.0),
+                    nb_commandes=rows_by_hour.get(hour, {}).get("nb_commandes", 0),
+                )
+                for hour in range(9, 21)
+            ]
+
         date_expr = func.date(Commande.date_commande)
         rows = (
             session.query(
