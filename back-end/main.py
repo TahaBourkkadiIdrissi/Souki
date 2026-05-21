@@ -29,6 +29,7 @@ from services.delivery_schema_sync_service import DeliverySchemaSyncService
 from services.dispatch_schema_sync_service import DispatchSchemaSyncService
 from services.rbac_bootstrap_service import RBACBootstrapService
 from services.scheduler_service import start_scheduler, stop_scheduler
+from services.jit_schema_sync_service import JITSchemaSyncService
 from services.supplier_schema_sync_service import SupplierSchemaSyncService
 from services.supabase_storage_service import avatar_storage_service
 from services.wallet_schema_sync_service import WalletSchemaSyncService
@@ -41,6 +42,7 @@ def initialize_application() -> None:
         DeliverySchemaSyncService.sync()
         DispatchSchemaSyncService.sync()
         SupplierSchemaSyncService.sync()
+        JITSchemaSyncService.sync()
         avatar_storage_service.ensure_avatar_column()
     except OperationalError as exc:
         raise RuntimeError(

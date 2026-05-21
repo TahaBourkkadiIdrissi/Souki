@@ -21,6 +21,7 @@ from entities.souki_wallet_entity import SoukiWallet
 from entities.verification_code_entity import VerificationCode
 from entities.transaction_wallet_entity import TransactionWallet
 from entities.abonnement_entity import Abonnement
+from entities.zone_jit_entity import ZoneJIT
 from entities.jit_log_entity import JITLog
 from entities.cod_confirmation_log_entity import CODConfirmationLog
 from entities.produit_b2b_entity import ProduitB2B
@@ -56,6 +57,7 @@ __all__ = [
     "VerificationCode",
     "TransactionWallet",
     "Abonnement",
+    "ZoneJIT",
     "JITLog",
     "CODConfirmationLog",
     "ProduitB2B",
