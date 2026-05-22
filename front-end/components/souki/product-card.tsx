@@ -19,6 +19,7 @@ interface ProductCardProps {
   stock?: number
   disabled?: boolean
   disabledLabel?: string
+  onView?: (id: number | string) => void
   onAddToCart?: (id: number | string, quantity: number) => void
 }
 
@@ -35,6 +36,7 @@ export function ProductCard({
   stock,
   disabled = false,
   disabledLabel = "Indisponible",
+  onView,
   onAddToCart,
 }: ProductCardProps) {
   const [quantity, setQuantity] = useState(quantityStep)
@@ -81,6 +83,7 @@ export function ProductCard({
 
   return (
     <article
+      onClick={() => onView?.(id)}
       className={cn(
         "group flex h-full flex-col overflow-hidden rounded-2xl border border-[#DDEFE0] bg-white shadow-[0_18px_45px_-22px_rgba(30,138,60,0.25)] transition-all duration-300",
         isUnavailable
@@ -88,7 +91,7 @@ export function ProductCard({
           : "hover:-translate-y-1 hover:shadow-[0_22px_55px_-20px_rgba(30,138,60,0.28)]"
       )}
     >
-      <div className="relative h-40 w-full overflow-hidden bg-[#F4FAF3] sm:h-44 2xl:h-48">
+      <div className="relative h-28 w-full overflow-hidden bg-[#F4FAF3] sm:h-44 2xl:h-48">
         <img
           src={image}
           alt={name}
@@ -115,62 +118,80 @@ export function ProductCard({
         {isOutOfStock && <div className="absolute inset-0 bg-white/35" />}
       </div>
 
-      <div className="flex flex-1 flex-col p-3 2xl:p-4">
-        <div className="mb-3 min-w-0">
-          <h3 className="truncate text-base font-bold text-[#264129]">{name}</h3>
-          <p className="mt-1 text-xs text-[#6C7E6E] 2xl:text-sm">{getUnitHint()}</p>
+      <div className="flex flex-1 flex-col p-2.5 sm:p-3 2xl:p-4">
+        <div className="mb-2 min-w-0 sm:mb-3">
+          <h3 className="truncate text-sm font-bold text-[#264129] sm:text-base">{name}</h3>
+          <p className="mt-1 line-clamp-2 min-h-[2rem] text-[11px] leading-4 text-[#6C7E6E] sm:min-h-0 sm:text-xs 2xl:text-sm">
+            {getUnitHint()}
+          </p>
         </div>
 
-        <div className="mb-3 flex items-end justify-between gap-3 2xl:mb-4">
-          <span className="text-xl font-black leading-none text-[#F07C00] 2xl:text-2xl">
+        <div className="mb-2 flex flex-col gap-1 sm:mb-3 sm:flex-row sm:items-end sm:justify-between sm:gap-3 2xl:mb-4">
+          <span className="text-base font-black leading-none text-[#F07C00] sm:text-xl 2xl:text-2xl">
             {price.toFixed(2)} DH
           </span>
-          <span className="shrink-0 whitespace-nowrap pb-1 text-sm text-[#6C7E6E]">
+          <span className="shrink-0 whitespace-nowrap text-[11px] text-[#6C7E6E] sm:pb-1 sm:text-sm">
             / {resolvedDisplayUnit}
           </span>
         </div>
 
         {savings > 0 && (
-          <div className="mb-3 rounded-xl border border-[#E6F0E7] bg-[#F7FCF7] px-3 py-2 text-xs font-semibold text-[#607061] 2xl:mb-4">
+          <div className="mb-2 rounded-xl border border-[#E6F0E7] bg-[#F7FCF7] px-2.5 py-2 text-[11px] font-semibold leading-snug text-[#607061] sm:mb-3 sm:px-3 sm:text-xs 2xl:mb-4">
             Khddar estime {prixKhddarEstime?.toFixed(2)} DH, economie {savings.toFixed(2)} DH
           </div>
         )}
 
-        <div className="mb-3 space-y-2 2xl:mb-4">
+        <div className="mb-2 space-y-2 sm:mb-3 2xl:mb-4">
           <div className="flex w-full items-center overflow-hidden rounded-full border border-[#CDE8D0] bg-[#F7FCF7]">
-            <button
-              onClick={decrement}
-              className="flex h-10 w-10 shrink-0 items-center justify-center text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] 2xl:h-11 2xl:w-11"
+          <button
+              onClick={(event) => {
+                event.stopPropagation()
+                decrement()
+              }}
+              className="flex h-8 w-8 shrink-0 items-center justify-center text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] sm:h-10 sm:w-10 2xl:h-11 2xl:w-11"
               disabled={isUnavailable}
             >
-              <Minus className="h-4 w-4" />
+              <Minus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </button>
-            <span className="min-w-0 flex-1 px-2 text-center text-sm font-semibold text-[#264129]">
+            <span className="min-w-0 flex-1 px-1 text-center text-xs font-semibold text-[#264129] sm:px-2 sm:text-sm">
               {formatQuantity(quantity, unit)}
             </span>
-            <button
-              onClick={increment}
-              className="flex h-10 w-10 shrink-0 items-center justify-center text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] 2xl:h-11 2xl:w-11"
+          <button
+              onClick={(event) => {
+                event.stopPropagation()
+                increment()
+              }}
+              className="flex h-8 w-8 shrink-0 items-center justify-center text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] sm:h-10 sm:w-10 2xl:h-11 2xl:w-11"
               disabled={isUnavailable}
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </button>
           </div>
         </div>
 
         <button
-          onClick={handleAdd}
+          onClick={(event) => {
+            event.stopPropagation()
+            handleAdd()
+          }}
           disabled={isUnavailable}
           className={cn(
-            "mt-auto flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition-all 2xl:py-3 2xl:text-base",
+            "mt-auto flex w-full items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-semibold transition-all sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-2.5 sm:text-sm 2xl:py-3 2xl:text-base",
             isUnavailable
               ? "cursor-not-allowed bg-gray-200 text-gray-500"
               : "bg-[#1E8A3C] text-white hover:bg-[#176B2E]",
             isAdded && "animate-pop"
           )}
         >
-          <ShoppingCart className="h-4 w-4" />
-          {disabled ? disabledLabel : "Ajouter au panier"}
+          <ShoppingCart className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          {disabled ? (
+            <span className="truncate">{disabledLabel}</span>
+          ) : (
+            <>
+              <span className="sm:hidden">Ajouter</span>
+              <span className="hidden sm:inline">Ajouter au panier</span>
+            </>
+          )}
         </button>
       </div>
     </article>

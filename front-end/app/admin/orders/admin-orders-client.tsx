@@ -529,7 +529,7 @@ function statusBadge(status: string) {
 
   if (normalized === "confirmee") {
     return {
-      label: "Confirmee",
+      label: "Confirmée",
       className: "bg-blue-50 text-blue-800 border-blue-200",
       locked: false,
     }
@@ -537,7 +537,7 @@ function statusBadge(status: string) {
 
   if (normalized === "verrouillee") {
     return {
-      label: "Verrouillee",
+      label: "Verrouillée",
       className: "bg-slate-100 text-slate-800 border-slate-200",
       locked: true,
     }
@@ -545,7 +545,7 @@ function statusBadge(status: string) {
 
   if (normalized === "a_livrer") {
     return {
-      label: "A livrer",
+      label: "À livrer",
       className: "bg-indigo-50 text-indigo-900 border-indigo-200",
       locked: false,
     }
@@ -561,7 +561,7 @@ function statusBadge(status: string) {
 
   if (normalized === "livre" || normalized === "livree") {
     return {
-      label: "Livre",
+      label: "Livré",
       className: "bg-emerald-50 text-emerald-900 border-emerald-200",
       locked: false,
     }
@@ -577,7 +577,7 @@ function statusBadge(status: string) {
 
   if (normalized === "annulee" || normalized === "annule") {
     return {
-      label: "Annulee",
+      label: "Annulée",
       className: "bg-red-50 text-red-900 border-red-200",
       locked: false,
     }
@@ -595,20 +595,20 @@ function codConfirmationBadge(status: string) {
 
   if (normalized === "CONFIRMEE_PAR_APPEL") {
     return {
-      label: "Confirmee par appel",
+      label: "Confirmée par appel",
       className: "bg-emerald-50 text-emerald-800 border-emerald-200",
     }
   }
 
   if (normalized === "ANNULEE") {
     return {
-      label: "Annulee",
+      label: "Annulée",
       className: "bg-red-50 text-red-800 border-red-200",
     }
   }
 
   return {
-    label: "Non confirmee",
+    label: "Non confirmée",
     className: "bg-amber-50 text-amber-800 border-amber-200 animate-pulse",
   }
 }
@@ -729,8 +729,8 @@ function ProductDetailsTable({ details }: { details: DetailProduitJIT[] }) {
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Unit&eacute;</th>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Prix vente kg</th>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Prix achat kg</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">CA estimÃ©</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">CoÃ»t achat</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">CA estimé</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Coût achat</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -765,15 +765,15 @@ function JITFinancialSummary({ result }: { result: ResultatAgregationJIT | null 
     <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="grid gap-3 md:grid-cols-3">
         <div className="rounded-xl bg-[#F0FAF1] px-4 py-3">
-          <p className="text-xs font-semibold uppercase text-[#8A8A8A]">CA estimÃ© demain</p>
+          <p className="text-xs font-semibold uppercase text-[#8A8A8A]">CA estimé demain</p>
           <p className="mt-1 text-xl font-bold text-[#1E8A3C]">{formatMoney(result.ca_estime_total)}</p>
         </div>
         <div className="rounded-xl bg-amber-50 px-4 py-3">
-          <p className="text-xs font-semibold uppercase text-[#8A8A8A]">CoÃ»t achat estimÃ©</p>
+          <p className="text-xs font-semibold uppercase text-[#8A8A8A]">Coût achat estimé</p>
           <p className="mt-1 text-xl font-bold text-amber-700">{formatMoney(result.cout_achat_estime)}</p>
         </div>
         <div className="rounded-xl bg-[#F0FAF1] px-4 py-3">
-          <p className="text-xs font-semibold uppercase text-[#8A8A8A]">Marge estimÃ©e</p>
+          <p className="text-xs font-semibold uppercase text-[#8A8A8A]">Marge estimée</p>
           <p className="mt-1 text-xl font-bold text-[#1E8A3C]">{formatMoney(result.marge_estimee)}</p>
         </div>
       </div>
@@ -1055,12 +1055,12 @@ function FicheClientPanel({
           <ClientInfoGrid
             items={[
               { label: "Email", value: fiche.email },
-              { label: "Telephone", value: fiche.phone },
+              { label: "Téléphone", value: fiche.phone },
               { label: "Inscription", value: formatDateTime(fiche.created_at) },
-              { label: "Derniere connexion", value: formatDateTime(fiche.last_login_at) },
+              { label: "Dernière connexion", value: formatDateTime(fiche.last_login_at) },
               { label: "Provider", value: fiche.auth_provider },
               { label: "Email verifie", value: formatBool(fiche.is_email_verified) },
-              { label: "Telephone verifie", value: formatBool(fiche.is_phone_verified) },
+              { label: "Téléphone vérifié", value: formatBool(fiche.is_phone_verified) },
               { label: "Blacklisted", value: formatBool(fiche.is_blacklisted) },
             ]}
           />
@@ -1074,7 +1074,7 @@ function FicheClientPanel({
                   <div key={`${adresse.neighborhood || "adresse"}-${index}`} className="rounded-xl border border-gray-100 bg-slate-50 px-4 py-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="font-medium text-gray-950">
-                        {[adresse.neighborhood, adresse.street, adresse.ville].filter(Boolean).join(", ") || "Adresse sans libelle"}
+                        {[adresse.neighborhood, adresse.street, adresse.ville].filter(Boolean).join(", ") || "Adresse sans libellé"}
                       </p>
                       {adresse.is_default ? (
                         <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
@@ -1111,7 +1111,7 @@ function FicheClientPanel({
                     key={`paiement-${commande.id}`}
                     items={[
                       { label: "Commande", value: `#${commande.id}` },
-                      { label: "Methode", value: commande.paiement?.methode },
+                      { label: "Méthode", value: commande.paiement?.methode },
                       { label: "Montant", value: formatMoney(commande.paiement?.montant) },
                       { label: "Valide", value: formatBool(commande.paiement?.valide) },
                       { label: "Frais CMI", value: formatMoney(commande.paiement?.frais_cmi) },
@@ -1430,7 +1430,7 @@ export default function AdminOrdersPage() {
     }
 
     if (hasLockedOrdersToday) {
-      setJitError("Le JIT du jour est deja lance. Deverrouillez les commandes avant de le relancer.")
+      setJitError("Le JIT du jour est déjà lancé. Déverrouillez les commandes avant de le relancer.")
       return
     }
 
@@ -1520,7 +1520,7 @@ export default function AdminOrdersPage() {
       setCodFeedback(response.message)
       await loadOrders(token, false)
     } catch (error) {
-      setCodError(error instanceof Error ? error.message : "Impossible de mettre a jour la confirmation COD.")
+      setCodError(error instanceof Error ? error.message : "Impossible de mettre à jour la confirmation COD.")
     } finally {
       setCodActionId(null)
     }
@@ -1618,7 +1618,7 @@ export default function AdminOrdersPage() {
       )
       await loadOrders(token, false)
     } catch (error) {
-      setCodError(error instanceof Error ? error.message : "Impossible de mettre a jour les confirmations COD.")
+      setCodError(error instanceof Error ? error.message : "Impossible de mettre à jour les confirmations COD.")
     } finally {
       setCodGroupActionKey(null)
     }
@@ -1876,7 +1876,7 @@ export default function AdminOrdersPage() {
           <DashboardStatCard icon={Package} label="Commandes du jour" value={orders.length} tone="green" helper={`${clientGroups.length} client(s)`} />
           <DashboardStatCard icon={Scale} label="Volume total" value={formatWeight(ordersTotalVolume)} tone="blue" helper={`${lockedOrdersCount} verrouillee(s)`} />
           <DashboardStatCard icon={Banknote} label="Montant total" value={formatMoney(ordersTotalAmount)} tone="orange" helper="Estimation commandes" />
-          <DashboardStatCard icon={PhoneCall} label="COD confirmes" value={`${codCalledClientsCount} / ${codGroups.length}`} tone="slate" helper={`${codOrders.length} commande(s) COD`} />
+          <DashboardStatCard icon={PhoneCall} label="COD confirmés" value={`${codCalledClientsCount} / ${codGroups.length}`} tone="slate" helper={`${codOrders.length} commande(s) COD`} />
         </section>
 
         <section className={cn("grid gap-4 md:grid-cols-2", activeSection !== "overview" && "hidden")}>
@@ -1898,7 +1898,7 @@ export default function AdminOrdersPage() {
           >
             <p className="text-xs font-medium uppercase tracking-wider text-gray-500">⚡ JIT</p>
             <p className="mt-3 text-2xl font-bold text-gray-900">{lastLog ? formatWeight(lastLog.volume_total) : "Aucun log"}</p>
-            <p className="mt-1 text-sm text-gray-500">{lastLog ? `Derniere exec: ${formatShortDateTime(lastLog.date_execution)}` : "Pret pour aggregation"}</p>
+            <p className="mt-1 text-sm text-gray-500">{lastLog ? `Dernière exéc. : ${formatShortDateTime(lastLog.date_execution)}` : "Prêt pour agrégation"}</p>
             <p className="mt-5 text-sm font-semibold text-[#1E8A3C]">Gerer JIT →</p>
           </button>
 
@@ -1930,7 +1930,7 @@ export default function AdminOrdersPage() {
           <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-800 shadow-sm">
             <div className="flex items-start gap-3">
               <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
-              <span>{codAlerte18h.nb_non_confirmees} commandes COD non confirmees. Il est passe 18h00, priorisez les appels avant la tournee.</span>
+              <span>{codAlerte18h.nb_non_confirmees} commandes COD non confirmées. Il est passé 18h00, priorisez les appels avant la tournée.</span>
             </div>
           </div>
         )}
@@ -2144,7 +2144,7 @@ export default function AdminOrdersPage() {
                               {isFicheLoading ? (
                                 <div className="rounded-2xl border border-gray-100 bg-white px-6 py-8 text-center">
                                   <Spinner className="mx-auto size-6 text-[#1E8A3C]" />
-                                  <p className="mt-3 text-sm text-[#8A8A8A]">Chargement de la fiche clientâ€¦</p>
+                                  <p className="mt-3 text-sm text-[#8A8A8A]">Chargement de la fiche client...</p>
                                 </div>
                               ) : ficheError ? (
                                 <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -2434,7 +2434,7 @@ export default function AdminOrdersPage() {
                 <div className="inline-flex items-center rounded-full border border-[#F07C00]/20 bg-[#F07C00]/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#B15B00]">
                   Validation COD
                 </div>
-                <h2 className="mt-3 text-lg font-bold text-[#3D3D3D]">Commandes COD verrouillees par le JIT</h2>
+                <h2 className="mt-3 text-lg font-bold text-[#3D3D3D]">Commandes COD verrouillées par le JIT</h2>
                 <p className="text-sm text-[#8A8A8A] mt-1">
                   Une ligne par client pour appeler une seule fois, puis traiter toutes ses commandes COD verrouillées.
                 </p>
@@ -2474,14 +2474,14 @@ export default function AdminOrdersPage() {
             {codAlerte18h?.alerte_active && (
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 flex items-start gap-3">
                 <TriangleAlert className="w-4 h-4 mt-0.5 shrink-0" />
-                <span>{codAlerte18h.nb_non_confirmees} commandes COD non confirmees - Il est passe 18h00</span>
+                <span>{codAlerte18h.nb_non_confirmees} commandes COD non confirmées - Il est passé 18h00</span>
               </div>
             )}
 
             {isAfterCodAlertTime && hasUnconfirmedCodOrders && (
               <div className="rounded-xl border border-[#F5C400]/40 bg-[#F5C400]/10 px-4 py-3 text-sm font-medium text-[#8B6A00] flex items-start gap-3">
                 <TriangleAlert className="w-4 h-4 mt-0.5 shrink-0" />
-                <span>Certaines commandes COD verrouillees par le JIT ne sont pas encore confirmees par appel.</span>
+                <span>Certaines commandes COD verrouillées par le JIT ne sont pas encore confirmées par appel.</span>
               </div>
             )}
 
@@ -2525,8 +2525,8 @@ export default function AdminOrdersPage() {
             <TableSkeleton rows={5} columns={8} />
           ) : filteredCodGroups.length === 0 ? (
             <EmptyState
-              title="Aucune commande COD a confirmer"
-              description={codSearch || codStatusFilter !== "tous" ? "Aucun resultat ne correspond aux filtres actuels." : "Aucune commande COD verrouillee par le JIT pour le moment."}
+              title="Aucune commande COD à confirmer"
+              description={codSearch || codStatusFilter !== "tous" ? "Aucun résultat ne correspond aux filtres actuels." : "Aucune commande COD verrouillée par le JIT pour le moment."}
             />
           ) : (
             <div className="overflow-x-auto">
@@ -2662,7 +2662,7 @@ export default function AdminOrdersPage() {
                                                 className="px-4 py-2 border border-[#1E8A3C]/20 bg-[#F0FAF1] rounded-xl font-medium text-[#1E8A3C] hover:bg-[#E7F5E8] disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
                                               >
                                                 {isUpdating ? <Spinner className="size-4 text-[#1E8A3C]" /> : <CheckCircle2 className="w-4 h-4" />}
-                                                Confirmee
+                                                Confirmée
                                               </button>
                                               <button
                                                 type="button"
@@ -2671,7 +2671,7 @@ export default function AdminOrdersPage() {
                                                 className="px-4 py-2 border border-red-200 bg-red-50 rounded-xl font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
                                               >
                                                 {isUpdating ? <Spinner className="size-4 text-red-700" /> : <XCircle className="w-4 h-4" />}
-                                                Annulee
+                                                Annulée
                                               </button>
                                             </div>
                                           </td>

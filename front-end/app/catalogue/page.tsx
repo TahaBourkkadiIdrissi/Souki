@@ -28,6 +28,8 @@ import {
 } from "lucide-react"
 
 import { AIModals } from "@/components/souki/ai-modals"
+import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
+import { RecolteAvatar } from "@/components/avatar/recolte-avatar"
 import { ProductCard } from "@/components/souki/product-card"
 import { useAuth } from "@/hooks/useAuth"
 import type { CommandeHistoriqueDTO, ProduitSuggestionDTO } from "@/lib/api"
@@ -63,7 +65,7 @@ const FRAIS = DELIVERY_FEE
 
 const categories = [
   { id: "tous", label: "Tous" },
-  { id: "legumes", label: "Legumes" },
+  { id: "legumes", label: "Légumes" },
   { id: "fruits", label: "Fruits" },
   { id: "herbes", label: "Herbes" },
 ] as const
@@ -71,17 +73,17 @@ const categories = [
 const sortOptions = [
   { id: "popular", label: "Pertinence" },
   { id: "price-asc", label: "Prix croissant" },
-  { id: "price-desc", label: "Prix decroissant" },
-  { id: "name", label: "Ordre alphabetique" },
+  { id: "price-desc", label: "Prix décroissant" },
+  { id: "name", label: "Ordre alphabétique" },
 ] as const
 
 const claimReasonOptions: Array<{ id: ClaimReason; label: string }> = [
-  { id: "abime", label: "Produit abime" },
+  { id: "abime", label: "Produit abîmé" },
   { id: "poids_incorrect", label: "Poids incorrect" },
   { id: "erreur_produit", label: "Erreur de produit" },
   { id: "produit_manquant", label: "Produit manquant" },
-  { id: "qualite", label: "Qualite insuffisante" },
-  { id: "autre", label: "Autre probleme" },
+  { id: "qualite", label: "Qualité insuffisante" },
+  { id: "autre", label: "Autre problème" },
 ]
 
 const formatOrderDate = (value?: string | null) => {
@@ -108,10 +110,10 @@ const getOrderStatusLabel = (status?: string | null) => {
   const labels: Record<string, string> = {
     EN_ATTENTE: "En attente",
     EN_ROUTE: "En route",
-    LIVRE: "Livree",
+    LIVRE: "Livrée",
     ABSENT: "Absent",
-    REFUS: "Refusee",
-    ANNULE: "Annulee",
+    REFUS: "Refusée",
+    ANNULE: "Annulée",
   }
   return labels[normalizedStatus] || status || "Statut inconnu"
 }
@@ -133,12 +135,12 @@ const getOrderStatusClassName = (status?: string | null) => {
 const formatPaymentMode = (mode?: string | null) => {
   const normalizedMode = (mode || "").toLowerCase()
   const labels: Record<string, string> = {
-    cod: "Cash a la livraison",
-    cash: "Cash a la livraison",
+    cod: "Cash à la livraison",
+    cash: "Cash à la livraison",
     wallet: "Wallet SOUKI",
     cmi: "Carte bancaire CMI",
   }
-  return labels[normalizedMode] || mode || "Paiement non precise"
+  return labels[normalizedMode] || mode || "Paiement non précisé"
 }
 
 const formatDh = (value: string | number) => `${Number(value || 0).toFixed(2)} DH`
@@ -166,82 +168,28 @@ const canClaimOrder = (order: CommandeHistoriqueDTO) => {
 const getClaimWindowLabel = (order: CommandeHistoriqueDTO) => {
   const deliveredAt = parseDate(order.delivered_at)
   if (!deliveredAt) {
-    return "Disponible apres livraison"
+    return "Disponible après livraison"
   }
   const deadline = new Date(deliveredAt.getTime() + CLAIM_WINDOW_MS)
   if (Date.now() > deadline.getTime()) {
-    return "Delai SAV expire"
+    return "Délai SAV expiré"
   }
   return `SAV ouvert jusqu'au ${formatOrderDate(deadline.toISOString())}`
 }
 
-function SoukiAvatarIllustration({ className }: { className?: string }) {
+function RecolteWarmWelcome() {
   return (
-    <svg
-      viewBox="0 0 180 190"
-      className={className}
-      role="img"
-      aria-label="Amine, assistant Souki"
-    >
-      <circle cx="90" cy="95" r="78" fill="#F0FAF1" />
-      <path d="M43 155c7-28 25-43 48-43s41 15 48 43" fill="#1E8A3C" />
-      <path d="M58 157c4-19 16-30 33-30s29 11 33 30" fill="#4CB84A" opacity="0.45" />
-      <path d="M67 60c4-22 20-35 43-30 17 4 27 16 29 34l-6 4c-22-8-42-8-61 0l-5-8Z" fill="#264129" />
-      <circle cx="92" cy="75" r="37" fill="#F2C7A0" />
-      <path d="M61 72c5-21 18-32 39-32 17 0 30 9 36 24-23-8-46-7-69 4l-6 4Z" fill="#264129" />
-      <circle cx="78" cy="79" r="3" fill="#264129" />
-      <circle cx="105" cy="79" r="3" fill="#264129" />
-      <path d="M82 96c7 5 15 5 23 0" fill="none" stroke="#264129" strokeLinecap="round" strokeWidth="4" />
-      <path d="M91 83c-2 5-2 9 1 12" fill="none" stroke="#C78662" strokeLinecap="round" strokeWidth="3" />
-      <path d="M58 132h66c10 0 19 8 19 19v19H39v-19c0-10 8-19 19-19Z" fill="#1E8A3C" />
-      <path d="M75 132l17 19 17-19" fill="#FFFFFF" opacity="0.92" />
-      <rect x="80" y="153" width="24" height="8" rx="4" fill="#F07C00" />
-      <g className="souki-avatar-wave">
-        <path d="M134 118c11-13 18-28 21-46" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="13" />
-        <path d="M154 72c6-9 8-18 6-27" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="9" />
-        <path d="M153 70l-9-17" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="7" />
-        <path d="M158 70l3-18" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="7" />
-      </g>
-    </svg>
-  )
-}
-
-function AmineWarmWelcome() {
-  return (
-    <div className="pointer-events-none absolute right-5 top-5 z-20 hidden w-40 xl:block 2xl:w-44">
-      <div className="relative pt-8">
-        <div className="absolute right-20 top-0 z-30 whitespace-nowrap rounded-2xl border border-[#F3D8B2] bg-white px-3 py-2 text-center text-sm font-black text-[#9A5C11] shadow-[0_12px_30px_-22px_rgba(154,92,17,0.55)] 2xl:text-base">
+    <div className="pointer-events-none absolute right-3 top-4 z-20 w-24 sm:right-5 sm:w-32 xl:w-40 2xl:w-44">
+      <div className="relative pt-7 sm:pt-8">
+        <div className="absolute right-10 top-0 z-30 whitespace-nowrap rounded-2xl border border-[#F3D8B2] bg-white px-2.5 py-1.5 text-center text-[11px] font-black text-[#9A5C11] shadow-[0_12px_30px_-22px_rgba(154,92,17,0.55)] sm:right-16 sm:text-xs xl:right-20 2xl:text-base">
           Ach heb lkhater ?
         </div>
-        <svg
-          viewBox="0 0 210 210"
-          className="relative z-10 h-auto w-full drop-shadow-[0_18px_24px_rgba(30,65,41,0.16)]"
-          role="img"
-          aria-label="Amine de Souki accueille chaleureusement les clients"
-        >
-          <circle cx="112" cy="108" r="86" fill="#F0FAF1" />
-          <path d="M57 174c8-34 28-52 58-52s50 18 58 52" fill="#1E8A3C" />
-          <path d="M73 176c5-22 20-35 42-35s37 13 42 35" fill="#4CB84A" opacity="0.42" />
-          <path d="M78 63c5-25 24-39 50-33 20 4 32 18 35 39l-8 5c-25-10-49-10-72 0l-5-11Z" fill="#264129" />
-          <circle cx="116" cy="84" r="40" fill="#F2C7A0" />
-          <path d="M81 82c6-24 22-37 46-36 18 1 32 11 39 28-27-9-54-8-80 5l-5 3Z" fill="#264129" />
-          <circle cx="101" cy="89" r="3.5" fill="#264129" />
-          <circle cx="130" cy="89" r="3.5" fill="#264129" />
-          <path d="M105 107c8 7 20 7 29 0" fill="none" stroke="#264129" strokeLinecap="round" strokeWidth="5" />
-          <path d="M116 92c-2 6-2 11 1 15" fill="none" stroke="#C78662" strokeLinecap="round" strokeWidth="3.5" />
-          <path d="M82 144l34 35 34-35" fill="#FFFFFF" opacity="0.92" />
-          <rect x="103" y="167" width="28" height="9" rx="4.5" fill="#F07C00" />
-          <g className="souki-open-hands">
-            <path d="M64 139C43 128 28 113 18 94" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="15" />
-            <path d="M18 94c-8-5-13-12-15-21" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="9" />
-            <path d="M20 93 9 83" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="7" />
-            <path d="M24 90 19 75" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="7" />
-            <path d="M166 139c21-11 36-26 46-45" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="15" />
-            <path d="M212 94c8-5 13-12 15-21" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="9" />
-            <path d="m210 93 11-10" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="7" />
-            <path d="m206 90 5-15" fill="none" stroke="#F2C7A0" strokeLinecap="round" strokeWidth="7" />
-          </g>
-        </svg>
+        <RecolteAvatar
+          size="lg"
+          expression="welcome"
+          className="relative z-10 h-auto w-full"
+          label="Recolte accueille chaleureusement les clients Souki"
+        />
       </div>
     </div>
   )
@@ -268,10 +216,10 @@ function SoukiGuideAvatar({
   if (compact) {
     return (
       <div className="flex items-center gap-3 rounded-2xl border border-[#D7EBD9] bg-white/85 p-3 shadow-[0_14px_40px_-34px_rgba(30,65,41,0.35)]">
-        <SoukiAvatarIllustration className="h-20 w-20 shrink-0 sm:h-24 sm:w-24" />
+        <RecolteAvatar size="md" expression="curious" className="shrink-0" />
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-bold uppercase tracking-wide text-[#1E8A3C]">
-            Amine de Souki
+            Recolte de Souki
           </p>
           <p className="mt-1 text-sm font-bold leading-5 text-[#264129]">{guideMessage}</p>
         </div>
@@ -282,10 +230,10 @@ function SoukiGuideAvatar({
   return (
     <div className="relative overflow-hidden rounded-2xl border border-[#D7EBD9] bg-white p-4 shadow-[0_18px_50px_-36px_rgba(30,65,41,0.35)]">
       <div className="absolute right-4 top-4 rounded-full bg-[#F0FAF1] px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-[#1E8A3C]">
-        Assistant Souki
+        Recolte Souki
       </div>
       <div className="flex items-end justify-center pt-5">
-        <SoukiAvatarIllustration className="h-40 w-40 sm:h-44 sm:w-44" />
+        <RecolteAvatar size="lg" expression={cartCount > 0 ? "success" : "welcome"} />
       </div>
       <div className="mt-2 rounded-2xl bg-[#F7FCF7] p-4">
         <p className="text-sm font-bold text-[#264129]">{guideMessage}</p>
@@ -462,9 +410,7 @@ function CatalogueContent() {
       return
     }
 
-    setSuccessMessage(`Votre commande N-${validatedOrderId} a ete enregistree avec succes.`)
-    setShowOrderHistory(true)
-    router.replace("/catalogue")
+    router.replace(`/historique?commande_validee=${validatedOrderId}`)
   }, [router, searchParams])
 
   useEffect(() => {
@@ -583,6 +529,42 @@ function CatalogueContent() {
     })
   }
 
+  const handleProductView = (id: number | string) => {
+    if (typeof window === "undefined") {
+      return
+    }
+
+    const normalizedId = Number(id)
+    const product = products.find((item) => item.id === normalizedId)
+    if (!product) {
+      return
+    }
+
+    const viewedProduct = {
+      id: product.id,
+      name: product.name,
+      image: product.image,
+      price: product.price,
+      unit: product.unit,
+      displayUnit: product.displayUnit,
+      viewedAt: new Date().toISOString(),
+    }
+
+    try {
+      const rawHistory = window.localStorage.getItem("souki_recent_products")
+      const currentHistory = rawHistory ? JSON.parse(rawHistory) : []
+      const nextHistory = [
+        viewedProduct,
+        ...(Array.isArray(currentHistory) ? currentHistory : []).filter(
+          (item: { id?: number }) => item.id !== product.id
+        ),
+      ].slice(0, 12)
+      window.localStorage.setItem("souki_recent_products", JSON.stringify(nextHistory))
+    } catch {
+      window.localStorage.setItem("souki_recent_products", JSON.stringify([viewedProduct]))
+    }
+  }
+
   const handleAddSuggestionToCart = (product: CatalogueProduct) => {
     requireAuth("/catalogue", () => {
       setAddedSuggestionIds((currentIds) =>
@@ -630,7 +612,7 @@ function CatalogueContent() {
       return
     }
     if (claimableLines.length === 0) {
-      alert("Cette commande ne contient aucune ligne eligible au SAV.")
+      alert("Cette commande ne contient aucune ligne éligible au SAV.")
       return
     }
     const firstLine = claimableLines[0]
@@ -661,11 +643,11 @@ function CatalogueContent() {
     }
     const normalizedQuantity = Number(claimQuantity.replace(",", "."))
     if (!Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) {
-      setClaimError("La quantite reclamee doit etre positive.")
+      setClaimError("La quantité réclamée doit être positive.")
       return
     }
     if (normalizedQuantity > selectedLine.quantite_kg) {
-      setClaimError("La quantite reclamee depasse la quantite commandee.")
+      setClaimError("La quantité réclamée dépasse la quantité commandée.")
       return
     }
 
@@ -683,7 +665,7 @@ function CatalogueContent() {
         ],
       })
       setSuccessMessage(
-        `Reclamation envoyee. ${formatDh(result.amount_refunded)} ont ete credites sur votre wallet SOUKI. Nouveau solde: ${formatDh(result.new_wallet_balance)}.`
+        `Réclamation envoyée. ${formatDh(result.amount_refunded)} ont été crédités sur votre wallet SOUKI. Nouveau solde : ${formatDh(result.new_wallet_balance)}.`
       )
       if (typeof window !== "undefined") {
         window.dispatchEvent(
@@ -812,12 +794,12 @@ function CatalogueContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FBFDF9]">
+    <div className="min-h-screen bg-[#FBFDF9] pb-24 md:pb-0">
       <div className="bg-[#F07C00] px-4 py-3 text-center text-sm font-semibold text-white">
-        Paniers ouverts apres 20h - Livraison demain, prix recalcules au moment de la validation
+        Paniers ouverts après 20h - Livraison demain, prix recalculés au moment de la validation
       </div>
 
-      <nav className="sticky top-0 z-40 border-b border-[#E7F0E8] bg-white/90 backdrop-blur">
+      <nav className="sticky top-0 z-40 hidden glass-ios26 border-b border-[#E7F0E8] md:block">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <button
@@ -875,7 +857,7 @@ function CatalogueContent() {
           </button>
 
           <div className="space-y-8">
-            <div className="rounded-3xl bg-white p-4 shadow-sm">
+            <div className="glass-ios26 rounded-3xl p-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#7B8B7D]" />
                 <input
@@ -902,7 +884,7 @@ function CatalogueContent() {
                       "w-full rounded-2xl px-4 py-3 text-left text-sm font-semibold transition-colors",
                       selectedCategory === category.id
                         ? "bg-[#1E8A3C] text-white"
-                        : "bg-white text-[#264129] hover:bg-[#E7F5E8]"
+                        : "glass-ios26 text-[#264129] hover:bg-white/45"
                     )}
                   >
                     {category.label}
@@ -911,34 +893,29 @@ function CatalogueContent() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-[#D7EBD9] bg-white p-5">
+            <div className="glass-ios26 rounded-3xl border border-[#D7EBD9] p-5">
               <div className="flex items-center gap-3 text-[#1E8A3C]">
                 <Clock className="h-5 w-5" />
                 <span className="font-semibold">Commandes ouvertes</span>
               </div>
               <p className="mt-2 text-sm text-[#718272]">
-                Livraison demain pour garantir la fraicheur.
+                Livraison demain pour garantir la fraîcheur.
               </p>
             </div>
 
             {isAuthenticated && (
-              <button
-                onClick={() => setShowOrderHistory(true)}
-                className={cn(
-                  "flex w-full items-center justify-between rounded-3xl border px-5 py-4 text-left transition-colors",
-                  showOrderHistory
-                    ? "border-[#BFE6C4] bg-[#EAF8EC] text-[#1E8A3C]"
-                    : "border-[#D7EBD9] bg-white text-[#264129] hover:bg-[#F0FAF1]"
-                )}
+              <Link
+                href="/historique"
+                className="glass-ios26 flex w-full items-center justify-between rounded-3xl border border-[#D7EBD9] px-5 py-4 text-left text-[#264129] transition-colors hover:bg-white/45"
               >
                 <span className="flex items-center gap-3 font-semibold">
                   <History className="h-5 w-5" />
-                  Historique commandes
+                  Historique
                 </span>
                 <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[#F07C00]">
                   {orderHistory.length}
                 </span>
-              </button>
+              </Link>
             )}
 
             {!isAuthenticated && !isLoading && (
@@ -957,12 +934,12 @@ function CatalogueContent() {
           </div>
         </aside>
 
-        <main className="min-w-0 flex-1 px-4 py-6 lg:px-8 lg:py-8">
+        <main className="min-w-0 flex-1 px-4 py-5 lg:px-8 lg:py-8">
           <div className="relative mb-6 overflow-hidden rounded-2xl border border-[#D7EBD9] bg-[linear-gradient(135deg,#FFFFFF_0%,#F7FCF7_58%,#FFF7EE_100%)] p-5 shadow-[0_18px_50px_-34px_rgba(0,0,0,0.2)] lg:p-6">
-            <AmineWarmWelcome />
+            <RecolteWarmWelcome />
             <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_19rem]">
               <div className="min-w-0 xl:pr-40 2xl:pr-0">
-                <div className="mb-4 flex flex-wrap items-center gap-3">
+                <div className="mb-4 flex flex-wrap items-center gap-3 pr-24 sm:pr-32 xl:pr-0">
                   <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-[#1E8A3C] ring-1 ring-[#D7EBD9]">
                     <Leaf className="h-4 w-4" />
                     Catalogue du jour
@@ -973,11 +950,11 @@ function CatalogueContent() {
                   </span>
                 </div>
 
-                <h1 className="max-w-4xl text-2xl font-black leading-tight text-[#1E8A3C] lg:text-3xl">
+                <h1 className="max-w-4xl pr-24 text-2xl font-black leading-tight text-[#1E8A3C] sm:pr-32 lg:text-3xl xl:pr-0">
                   Salam, je t'aide a composer un panier frais sans perdre de temps
                 </h1>
-                <p className="mt-3 max-w-3xl text-sm leading-6 text-[#5F735F] lg:text-base">
-                  Choisis toi-meme tes produits, parle a l'assistant vocal, ou laisse Souki composer
+                <p className="mt-3 max-w-3xl text-sm leading-6 text-[#5F735F] sm:pr-28 lg:text-base xl:pr-0">
+                  Choisis toi-même tes produits, parle à l'assistant vocal, ou laisse Souki composer
                   un panier malin selon ton budget.
                 </p>
 
@@ -990,41 +967,37 @@ function CatalogueContent() {
                   />
                 </div>
 
-                <div className="mt-5 grid gap-3 lg:grid-cols-3">
+                <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   <button
                     onClick={() => requireAuth("/catalogue", () => setActiveModal("smart"))}
-                    className="group flex min-h-[104px] min-w-0 flex-col justify-between rounded-2xl bg-[#F07C00] p-4 text-left text-white shadow-[0_16px_35px_-22px_rgba(240,124,0,0.75)] transition-transform hover:-translate-y-0.5 hover:bg-[#D66B00]"
+                    className="group flex min-h-[112px] min-w-0 items-center gap-4 rounded-2xl bg-[#F07C00] p-4 text-left text-white shadow-[0_16px_35px_-22px_rgba(240,124,0,0.75)] transition-transform hover:-translate-y-0.5 hover:bg-[#D66B00] lg:min-h-[124px] lg:flex-col lg:items-start lg:justify-between"
                   >
-                    <span className="flex items-center justify-between gap-3">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/18">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/18 lg:h-10 lg:w-10">
                         <Zap className="h-5 w-5" />
-                      </span>
-                      <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                     </span>
-                    <span>
-                      <span className="block text-base font-black">Panier intelligent</span>
-                      <span className="mt-1 block text-xs font-semibold text-white/85">
+                    <span className="flex min-w-0 flex-1 flex-col justify-center">
+                      <span className="block text-base font-black leading-tight">Panier intelligent</span>
+                      <span className="mt-1 block text-xs font-semibold leading-snug text-white/85">
                         Budget, duree, foyer: Souki compose.
                       </span>
                     </span>
+                    <ArrowRight className="ml-auto h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1 lg:ml-0 lg:self-end" />
                   </button>
 
                   <button
                     onClick={() => requireAuth("/catalogue", () => setActiveModal("voice"))}
-                    className="group flex min-h-[104px] min-w-0 flex-col justify-between rounded-2xl border border-[#CFE6D2] bg-white p-4 text-left text-[#264129] transition-transform hover:-translate-y-0.5 hover:bg-[#F7FCF7]"
+                    className="glass-ios26 group flex min-h-[112px] min-w-0 items-center gap-4 rounded-2xl border border-[#CFE6D2] p-4 text-left text-[#264129] transition-transform hover:-translate-y-0.5 hover:bg-white/45 lg:min-h-[124px] lg:flex-col lg:items-start lg:justify-between"
                   >
-                    <span className="flex items-center justify-between gap-3">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F0FAF1] text-[#1E8A3C]">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#F0FAF1] text-[#1E8A3C] lg:h-10 lg:w-10">
                         <Mic className="h-5 w-5" />
-                      </span>
-                      <ArrowRight className="h-5 w-5 text-[#9AB49C] transition-transform group-hover:translate-x-1" />
                     </span>
-                    <span>
-                      <span className="block text-base font-black">Assistant vocal</span>
-                      <span className="mt-1 block text-xs font-semibold text-[#6F8070]">
-                        Dis les produits, on prepare le panier.
+                    <span className="flex min-w-0 flex-1 flex-col justify-center">
+                      <span className="block text-base font-black leading-tight">Assistant IA</span>
+                      <span className="mt-1 block text-xs font-semibold leading-snug text-[#6F8070]">
+                        Dis les produits, on prépare le panier.
                       </span>
                     </span>
+                    <ArrowRight className="ml-auto h-5 w-5 shrink-0 text-[#9AB49C] transition-transform group-hover:translate-x-1 lg:ml-0 lg:self-end" />
                   </button>
 
                   <button
@@ -1033,35 +1006,33 @@ function CatalogueContent() {
                         .getElementById("catalogue-products")
                         ?.scrollIntoView({ behavior: "smooth", block: "start" })
                     }
-                    className="group flex min-h-[104px] min-w-0 flex-col justify-between rounded-2xl border border-[#E6F0E7] bg-white p-4 text-left text-[#264129] transition-transform hover:-translate-y-0.5 hover:bg-[#FBFDF9]"
+                    className="glass-ios26 group flex min-h-[112px] min-w-0 items-center gap-4 rounded-2xl border border-[#E6F0E7] p-4 text-left text-[#264129] transition-transform hover:-translate-y-0.5 hover:bg-white/45 sm:col-span-2 lg:col-span-1 lg:min-h-[124px] lg:flex-col lg:items-start lg:justify-between"
                   >
-                    <span className="flex items-center justify-between gap-3">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FFF7EE] text-[#F07C00]">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#FFF7EE] text-[#F07C00] lg:h-10 lg:w-10">
                         <ShoppingCart className="h-5 w-5" />
-                      </span>
-                      <ArrowRight className="h-5 w-5 text-[#9AB49C] transition-transform group-hover:translate-x-1" />
                     </span>
-                    <span>
-                      <span className="block text-base font-black">Commander moi-meme</span>
-                      <span className="mt-1 block text-xs font-semibold text-[#6F8070]">
+                    <span className="flex min-w-0 flex-1 flex-col justify-center">
+                      <span className="block text-base font-black leading-tight">Commander moi-même</span>
+                      <span className="mt-1 block text-xs font-semibold leading-snug text-[#6F8070]">
                         Parcours le catalogue a ton rythme.
                       </span>
                     </span>
+                    <ArrowRight className="ml-auto h-5 w-5 shrink-0 text-[#9AB49C] transition-transform group-hover:translate-x-1 lg:ml-0 lg:self-end" />
                   </button>
                 </div>
 
                 <div className="mt-4 grid gap-3 text-sm font-semibold text-[#607061] md:grid-cols-3">
-                  <div className="flex items-center gap-2 rounded-xl bg-white/75 px-3 py-2 ring-1 ring-[#E6F0E7]">
-                    <BadgeCheck className="h-4 w-4 shrink-0 text-[#1E8A3C]" />
-                    Produits frais du marche
+                  <div className="glass-ios26 flex min-h-[72px] items-center gap-3 rounded-xl px-4 py-3 text-left ring-1 ring-[#E6F0E7]">
+                    <BadgeCheck className="h-5 w-5 shrink-0 text-[#1E8A3C]" />
+                    <span className="block leading-snug">Produits frais du marché</span>
                   </div>
-                  <div className="flex items-center gap-2 rounded-xl bg-white/75 px-3 py-2 ring-1 ring-[#E6F0E7]">
-                    <Clock className="h-4 w-4 shrink-0 text-[#1E8A3C]" />
-                    Livraison demain matin
+                  <div className="glass-ios26 flex min-h-[72px] items-center gap-3 rounded-xl px-4 py-3 text-left ring-1 ring-[#E6F0E7]">
+                    <Clock className="h-5 w-5 shrink-0 text-[#1E8A3C]" />
+                    <span className="block leading-snug">Livraison demain matin</span>
                   </div>
-                  <div className="flex items-center gap-2 rounded-xl bg-white/75 px-3 py-2 ring-1 ring-[#E6F0E7]">
-                    <MessageCircle className="h-4 w-4 shrink-0 text-[#1E8A3C]" />
-                    Aide disponible a chaque etape
+                  <div className="glass-ios26 flex min-h-[72px] items-center gap-3 rounded-xl px-4 py-3 text-left ring-1 ring-[#E6F0E7]">
+                    <MessageCircle className="h-5 w-5 shrink-0 text-[#1E8A3C]" />
+                    <span className="block leading-snug">Aide disponible à chaque étape</span>
                   </div>
                 </div>
               </div>
@@ -1075,18 +1046,24 @@ function CatalogueContent() {
               </div>
             </div>
 
-            <div className="mt-5 grid gap-3 border-t border-[#EEF2EE] pt-4 sm:grid-cols-3">
-              <div className="rounded-xl bg-[#F7FCF7] px-4 py-3">
-                <p className="text-xs font-bold uppercase tracking-wide text-[#7B8B7D]">Seuil confort</p>
-                <p className="mt-1 text-lg font-black text-[#264129]">{SEUIL} DH livraison offerte</p>
+            <div className="mt-5 grid gap-3 border-t border-[#EEF2EE] pt-5 sm:grid-cols-3">
+              <div className="relative overflow-hidden rounded-[2rem] border border-[#D7EBD9] bg-[linear-gradient(145deg,#FFFFFF_0%,#F0FAF1_100%)] px-4 py-4 text-center shadow-[0_16px_36px_-28px_rgba(30,138,60,0.45)]">
+                <p className="relative text-[11px] font-bold uppercase tracking-wide text-[#7B8B7D]">Seuil confort</p>
+                <p className="relative mt-1 text-base font-black leading-tight text-[#264129] sm:text-lg">
+                  {SEUIL} DH livraison offerte
+                </p>
               </div>
-              <div className="rounded-xl bg-[#FFF7EE] px-4 py-3">
-                <p className="text-xs font-bold uppercase tracking-wide text-[#9A5C11]">Apres 20h</p>
-                <p className="mt-1 text-lg font-black text-[#264129]">En attente pour demain</p>
+              <div className="relative overflow-hidden rounded-[2rem] border border-[#F3D8B2] bg-[linear-gradient(145deg,#FFFFFF_0%,#FFF7EE_100%)] px-4 py-4 text-center shadow-[0_16px_36px_-28px_rgba(240,124,0,0.42)] sm:translate-y-2">
+                <p className="relative text-[11px] font-bold uppercase tracking-wide text-[#9A5C11]">Apres 20h</p>
+                <p className="relative mt-1 text-base font-black leading-tight text-[#264129] sm:text-lg">
+                  En attente pour demain
+                </p>
               </div>
-              <div className="rounded-xl bg-white px-4 py-3 ring-1 ring-[#E6F0E7]">
-                <p className="text-xs font-bold uppercase tracking-wide text-[#7B8B7D]">Prix</p>
-                <p className="mt-1 text-lg font-black text-[#264129]">Recalcules a validation</p>
+              <div className="relative overflow-hidden rounded-[2rem] border border-[#DDEBDD] bg-[linear-gradient(145deg,#FFFFFF_0%,#F7FCF7_100%)] px-4 py-4 text-center shadow-[0_16px_36px_-28px_rgba(38,65,41,0.36)]">
+                <p className="relative text-[11px] font-bold uppercase tracking-wide text-[#7B8B7D]">Prix</p>
+                <p className="relative mt-1 text-base font-black leading-tight text-[#264129] sm:text-lg">
+                  Recalcules a validation
+                </p>
               </div>
             </div>
 
@@ -1175,7 +1152,7 @@ function CatalogueContent() {
                     <h2 className="text-xl font-black">Historique des commandes</h2>
                   </div>
                   <p className="mt-1 text-sm text-[#6F8070]">
-                    Retrouvez les commandes validees depuis le checkout.
+                    Retrouvez les commandes validées depuis le checkout.
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -1217,9 +1194,9 @@ function CatalogueContent() {
               {!isFetchingHistory && !historyError && orderHistory.length === 0 && (
                 <div className="rounded-[24px] border border-[#E6EFE7] bg-white p-8 text-center">
                   <PackageCheck className="mx-auto mb-3 h-10 w-10 text-[#B8C9BA]" />
-                  <p className="font-semibold text-[#264129]">Aucune commande validee pour le moment.</p>
+                  <p className="font-semibold text-[#264129]">Aucune commande validée pour le moment.</p>
                   <p className="mt-1 text-sm text-[#6F8070]">
-                    Vos prochaines commandes apparaitront ici apres validation.
+                    Vos prochaines commandes apparaîtront ici après validation.
                   </p>
                 </div>
               )}
@@ -1325,7 +1302,7 @@ function CatalogueContent() {
                         )}
                         {order.delivered_at && (
                           <p>
-                            Livree: <span className="text-[#264129]">{formatOrderDate(order.delivered_at)}</span>
+                            Livrée : <span className="text-[#264129]">{formatOrderDate(order.delivered_at)}</span>
                           </p>
                         )}
                         {order.absent_at && (
@@ -1347,7 +1324,7 @@ function CatalogueContent() {
                           )}
                         >
                           <AlertCircle className="h-4 w-4" />
-                          Signaler un probleme
+                          Signaler un problème
                         </button>
                         <p className="text-center text-xs font-semibold text-[#7B8B7D]">
                           {getClaimWindowLabel(order)}
@@ -1361,7 +1338,7 @@ function CatalogueContent() {
           )}
 
           {!showOrderHistory && isFetching && (
-            <div className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr))] sm:gap-6">
+            <div className="grid grid-cols-2 gap-3 sm:gap-5 md:[grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr))]">
               {Array.from({ length: 6 }).map((_, index) => (
                 <div
                   key={index}
@@ -1381,7 +1358,7 @@ function CatalogueContent() {
             <>
               <div
                 id="catalogue-products"
-                className="grid scroll-mt-28 gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr))] sm:gap-6"
+                className="grid grid-cols-2 gap-3 scroll-mt-28 sm:gap-5 md:[grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr))]"
               >
                 {filteredProducts.map((product) => (
                   <ProductCard
@@ -1396,6 +1373,7 @@ function CatalogueContent() {
                     displayUnit={product.displayUnit}
                     quantityStep={product.quantityStep}
                     stock={product.stock}
+                    onView={handleProductView}
                     onAddToCart={handleAddToCart}
                   />
                 ))}
@@ -1403,7 +1381,7 @@ function CatalogueContent() {
 
               {filteredProducts.length === 0 && (
                 <div className="rounded-[28px] border border-[#E6EFE7] bg-white p-12 text-center">
-                  <p className="text-[#6F8070]">Aucun produit ne correspond a votre recherche.</p>
+                  <p className="text-[#6F8070]">Aucun produit ne correspond à votre recherche.</p>
                 </div>
               )}
             </>
@@ -1430,8 +1408,8 @@ function CatalogueContent() {
             </div>
             <p className="mt-2 text-sm text-[#6F8070]">
               {isAuthenticated
-                ? "Ajustez vos quantites puis validez votre commande."
-                : "Le panier est reserve aux utilisateurs connectes."}
+                ? "Ajustez vos quantités puis validez votre commande."
+                : "Le panier est réservé aux utilisateurs connectés."}
             </p>
           </div>
 
@@ -1439,13 +1417,13 @@ function CatalogueContent() {
             {!isAuthenticated && !isLoading ? (
               <div className="rounded-[28px] border border-[#F3D8B2] bg-[#FFF7EE] p-5">
                 <p className="text-sm font-semibold text-[#9A5C11]">
-                  Connectez-vous pour utiliser le panier, modifier les quantites et commander.
+                  Connectez-vous pour utiliser le panier, modifier les quantités et commander.
                 </p>
                 <button
                   onClick={() => redirectToLogin("/catalogue")}
                   className="mt-4 w-full rounded-2xl bg-[#F07C00] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#D66B00]"
                 >
-                  Aller a la connexion
+                  Aller à la connexion
                 </button>
               </div>
             ) : cart.length === 0 ? (
@@ -1662,7 +1640,7 @@ function CatalogueContent() {
               </button>
 
               <p className="mt-3 text-center text-xs text-[#6F8070]">
-                Livraison demain pour garantir la fraicheur.
+                Livraison demain pour garantir la fraîcheur.
               </p>
             </div>
           )}
@@ -1678,6 +1656,12 @@ function CatalogueContent() {
           }}
         />
       )}
+
+      <MobileBottomNav
+        cartCount={cart.length}
+        onCartClick={() => setShowCart(true)}
+        onMenuClick={() => setShowSidebar(true)}
+      />
 
       <AIModals
         isOpen={activeModal !== null}
@@ -1696,10 +1680,10 @@ function CatalogueContent() {
                   SAV Wallet
                 </p>
                 <h3 className="mt-1 text-2xl font-black text-[#264129]">
-                  Signaler un probleme
+                  Signaler un problème
                 </h3>
                 <p className="mt-1 text-sm text-[#6F8070]">
-                  Commande N-{claimOrder.id} · remboursement credite sur votre wallet SOUKI.
+                  Commande N-{claimOrder.id} · remboursement crédité sur votre wallet SOUKI.
                 </p>
               </div>
               <button
@@ -1714,7 +1698,7 @@ function CatalogueContent() {
 
             <div className="mt-5 space-y-4">
               <label className="block">
-                <span className="text-sm font-bold text-[#264129]">Produit concerne</span>
+                <span className="text-sm font-bold text-[#264129]">Produit concerné</span>
                 <select
                   value={claimLineId ?? ""}
                   onChange={(event) => {
@@ -1735,7 +1719,7 @@ function CatalogueContent() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
-                  <span className="text-sm font-bold text-[#264129]">Quantite a rembourser</span>
+                  <span className="text-sm font-bold text-[#264129]">Quantité à rembourser</span>
                   <input
                     type="number"
                     min="0.001"
@@ -1769,7 +1753,7 @@ function CatalogueContent() {
               </div>
 
               <div className="rounded-2xl border border-[#F3D8B2] bg-[#FFF7EE] p-4 text-sm text-[#7A4C0E]">
-                Le remboursement est automatiquement credite sur votre wallet SOUKI. Aucun remboursement CB ou cash
+                Le remboursement est automatiquement crédité sur votre wallet SOUKI. Aucun remboursement CB ou cash
                 n'est propose pour ce parcours.
               </div>
 

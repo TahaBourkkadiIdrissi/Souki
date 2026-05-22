@@ -62,7 +62,7 @@ function AdminLoginContent() {
             Acces reserve au back-office.
           </h1>
           <p className="mt-6 text-xl text-white/75">
-            Utilisez votre compte staff pour acceder aux operations, aux produits, aux paiements et aux statistiques.
+            Utilisez votre compte staff pour accéder aux opérations, aux produits, aux paiements et aux statistiques.
           </p>
         </div>
 
@@ -90,7 +90,7 @@ function AdminLoginContent() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-[#334438] mb-2">Email ou Telephone</label>
+              <label className="block text-sm font-medium text-[#334438] mb-2">Email ou téléphone</label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
                 <input
