@@ -6,6 +6,7 @@ from entities.client_entity import Client
 from entities.client_blacklist_log_entity import ClientBlacklistLog
 from entities.parent_entity import Parent
 from entities.livreur_entity import Livreur
+from entities.fournisseur_entity import Fournisseur
 from entities.tournee_entity import Tournee
 from entities.panier_entity import Panier
 from entities.ligne_panier_entity import LignePanier
@@ -20,6 +21,7 @@ from entities.souki_wallet_entity import SoukiWallet
 from entities.verification_code_entity import VerificationCode
 from entities.transaction_wallet_entity import TransactionWallet
 from entities.abonnement_entity import Abonnement
+from entities.zone_jit_entity import ZoneJIT
 from entities.jit_log_entity import JITLog
 from entities.cod_confirmation_log_entity import CODConfirmationLog
 from entities.produit_b2b_entity import ProduitB2B
@@ -40,6 +42,7 @@ __all__ = [
     "ClientBlacklistLog",
     "Parent",
     "Livreur",
+    "Fournisseur",
     "Tournee",
     "Panier",
     "LignePanier",
@@ -54,6 +57,7 @@ __all__ = [
     "VerificationCode",
     "TransactionWallet",
     "Abonnement",
+    "ZoneJIT",
     "JITLog",
     "CODConfirmationLog",
     "ProduitB2B",

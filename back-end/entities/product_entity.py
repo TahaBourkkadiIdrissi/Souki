@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String, Float
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float
 from sqlalchemy.orm import relationship
 from config import Base
 
@@ -22,7 +22,9 @@ class Product(Base):
     volatilite        = Column(String(20), default='STABLE')
     prix_gros_saisi   = Column(Float,      nullable=True)
     prix_affiche      = Column(Float,      nullable=True)
+    fournisseur_id    = Column(Integer, ForeignKey("t_fournisseurs.user_id"), nullable=True, index=True)
 
     lignes_commande_vocale = relationship("LigneCommandeVocale", back_populates="produit")
     lignes_panier          = relationship("LignePanier", back_populates="produit")
     produits_b2b           = relationship("ProduitB2B", back_populates="produit")
+    fournisseur            = relationship("Fournisseur", back_populates="products")

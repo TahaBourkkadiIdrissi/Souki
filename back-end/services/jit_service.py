@@ -1,17 +1,21 @@
 import math
 from datetime import date, datetime, time
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
 from config import LocalSession
-from dto.jit_dto import DetailProduitJIT, JITLogDTO, ResultatAgregationJIT
+from dto.jit_dto import DetailProduitJIT, JITLogDTO, ResultatAgregationJIT, ZoneJITDTO
 from entities.abonnement_entity import Abonnement
+from entities.address_entity import Address
 from entities.commande_entity import Commande
 from entities.panier_entity import Panier
 from interfaces.jit_dao_interface import IJITDao
 from interfaces.jit_service_interface import IJITService
+from interfaces.zone_jit_dao_interface import IZoneJITDao
 from services.commande_state_machine import changer_statut
+from services.notification_jit_service import notifier_fournisseur
+from services.zone_resolver import resoudre_zone
 
 
 PENDING_JIT_STATUSES = ("EN_ATTENTE", "CONFIRMEE")
@@ -26,8 +30,9 @@ class JITAlreadyExecutedError(Exception):
 class JITService(IJITService):
     """Service pour l'agregation JIT des commandes."""
 
-    def __init__(self, jit_dao: IJITDao) -> None:
+    def __init__(self, jit_dao: IJITDao, zone_jit_dao: Optional[IZoneJITDao] = None) -> None:
         self.jit_dao = jit_dao
+        self.zone_jit_dao = zone_jit_dao
 
     def _today_bounds(self) -> tuple[datetime, datetime]:
         today = date.today()
@@ -35,7 +40,6 @@ class JITService(IJITService):
 
     def _count_locked_commandes_today(self, session: Session) -> int:
         start_of_day, end_of_day = self._today_bounds()
-
         return (
             session.query(Commande)
             .filter(
@@ -46,14 +50,11 @@ class JITService(IJITService):
             .count()
         )
 
-    def agreger_commandes(self, session: Session) -> ResultatAgregationJIT:
-        """
-        Agrege toutes les commandes confirmees et les abonnements actifs.
-        Calcule les volumes avec buffer 10% et arrondit a la caisse entiere.
-        """
-        volumes_par_produit: Dict[int, Dict] = {}
+    def _get_commandes_du_jour(
+        self, session: Session, zone: Optional[ZoneJITDTO] = None
+    ) -> List[Commande]:
+        """Retourne les commandes du jour. Si zone fournie, filtre géographiquement."""
         start_of_day, end_of_day = self._today_bounds()
-
         commandes = (
             session.query(Commande)
             .filter(
@@ -63,6 +64,37 @@ class JITService(IJITService):
             )
             .all()
         )
+
+        if zone is None:
+            return commandes
+
+        dans_zone = []
+        for commande in commandes:
+            addr = (
+                session.query(Address)
+                .filter(
+                    Address.user_id == commande.client_id,
+                    Address.is_default == True,
+                    Address.latitude.isnot(None),
+                    Address.longitude.isnot(None),
+                )
+                .first()
+            )
+            if addr and resoudre_zone(float(addr.latitude), float(addr.longitude), [zone]):  # type: ignore
+                dans_zone.append(commande)
+        return dans_zone
+
+    def agreger_commandes(
+        self, session: Session, zone: Optional[ZoneJITDTO] = None
+    ) -> ResultatAgregationJIT:
+        """
+        Agrege les commandes confirmees et les abonnements actifs.
+        Si zone fournie, filtre par zone géographique.
+        Calcule les volumes avec buffer 10% et arrondit a la caisse entiere.
+        """
+        volumes_par_produit: Dict[int, Dict] = {}
+
+        commandes = self._get_commandes_du_jour(session, zone=zone)
 
         for commande in commandes:
             panier = session.query(Panier).filter(Panier.id == commande.panier_id).first()
@@ -94,16 +126,8 @@ class JITService(IJITService):
 
                 volumes_par_produit[product_id]["quantite_brute"] += quantite
 
-        abonnements = (
-            session.query(Abonnement)
-            .filter(Abonnement.actif == True)
-            .all()
-        )
+        abonnements = session.query(Abonnement).filter(Abonnement.actif == True).all()
         nombre_abonnements = len(abonnements)
-
-        for _abonnement in abonnements:
-            # Placeholder: la contribution produit des abonnements n'est pas encore modelisee.
-            pass
 
         buffer_perte = 0.10
         details_produits: List[DetailProduitJIT] = []
@@ -143,11 +167,7 @@ class JITService(IJITService):
             cout_achat_estime += sous_total_achat
 
         statut = "succès" if len(commandes) > 0 else "aucune_commande"
-        message = None
-
-        if len(commandes) == 0:
-            message = "Aucune commande confirmee - annulation de tournee ?"
-            statut = "aucune_commande"
+        message = None if len(commandes) > 0 else "Aucune commande confirmee - annulation de tournee ?"
 
         return ResultatAgregationJIT(
             nombre_commandes=len(commandes),
@@ -162,23 +182,16 @@ class JITService(IJITService):
             message=message,
         )
 
-    def verrouiller_commandes(self, session: Session, actor_id: int = 0) -> int:
+    def verrouiller_commandes(
+        self, session: Session, actor_id: int = 0, zone: Optional[ZoneJITDTO] = None
+    ) -> int:
         """
-        Verrouille toutes les commandes EN_ATTENTE ou CONFIRMEE.
+        Verrouille les commandes EN_ATTENTE ou CONFIRMEE.
+        Si zone fournie, verrouille seulement les commandes de cette zone.
         Retourne le nombre de commandes verrouillees.
         """
         try:
-            start_of_day, end_of_day = self._today_bounds()
-
-            commandes = (
-                session.query(Commande)
-                .filter(
-                    Commande.statut.in_(PENDING_JIT_STATUSES),
-                    Commande.date_commande >= start_of_day,
-                    Commande.date_commande <= end_of_day,
-                )
-                .all()
-            )
+            commandes = self._get_commandes_du_jour(session, zone=zone)
 
             nombre_verrouillees = 0
             for commande in commandes:
@@ -206,26 +219,54 @@ class JITService(IJITService):
             print(f"Erreur lors du verrouillage des commandes: {exc}")
             raise
 
-    def deverrouiller_commandes(self, session: Session, actor_id: int = 0) -> Dict:
+    def deverrouiller_commandes(
+        self, session: Session, actor_id: int = 0, zone_id: Optional[int] = None
+    ) -> Dict:
         """
-        Deverrouille toutes les commandes verrouillees par le JIT.
+        Deverrouille les commandes verrouillees par le JIT.
+        Si zone_id fourni, limite le déverrouillage aux commandes de cette zone.
         Retourne le nombre et le detail des commandes rouvertes.
         """
         try:
             start_of_day, end_of_day = self._today_bounds()
 
-            commandes = (
-                session.query(Commande)
-                .filter(
-                    Commande.statut == LOCKED_JIT_STATUS,
-                    Commande.date_commande >= start_of_day,
-                    Commande.date_commande <= end_of_day,
-                )
-                .all()
+            query = session.query(Commande).filter(
+                Commande.statut == LOCKED_JIT_STATUS,
+                Commande.date_commande >= start_of_day,
+                Commande.date_commande <= end_of_day,
             )
+            commandes_raw = query.all()
+
+            if zone_id is not None:
+                zone_dto = (
+                    self.zone_jit_dao.get_zone_by_id(session, zone_id)
+                    if self.zone_jit_dao
+                    else None
+                )
+                if zone_dto:
+                    commandes_a_ouvrir = []
+                    for c in commandes_raw:
+                        addr = (
+                            session.query(Address)
+                            .filter(
+                                Address.user_id == c.client_id,
+                                Address.is_default == True,
+                                Address.latitude.isnot(None),
+                                Address.longitude.isnot(None),
+                            )
+                            .first()
+                        )
+                        if addr and resoudre_zone(
+                            float(addr.latitude), float(addr.longitude), [zone_dto]  # type: ignore
+                        ):
+                            commandes_a_ouvrir.append(c)
+                else:
+                    commandes_a_ouvrir = commandes_raw
+            else:
+                commandes_a_ouvrir = commandes_raw
 
             commandes_deverrouillees = []
-            for commande in commandes:
+            for commande in commandes_a_ouvrir:
                 statut_avant = str(commande.statut) if commande.statut else None
                 changer_statut(
                     session=session,
@@ -254,10 +295,10 @@ class JITService(IJITService):
 
     def executer_job_jit(self, session: Session, actor_id: int = 0) -> JITLogDTO:
         """
-        Execute le job JIT complet:
-        1. Agreger les commandes
-        2. Verrouiller les commandes
-        3. Creer un log avec la liste d'achats en base
+        Execute le job JIT complet (global, sans filtrage par zone) :
+        1. Agrege les commandes
+        2. Verrouille les commandes
+        3. Cree un log
         """
         locked_count = self._count_locked_commandes_today(session)
         if locked_count > 0:
@@ -279,26 +320,7 @@ class JITService(IJITService):
                 nombre_verrouillees = self.verrouiller_commandes(session, actor_id=actor_id)
                 print(f"{nombre_verrouillees} commandes verrouillees")
 
-            details_json = {
-                "produits": [
-                    {
-                        "product_id": detail.product_id,
-                        "nom_fr": detail.nom_fr,
-                        "quantite_brute_kg": detail.quantite_brute_kg,
-                        "buffer_10_pct": detail.buffer_perte_10_pct,
-                        "volume_final_kg": detail.volume_total_kg,
-                        "prix_kg": detail.prix_kg,
-                        "prix_achat": detail.prix_achat,
-                        "sous_total": detail.sous_total,
-                        "sous_total_ca": detail.sous_total_ca,
-                        "sous_total_achat": detail.sous_total_achat,
-                    }
-                    for detail in resultat.details_produits
-                ],
-                "ca_estime_total": resultat.ca_estime_total,
-                "cout_achat_estime": resultat.cout_achat_estime,
-                "marge_estimee": resultat.marge_estimee,
-            }
+            details_json = self._build_details_json(resultat)
 
             log = self.jit_dao.create_log(
                 session,
@@ -311,9 +333,7 @@ class JITService(IJITService):
             )
 
             session.commit()
-
             print(f"Log JIT cree (ID: {log.id if log else 'N/A'})")
-            print("Job JIT termine avec succes")
 
             return log or JITLogDTO(
                 volume_total=resultat.volume_total_kg,
@@ -355,3 +375,201 @@ class JITService(IJITService):
                     statut="erreur",
                     message_alerte=f"Erreur double: {exc} + {log_error}",
                 )
+
+    def executer_job_jit_regional(self, actor_id: int = 0) -> Dict[str, dict]:
+        """
+        Execute le job JIT pour chaque zone active independamment.
+        Chaque zone a sa propre transaction : si une zone echoue,
+        les autres continuent. Retourne un resume par nom_ville.
+        """
+        if not self.zone_jit_dao:
+            raise RuntimeError("zone_jit_dao requis pour executer_job_jit_regional()")
+
+        meta_session = LocalSession()
+        try:
+            zones = self.zone_jit_dao.get_zones_actives(meta_session)
+        finally:
+            meta_session.close()
+
+        if not zones:
+            print("Aucune zone JIT active configuree.")
+            return {}
+
+        resultats: Dict[str, dict] = {}
+
+        for zone_dto in zones:
+            zone_session = LocalSession()
+            try:
+                if self.jit_dao.zone_deja_executee_aujourd_hui(zone_session, zone_dto.id):  # type: ignore
+                    print(f"[JIT] Zone {zone_dto.nom_ville} deja executee aujourd'hui - ignoree")
+                    resultats[zone_dto.nom_ville] = {"statut": "deja_execute"}
+                    continue
+
+                print(f"[JIT] Demarrage zone {zone_dto.nom_ville}...")
+
+                resultat = self.agreger_commandes(zone_session, zone=zone_dto)
+                print(
+                    f"[JIT] {zone_dto.nom_ville}: {resultat.nombre_commandes} commandes, "
+                    f"{resultat.volume_total_kg} kg"
+                )
+
+                if resultat.statut == "succès":
+                    nb = self.verrouiller_commandes(zone_session, actor_id=actor_id, zone=zone_dto)
+                    print(f"[JIT] {zone_dto.nom_ville}: {nb} commandes verrouillees")
+
+                details_json = self._build_details_json(resultat)
+
+                log = self.jit_dao.create_log(
+                    zone_session,
+                    volume_total=resultat.volume_total_kg,
+                    nombre_commandes=resultat.nombre_commandes,
+                    nombre_abonnements=resultat.nombre_abonnements,
+                    statut=resultat.statut,
+                    details_volumes=details_json,
+                    message_alerte=resultat.message,
+                    zone_id=zone_dto.id,
+                    nom_ville=zone_dto.nom_ville,
+                )
+
+                zone_session.commit()
+                print(f"[JIT] Zone {zone_dto.nom_ville} terminee (log ID: {log.id if log else 'N/A'})")
+
+                notifier_fournisseur(zone_dto, resultat)
+
+                resultats[zone_dto.nom_ville] = {
+                    "statut": resultat.statut,
+                    "log_id": log.id if log else None,
+                    "volume_total_kg": resultat.volume_total_kg,
+                    "nombre_commandes": resultat.nombre_commandes,
+                    "montant_total": resultat.montant_total,
+                    "message": resultat.message,
+                }
+
+            except Exception as exc:
+                zone_session.rollback()
+                print(f"[JIT] ERREUR zone {zone_dto.nom_ville}: {exc}")
+
+                try:
+                    err_session = LocalSession()
+                    self.jit_dao.create_log(
+                        err_session,
+                        volume_total=0.0,
+                        nombre_commandes=0,
+                        nombre_abonnements=0,
+                        statut="erreur",
+                        message_alerte=f"Erreur zone {zone_dto.nom_ville}: {exc}",
+                        zone_id=zone_dto.id,
+                        nom_ville=zone_dto.nom_ville,
+                    )
+                    err_session.commit()
+                    err_session.close()
+                except Exception as log_err:
+                    print(f"[JIT] Impossible de logger l'erreur zone {zone_dto.nom_ville}: {log_err}")
+
+                resultats[zone_dto.nom_ville] = {"statut": "erreur", "message": str(exc)}
+
+            finally:
+                zone_session.close()
+
+        return resultats
+
+    def executer_job_jit_zone(
+        self, zone_id: int, actor_id: int = 0
+    ) -> JITLogDTO:
+        """Execute le job JIT pour une seule zone (test ou rattrapage)."""
+        if not self.zone_jit_dao:
+            raise RuntimeError("zone_jit_dao requis pour executer_job_jit_zone()")
+
+        session = LocalSession()
+        try:
+            zone_dto = self.zone_jit_dao.get_zone_by_id(session, zone_id)
+            if not zone_dto:
+                raise ValueError(f"Zone {zone_id} introuvable")
+            if not zone_dto.actif:
+                raise ValueError(f"Zone {zone_dto.nom_ville} est inactive")
+
+            resultat = self.agreger_commandes(session, zone=zone_dto)
+
+            if resultat.statut == "succès":
+                self.verrouiller_commandes(session, actor_id=actor_id, zone=zone_dto)
+
+            details_json = self._build_details_json(resultat)
+
+            log = self.jit_dao.create_log(
+                session,
+                volume_total=resultat.volume_total_kg,
+                nombre_commandes=resultat.nombre_commandes,
+                nombre_abonnements=resultat.nombre_abonnements,
+                statut=resultat.statut,
+                details_volumes=details_json,
+                message_alerte=resultat.message,
+                zone_id=zone_dto.id,
+                nom_ville=zone_dto.nom_ville,
+            )
+
+            session.commit()
+            notifier_fournisseur(zone_dto, resultat)
+
+            return log or JITLogDTO(
+                volume_total=resultat.volume_total_kg,
+                nombre_commandes=resultat.nombre_commandes,
+                nombre_abonnements=resultat.nombre_abonnements,
+                statut="erreur",
+                message_alerte="Log non cree",
+            )
+
+        except Exception as exc:
+            session.rollback()
+            try:
+                err_session = LocalSession()
+                error_log = self.jit_dao.create_log(
+                    err_session,
+                    volume_total=0.0,
+                    nombre_commandes=0,
+                    nombre_abonnements=0,
+                    statut="erreur",
+                    message_alerte=f"Erreur: {exc}",
+                    zone_id=zone_id,
+                )
+                err_session.commit()
+                err_session.close()
+                return error_log or JITLogDTO(
+                    volume_total=0.0,
+                    nombre_commandes=0,
+                    nombre_abonnements=0,
+                    statut="erreur",
+                    message_alerte=str(exc),
+                )
+            except Exception:
+                return JITLogDTO(
+                    volume_total=0.0,
+                    nombre_commandes=0,
+                    nombre_abonnements=0,
+                    statut="erreur",
+                    message_alerte=str(exc),
+                )
+        finally:
+            session.close()
+
+    @staticmethod
+    def _build_details_json(resultat: ResultatAgregationJIT) -> dict:
+        return {
+            "produits": [
+                {
+                    "product_id": d.product_id,
+                    "nom_fr": d.nom_fr,
+                    "quantite_brute_kg": d.quantite_brute_kg,
+                    "buffer_10_pct": d.buffer_perte_10_pct,
+                    "volume_final_kg": d.volume_total_kg,
+                    "prix_kg": d.prix_kg,
+                    "prix_achat": d.prix_achat,
+                    "sous_total": d.sous_total,
+                    "sous_total_ca": d.sous_total_ca,
+                    "sous_total_achat": d.sous_total_achat,
+                }
+                for d in resultat.details_produits
+            ],
+            "ca_estime_total": resultat.ca_estime_total,
+            "cout_achat_estime": resultat.cout_achat_estime,
+            "marge_estimee": resultat.marge_estimee,
+        }
