@@ -113,6 +113,8 @@ interface CreateValues {
   marge_cible: string
   coussin_securite: string
   volatilite: ProduitVolatilite
+  prix_gros_saisi: string
+  prix_khddar_reel: string
 }
 
 const defaultCreateValues: CreateValues = {
@@ -124,6 +126,8 @@ const defaultCreateValues: CreateValues = {
   marge_cible: "25",
   coussin_securite: "10",
   volatilite: "STABLE",
+  prix_gros_saisi: "",
+  prix_khddar_reel: "",
 }
 
 function countAlerts(items: ProduitPricingDTO[]) {
@@ -517,6 +521,8 @@ export default function AdminPricingPage() {
     const prixKg = getNumberFromInput(createValues.prix_kg)
     const marge = getNumberFromInput(createValues.marge_cible)
     const coussin = getNumberFromInput(createValues.coussin_securite)
+    const prixGros = getNumberFromInput(createValues.prix_gros_saisi)
+    const prixKhddarReel = getNumberFromInput(createValues.prix_khddar_reel)
 
     if (!createValues.nom_fr.trim() || !createValues.nom_darija.trim() || !createValues.unite.trim()) {
       setError("Nom FR, nom Darija et unite sont obligatoires.")
@@ -525,6 +531,16 @@ export default function AdminPricingPage() {
 
     if (prixKg === null || prixKg <= 0) {
       setError("Prix kg invalide.")
+      return
+    }
+
+    if (createValues.prix_gros_saisi.trim() && (prixGros === null || prixGros < 0)) {
+      setError("Prix gros saisi invalide.")
+      return
+    }
+
+    if (createValues.prix_khddar_reel.trim() && (prixKhddarReel === null || prixKhddarReel < 0)) {
+      setError("Prix khddar reel invalide.")
       return
     }
 
@@ -547,6 +563,8 @@ export default function AdminPricingPage() {
       marge_cible: marge / 100,
       coussin_securite: coussin / 100,
       volatilite: createValues.volatilite,
+      prix_gros_saisi: prixGros,
+      prix_khddar_reel: prixKhddarReel,
     }
 
     setIsCreating(true)
@@ -781,6 +799,33 @@ export default function AdminPricingPage() {
                   className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
                 />
               </label>
+              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
+                Prix gros saisi (DH) <span className="text-xs font-normal text-gray-400">optionnel</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  placeholder="Ex: 6.50"
+                  value={createValues.prix_gros_saisi}
+                  onChange={(event) => updateCreateValue("prix_gros_saisi", event.target.value)}
+                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                />
+              </label>
+              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
+                Prix khddar reel (DH) <span className="text-xs font-normal text-gray-400">optionnel</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  placeholder="Ex: 7.50"
+                  value={createValues.prix_khddar_reel}
+                  onChange={(event) => updateCreateValue("prix_khddar_reel", event.target.value)}
+                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                />
+              </label>
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-600 md:col-span-2">
+                Photo ajoutable apres creation via le bouton photo dans le tableau.
+              </p>
             </div>
 
             <div className="mt-6 flex justify-end gap-3">

@@ -489,6 +489,8 @@ export interface ProductCreateDTO {
   marge_cible: number
   coussin_securite: number
   volatilite: ProduitVolatilite
+  prix_gros_saisi?: number | null
+  prix_khddar_reel?: number | null
 }
 
 export interface ProductImageDTO {

@@ -1,7 +1,7 @@
 from datetime import datetime, time
 from typing import List, Optional
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased
 
 from dto.client_blacklist_dto import (
@@ -151,15 +151,14 @@ class ClientBlacklistDaoBD(IClientBlacklistDao):
             .subquery()
         )
 
-        resolved_after_subquery = (
-            session.query(ClientBlacklistLog.client_id)
+        resolved_after_select = (
+            select(ClientBlacklistLog.client_id)
             .join(
                 latest_request_subquery,
                 latest_request_subquery.c.client_id == ClientBlacklistLog.client_id,
             )
             .filter(ClientBlacklistLog.action.in_(["LIFTED", "LIFT_REJECTED"]))
             .filter(ClientBlacklistLog.id > latest_request_subquery.c.request_id)
-            .subquery()
         )
 
         rows = (
@@ -179,7 +178,7 @@ class ClientBlacklistDaoBD(IClientBlacklistDao):
             .join(Client, Client.user_id == ClientBlacklistLog.client_id)
             .join(User, User.id == Client.user_id)
             .filter(Client.is_blacklisted.is_(True))
-            .filter(ClientBlacklistLog.client_id.notin_(resolved_after_subquery))
+            .filter(ClientBlacklistLog.client_id.notin_(resolved_after_select))
             .order_by(ClientBlacklistLog.created_at.desc(), ClientBlacklistLog.id.desc())
             .all()
         )

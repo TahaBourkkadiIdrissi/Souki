@@ -11,7 +11,6 @@ from interfaces.checkout_dao_interface import ICheckoutDao
 from interfaces.checkout_service_interface import ICheckoutService
 
 
-PANIER_MINIMUM_DH = 50.0
 SEUIL_LIVRAISON_GRATUITE = 300.0
 FRAIS_LIVRAISON = 15.0
 DELIVERY_FEE = FRAIS_LIVRAISON
@@ -139,11 +138,6 @@ class CheckoutService(ICheckoutService):
                 product.stock = available_stock - requested_quantity # type: ignore
 
             total_produits = round(sous_total, 2)
-            if total_produits < PANIER_MINIMUM_DH:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Commande minimum {PANIER_MINIMUM_DH} DH",
-                )
 
             is_b2b = False
             if (

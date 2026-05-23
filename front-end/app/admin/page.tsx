@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   ArrowRight,
   BarChart3,
-  Bell,
   CalendarDays,
   CheckCircle2,
   CircleDollarSign,
@@ -507,10 +506,6 @@ export default function AdminDashboard() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button type="button" className="relative rounded-xl p-2 text-[#1F2937] hover:bg-gray-100">
-              <Bell className="h-5 w-5" />
-              <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
-            </button>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1E8A3C] font-bold text-white">
               A
             </div>

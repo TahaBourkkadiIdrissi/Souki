@@ -93,12 +93,14 @@ class ProduitPricingDaoBD(IProduitPricingDao):
             nom_darija=data.nom_darija,
             prix_kg=data.prix_kg,
             unite=data.unite,
-            stock=900.0,
+            stock=0.0,
             is_active=True,
             niveau=data.niveau or 2,
             marge_cible=data.marge_cible or 0.25,
             coussin_securite=data.coussin_securite or 0.10,
             volatilite=data.volatilite or "STABLE",
+            prix_gros_saisi=data.prix_gros_saisi,
+            prix_khddar_reel=data.prix_khddar_reel,
         )
         session.add(product)
         session.flush()

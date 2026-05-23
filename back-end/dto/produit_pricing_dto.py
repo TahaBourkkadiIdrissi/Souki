@@ -40,6 +40,8 @@ class ProductCreateDTO(BaseModel):
     marge_cible: float = 0.25
     coussin_securite: float = 0.10
     volatilite: str = "STABLE"
+    prix_gros_saisi: Optional[float] = None
+    prix_khddar_reel: Optional[float] = None
 
 
 class ProductImageDTO(BaseModel):
