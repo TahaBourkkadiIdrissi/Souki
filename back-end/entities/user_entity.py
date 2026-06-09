@@ -27,6 +27,7 @@ class User(Base):
     client_profile = relationship("Client", back_populates="user", uselist=False)
     parent_profile = relationship("Parent", back_populates="user", uselist=False)
     livreur_profile = relationship("Livreur", back_populates="user", uselist=False)
+    fournisseur_profile = relationship("Fournisseur", back_populates="user", foreign_keys="Fournisseur.user_id", uselist=False)
     wallet = relationship("Wallet", back_populates="user", uselist=False)
     souki_wallet = relationship("SoukiWallet", back_populates="user", uselist=False)
     paniers = relationship("Panier", back_populates="user")

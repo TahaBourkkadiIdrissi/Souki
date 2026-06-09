@@ -1,0 +1,439 @@
+import re
+import unicodedata
+from datetime import datetime, timezone
+from typing import Optional
+
+from fastapi import HTTPException
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from config import LocalSession
+from dao.authorization_dao import AuthorizationDao
+from entities.commande_entity import Commande
+from entities.fournisseur_entity import Fournisseur
+from entities.ligne_panier_entity import LignePanier
+from entities.notification_outbox_entity import NotificationOutbox
+from entities.panier_entity import Panier
+from entities.product_entity import Product
+from entities.user_entity import User
+from interfaces.fournisseur_dao_interface import IFournisseurDao
+from interfaces.fournisseur_service_interface import IFournisseurService
+from dto.supplier_dto import (
+    AdminSupplierAction,
+    AdminSupplierValidationDTO,
+    PendingSupplierRequestDTO,
+    SupplierListItemDTO,
+    SupplierOrdersDTO,
+    SupplierPageDTO,
+    SupplierProfileDTO,
+    SupplierRequestDTO,
+    SupplierStatsDTO,
+    SupplierUpdateDTO,
+)
+from services.authorization_service import AuthorizationService
+
+
+class FournisseurService(IFournisseurService):
+
+    def __init__(self, fournisseur_dao: IFournisseurDao, session: Optional[Session] = None) -> None:
+        self.fournisseur_dao = fournisseur_dao
+        self.authorization_dao = AuthorizationDao()
+        self.session = session
+        self._owns_session = False
+
+    def _ensure_session(self) -> Session:
+        if self.session is None:
+            self.session = LocalSession()
+            self._owns_session = True
+        return self.session
+
+    def _close_owned_session(self, rollback: bool = False) -> None:
+        if self.session and self._owns_session:
+            if rollback:
+                self.session.rollback()
+            self.session.close()
+            self.session = None
+            self._owns_session = False
+
+    def __enter__(self):
+        self._ensure_session()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._close_owned_session(rollback=exc_type is not None)
+
+    def submit_supplier_request(self, user_id: int, payload: SupplierRequestDTO) -> SupplierProfileDTO:
+        session = self._ensure_session()
+        try:
+            user = self._get_active_user(session, user_id)
+            principal = AuthorizationService(session).build_principal_from_user(user)
+            if not (
+                principal.has_permission("supplier.request.create")
+                or principal.has_role("CLIENT")
+            ):
+                raise HTTPException(status_code=403, detail="Vous devez etre client pour demander le profil fournisseur.")
+
+            if self.fournisseur_dao.exists_by_user_id(session, user_id):
+                raise HTTPException(status_code=409, detail="Une demande fournisseur existe deja pour cet utilisateur.")
+
+            fournisseur = Fournisseur(
+                user_id=user_id,
+                shop_name=payload.shop_name.strip(),
+                shop_slug=self._generate_unique_slug(session, payload.shop_name),
+                description=self._clean_optional_text(payload.description),
+                phone=payload.phone.strip(),
+                address=payload.address.strip(),
+                ville=self._clean_optional_text(payload.ville),
+                code_postal=self._clean_optional_text(payload.code_postal),
+                siret=self._clean_optional_text(payload.siret),
+                logo_url=self._clean_optional_text(payload.logo_url),
+                couverture_url=self._clean_optional_text(payload.couverture_url),
+                horaires=payload.horaires,
+                statut="PENDING",
+            )
+            self.fournisseur_dao.save(session, fournisseur)
+            session.commit()
+            session.refresh(fournisseur)
+            return self._to_profile_dto(fournisseur)
+        except HTTPException:
+            session.rollback()
+            raise
+        except IntegrityError as exc:
+            session.rollback()
+            raise HTTPException(status_code=409, detail="Demande fournisseur deja existante ou slug deja utilise.") from exc
+
+    def validate_supplier_request(self, admin_user_id: int, payload: AdminSupplierValidationDTO) -> SupplierProfileDTO:
+        session = self._ensure_session()
+        try:
+            self._ensure_admin(session, admin_user_id)
+            fournisseur = self._get_fournisseur_or_404(session, payload.supplier_user_id)
+            action = payload.action
+
+            if action in {AdminSupplierAction.APPROVE, AdminSupplierAction.REJECT} and fournisseur.statut != "PENDING":
+                raise HTTPException(status_code=409, detail="Cette demande fournisseur a deja ete traitee.")
+
+            now = datetime.now(timezone.utc)
+            if action == AdminSupplierAction.APPROVE:
+                fournisseur.statut = "APPROVED"
+                fournisseur.rejected_reason = None
+                fournisseur.validated_by = admin_user_id
+                fournisseur.validated_at = now
+                self.authorization_dao.assign_role_to_user(
+                    session,
+                    user_id=int(fournisseur.user_id),
+                    role_code="FOURNISSEUR",
+                    assigned_by_user_id=admin_user_id,
+                )
+                self._queue_notification(session, fournisseur, "SUPPLIER_APPROVED")
+            elif action == AdminSupplierAction.REJECT:
+                fournisseur.statut = "REJECTED"
+                fournisseur.rejected_reason = payload.rejected_reason
+                fournisseur.validated_by = admin_user_id
+                fournisseur.validated_at = now
+                self._queue_notification(session, fournisseur, "SUPPLIER_REJECTED")
+            elif action == AdminSupplierAction.SUSPEND:
+                fournisseur.statut = "SUSPENDED"
+                fournisseur.validated_by = admin_user_id
+                fournisseur.validated_at = now
+                self.authorization_dao.deactivate_role_for_user(
+                    session,
+                    user_id=int(fournisseur.user_id),
+                    role_code="FOURNISSEUR",
+                )
+                self._queue_notification(session, fournisseur, "SUPPLIER_SUSPENDED")
+
+            fournisseur.updated_at = now
+            session.commit()
+            session.refresh(fournisseur)
+            return self._to_profile_dto(fournisseur)
+        except HTTPException:
+            session.rollback()
+            raise
+
+    def get_supplier_profile(self, user_id: int) -> SupplierProfileDTO:
+        session = self._ensure_session()
+        fournisseur = self._get_fournisseur_or_404(session, user_id)
+        self._ensure_supplier_role(session, user_id)
+        return self._to_profile_dto(fournisseur)
+
+    def update_supplier_profile(self, user_id: int, payload: SupplierUpdateDTO) -> SupplierProfileDTO:
+        session = self._ensure_session()
+        try:
+            self._ensure_supplier_role(session, user_id)
+            fournisseur = self._get_fournisseur_or_404(session, user_id)
+            data = self._payload_to_dict(payload)
+
+            for field_name in (
+                "description",
+                "phone",
+                "address",
+                "ville",
+                "logo_url",
+                "couverture_url",
+                "horaires",
+            ):
+                if field_name in data:
+                    setattr(fournisseur, field_name, data[field_name])
+
+            if "shop_name" in data and data["shop_name"]:
+                fournisseur.shop_name = data["shop_name"].strip()
+                fournisseur.shop_slug = self._generate_unique_slug(
+                    session,
+                    fournisseur.shop_name,
+                    current_user_id=user_id,
+                )
+
+            fournisseur.updated_at = datetime.now(timezone.utc)
+            session.commit()
+            session.refresh(fournisseur)
+            return self._to_profile_dto(fournisseur)
+        except HTTPException:
+            session.rollback()
+            raise
+        except IntegrityError as exc:
+            session.rollback()
+            raise HTTPException(status_code=409, detail="Le nom de boutique genere un slug deja utilise.") from exc
+
+    def get_pending_requests(self) -> list[PendingSupplierRequestDTO]:
+        session = self._ensure_session()
+        return [
+            self._to_pending_dto(row["fournisseur"], row["user"])
+            for row in self.fournisseur_dao.get_pending_with_user(session)
+        ]
+
+    def get_all_fournisseurs(
+        self,
+        *,
+        statut: Optional[str],
+        ville: Optional[str],
+        search: Optional[str],
+        page: int,
+        page_size: int,
+    ) -> SupplierPageDTO:
+        session = self._ensure_session()
+        rows, total = self.fournisseur_dao.search_page(
+            session,
+            statut=statut,
+            ville=ville,
+            search=search,
+            page=page,
+            page_size=page_size,
+        )
+        return SupplierPageDTO(
+            page=page,
+            page_size=page_size,
+            total=total,
+            items=[self._to_list_item_dto(row["fournisseur"], row["user"]) for row in rows],
+        )
+
+    def get_supplier_stats(self, user_id: int) -> SupplierStatsDTO:
+        session = self._ensure_session()
+        self._ensure_supplier_role(session, user_id)
+        products_count = int(
+            session.query(func.count(Product.id))
+            .filter(Product.fournisseur_id == user_id)
+            .scalar()
+            or 0
+        )
+        active_products_count = int(
+            session.query(func.count(Product.id))
+            .filter(Product.fournisseur_id == user_id, Product.is_active.is_(True))
+            .scalar()
+            or 0
+        )
+        orders_count = int(
+            session.query(func.count(func.distinct(Commande.id)))
+            .join(Panier, Panier.id == Commande.panier_id)
+            .join(LignePanier, LignePanier.panier_id == Panier.id)
+            .join(Product, Product.id == LignePanier.produit_id)
+            .filter(Product.fournisseur_id == user_id)
+            .scalar()
+            or 0
+        )
+        revenue_total = float(
+            session.query(func.coalesce(func.sum(LignePanier.sous_total), 0))
+            .join(Product, Product.id == LignePanier.produit_id)
+            .filter(Product.fournisseur_id == user_id)
+            .scalar()
+            or 0
+        )
+        return SupplierStatsDTO(
+            products_count=products_count,
+            active_products_count=active_products_count,
+            orders_count=orders_count,
+            revenue_total=revenue_total,
+        )
+
+    def get_supplier_orders(self, user_id: int) -> SupplierOrdersDTO:
+        session = self._ensure_session()
+        self._ensure_supplier_role(session, user_id)
+        rows = (
+            session.query(
+                Commande.id.label("commande_id"),
+                Commande.statut.label("statut"),
+                Commande.date_commande.label("date_commande"),
+                Commande.montant_total.label("montant_total"),
+                func.sum(LignePanier.sous_total).label("supplier_total"),
+            )
+            .join(Panier, Panier.id == Commande.panier_id)
+            .join(LignePanier, LignePanier.panier_id == Panier.id)
+            .join(Product, Product.id == LignePanier.produit_id)
+            .filter(Product.fournisseur_id == user_id)
+            .group_by(Commande.id, Commande.statut, Commande.date_commande, Commande.montant_total)
+            .order_by(Commande.date_commande.desc())
+            .limit(100)
+            .all()
+        )
+        return SupplierOrdersDTO(
+            orders=[
+                {
+                    "commande_id": row.commande_id,
+                    "statut": row.statut,
+                    "date_commande": row.date_commande,
+                    "montant_total": float(row.montant_total or 0),
+                    "supplier_total": float(row.supplier_total or 0),
+                }
+                for row in rows
+            ]
+        )
+
+    def suspend_supplier(self, admin_user_id: int, supplier_user_id: int) -> SupplierProfileDTO:
+        payload = AdminSupplierValidationDTO(
+            supplier_user_id=supplier_user_id,
+            action=AdminSupplierAction.SUSPEND,
+        )
+        return self.validate_supplier_request(admin_user_id, payload)
+
+    def reactivate_supplier(self, admin_user_id: int, supplier_user_id: int) -> SupplierProfileDTO:
+        session = self._ensure_session()
+        try:
+            self._ensure_admin(session, admin_user_id)
+            fournisseur = self._get_fournisseur_or_404(session, supplier_user_id)
+            if fournisseur.statut != "SUSPENDED":
+                raise HTTPException(status_code=409, detail="Seul un fournisseur suspendu peut etre reactive.")
+
+            fournisseur.statut = "APPROVED"
+            fournisseur.rejected_reason = None
+            fournisseur.validated_by = admin_user_id
+            fournisseur.validated_at = datetime.now(timezone.utc)
+            fournisseur.updated_at = fournisseur.validated_at
+            self.authorization_dao.assign_role_to_user(
+                session,
+                user_id=supplier_user_id,
+                role_code="FOURNISSEUR",
+                assigned_by_user_id=admin_user_id,
+            )
+            self._queue_notification(session, fournisseur, "SUPPLIER_REACTIVATED")
+            session.commit()
+            session.refresh(fournisseur)
+            return self._to_profile_dto(fournisseur)
+        except HTTPException:
+            session.rollback()
+            raise
+
+    def get_user_roles(self, user_id: int) -> list[str]:
+        session = self._ensure_session()
+        return sorted(self.authorization_dao.get_active_role_codes(session, user_id))
+
+    def _get_active_user(self, session: Session, user_id: int) -> User:
+        user = session.query(User).filter(User.id == user_id).first()
+        if not user or not user.is_active:
+            raise HTTPException(status_code=404, detail="Utilisateur introuvable ou inactif.")
+        return user
+
+    def _ensure_admin(self, session: Session, admin_user_id: int) -> None:
+        principal = AuthorizationService(session).build_principal(admin_user_id)
+        if not principal.has_permission("admin.panel.access"):
+            raise HTTPException(status_code=403, detail="Acces admin requis.")
+
+    def _ensure_supplier_role(self, session: Session, user_id: int) -> None:
+        roles = self.authorization_dao.get_active_role_codes(session, user_id)
+        if "FOURNISSEUR" not in roles:
+            raise HTTPException(status_code=403, detail="Role fournisseur requis.")
+
+    def _get_fournisseur_or_404(self, session: Session, user_id: int) -> Fournisseur:
+        fournisseur = self.fournisseur_dao.find_by_user_id(session, user_id)
+        if not fournisseur:
+            raise HTTPException(status_code=404, detail="Profil fournisseur introuvable.")
+        return fournisseur
+
+    def _generate_unique_slug(
+        self,
+        session: Session,
+        shop_name: str,
+        current_user_id: Optional[int] = None,
+    ) -> str:
+        base_slug = self._slugify(shop_name)
+        slug = base_slug
+        index = 2
+        while True:
+            existing = self.fournisseur_dao.find_by_shop_slug(session, slug)
+            if not existing or int(existing.user_id) == current_user_id:
+                return slug
+            slug = f"{base_slug}-{index}"
+            index += 1
+
+    def _slugify(self, value: str) -> str:
+        normalized = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
+        normalized = re.sub(r"[^a-zA-Z0-9]+", "-", normalized.lower()).strip("-")
+        return normalized or "boutique"
+
+    def _queue_notification(self, session: Session, fournisseur: Fournisseur, event: str) -> None:
+        session.add(
+            NotificationOutbox(
+                type="WEBSOCKET",
+                payload={
+                    "event": event,
+                    "channel": "supplier_requests",
+                    "supplier_user_id": int(fournisseur.user_id),
+                    "shop_name": fournisseur.shop_name,
+                    "statut": fournisseur.statut,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+        )
+
+    def _payload_to_dict(self, payload) -> dict:
+        if hasattr(payload, "model_dump"):
+            return payload.model_dump(exclude_unset=True)
+        return payload.dict(exclude_unset=True)
+
+    def _to_profile_dto(self, fournisseur: Fournisseur) -> SupplierProfileDTO:
+        return SupplierProfileDTO(
+            user_id=int(fournisseur.user_id),
+            shop_name=fournisseur.shop_name,
+            shop_slug=fournisseur.shop_slug,
+            description=fournisseur.description,
+            phone=fournisseur.phone,
+            address=fournisseur.address,
+            ville=fournisseur.ville,
+            statut=fournisseur.statut,
+            rejected_reason=fournisseur.rejected_reason,
+            rating=float(fournisseur.rating or 0),
+            nb_avis=int(fournisseur.nb_avis or 0),
+            logo_url=fournisseur.logo_url,
+            created_at=fournisseur.created_at,
+        )
+
+    def _to_pending_dto(self, fournisseur: Fournisseur, user: User) -> PendingSupplierRequestDTO:
+        return PendingSupplierRequestDTO(
+            **self._to_profile_dto(fournisseur).dict(),
+            user_email=user.email,
+            user_phone=user.phone,
+        )
+
+    def _to_list_item_dto(self, fournisseur: Fournisseur, user: User) -> SupplierListItemDTO:
+        return SupplierListItemDTO(
+            **self._to_profile_dto(fournisseur).dict(),
+            user_email=user.email,
+            user_phone=user.phone,
+            validated_by=fournisseur.validated_by,
+            validated_at=fournisseur.validated_at,
+        )
+
+    def _clean_optional_text(self, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None

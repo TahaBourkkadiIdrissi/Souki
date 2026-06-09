@@ -88,6 +88,19 @@ class AuthorizationDao:
         db.flush()
         return user_role
 
+    def deactivate_role_for_user(self, db: Session, user_id: int, role_code: str) -> bool:
+        role = self.find_role_by_code(db, role_code)
+        if not role:
+            return False
+
+        existing = self.find_user_role(db, user_id, int(role.id))  # type: ignore[arg-type]
+        if not existing:
+            return False
+
+        existing.is_active = False
+        db.flush()
+        return True
+
     def ensure_role_permission(self, db: Session, role_code: str, permission_code: str) -> None:
         role = self.find_role_by_code(db, role_code)
         permission = self.find_permission_by_code(db, permission_code)
