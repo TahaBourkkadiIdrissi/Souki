@@ -461,6 +461,7 @@ export interface ProduitPricingDTO {
   prix_gros_saisi: number | null
   prix_khddar_reel: number | null
   prix_affiche: number | null
+  prix_vente_manuel: number | null
   prix_khddar_estime: number | null
   alerte: ProduitAlerte
 }
@@ -478,6 +479,7 @@ export interface ProduitPricingUpdateDTO {
   volatilite?: ProduitVolatilite
   prix_gros_saisi?: number | null
   prix_khddar_reel?: number | null
+  prix_vente_manuel?: number | null
 }
 
 export interface ProductCreateDTO {
@@ -491,6 +493,7 @@ export interface ProductCreateDTO {
   volatilite: ProduitVolatilite
   prix_gros_saisi?: number | null
   prix_khddar_reel?: number | null
+  prix_vente_manuel?: number | null
 }
 
 export interface ProductImageDTO {

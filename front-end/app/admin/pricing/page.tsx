@@ -98,6 +98,7 @@ const volatiliteOptions: ProduitVolatilite[] = ["STABLE", "VARIABLE", "SAISONNIE
 interface EditValues {
   prix_gros_saisi: string
   prix_khddar_reel: string
+  prix_vente_manuel: string
   marge_cible: string
   coussin_securite: string
   niveau: ProduitNiveau
@@ -115,6 +116,7 @@ interface CreateValues {
   volatilite: ProduitVolatilite
   prix_gros_saisi: string
   prix_khddar_reel: string
+  prix_vente_manuel: string
 }
 
 const defaultCreateValues: CreateValues = {
@@ -128,6 +130,7 @@ const defaultCreateValues: CreateValues = {
   volatilite: "STABLE",
   prix_gros_saisi: "",
   prix_khddar_reel: "",
+  prix_vente_manuel: "",
 }
 
 function countAlerts(items: ProduitPricingDTO[]) {
@@ -394,6 +397,7 @@ export default function AdminPricingPage() {
     setEditValues({
       prix_gros_saisi: produit.prix_gros_saisi === null ? "" : String(produit.prix_gros_saisi),
       prix_khddar_reel: produit.prix_khddar_reel == null ? "" : String(produit.prix_khddar_reel),
+      prix_vente_manuel: produit.prix_vente_manuel == null ? "" : String(produit.prix_vente_manuel),
       marge_cible: percentInputValue(produit.marge_cible),
       coussin_securite: percentInputValue(produit.coussin_securite),
       niveau: produit.niveau,
@@ -436,6 +440,7 @@ export default function AdminPricingPage() {
 
     const prixGros = getNumberFromInput(editValues.prix_gros_saisi)
     const prixKhddarReel = getNumberFromInput(editValues.prix_khddar_reel)
+    const prixVenteManuel = getNumberFromInput(editValues.prix_vente_manuel)
     const marge = getNumberFromInput(editValues.marge_cible)
     const coussin = getNumberFromInput(editValues.coussin_securite)
 
@@ -446,6 +451,11 @@ export default function AdminPricingPage() {
 
     if (editValues.prix_khddar_reel.trim() && prixKhddarReel === null) {
       setError("Prix khddar reel invalide.")
+      return
+    }
+
+    if (editValues.prix_vente_manuel.trim() && (prixVenteManuel === null || prixVenteManuel < 0)) {
+      setError("Prix de vente manuel invalide.")
       return
     }
 
@@ -462,6 +472,7 @@ export default function AdminPricingPage() {
     const payload: ProduitPricingUpdateDTO = {
       prix_gros_saisi: prixGros,
       prix_khddar_reel: prixKhddarReel,
+      prix_vente_manuel: prixVenteManuel,
       marge_cible: marge / 100,
       coussin_securite: coussin / 100,
       niveau: editValues.niveau,
@@ -523,6 +534,7 @@ export default function AdminPricingPage() {
     const coussin = getNumberFromInput(createValues.coussin_securite)
     const prixGros = getNumberFromInput(createValues.prix_gros_saisi)
     const prixKhddarReel = getNumberFromInput(createValues.prix_khddar_reel)
+    const prixVenteManuel = getNumberFromInput(createValues.prix_vente_manuel)
 
     if (!createValues.nom_fr.trim() || !createValues.nom_darija.trim() || !createValues.unite.trim()) {
       setError("Nom FR, nom Darija et unite sont obligatoires.")
@@ -541,6 +553,11 @@ export default function AdminPricingPage() {
 
     if (createValues.prix_khddar_reel.trim() && (prixKhddarReel === null || prixKhddarReel < 0)) {
       setError("Prix khddar reel invalide.")
+      return
+    }
+
+    if (createValues.prix_vente_manuel.trim() && (prixVenteManuel === null || prixVenteManuel < 0)) {
+      setError("Prix de vente manuel invalide.")
       return
     }
 
@@ -565,6 +582,7 @@ export default function AdminPricingPage() {
       volatilite: createValues.volatilite,
       prix_gros_saisi: prixGros,
       prix_khddar_reel: prixKhddarReel,
+      prix_vente_manuel: prixVenteManuel,
     }
 
     setIsCreating(true)
@@ -820,6 +838,18 @@ export default function AdminPricingPage() {
                   placeholder="Ex: 7.50"
                   value={createValues.prix_khddar_reel}
                   onChange={(event) => updateCreateValue("prix_khddar_reel", event.target.value)}
+                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                />
+              </label>
+              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
+                Prix de vente final (DH) <span className="text-xs font-normal text-gray-400">optionnel, sinon calcule</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  placeholder="Vide = calcule depuis le gros"
+                  value={createValues.prix_vente_manuel}
+                  onChange={(event) => updateCreateValue("prix_vente_manuel", event.target.value)}
                   className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
                 />
               </label>
@@ -1217,7 +1247,21 @@ export default function AdminPricingPage() {
                                 <span className="text-sm font-semibold text-[#3D3D3D]">{formatPercent(produit.coussin_securite)}</span>
                               )}
                             </td>
-                            <td className="px-4 py-4 font-bold text-[#1E8A3C]">{formatMoney(produit.prix_affiche)}</td>
+                            <td className="px-4 py-4">
+                              {isEditing && editValues ? (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.1"
+                                  placeholder="Auto"
+                                  value={editValues.prix_vente_manuel}
+                                  onChange={(event) => updateEditValue("prix_vente_manuel", event.target.value)}
+                                  className="w-28 rounded-lg border border-[#E5E7EB] bg-white px-2 py-2 text-sm font-bold text-[#1E8A3C] outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                                />
+                              ) : (
+                                <span className="font-bold text-[#1E8A3C]">{formatMoney(produit.prix_affiche)}</span>
+                              )}
+                            </td>
                             <td className="px-4 py-4 text-sm">{khddarComparison(produit)}</td>
                             <td className="px-4 py-4">
                               {isEditing && editValues ? (
