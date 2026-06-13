@@ -235,14 +235,22 @@ export function getCataloguePresentation(name: string) {
 
 export async function fetchCatalogueProducts(): Promise<CatalogueProduct[]> {
   const data = (await apiCall("/api/catalogue")) as ApiCatalogueProduct[]
-  return data.filter((product) => !excludedCatalogueNames.has(normalizeProductName(product.nom_fr))).map((product) => {
+  return data
+    .filter(
+      // Defense en profondeur : le backend masque deja les produits sans prix,
+      // on garantit ici que price est un number (jamais le prix_kg brut en secours).
+      (product): product is ApiCatalogueProduct & { prix_affiche: number } =>
+        !excludedCatalogueNames.has(normalizeProductName(product.nom_fr)) &&
+        product.prix_affiche !== null,
+    )
+    .map((product) => {
     const presentation = getCataloguePresentation(product.nom_fr)
 
     return {
       id: product.id,
       name: product.nom_fr,
       alias: product.nom_darija,
-      price: product.prix_affiche ?? product.prix_kg,
+      price: product.prix_affiche,
       prix_khddar_estime: product.prix_khddar_estime,
       niveau: product.niveau,
       unit: product.unite,

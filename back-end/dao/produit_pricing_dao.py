@@ -101,6 +101,7 @@ class ProduitPricingDaoBD(IProduitPricingDao):
             volatilite=data.volatilite or "STABLE",
             prix_gros_saisi=data.prix_gros_saisi,
             prix_khddar_reel=data.prix_khddar_reel,
+            prix_vente_manuel=data.prix_vente_manuel,
         )
         session.add(product)
         session.flush()
@@ -142,7 +143,7 @@ class ProduitPricingDaoBD(IProduitPricingDao):
             else round(prix_gros * coefficient, 2)
         )
 
-        if produit.prix_gros_saisi is None:
+        if produit.prix_gros_saisi is None and produit.prix_vente_manuel is None:
             alerte = "PRIX_GROS_MANQUANT"
         elif produit.prix_affiche and float(produit.prix_affiche) > prix_khddar_estime:
             alerte = "PRIX_DEPASSE_KHDDAR"
@@ -182,6 +183,11 @@ class ProduitPricingDaoBD(IProduitPricingDao):
             prix_affiche=(
                 float(produit.prix_affiche)
                 if produit.prix_affiche is not None
+                else None
+            ),
+            prix_vente_manuel=(
+                float(produit.prix_vente_manuel)
+                if produit.prix_vente_manuel is not None
                 else None
             ),
             prix_khddar_estime=prix_khddar_estime,

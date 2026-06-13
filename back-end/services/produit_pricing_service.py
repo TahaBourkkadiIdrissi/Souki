@@ -13,11 +13,6 @@ from interfaces.produit_pricing_dao_interface import IProduitPricingDao
 from interfaces.produit_pricing_service_interface import IProduitPricingService
 
 
-# Coussin operationnel applique au Niveau 1 (produits essentiels vendus quasi a cout) :
-# couvre les frais porteur + emballage, sans marge commerciale. Correctif C1.
-COUSSIN_OPS_NIVEAU_1 = 0.05
-
-
 class ProduitPricingServiceBD(IProduitPricingService):
 
     def __init__(self, dao: IProduitPricingDao) -> None:
@@ -47,12 +42,11 @@ class ProduitPricingServiceBD(IProduitPricingService):
             if produit is None:
                 raise HTTPException(status_code=404, detail="Produit introuvable.")
 
-            prix_gros = produit.prix_gros_saisi or produit.prix_kg
             prix_affiche = self._calculer_prix_affiche(
-                prix_gros=prix_gros,
-                niveau=produit.niveau,
+                prix_gros=produit.prix_gros_saisi,
                 marge_cible=produit.marge_cible,
                 coussin_securite=produit.coussin_securite,
+                prix_vente_manuel=produit.prix_vente_manuel,
             )
             self.dao.update_prix_affiche(session, produit_id, prix_affiche)
             session.commit()
@@ -71,12 +65,11 @@ class ProduitPricingServiceBD(IProduitPricingService):
             recalcules = 0
 
             for produit in produits:
-                prix_gros = produit.prix_gros_saisi or produit.prix_kg
                 prix_affiche = self._calculer_prix_affiche(
-                    prix_gros=prix_gros,
-                    niveau=produit.niveau,
+                    prix_gros=produit.prix_gros_saisi,
                     marge_cible=produit.marge_cible,
                     coussin_securite=produit.coussin_securite,
+                    prix_vente_manuel=produit.prix_vente_manuel,
                 )
                 self.dao.update_prix_affiche(session, produit.id, prix_affiche)
                 recalcules += 1
@@ -93,6 +86,16 @@ class ProduitPricingServiceBD(IProduitPricingService):
     def create_product(self, session: Session, data: ProductCreateDTO) -> ProduitPricingDTO:
         try:
             product = self.dao.create_product(session, data)
+
+            # Resout le prix des la creation (override -> gros -> None) pour que le produit
+            # ne reste pas sans prix (sinon masque du catalogue jusqu'a un recalcul manuel).
+            prix_affiche = self._calculer_prix_affiche(
+                prix_gros=product.prix_gros_saisi,
+                marge_cible=product.marge_cible,
+                coussin_securite=product.coussin_securite,
+                prix_vente_manuel=product.prix_vente_manuel,
+            )
+            self.dao.update_prix_affiche(session, int(product.id), prix_affiche)
             session.commit()
 
             produit = self.dao.get_produit_pricing(session, int(product.id))
@@ -126,19 +129,24 @@ class ProduitPricingServiceBD(IProduitPricingService):
 
     def _calculer_prix_affiche(
         self,
-        prix_gros: float,
-        niveau: int,
+        prix_gros: float | None,
         marge_cible: float,
         coussin_securite: float,
-    ) -> float:
-        if niveau == 1:
-            # Niveau 1 (essentiels) : coussin operationnel fixe, sans marge commerciale.
-            return self._arrondi_dixieme_superieur(prix_gros * (1 + COUSSIN_OPS_NIVEAU_1))
+        prix_vente_manuel: float | None = None,
+    ) -> float | None:
+        # 1. Prix de vente saisi a la main par l'admin : prioritaire, survit au recalcul.
+        if prix_vente_manuel is not None:
+            return self._arrondi_dixieme_superieur(prix_vente_manuel)
 
-        # Niveaux 2/3 : marge cible + coussin securite, sans auto-reduction.
-        # Un depassement eventuel du prix khddar est seulement signale par l'alerte
-        # PRIX_DEPASSE_KHDDAR (calculee dans le DAO), jamais bloque ni rabote.
-        prix = prix_gros * (1 + marge_cible) * (1 + coussin_securite)
+        # 2. Sans prix de gros ni prix manuel, le produit n'a pas de prix fiable :
+        #    on laisse None (le produit sera masque du catalogue + alerte cote admin).
+        if prix_gros is None:
+            return None
+
+        # 3. Calcul standard, tous niveaux : coussin (volatilite) + marge (admin).
+        #    Aucune auto-reduction : un depassement du khddar est seulement signale
+        #    par l'alerte PRIX_DEPASSE_KHDDAR (DAO), jamais bloque ni rabote.
+        prix = prix_gros * (1 + coussin_securite) * (1 + marge_cible)
         return self._arrondi_dixieme_superieur(prix)
 
     @staticmethod

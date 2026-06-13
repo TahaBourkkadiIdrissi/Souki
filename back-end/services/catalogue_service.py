@@ -93,7 +93,13 @@ class CatalogueService(ICatalogueService):
         session = self._ensure_session()
         try:
             products = self.product_dao.get_all(session)
-            return [self._to_product_response(p) for p in products]
+            # Un produit sans prix calcule (prix_affiche None) n'est pas vendable :
+            # on le masque du catalogue client (il reste visible/editable cote admin).
+            return [
+                self._to_product_response(p)
+                for p in products
+                if p.prix_affiche is not None
+            ]
         finally:
             if auto_session:
                 self._close_owned_session()
