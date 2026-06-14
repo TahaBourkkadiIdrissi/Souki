@@ -48,6 +48,29 @@ class JITLogDTO(BaseModel):
     statut: str
     details_volumes: Optional[Dict[str, Any]] = None
     message_alerte: Optional[str] = None
+    zone_id: Optional[int] = None
+    nom_ville: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class ZoneJITDTO(BaseModel):
+    """DTO pour une zone JIT géographique"""
+    id: Optional[int] = None
+    nom_ville: str
+    lat_centre: float
+    lng_centre: float
+    rayon_km: float = 25.0
+    fournisseur_id: Optional[int] = None
+    actif: bool = True
+    created_at: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ResultatAgregationJITRegional(ResultatAgregationJIT):
+    """Résultat d'agrégation JIT enrichi avec les données de zone"""
+    zone_id: int
+    nom_ville: str

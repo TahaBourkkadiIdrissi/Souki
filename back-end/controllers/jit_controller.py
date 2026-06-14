@@ -1,21 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException
-import os
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from config import LocalSession
 from controllers.auth_controller import get_current_user
 from dao.jit_dao import JITDaoBD
+from dao.zone_jit_dao import ZoneJITDaoBD
+from dto.jit_dto import JITLogDTO, ResultatAgregationJIT, ZoneJITDTO
 from services.jit_service import JITAlreadyExecutedError, JITService
-from dto.jit_dto import ResultatAgregationJIT, JITLogDTO
 
 
 router_jit = APIRouter(prefix="/api/jit", tags=["JIT-Aggregation"])
 
 
 def get_admin_user(user=Depends(get_current_user)):
-    """
-    Dépendance pour vérifier que l'utilisateur est ADMIN.
-    Lève une exception 403 si ce n'est pas un admin.
-    """
     if not user or user.primary_role != "ADMIN":
         raise HTTPException(
             status_code=403,
@@ -25,21 +23,122 @@ def get_admin_user(user=Depends(get_current_user)):
 
 
 def get_jit_service():
-    """Dépendance pour obtenir le service JIT"""
-    jit_dao = JITDaoBD()
-    return JITService(jit_dao)
+    return JITService(JITDaoBD(), ZoneJITDaoBD())
 
+
+# ============================================================
+# Endpoints zones CRUD
+# ============================================================
+
+@router_jit.get("/zones", response_model=List[ZoneJITDTO])
+async def get_zones(admin_user=Depends(get_admin_user)):
+    """Liste toutes les zones JIT (actives et inactives). ADMIN ONLY."""
+    session = LocalSession()
+    try:
+        dao = ZoneJITDaoBD()
+        return dao.get_all_zones(session)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+    finally:
+        session.close()
+
+
+@router_jit.post("/zones", response_model=ZoneJITDTO)
+async def create_zone(
+    payload: ZoneJITDTO,
+    admin_user=Depends(get_admin_user),
+):
+    """Crée une nouvelle zone JIT géographique. ADMIN ONLY."""
+    if not (-90 <= payload.lat_centre <= 90):
+        raise HTTPException(status_code=422, detail="lat_centre doit être entre -90 et 90")
+    if not (-180 <= payload.lng_centre <= 180):
+        raise HTTPException(status_code=422, detail="lng_centre doit être entre -180 et 180")
+    if payload.rayon_km <= 0:
+        raise HTTPException(status_code=422, detail="rayon_km doit être > 0")
+
+    session = LocalSession()
+    try:
+        dao = ZoneJITDaoBD()
+        zone = dao.create_zone(session, payload)
+        if not zone:
+            raise HTTPException(status_code=500, detail="Impossible de créer la zone")
+        session.commit()
+        return zone
+    except HTTPException:
+        raise
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+    finally:
+        session.close()
+
+
+@router_jit.patch("/zones/{zone_id}", response_model=ZoneJITDTO)
+async def update_zone(
+    zone_id: int,
+    payload: ZoneJITDTO,
+    admin_user=Depends(get_admin_user),
+):
+    """Met à jour une zone JIT. ADMIN ONLY."""
+    if not (-90 <= payload.lat_centre <= 90):
+        raise HTTPException(status_code=422, detail="lat_centre doit être entre -90 et 90")
+    if not (-180 <= payload.lng_centre <= 180):
+        raise HTTPException(status_code=422, detail="lng_centre doit être entre -180 et 180")
+    if payload.rayon_km <= 0:
+        raise HTTPException(status_code=422, detail="rayon_km doit être > 0")
+
+    session = LocalSession()
+    try:
+        dao = ZoneJITDaoBD()
+        zone = dao.update_zone(session, zone_id, payload)
+        if not zone:
+            raise HTTPException(status_code=404, detail=f"Zone {zone_id} introuvable")
+        session.commit()
+        return zone
+    except HTTPException:
+        raise
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+    finally:
+        session.close()
+
+
+@router_jit.post("/zones/{zone_id}/toggle", response_model=ZoneJITDTO)
+async def toggle_zone(
+    zone_id: int,
+    admin_user=Depends(get_admin_user),
+):
+    """Active ou désactive une zone JIT. ADMIN ONLY."""
+    session = LocalSession()
+    try:
+        dao = ZoneJITDaoBD()
+        zone = dao.toggle_actif(session, zone_id)
+        if not zone:
+            raise HTTPException(status_code=404, detail=f"Zone {zone_id} introuvable")
+        session.commit()
+        return zone
+    except HTTPException:
+        raise
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+    finally:
+        session.close()
+
+
+# ============================================================
+# Endpoints exécution JIT
+# ============================================================
 
 @router_jit.post("/agreguer", response_model=ResultatAgregationJIT)
 async def agreger_commandes(
     admin_user=Depends(get_admin_user),
-    service: JITService = Depends(get_jit_service)
+    service: JITService = Depends(get_jit_service),
 ):
     """
-    Agrège toutes les commandes confirmées et calcule les volumes d'achat.
-    Endpoint de test - à utiliser manuellement avant 20h00.
-    
-    🔒 ADMIN ONLY - Authentification requise
+    Agrège toutes les commandes confirmées (test, sans zone).
+    ADMIN ONLY.
     """
     try:
         session = LocalSession()
@@ -50,106 +149,127 @@ async def agreger_commandes(
         raise HTTPException(status_code=500, detail=f"Erreur d'agrégation: {str(e)}")
 
 
-@router_jit.post("/executer", response_model=JITLogDTO)
+@router_jit.post("/executer")
 async def executer_job_jit(
     admin_user=Depends(get_admin_user),
-    service: JITService = Depends(get_jit_service)
+    service: JITService = Depends(get_jit_service),
 ):
     """
-    Execute le job JIT complet:
-    1. Agrege les commandes
-    2. Verrouille les commandes
-    3. Envoie la liste d'achats par email
-    4. Cree un log
-
-    ADMIN ONLY - Authentification requise
+    Execute le job JIT régional (toutes les zones actives en parallèle).
+    Retourne un résumé par ville. ADMIN ONLY.
     """
-    session = LocalSession()
     try:
-        log = service.executer_job_jit(session, actor_id=int(admin_user.user_id))
-
-        if not log:
-            raise HTTPException(status_code=500, detail="Impossible de creer le log JIT")
-
-        return log
+        resultats = service.executer_job_jit_regional(actor_id=int(admin_user.user_id))
+        return {
+            "statut": "termine",
+            "zones": resultats,
+            "nombre_zones": len(resultats),
+        }
     except JITAlreadyExecutedError as e:
         raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur lors de l'execution JIT: {str(e)}")
-    finally:
-        session.close()
+        raise HTTPException(status_code=500, detail=f"Erreur lors de l'exécution JIT: {str(e)}")
+
+
+@router_jit.post("/executer/{zone_id}", response_model=JITLogDTO)
+async def executer_job_jit_zone(
+    zone_id: int,
+    admin_user=Depends(get_admin_user),
+    service: JITService = Depends(get_jit_service),
+):
+    """
+    Execute le job JIT pour une seule zone (test ou rattrapage).
+    ADMIN ONLY.
+    """
+    try:
+        log = service.executer_job_jit_zone(zone_id=zone_id, actor_id=int(admin_user.user_id))
+        return log
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de l'exécution JIT zone: {str(e)}")
+
 
 @router_jit.post("/deverrouiller")
 async def deverrouiller_commandes_jit(
+    zone_id: Optional[int] = Query(default=None, description="ID de zone (optionnel, déverrouille tout si absent)"),
     admin_user=Depends(get_admin_user),
-    service: JITService = Depends(get_jit_service)
+    service: JITService = Depends(get_jit_service),
 ):
     """
-    Deverrouille les commandes verrouillees par le JIT.
-
-    ADMIN ONLY - Authentification requise
+    Déverrouille les commandes verrouillées par le JIT.
+    Si zone_id fourni, limite au périmètre de cette zone. ADMIN ONLY.
     """
     session = LocalSession()
     try:
-        resultat = service.deverrouiller_commandes(session, actor_id=int(admin_user.user_id))
-        nombre_deverrouillees = resultat.get("nombre_deverrouillees", 0)
+        resultat = service.deverrouiller_commandes(
+            session, actor_id=int(admin_user.user_id), zone_id=zone_id
+        )
+        nombre = resultat.get("nombre_deverrouillees", 0)
         session.commit()
-
         return {
-            "nombre_commandes": nombre_deverrouillees,
-            "nombre_deverrouillees": nombre_deverrouillees,
+            "nombre_commandes": nombre,
+            "nombre_deverrouillees": nombre,
             "commandes": resultat.get("commandes", []),
             "statut": "succes",
-            "message": f"{nombre_deverrouillees} commande(s) deverrouillee(s).",
+            "message": f"{nombre} commande(s) deverrouillee(s).",
         }
     except Exception as e:
         session.rollback()
-        raise HTTPException(status_code=500, detail=f"Erreur lors du deverrouillage JIT: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors du déverrouillage JIT: {str(e)}")
     finally:
         session.close()
 
 
-@router_jit.get("/logs/dernier", response_model=JITLogDTO)
+# ============================================================
+# Endpoints logs
+# ============================================================
+
+@router_jit.get("/logs/dernier")
 async def get_dernier_log(admin_user=Depends(get_admin_user)):
     """
-    Retourne le dernier log d'exécution JIT.
-    
-    🔒 ADMIN ONLY - Authentification requise
+    Retourne le dernier log par zone active (liste).
+    Si aucune zone configurée, retourne le dernier log global. ADMIN ONLY.
     """
+    session = LocalSession()
     try:
-        session = LocalSession()
         jit_dao = JITDaoBD()
+        logs_zones = jit_dao.get_last_logs_all_zones(session)
+
+        if logs_zones:
+            return {"logs": logs_zones, "nombre": len(logs_zones), "mode": "regional"}
+
+        # Fallback : dernier log global
         log = jit_dao.get_last_log(session)
-        session.close()
-        
         if not log:
             raise HTTPException(status_code=404, detail="Aucun log JIT trouvé")
-        
-        return log
+        return {"logs": [log], "nombre": 1, "mode": "global"}
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+    finally:
+        session.close()
 
 
 @router_jit.get("/logs/{date_debut}/{date_fin}")
 async def get_logs_par_plage(
     date_debut: str,
     date_fin: str,
-    admin_user=Depends(get_admin_user)
+    zone: Optional[str] = Query(default=None, description="Filtrer par nom de ville"),
+    admin_user=Depends(get_admin_user),
 ):
     """
     Retourne les logs JIT d'une plage de dates.
-    Format des dates: YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SS
-    
-    🔒 ADMIN ONLY - Authentification requise
+    Format des dates: YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SS.
+    Paramètre optionnel ?zone=fes pour filtrer par ville. ADMIN ONLY.
     """
+    session = LocalSession()
     try:
-        session = LocalSession()
         jit_dao = JITDaoBD()
-        logs = jit_dao.get_logs_by_date_range(session, date_debut, date_fin)
-        session.close()
-        
+        logs = jit_dao.get_logs_by_date_range(session, date_debut, date_fin, zone_nom=zone)
         return {"logs": logs, "nombre": len(logs)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+    finally:
+        session.close()
