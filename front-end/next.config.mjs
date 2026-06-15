@@ -20,6 +20,21 @@ const nextConfig = {
   turbopack: {
     root: __dirname,
   },
+  outputFileTracingRoot: __dirname,
+  webpack(config) {
+    config.watchOptions = {
+      ...(config.watchOptions || {}),
+      ignored: [
+        "**/.git/**",
+        "**/.next/**",
+        "**/node_modules/**",
+        "../*.json",
+        "../Documentation/**",
+      ],
+    };
+
+    return config;
+  },
   async rewrites() {
     return [
       {
