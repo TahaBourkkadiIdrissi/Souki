@@ -75,7 +75,7 @@ const adminNavItems: Array<{ icon: LucideIcon; label: string; href: string; acti
   { icon: BarChart3, label: "Analytics", href: "/admin/analytics" },
   { icon: Users, label: "Abonnements Parentaux", href: "/admin/subscriptions" },
   { icon: Wallet, label: "Transactions Wallet", href: "/admin/wallet" },
-  { icon: Settings, label: "Parametres Systeme", href: "/admin/settings" },
+  { icon: Settings, label: "Paramètres système", href: "/admin/settings" },
 ]
 
 const adminNavPermissions: Record<string, string> = {
@@ -558,9 +558,9 @@ export default function AdminPricingPage() {
       setCreateValues(defaultCreateValues)
       setShowCreateModal(false)
       setError("")
-      setToast(`${createdProduit.nom_fr} cree. Stock initialise a 0.`)
+      setToast(`${createdProduit.nom_fr} créé. Stock initialisé à 0.`)
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "Impossible de creer le produit.")
+      setError(createError instanceof Error ? createError.message : "Impossible de créer le produit.")
     } finally {
       setIsCreating(false)
     }
@@ -587,7 +587,7 @@ export default function AdminPricingPage() {
       return
     }
     if (imageUrl.length > 500) {
-      setError("L'URL image ne doit pas depasser 500 caracteres.")
+      setError("L'URL image ne doit pas dépasser 500 caractères.")
       return
     }
 
@@ -671,7 +671,7 @@ export default function AdminPricingPage() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-bold text-gray-950">Nouveau produit</h2>
-                <p className="mt-1 text-sm text-gray-500">Le stock initial sera cree a 0.0.</p>
+                <p className="mt-1 text-sm text-gray-500">Le stock initial sera créé à 0.0.</p>
               </div>
               <button
                 type="button"

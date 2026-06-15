@@ -4,6 +4,7 @@ import { Inter, Poppins } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/contexts/auth-context'
 import { ThemeProvider } from "@/components/theme-provider"
+import { MobilePullToRefresh } from "@/components/souki/mobile-pull-to-refresh"
 
 const inter = Inter({ 
   subsets: ["latin"],
@@ -45,6 +46,7 @@ export default function RootLayout({
       <body className={`${inter.variable} ${poppins.variable} font-sans antialiased`}>
         <AuthProvider>
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+            <MobilePullToRefresh />
             {children}
           </ThemeProvider>
         </AuthProvider>

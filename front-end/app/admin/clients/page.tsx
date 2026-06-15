@@ -167,7 +167,7 @@ function EmptyState() {
       </div>
       <p className="mt-4 text-base font-semibold text-gray-950">Aucun client trouve</p>
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-500">
-        Aucun resultat ne correspond aux filtres actuels.
+        Aucun résultat ne correspond aux filtres actuels.
       </p>
     </div>
   )
@@ -415,7 +415,7 @@ export default function AdminClientsPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Client</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Telephone</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Téléphone</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Nb commandes</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Montant total</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Mode paiement favori</th>
