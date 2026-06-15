@@ -37,6 +37,26 @@ class AuthorizationDao:
         )
         return {str(row[0]) for row in rows}
 
+    def get_roles_and_permissions(self, db: Session, user_id: int) -> tuple[Set[str], Set[str]]:
+        rows = (
+            db.query(Role.code, Permission.code)
+            .join(UserRole, UserRole.role_id == Role.id)
+            .outerjoin(RolePermission, RolePermission.role_id == Role.id)
+            .outerjoin(Permission, Permission.id == RolePermission.permission_id)
+            .filter(UserRole.user_id == user_id)
+            .filter(UserRole.is_active.is_(True))
+            .filter(or_(UserRole.expires_at.is_(None), UserRole.expires_at > func.now()))
+            .filter(Role.is_active.is_(True))
+            .all()
+        )
+        roles: Set[str] = set()
+        permissions: Set[str] = set()
+        for role_code, perm_code in rows:
+            roles.add(str(role_code).upper())
+            if perm_code:
+                permissions.add(str(perm_code))
+        return roles, permissions
+
     def find_role_by_code(self, db: Session, role_code: str) -> Optional[Role]:
         return (
             db.query(Role)
