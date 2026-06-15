@@ -135,23 +135,20 @@ class AuthorizationService:
             self.db.rollback()
 
     def _load_roles_and_permissions(self, user: User) -> tuple[Set[str], Set[str]]:
-        roles: Set[str] = set()
-        permissions: Set[str] = set()
-
         try:
-            roles = self.authorization_dao.get_active_role_codes(self.db, int(user.id))  # type: ignore[arg-type]
-            permissions = self.authorization_dao.get_effective_permission_codes(self.db, int(user.id))  # type: ignore[arg-type]
+            roles, permissions = self.authorization_dao.get_roles_and_permissions(
+                self.db, int(user.id)  # type: ignore[arg-type]
+            )
         except SQLAlchemyError:
             self.db.rollback()
-            roles = set()
-            permissions = set()
+            raise HTTPException(status_code=503, detail="Service temporairement indisponible")
 
-        legacy_role = (user.role or "").upper()
-        if not roles and legacy_role:
-            roles.add(legacy_role)
-
-        for role_code in list(roles):
-            permissions.update(LEGACY_ROLE_PERMISSION_FALLBACK.get(role_code, set()))
+        if not roles:
+            # Utilisateur non encore migré vers RBAC — fallback legacy acceptable
+            legacy_role = (user.role or "").upper()
+            if legacy_role:
+                roles.add(legacy_role)
+                permissions.update(LEGACY_ROLE_PERMISSION_FALLBACK.get(legacy_role, set()))
 
         return roles, permissions
 
