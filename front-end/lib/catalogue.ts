@@ -29,6 +29,41 @@ export interface BasketSelection {
   quantity: number
 }
 
+export type SmartBasketProfile =
+  | "legumes_base"
+  | "salade_fraicheur"
+  | "soupe_hiver"
+  | "cuisine_tajine"
+  | "fruits_dominant"
+  | "equilibre"
+
+export interface SmartBasketRequest {
+  budget: number
+  personnes: number
+  duree: number
+  profil: SmartBasketProfile
+}
+
+export interface SmartBasketLine {
+  product_id: number
+  nom_produit: string
+  quantite_kg: number
+  prix_unitaire: number
+  sous_total: number
+  unite: string
+  image?: string
+}
+
+export interface SmartBasketResponse {
+  status: string
+  source: string
+  criteres: Record<string, unknown>
+  lignes_panier: SmartBasketLine[]
+  total_dh: number
+  nombre_articles: number
+  model_warning?: string | null
+}
+
 export const CART_STORAGE_KEY = "souki-cart"
 export const FREE_DELIVERY_THRESHOLD = 80
 export const DELIVERY_FEE = 10
@@ -446,6 +481,17 @@ export async function submitManualBasket(cart: CartItem[]): Promise<ManualBasket
     },
     body: payload,  // ← PAS de JSON.stringify! apiCall le fera
   }) as Promise<ManualBasketResponse>
+}
+
+export async function generateSmartPanier(
+  payload: SmartBasketRequest,
+  token: string
+): Promise<SmartBasketResponse> {
+  return apiCall("/api/paniers/generer", {
+    method: "POST",
+    token,
+    body: payload,
+  }) as Promise<SmartBasketResponse>
 }
 
 export async function fetchPanierDetails(panierId: number): Promise<PanierDetailsResponse> {

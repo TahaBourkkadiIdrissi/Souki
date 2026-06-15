@@ -51,7 +51,7 @@ Base = declarative_base()
 
 
 # Security Config
-SECRET_KEY = "VOTRE_CLE_REELLEMENT_SECRETE_POUR_FES" # À mettre en variable d'env
+SECRET_KEY = _get_required_env("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 7 jours
 
