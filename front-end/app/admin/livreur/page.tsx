@@ -128,10 +128,10 @@ function formatStatus(status: string) {
     EN_ATTENTE_LIVREUR: "En attente livreur",
     A_LIVRER: "A livrer",
     EN_ROUTE: "En route",
-    LIVRE: "Livree",
+    LIVRE: "Livrée",
     ABSENT: "Absent",
-    REFUS: "Refusee",
-    ANNULEE: "Annulee",
+    REFUS: "Refusée",
+    ANNULEE: "Annulée",
     RETOUR_DEPOT: "Retour depot",
     PLANIFIEE: "Planifiee",
   }
@@ -294,8 +294,8 @@ export default function AdminLivreurPage() {
       setDispatchDate(response.target_date || todayAsIsoDate())
       setToast(
         response.status === "no_orders"
-          ? "Aucune commande disponible pour generer un dispatch."
-          : `Dispatch genere: ${tourneeCount} tournee${tourneeCount > 1 ? "s" : ""}, ${assignedCount} commande${assignedCount > 1 ? "s" : ""} assignee${assignedCount > 1 ? "s" : ""}.`
+          ? "Aucune commande disponible pour générer un dispatch."
+          : `Dispatch généré : ${tourneeCount} tournée${tourneeCount > 1 ? "s" : ""}, ${assignedCount} commande${assignedCount > 1 ? "s" : ""} assignée${assignedCount > 1 ? "s" : ""}.`
       )
       setError("")
       await loadTournees(false)
@@ -303,7 +303,7 @@ export default function AdminLivreurPage() {
       setError(
         dispatchError instanceof ApiError || dispatchError instanceof Error
           ? dispatchError.message
-          : "Impossible de generer le dispatch."
+          : "Impossible de générer le dispatch."
       )
     } finally {
       setIsGeneratingDispatch(false)
@@ -317,14 +317,14 @@ export default function AdminLivreurPage() {
 
     const nextTourneeId = Number(selectedTourneeId)
     if (!Number.isFinite(nextTourneeId)) {
-      setError("Tournee cible invalide.")
+      setError("Tournée cible invalide.")
       return
     }
 
     setIsSubmittingReassign(true)
     try {
       await reassignAdminDispatchCommande(token, reassignTarget.commande.id, nextTourneeId)
-      setToast(`Commande #${reassignTarget.commande.id} réassignée avec succes.`)
+      setToast(`Commande #${reassignTarget.commande.id} réassignée avec succès.`)
       setReassignTarget(null)
       setSelectedTourneeId("")
       await loadTournees(false)
@@ -394,7 +394,7 @@ export default function AdminLivreurPage() {
                 </div>
                 <h1 className="text-3xl font-black lg:text-5xl">Tournees livreurs</h1>
                 <p className="mt-3 max-w-2xl text-sm text-white/80 lg:text-base">
-                  Supervision des tournees planifiees, commandes assignees et reassignations rapides.
+                  Supervision des tournées planifiées, commandes assignées et réassignations rapides.
                 </p>
                 <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-bold text-white">
                   <CalendarDays className="h-4 w-4" />
@@ -450,7 +450,7 @@ export default function AdminLivreurPage() {
                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#1E8A3C] px-5 py-3 font-bold text-white transition hover:bg-[#176B2E] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-                Rafraichir
+                Rafraîchir
               </button>
             </div>
           </div>
@@ -474,7 +474,7 @@ export default function AdminLivreurPage() {
             <div>
               <Package className="mx-auto h-12 w-12 text-[#C8D9CA]" />
               <h2 className="mt-4 text-xl font-black text-[#264129]">
-                Aucune commande ou tournee generee pour aujourd'hui.
+                Aucune commande ou tournée générée pour aujourd'hui.
               </h2>
               <p className="mt-2 text-[#6F8070]">
                 Cliquez sur "Generer le Dispatch" pour commencer.
@@ -548,7 +548,7 @@ export default function AdminLivreurPage() {
                           </div>
                           <div className="rounded-2xl bg-[#FFF7F7] p-3">
                             <p className="text-xs font-bold uppercase tracking-[0.14em] text-red-500">
-                              Tournee ratee
+                              Tournée ratée
                             </p>
                             <p className="mt-1 font-bold text-[#264129]">
                               {formatSimpleDate(anomalie.date_tournee_ratee || anomalie.detected_at)}
@@ -623,19 +623,19 @@ export default function AdminLivreurPage() {
                         <div>
                           <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#F07C00]">
                             {tournee.tourneeIds.length > 1
-                              ? `${tournee.tourneeIds.length} tournees`
-                              : `Tournee #${tournee.id}`}
+                              ? `${tournee.tourneeIds.length} tournées`
+                              : `Tournée #${tournee.id}`}
                           </p>
                           <h2 className="mt-1 text-lg font-black text-[#1E8A3C]">
                             {tournee.livreur.nom}
                           </h2>
                           <p className="mt-1 flex items-center gap-2 text-sm text-[#6F8070]">
                             <Bike className="h-4 w-4" />
-                            {tournee.livreur.vehicule || "Vehicule non renseigne"}
+                            {tournee.livreur.vehicule || "Véhicule non renseigné"}
                           </p>
                           {tournee.tourneeIds.length > 1 && (
                             <p className="mt-2 text-xs font-semibold text-[#7A8A7C]">
-                              Tournees #{tournee.tourneeIds.join(", #")}
+                              Tournées #{tournee.tourneeIds.join(", #")}
                             </p>
                           )}
                         </div>
@@ -648,7 +648,7 @@ export default function AdminLivreurPage() {
                     <div className="flex-1 space-y-3 overflow-y-auto p-4">
                       {tournee.commandes.length === 0 ? (
                         <div className="rounded-2xl border border-dashed border-[#D7EBD9] p-5 text-center text-sm font-semibold text-[#8A9A8C]">
-                          Aucune commande assignee.
+                Aucune commande assignée.
                         </div>
                       ) : (
                         tournee.commandes.map((commande) => {
@@ -662,7 +662,7 @@ export default function AdminLivreurPage() {
                               <div className="flex items-start justify-between gap-3">
                                 <div>
                                   <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#8A9A8C]">
-                                    Tournee #{commandeSourceTourneeIds.get(commande.id) ?? tournee.id} - Passage{" "}
+                                    Tournée #{commandeSourceTourneeIds.get(commande.id) ?? tournee.id} - Passage{" "}
                                     {commande.ordre_passage ?? "-"}
                                   </p>
                                   <h3 className="mt-1 font-black text-[#264129]">
@@ -735,7 +735,7 @@ export default function AdminLivreurPage() {
                   Commande #{reassignTarget.commande.id}
                 </h2>
                 <p className="mt-1 text-sm text-[#6F8070]">
-                  Choisissez une autre tournee pour deplacer cette commande.
+                  Choisissez une autre tournée pour déplacer cette commande.
                 </p>
               </div>
               <button
@@ -747,7 +747,7 @@ export default function AdminLivreurPage() {
             </div>
 
             <label className="mt-6 block text-sm font-bold text-[#264129]">
-              Nouvelle tournee
+              Nouvelle tournée
               <select
                 value={selectedTourneeId}
                 onChange={(event) => setSelectedTourneeId(event.target.value)}
@@ -755,11 +755,11 @@ export default function AdminLivreurPage() {
                 className="mt-2 w-full rounded-2xl border border-[#D7EBD9] bg-[#FAFCFA] px-4 py-3 text-[#264129] outline-none transition focus:border-[#1E8A3C] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {availableTargetTournees.length === 0 ? (
-                  <option value="">Aucune autre tournee disponible</option>
+                  <option value="">Aucune autre tournée disponible</option>
                 ) : (
                   availableTargetTournees.map((tournee) => (
                     <option key={tournee.id} value={tournee.id}>
-                      Tournee #{tournee.id} - {tournee.livreur.nom}
+                      Tournée #{tournee.id} - {tournee.livreur.nom}
                     </option>
                   ))
                 )}

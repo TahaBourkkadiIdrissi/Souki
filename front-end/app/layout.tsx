@@ -1,9 +1,12 @@
 import type { Metadata, Viewport } from 'next'
+import { Suspense } from 'react'
 import { Inter, Poppins } from 'next/font/google'
 // import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { AuthProvider } from '@/contexts/auth-context'
 import { ThemeProvider } from "@/components/theme-provider"
+import { MobilePullToRefresh } from "@/components/souki/mobile-pull-to-refresh"
+import { RouteGuard } from "@/components/routing/route-guard"
 
 const inter = Inter({ 
   subsets: ["latin"],
@@ -45,7 +48,10 @@ export default function RootLayout({
       <body className={`${inter.variable} ${poppins.variable} font-sans antialiased`}>
         <AuthProvider>
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-            {children}
+            <MobilePullToRefresh />
+            <Suspense fallback={null}>
+              <RouteGuard>{children}</RouteGuard>
+            </Suspense>
           </ThemeProvider>
         </AuthProvider>
       </body>

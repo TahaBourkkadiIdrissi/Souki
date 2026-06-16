@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   ArrowLeft, User, Bell, Shield, CreditCard, MapPin, Phone, Mail, Camera, Save, Trash2, LogOut,
   Moon, Sun, Globe, Smartphone, Lock, Eye, EyeOff, Check, ChevronRight, Wallet, Loader2, Copy, ShieldCheck, Sparkles
@@ -13,8 +13,14 @@ import { useNotifications, type NotificationPrefs } from "@/hooks/useNotificatio
 import { useSecurity } from "@/hooks/useSecurity"
 import { useWallet, type WalletState } from "@/hooks/useWallet"
 import { useAuth } from "@/hooks/useAuth"
+import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
 
 type Section = "compte" | "notifications" | "securite" | "paiement"
+const sections: Section[] = ["compte", "notifications", "securite", "paiement"]
+const getSectionFromPath = (pathname: string): Section => {
+  const lastSegment = pathname.split("/").filter(Boolean).at(-1)
+  return sections.includes(lastSegment as Section) ? (lastSegment as Section) : "compte"
+}
 
 type SettingsBootstrapResponse = {
   profile: {
@@ -36,7 +42,7 @@ type SettingsBootstrapResponse = {
   wallet: any
 }
 
-const moroccanCities = ["Fes", "Casablanca", "Rabat", "Marrakech", "Agadir", "Tanger", "Meknes", "Oujda", "Kenitra", "Tetouan"]
+const moroccanCities = ["Fès", "Casablanca", "Rabat", "Marrakech", "Agadir", "Tanger", "Meknès", "Oujda", "Kénitra", "Tétouan"]
 const initialNotif: NotificationPrefs = { email: true, push: true, sms: false, promotions: true, orderUpdates: true, newsletter: false, livraison: true }
 const acceptedPhotoTypes = ["image/jpeg", "image/png", "image/webp"]
 const maxPhotoSize = 2 * 1024 * 1024
@@ -73,6 +79,7 @@ const isWalletPasswordStrong = (value: string) => {
 
 export default function ParametresPage() {
   const router = useRouter()
+  const pathname = usePathname()
   const { logout, isLoading: isAuthLoading, isAuthenticated, token } = useAuth()
   const profileApi = useProfile()
   const notifApi = useNotifications()
@@ -81,7 +88,7 @@ export default function ParametresPage() {
   const { callApi } = profileApi
   const fileInputRef = useRef<HTMLInputElement>(null)
   const bootstrapRequestRef = useRef(false)
-  const [activeSection, setActiveSection] = useState<Section>("compte")
+  const [activeSection, setActiveSection] = useState<Section>(() => getSectionFromPath(pathname))
   const [darkMode, setDarkMode] = useState(false)
   const [saved, setSaved] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -106,6 +113,10 @@ export default function ParametresPage() {
   const [pageLoading, setPageLoading] = useState(true)
 
   const showSaved = () => { setSaved(true); setTimeout(() => setSaved(false), 2000) }
+
+  useEffect(() => {
+    setActiveSection(getSectionFromPath(pathname))
+  }, [pathname])
 
   useEffect(() => {
     const load = async () => {
@@ -143,7 +154,7 @@ export default function ParametresPage() {
       } catch (e) {
         setErrors((prev) => ({
           ...prev,
-          page: e instanceof Error ? e.message : "Impossible de charger vos parametres",
+          page: e instanceof Error ? e.message : "Impossible de charger vos paramètres",
         }))
         bootstrapRequestRef.current = false
       } finally {
@@ -169,7 +180,7 @@ export default function ParametresPage() {
     setErrors(nextErrors); if (Object.keys(nextErrors).length) return
     try {
       const res = await profileApi.updateProfile(personal)
-      if (res.email_changed) setErrors((e) => ({ ...e, email_info: "Un email de verification a ete envoye" }))
+      if (res.email_changed) setErrors((e) => ({ ...e, email_info: "Un email de vérification a été envoyé" }))
       showSaved()
     } catch (e) { setErrors((v) => ({ ...v, email: e instanceof Error ? e.message : "Erreur" })) }
   }
@@ -223,7 +234,7 @@ export default function ParametresPage() {
   const onActivateWallet = async () => {
     const nextErrors: Record<string, string> = {}
     if (!isWalletPasswordStrong(walletCreate.password)) {
-      nextErrors.wallet_password = "Le mot de passe doit contenir 8 caracteres, une majuscule, un chiffre et un caractere special."
+      nextErrors.wallet_password = "Le mot de passe doit contenir 8 caractères, une majuscule, un chiffre et un caractère spécial."
     }
     if (walletCreate.password !== walletCreate.confirm_password) {
       nextErrors.wallet_confirm = "Les deux mots de passe doivent etre identiques."
@@ -254,19 +265,19 @@ export default function ParametresPage() {
     } catch (e) {
       setErrors((prev) => ({
         ...prev,
-        wallet: e instanceof Error ? e.message : "Impossible de creer le portefeuille pour le moment.",
+        wallet: e instanceof Error ? e.message : "Impossible de créer le portefeuille pour le moment.",
       }))
     }
   }
 
   const notifRows = useMemo(() => [
-    { key: "email", label: "Notifications par email", desc: "Mises a jour et confirmations par email", icon: Mail },
-    { key: "push", label: "Notifications push", desc: "Alertes instantanees sur votre appareil", icon: Smartphone },
-    { key: "sms", label: "Notifications SMS", desc: "Messages texte pour les mises a jour importantes", icon: Phone },
-    { key: "orderUpdates", label: "Mises a jour des commandes", desc: "Statut de livraison, confirmations", icon: Bell },
+    { key: "email", label: "Notifications par email", desc: "Mises à jour et confirmations par email", icon: Mail },
+    { key: "push", label: "Notifications push", desc: "Alertes instantanées sur votre appareil", icon: Smartphone },
+    { key: "sms", label: "Notifications SMS", desc: "Messages texte pour les mises à jour importantes", icon: Phone },
+    { key: "orderUpdates", label: "Mises à jour des commandes", desc: "Statut de livraison, confirmations", icon: Bell },
     { key: "livraison", label: "Alertes de livraison", desc: "Notifications de passage du livreur", icon: MapPin },
-    { key: "promotions", label: "Promotions et offres", desc: "Remises exclusives et offres speciales", icon: CreditCard },
-    { key: "newsletter", label: "Newsletter SOUKI", desc: "Actualites et conseils hebdomadaires", icon: Globe },
+    { key: "promotions", label: "Promotions et offres", desc: "Remises exclusives et offres spéciales", icon: CreditCard },
+    { key: "newsletter", label: "Newsletter SOUKI", desc: "Actualités et conseils hebdomadaires", icon: Globe },
   ] as const, [])
   const walletPasswordState = useMemo(() => walletPasswordChecks(walletCreate.password), [walletCreate.password])
 
@@ -275,33 +286,37 @@ export default function ParametresPage() {
       <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center">
         <div className="flex items-center gap-3 text-[#1E8A3C] font-semibold">
           <Loader2 className="w-5 h-5 animate-spin" />
-          Chargement des parametres...
+          Chargement des paramètres...
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F0]">
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100/50 shadow-[0_4px_30px_rgba(0,0,0,0.03)]"><div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8"><div className="flex items-center justify-between h-20"><div className="flex items-center gap-4"><Link href="/" className="p-2 text-[#3D3D3D] hover:text-[#1E8A3C] hover:bg-[#F0FAF1] rounded-xl transition-colors"><ArrowLeft className="w-5 h-5" /></Link><Link href="/" className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl shadow-sm overflow-hidden flex items-center justify-center bg-white p-0.5 pointer-events-none"><img src="/logo3.png" alt="SOUKI" className="w-[175%] h-full max-w-none object-cover" style={{ objectPosition: "left center" }} /></div><div className="flex flex-col justify-center"><span className="text-xl font-bold text-[#1E8A3C] leading-none tracking-tight">SOUKI</span><span className="text-[11px] font-medium text-[#8A8A8A] mt-0.5 uppercase tracking-wider">Fresh Market</span></div></Link></div><div><h1 className="text-lg font-bold text-[#3D3D3D]">Parametres</h1><p className="text-xs text-[#8A8A8A]">Gerez votre compte et vos preferences</p></div></div></div></header>
+    <div className="min-h-screen bg-[#F5F5F0] pb-24 md:pb-0">
+      <header className="sticky top-0 z-50 hidden bg-white/80 backdrop-blur-md border-b border-gray-100/50 shadow-[0_4px_30px_rgba(0,0,0,0.03)] md:block"><div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8"><div className="flex items-center justify-between h-20"><div className="flex items-center gap-4"><Link href="/" className="p-2 text-[#3D3D3D] hover:text-[#1E8A3C] hover:bg-[#F0FAF1] rounded-xl transition-colors"><ArrowLeft className="w-5 h-5" /></Link><Link href="/" className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl shadow-sm overflow-hidden flex items-center justify-center bg-white p-0.5 pointer-events-none"><img src="/logo3.png" alt="SOUKI" className="w-[175%] h-full max-w-none object-cover" style={{ objectPosition: "left center" }} /></div><div className="flex flex-col justify-center"><span className="text-xl font-bold text-[#1E8A3C] leading-none tracking-tight">SOUKI</span><span className="text-[11px] font-medium text-[#8A8A8A] mt-0.5 uppercase tracking-wider">Fresh Market</span></div></Link></div><div><h1 className="text-lg font-bold text-[#3D3D3D]">Paramètres</h1><p className="text-xs text-[#8A8A8A]">Gérez votre compte et vos préférences</p></div></div></div></header>
+      <div className="mx-auto max-w-6xl px-4 pt-5 md:hidden">
+        <h1 className="text-2xl font-black text-[#1E8A3C]">Paramètres</h1>
+        <p className="mt-1 text-sm font-medium text-[#6F8070]">Gérez votre compte et vos préférences.</p>
+      </div>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {saved && <div className="fixed top-24 right-6 z-50 flex items-center gap-2 bg-[#1E8A3C] text-white px-4 py-3 rounded-xl shadow-lg animate-in slide-in-from-right-5 duration-300"><Check className="w-4 h-4" />Modifications enregistrees !</div>}
+        {saved && <div className="fixed top-24 right-6 z-50 flex items-center gap-2 bg-[#1E8A3C] text-white px-4 py-3 rounded-xl shadow-lg animate-in slide-in-from-right-5 duration-300"><Check className="w-4 h-4" />Modifications enregistrées !</div>}
         {errors.page && <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{errors.page}</div>}
         <div className="flex flex-col lg:flex-row gap-8">
           <aside className="lg:w-64 flex-shrink-0">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-4"><div className="flex items-center gap-4"><div className="relative"><div className="relative w-14 h-14 rounded-xl bg-[#F0FAF1] overflow-hidden flex items-center justify-center font-bold text-[#1E8A3C]">{photoUrl ? <img src={photoUrl} alt={sidebarName} className="w-full h-full object-cover" /> : initialLetter}{photoUploading && <div className="absolute inset-0 bg-black/30 flex items-center justify-center"><Loader2 className="w-5 h-5 animate-spin text-white" /></div>}</div><button onClick={onClickCamera} className="absolute -bottom-1 -right-1 w-6 h-6 bg-[#1E8A3C] rounded-full flex items-center justify-center text-white shadow-sm hover:bg-[#176B2E] transition-colors"><Camera className="w-3 h-3" /></button><input ref={fileInputRef} onChange={onUploadPhoto} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" /></div><div><p className="font-bold text-[#3D3D3D]">{sidebarName}</p><p className="text-sm text-[#8A8A8A]">{personal.email}</p>{emailVerified && <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-[#F0FAF1] text-[#1E8A3C] rounded-full text-xs font-medium"><Check className="w-3 h-3" /> Verifie</span>}{errors.photo && <p className="text-xs text-red-500">{errors.photo}</p>}</div></div></div>
-            <nav className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">{([{ id: "compte", icon: User, label: "Compte" }, { id: "notifications", icon: Bell, label: "Notifications" }, { id: "securite", icon: Shield, label: "Securite" }, { id: "paiement", icon: CreditCard, label: "Paiement" }] as const).map((item) => <button key={item.id} onClick={() => setActiveSection(item.id)} className={cn("w-full flex items-center justify-between px-5 py-4 border-b border-gray-50 last:border-0 transition-colors", activeSection === item.id ? "bg-[#F0FAF1] text-[#1E8A3C]" : "text-[#3D3D3D] hover:bg-gray-50")}><div className="flex items-center gap-3"><item.icon className="w-4 h-4" /><span className="font-medium text-sm">{item.label}</span></div><ChevronRight className={cn("w-4 h-4 transition-transform", activeSection === item.id && "rotate-90")} /></button>)}</nav>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-4"><div className="flex items-center gap-4"><div className="relative"><div className="relative w-14 h-14 rounded-xl bg-[#F0FAF1] overflow-hidden flex items-center justify-center font-bold text-[#1E8A3C]">{photoUrl ? <img src={photoUrl} alt={sidebarName} className="w-full h-full object-cover" /> : initialLetter}{photoUploading && <div className="absolute inset-0 bg-black/30 flex items-center justify-center"><Loader2 className="w-5 h-5 animate-spin text-white" /></div>}</div><button onClick={onClickCamera} className="absolute -bottom-1 -right-1 w-6 h-6 bg-[#1E8A3C] rounded-full flex items-center justify-center text-white shadow-sm hover:bg-[#176B2E] transition-colors"><Camera className="w-3 h-3" /></button><input ref={fileInputRef} onChange={onUploadPhoto} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" /></div><div><p className="font-bold text-[#3D3D3D]">{sidebarName}</p><p className="text-sm text-[#8A8A8A]">{personal.email}</p>{emailVerified && <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-[#F0FAF1] text-[#1E8A3C] rounded-full text-xs font-medium"><Check className="w-3 h-3" /> Vérifié</span>}{errors.photo && <p className="text-xs text-red-500">{errors.photo}</p>}</div></div></div>
+            <nav className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">{([{ id: "compte", icon: User, label: "Compte" }, { id: "notifications", icon: Bell, label: "Notifications" }, { id: "securite", icon: Shield, label: "Sécurité" }, { id: "paiement", icon: CreditCard, label: "Paiement" }] as const).map((item) => <button key={item.id} onClick={() => { setActiveSection(item.id); router.push(`/parametres/${item.id}`) }} className={cn("w-full flex items-center justify-between px-5 py-4 border-b border-gray-50 last:border-0 transition-colors", activeSection === item.id ? "bg-[#F0FAF1] text-[#1E8A3C]" : "text-[#3D3D3D] hover:bg-gray-50")}><div className="flex items-center gap-3"><item.icon className="w-4 h-4" /><span className="font-medium text-sm">{item.label}</span></div><ChevronRight className={cn("w-4 h-4 transition-transform", activeSection === item.id && "rotate-90")} /></button>)}</nav>
           </aside>
           <main className="flex-1 space-y-6">
             {activeSection === "compte" && <>
-              <SectionCard title="Informations personnelles" onSave={onSavePersonal} saving={profileApi.loading}><div className="grid gap-5 md:grid-cols-2"><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Prenom</label><input value={personal.prenom} onChange={(e) => setPersonal((p) => ({ ...p, prenom: e.target.value }))} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors text-[#3D3D3D]" /></div><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Nom</label><input value={personal.nom} onChange={(e) => setPersonal((p) => ({ ...p, nom: e.target.value }))} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors text-[#3D3D3D]" /></div><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Email</label><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8A8A]" /><input value={personal.email} onChange={(e) => setPersonal((p) => ({ ...p, email: e.target.value }))} type="email" className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors text-[#3D3D3D]" /></div>{errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}{errors.email_info && <p className="text-xs text-[#1E8A3C] mt-1">{errors.email_info}</p>}</div><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Telephone</label><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8A8A]" /><input value={personal.telephone} onChange={(e) => setPersonal((p) => ({ ...p, telephone: e.target.value }))} type="tel" className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors text-[#3D3D3D]" /></div>{errors.telephone && <p className="text-xs text-red-500 mt-1">{errors.telephone}</p>}</div></div></SectionCard>
+              <SectionCard title="Informations personnelles" onSave={onSavePersonal} saving={profileApi.loading}><div className="grid gap-5 md:grid-cols-2"><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Prénom</label><input value={personal.prenom} onChange={(e) => setPersonal((p) => ({ ...p, prenom: e.target.value }))} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors text-[#3D3D3D]" /></div><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Nom</label><input value={personal.nom} onChange={(e) => setPersonal((p) => ({ ...p, nom: e.target.value }))} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors text-[#3D3D3D]" /></div><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Email</label><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8A8A]" /><input value={personal.email} onChange={(e) => setPersonal((p) => ({ ...p, email: e.target.value }))} type="email" className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors text-[#3D3D3D]" /></div>{errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}{errors.email_info && <p className="text-xs text-[#1E8A3C] mt-1">{errors.email_info}</p>}</div><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Téléphone</label><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8A8A]" /><input value={personal.telephone} onChange={(e) => setPersonal((p) => ({ ...p, telephone: e.target.value }))} type="tel" className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors text-[#3D3D3D]" /></div>{errors.telephone && <p className="text-xs text-red-500 mt-1">{errors.telephone}</p>}</div></div></SectionCard>
               <SectionCard title="Adresse de livraison" onSave={onSaveAddress} saving={profileApi.loading}><div className="grid gap-5"><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Adresse</label><div className="relative"><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8A8A]" /><input value={address.adresse} onChange={(e) => setAddress((p) => ({ ...p, adresse: e.target.value }))} className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors text-[#3D3D3D]" /></div></div><div className="grid grid-cols-2 gap-4"><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Ville</label><select value={address.ville} onChange={(e) => setAddress((p) => ({ ...p, ville: e.target.value }))} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors text-[#3D3D3D] appearance-none bg-white">{moroccanCities.map((city) => <option key={city} value={city}>{city}</option>)}</select></div><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Code postal</label><input value={address.code_postal} onChange={(e) => setAddress((p) => ({ ...p, code_postal: e.target.value }))} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors text-[#3D3D3D]" /></div></div>{errors.address && <p className="text-xs text-red-500 mt-1">{errors.address}</p>}</div></SectionCard>
-              <SectionCard title="Preferences d'affichage" onSave={showSaved}><div className="space-y-1"><div className="flex items-center justify-between py-4 border-b border-gray-50"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center">{darkMode ? <Moon className="w-4 h-4 text-[#3D3D3D]" /> : <Sun className="w-4 h-4 text-[#F07C00]" />}</div><div><p className="font-medium text-[#3D3D3D] text-sm">Mode sombre</p><p className="text-xs text-[#8A8A8A]">Non fonctionnel pour le moment</p></div></div><Toggle checked={darkMode} onCheckedChange={setDarkMode} /></div><div className="flex items-center justify-between py-4"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center"><Globe className="w-4 h-4 text-[#3D3D3D]" /></div><div><p className="font-medium text-[#3D3D3D] text-sm">Langue</p><p className="text-xs text-[#8A8A8A]">Non fonctionnel pour le moment</p></div></div><select className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-[#3D3D3D] focus:outline-none focus:border-[#4CB84A] bg-white"><option value="fr">Francais</option><option value="ar">Arabe</option><option value="en">English</option></select></div></div></SectionCard>
+              <SectionCard title="Préférences d'affichage" onSave={showSaved}><div className="space-y-1"><div className="flex items-center justify-between py-4 border-b border-gray-50"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center">{darkMode ? <Moon className="w-4 h-4 text-[#3D3D3D]" /> : <Sun className="w-4 h-4 text-[#F07C00]" />}</div><div><p className="font-medium text-[#3D3D3D] text-sm">Mode sombre</p><p className="text-xs text-[#8A8A8A]">Non fonctionnel pour le moment</p></div></div><Toggle checked={darkMode} onCheckedChange={setDarkMode} /></div><div className="flex items-center justify-between py-4"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center"><Globe className="w-4 h-4 text-[#3D3D3D]" /></div><div><p className="font-medium text-[#3D3D3D] text-sm">Langue</p><p className="text-xs text-[#8A8A8A]">Non fonctionnel pour le moment</p></div></div><select className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-[#3D3D3D] focus:outline-none focus:border-[#4CB84A] bg-white"><option value="fr">Français</option><option value="ar">Arabe</option><option value="en">English</option></select></div></div></SectionCard>
             </>}
             {activeSection === "notifications" && <SectionCard title="Notifications" onSave={onSaveNotifications} saving={notifApi.loading}><div className="space-y-1">{notifRows.map((row) => <div key={row.key} className="flex items-center justify-between py-4 border-b border-gray-50 last:border-0"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl bg-[#F0FAF1] flex items-center justify-center"><row.icon className="w-4 h-4 text-[#1E8A3C]" /></div><div><p className="font-medium text-[#3D3D3D] text-sm">{row.label}</p><p className="text-xs text-[#8A8A8A]">{row.desc}</p></div></div><Toggle checked={notifications[row.key]} onCheckedChange={(v) => setNotifications((p) => ({ ...p, [row.key]: v }))} /></div>)}</div></SectionCard>}
             {activeSection === "securite" && <>
               <SectionCard title="Changer le mot de passe" onSave={onChangePassword} saving={securityApi.loading}><div className="space-y-4 max-w-md"><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Mot de passe actuel</label><div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8A8A]" /><input type={showPassword ? "text" : "password"} value={passwords.current_password} onChange={(e) => setPasswords((p) => ({ ...p, current_password: e.target.value }))} className="w-full pl-10 pr-12 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors" /><button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8A8A8A] hover:text-[#3D3D3D]">{showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Nouveau mot de passe</label><div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8A8A]" /><input type="password" value={passwords.new_password} onChange={(e) => setPasswords((p) => ({ ...p, new_password: e.target.value }))} className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors" /></div></div><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Confirmer le nouveau mot de passe</label><div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8A8A]" /><input type="password" value={passwords.confirm_password} onChange={(e) => setPasswords((p) => ({ ...p, confirm_password: e.target.value }))} className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors" /></div>{errors.password && <p className="text-xs text-red-500 mt-1">{errors.password}</p>}</div></div></SectionCard>
-              <SectionCard title="Sessions actives"><div className="space-y-3">{sessions.map((s) => <div key={s.id} className={cn("flex items-center justify-between p-4 rounded-xl border", s.is_current ? "bg-[#F0FAF1] border-[#4CB84A]/20" : "border-gray-100")}><div className="flex items-center gap-3"><div className={cn("w-9 h-9 rounded-xl flex items-center justify-center", s.is_current ? "bg-[#1E8A3C]" : "bg-gray-100")}><Smartphone className={cn("w-4 h-4", s.is_current ? "text-white" : "text-[#8A8A8A]")} /></div><div><p className="font-medium text-[#3D3D3D] text-sm">{s.device_name || s.browser || "Session"}</p><p className="text-xs text-[#8A8A8A]">{s.location || "Maroc"} - {s.last_active ? "Actif recemment" : "Inconnu"}</p></div></div>{s.is_current ? <span className="text-xs bg-[#1E8A3C] text-white px-2 py-1 rounded-full font-medium">Cet appareil</span> : <button onClick={() => onDisconnectSession(s.id)} className="text-sm text-red-500 hover:text-red-700 font-medium transition-colors">Deconnecter</button>}</div>)}</div></SectionCard>
+              <SectionCard title="Sessions actives"><div className="space-y-3">{sessions.map((s) => <div key={s.id} className={cn("flex items-center justify-between p-4 rounded-xl border", s.is_current ? "bg-[#F0FAF1] border-[#4CB84A]/20" : "border-gray-100")}><div className="flex items-center gap-3"><div className={cn("w-9 h-9 rounded-xl flex items-center justify-center", s.is_current ? "bg-[#1E8A3C]" : "bg-gray-100")}><Smartphone className={cn("w-4 h-4", s.is_current ? "text-white" : "text-[#8A8A8A]")} /></div><div><p className="font-medium text-[#3D3D3D] text-sm">{s.device_name || s.browser || "Session"}</p><p className="text-xs text-[#8A8A8A]">{s.location || "Maroc"} - {s.last_active ? "Actif récemment" : "Inconnu"}</p></div></div>{s.is_current ? <span className="text-xs bg-[#1E8A3C] text-white px-2 py-1 rounded-full font-medium">Cet appareil</span> : <button onClick={() => onDisconnectSession(s.id)} className="text-sm text-red-500 hover:text-red-700 font-medium transition-colors">Déconnecter</button>}</div>)}</div></SectionCard>
               <div className="bg-red-50 rounded-2xl border-2 border-red-100 overflow-hidden"><div className="px-6 py-4 border-b border-red-100"><h2 className="font-bold text-red-600 text-lg">Zone de danger</h2><p className="text-sm text-red-400">Actions irreversibles pour votre compte</p></div><div className="p-6 space-y-4"><div className="flex items-center justify-between"><div><p className="font-medium text-[#3D3D3D] text-sm">Deconnexion de tous les appareils</p><p className="text-xs text-[#8A8A8A]">Vous serez deconnecte de tous vos appareils</p></div><button onClick={onDisconnectAll} className="flex items-center gap-2 px-4 py-2 border-2 border-gray-200 text-[#3D3D3D] rounded-xl text-sm font-medium hover:border-red-300 hover:text-red-600 transition-colors"><LogOut className="w-4 h-4" />Tout deconnecter</button></div><div className="border-t border-red-100 pt-4 flex items-center justify-between"><div><p className="font-medium text-[#3D3D3D] text-sm">Supprimer le compte</p><p className="text-xs text-[#8A8A8A]">Action permanente et irreversible</p></div><button onClick={() => setShowDeleteModal(true)} className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl text-sm font-semibold hover:bg-red-600 transition-colors"><Trash2 className="w-4 h-4" />Supprimer</button></div></div></div>
             </>}
             {activeSection === "paiement" && <>
@@ -328,7 +343,7 @@ export default function ParametresPage() {
                         <ShieldCheck className="h-4 w-4" />
                         Mot de passe portefeuille distinct
                       </div>
-                      <p className="mt-2 text-sm text-white/75">Ce portefeuille est separe de ton compte SOUKI. Son mot de passe n'est jamais stocke en clair.</p>
+                      <p className="mt-2 text-sm text-white/75">Ce portefeuille est séparé de ton compte SOUKI. Son mot de passe n'est jamais stocké en clair.</p>
                       <p className="mt-4 text-xs text-white/60">Historique</p>
                       {(walletState.transactions || []).length === 0 ? (
                         <div className="mt-2 rounded-xl border border-dashed border-white/20 bg-white/5 px-3 py-4 text-sm text-white/80">
@@ -357,11 +372,11 @@ export default function ParametresPage() {
                         </div>
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#B17900]">Souki wallet</p>
-                          <h3 className="text-2xl font-black tracking-tight text-[#3D3D3D]">Ach katsenna ? Cree ton portefeuille Souki daba !</h3>
+                          <h3 className="text-2xl font-black tracking-tight text-[#3D3D3D]">Ach katsenna ? Crée ton portefeuille Souki daba !</h3>
                         </div>
                       </div>
                       <p className="max-w-xl text-sm leading-6 text-[#6E6555]">
-                        Active ton portefeuille Souki pour preparer tes futurs paiements en un geste. Ton code portefeuille sera genere une seule fois et ton mot de passe restera separe de celui du compte.
+                        Active ton portefeuille Souki pour préparer tes futurs paiements en un geste. Ton code portefeuille sera généré une seule fois et ton mot de passe restera séparé de celui du compte.
                       </p>
                       <button
                         onClick={() => setShowWalletActivate((v) => !v)}
@@ -378,10 +393,10 @@ export default function ParametresPage() {
                         Regles du mot de passe
                       </div>
                       <div className="mt-3 space-y-2 text-sm text-[#6E6555]">
-                        <div className="flex items-center gap-2"><Check className="h-4 w-4 text-[#1E8A3C]" />Minimum 8 caracteres</div>
+                        <div className="flex items-center gap-2"><Check className="h-4 w-4 text-[#1E8A3C]" />Minimum 8 caractères</div>
                         <div className="flex items-center gap-2"><Check className="h-4 w-4 text-[#1E8A3C]" />Une lettre majuscule</div>
                         <div className="flex items-center gap-2"><Check className="h-4 w-4 text-[#1E8A3C]" />Un chiffre</div>
-                        <div className="flex items-center gap-2"><Check className="h-4 w-4 text-[#1E8A3C]" />Un caractere special</div>
+                        <div className="flex items-center gap-2"><Check className="h-4 w-4 text-[#1E8A3C]" />Un caractère spécial</div>
                       </div>
                     </div>
                   </div>
@@ -396,7 +411,7 @@ export default function ParametresPage() {
                               type={showWalletPassword ? "text" : "password"}
                               value={walletCreate.password}
                               onChange={(e) => setWalletCreate((p) => ({ ...p, password: e.target.value }))}
-                              placeholder="Cree un mot de passe securise"
+                              placeholder="Crée un mot de passe sécurisé"
                               className="w-full rounded-xl border-2 border-gray-200 py-3 pl-10 pr-12 text-[#3D3D3D] transition-colors focus:border-[#4CB84A] focus:outline-none"
                             />
                             <button type="button" onClick={() => setShowWalletPassword((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8A8A8A] hover:text-[#3D3D3D]">
@@ -424,10 +439,10 @@ export default function ParametresPage() {
                         </div>
                       </div>
                       <div className="mt-4 grid gap-2 text-sm text-[#6E6555]">
-                        <div className={cn("flex items-center gap-2", walletPasswordState.minLength ? "text-[#1E8A3C]" : "text-[#8A8A8A]")}><Check className="h-4 w-4" />8 caracteres minimum</div>
+                        <div className={cn("flex items-center gap-2", walletPasswordState.minLength ? "text-[#1E8A3C]" : "text-[#8A8A8A]")}><Check className="h-4 w-4" />8 caractères minimum</div>
                         <div className={cn("flex items-center gap-2", walletPasswordState.uppercase ? "text-[#1E8A3C]" : "text-[#8A8A8A]")}><Check className="h-4 w-4" />Au moins une majuscule</div>
                         <div className={cn("flex items-center gap-2", walletPasswordState.number ? "text-[#1E8A3C]" : "text-[#8A8A8A]")}><Check className="h-4 w-4" />Au moins un chiffre</div>
-                        <div className={cn("flex items-center gap-2", walletPasswordState.special ? "text-[#1E8A3C]" : "text-[#8A8A8A]")}><Check className="h-4 w-4" />Au moins un caractere special</div>
+                        <div className={cn("flex items-center gap-2", walletPasswordState.special ? "text-[#1E8A3C]" : "text-[#8A8A8A]")}><Check className="h-4 w-4" />Au moins un caractère spécial</div>
                       </div>
                       <div className="mt-5 flex flex-wrap gap-3">
                         <button onClick={onActivateWallet} disabled={walletApi.loading} className="inline-flex items-center gap-2 rounded-xl bg-[#1E8A3C] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#176B2E] disabled:opacity-70">
@@ -449,7 +464,7 @@ export default function ParametresPage() {
                   </div>
                   <div>
                     <h3 className="font-bold text-lg">Paiement par carte — Bientôt disponible</h3>
-                    <p className="text-sm text-[#8A8A8A]">Le paiement par carte arrivera prochainement. Aucune action n'est necessaire pour le moment.</p>
+                    <p className="text-sm text-[#8A8A8A]">Le paiement par carte arrivera prochainement. Aucune action n'est nécessaire pour le moment.</p>
                   </div>
                 </div>
               </div>
@@ -458,7 +473,8 @@ export default function ParametresPage() {
         </div>
       </div>
       {showDeleteModal && <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"><div className="bg-white rounded-2xl w-full max-w-md p-6"><h3 className="font-bold text-lg text-[#3D3D3D]">Confirmer la suppression</h3><p className="text-sm text-[#8A8A8A] mt-2">Tapez SUPPRIMER pour confirmer</p><input value={deleteText} onChange={(e) => setDeleteText(e.target.value)} className="mt-4 w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-red-400 focus:outline-none" /><div className="mt-4 flex gap-2 justify-end"><button onClick={() => setShowDeleteModal(false)} className="px-4 py-2 border border-gray-200 rounded-xl">Annuler</button><button disabled={deleteText !== "SUPPRIMER"} onClick={onDeleteAccount} className="px-4 py-2 bg-red-500 text-white rounded-xl disabled:opacity-50">Supprimer</button></div></div></div>}
-      {showWalletIdModal && <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"><div className="w-full max-w-lg rounded-3xl border border-[#4CB84A]/30 bg-white p-6 shadow-[0_20px_70px_rgba(30,138,60,0.18)]"><div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F0FAF1] text-[#1E8A3C]"><Wallet className="h-5 w-5" /></div><div><h3 className="font-bold text-[#3D3D3D]">Portefeuille Souki cree</h3><p className="text-sm text-[#8A8A8A]">Ce code complet n'est affiche qu'une seule fois.</p></div></div><div className="mt-5 rounded-2xl border border-gray-200 bg-[#FAFAF8] px-4 py-4"><p className="text-xs uppercase tracking-[0.22em] text-[#8A8A8A]">Code portefeuille</p><p className="mt-2 break-all font-mono text-lg font-semibold tracking-[0.18em] text-[#1E8A3C]">{walletIdFull}</p></div><div className="mt-5 flex flex-wrap justify-end gap-3"><button onClick={() => navigator.clipboard.writeText(walletIdFull)} className="inline-flex items-center gap-2 rounded-xl border border-[#1E8A3C] px-4 py-2 text-[#1E8A3C] transition hover:bg-[#F0FAF1]"><Copy className="h-4 w-4" />Copier le code</button><button onClick={() => setShowWalletIdModal(false)} className="rounded-xl bg-[#1E8A3C] px-4 py-2 text-white transition hover:bg-[#176B2E]">J'ai note mon code</button></div></div></div>}
+      {showWalletIdModal && <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"><div className="w-full max-w-lg rounded-3xl border border-[#4CB84A]/30 bg-white p-6 shadow-[0_20px_70px_rgba(30,138,60,0.18)]"><div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F0FAF1] text-[#1E8A3C]"><Wallet className="h-5 w-5" /></div><div><h3 className="font-bold text-[#3D3D3D]">Portefeuille Souki créé</h3><p className="text-sm text-[#8A8A8A]">Ce code complet n'est affiché qu'une seule fois.</p></div></div><div className="mt-5 rounded-2xl border border-gray-200 bg-[#FAFAF8] px-4 py-4"><p className="text-xs uppercase tracking-[0.22em] text-[#8A8A8A]">Code portefeuille</p><p className="mt-2 break-all font-mono text-lg font-semibold tracking-[0.18em] text-[#1E8A3C]">{walletIdFull}</p></div><div className="mt-5 flex flex-wrap justify-end gap-3"><button onClick={() => navigator.clipboard.writeText(walletIdFull)} className="inline-flex items-center gap-2 rounded-xl border border-[#1E8A3C] px-4 py-2 text-[#1E8A3C] transition hover:bg-[#F0FAF1]"><Copy className="h-4 w-4" />Copier le code</button><button onClick={() => setShowWalletIdModal(false)} className="rounded-xl bg-[#1E8A3C] px-4 py-2 text-white transition hover:bg-[#176B2E]">J'ai noté mon code</button></div></div></div>}
+      <MobileBottomNav />
     </div>
   )
 }

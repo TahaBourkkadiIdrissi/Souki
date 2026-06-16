@@ -117,7 +117,7 @@ function exportCSV(report: BlacklistReportDTO, mois: number, annee: number) {
   const lines: string[] = []
 
   lines.push("=== PAR CLIENT ===")
-  lines.push("Client,Telephone,Nb refus,Montant perdu (DH)")
+  lines.push("Client,Téléphone,Nb refus,Montant perdu (DH)")
   report.par_client.forEach((row) => {
     lines.push([
       csvCell(row.email || `Client #${row.client_id}`),
@@ -139,7 +139,7 @@ function exportCSV(report: BlacklistReportDTO, mois: number, annee: number) {
 
   lines.push("")
   lines.push("=== COMMANDES REFUSEES ===")
-  lines.push("Commande,Client,Telephone,Date refus,Livreur,Quartier,Motif,Perte (DH)")
+  lines.push("Commande,Client,Téléphone,Date refus,Livreur,Quartier,Motif,Perte (DH)")
   report.commandes_refusees.forEach((row) => {
     lines.push([
       csvCell(row.commande_id),
@@ -529,7 +529,7 @@ export default function AdminBlacklistPage() {
           <KpiCard icon={UserX} label="Blacklistes" value={clients.length} helper="Total actif" tone="red" />
           <KpiCard icon={CalendarDays} label="Refus ce mois" value={report?.total_refus ?? newThisMonth} helper={`${monthLabels[month - 1]} ${year}`} tone="orange" />
           <KpiCard icon={Banknote} label="Perte totale" value={formatMoney(totalPerte)} helper="Montant en DH" tone="green" />
-          <KpiCard icon={BarChart3} label="Commandes refusees" value={report?.commandes_refusees.length ?? 0} helper="Rapport selectionne" tone="blue" />
+          <KpiCard icon={BarChart3} label="Commandes refusées" value={report?.commandes_refusees.length ?? 0} helper="Rapport sélectionné" tone="blue" />
         </section>
 
         <div className="px-6 py-6">
@@ -579,7 +579,7 @@ export default function AdminBlacklistPage() {
                       <thead className="border-b border-gray-200 bg-gray-50">
                         <tr>
                           <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Client</th>
-                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Telephone</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Téléphone</th>
                           <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Date</th>
                           <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Source</th>
                           <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Commande refusee</th>
@@ -714,7 +714,7 @@ export default function AdminBlacklistPage() {
                     </div>
 
                     <div className="grid gap-6 xl:grid-cols-2">
-                      <ReportTable title="Par client" icon={UserX} columns={["Client", "Telephone", "Nb refus", "Montant"]}>
+                      <ReportTable title="Par client" icon={UserX} columns={["Client", "Téléphone", "Nb refus", "Montant"]}>
                         {report.par_client.map((row) => (
                           <tr key={row.client_id} className="transition-colors duration-100 hover:bg-gray-50">
                             <td className="px-4 py-3 text-sm font-medium text-gray-950">{emptyValue(row.email || `Client #${row.client_id}`)}</td>
@@ -746,9 +746,9 @@ export default function AdminBlacklistPage() {
                     </div>
 
                     <ReportTable
-                      title="Commandes refusees"
+                      title="Commandes refusées"
                       icon={FileBarChart}
-                      columns={["Commande", "Client", "Telephone", "Date refus", "Livreur", "Quartier", "Motif", "Perte"]}
+                      columns={["Commande", "Client", "Téléphone", "Date refus", "Livreur", "Quartier", "Motif", "Perte"]}
                     >
                       {report.commandes_refusees.map((row) => (
                         <tr key={row.log_id} className="transition-colors duration-100 hover:bg-gray-50">
