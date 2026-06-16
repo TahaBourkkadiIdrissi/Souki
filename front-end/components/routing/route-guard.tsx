@@ -40,7 +40,30 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const reason = searchParams.get("access_error")
     setAccessError(reason ? getAccessDeniedMessage(reason as Parameters<typeof getAccessDeniedMessage>[0]) : null)
-  }, [pathname, searchParams])
+
+    if (!reason) {
+      return
+    }
+
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete("access_error")
+    params.delete("redirect")
+
+    const nextQuery = params.toString()
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false })
+  }, [pathname, router, searchParams])
+
+  useEffect(() => {
+    if (!accessError) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setAccessError(null)
+    }, 3500)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [accessError])
 
   if (decision.allowed) {
     return (
