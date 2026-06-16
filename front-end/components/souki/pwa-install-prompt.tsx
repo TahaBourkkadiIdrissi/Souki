@@ -1,0 +1,167 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { Download, X } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>
+}
+
+type NavigatorWithStandalone = Navigator & {
+  standalone?: boolean
+}
+
+function isStandaloneMode() {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.matchMedia("(display-mode: fullscreen)").matches ||
+    (navigator as NavigatorWithStandalone).standalone === true
+  )
+}
+
+export function PwaInstallPrompt() {
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) {
+      return
+    }
+
+    let hasReloadedForControllerChange = false
+
+    navigator.serviceWorker
+      .register("/sw.js", { scope: "/" })
+      .then((registration) => {
+        registration.update()
+
+        registration.addEventListener("updatefound", () => {
+          const newWorker = registration.installing
+
+          newWorker?.addEventListener("statechange", () => {
+            if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+              newWorker.postMessage({ type: "SKIP_WAITING" })
+            }
+          })
+        })
+      })
+      .catch(() => undefined)
+
+    const reloadOnControllerChange = () => {
+      if (hasReloadedForControllerChange) {
+        return
+      }
+
+      hasReloadedForControllerChange = true
+      window.location.reload()
+    }
+
+    const updateWhenVisible = () => {
+      if (document.visibilityState === "visible") {
+        navigator.serviceWorker.getRegistration().then((registration) => registration?.update())
+      }
+    }
+
+    navigator.serviceWorker.addEventListener("controllerchange", reloadOnControllerChange)
+    document.addEventListener("visibilitychange", updateWhenVisible)
+
+    return () => {
+      navigator.serviceWorker.removeEventListener("controllerchange", reloadOnControllerChange)
+      document.removeEventListener("visibilitychange", updateWhenVisible)
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault()
+
+      if (isStandaloneMode() || sessionStorage.getItem("souki-pwa-install-dismissed") === "true") {
+        return
+      }
+
+      setInstallPrompt(event as BeforeInstallPromptEvent)
+      setIsVisible(true)
+    }
+
+    const handleAppInstalled = () => {
+      setInstallPrompt(null)
+      setIsVisible(false)
+      sessionStorage.setItem("souki-pwa-install-dismissed", "true")
+    }
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt)
+    window.addEventListener("appinstalled", handleAppInstalled)
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt)
+      window.removeEventListener("appinstalled", handleAppInstalled)
+    }
+  }, [])
+
+  const installApp = async () => {
+    if (!installPrompt) {
+      return
+    }
+
+    await installPrompt.prompt()
+    const choice = await installPrompt.userChoice
+
+    if (choice.outcome === "accepted") {
+      sessionStorage.setItem("souki-pwa-install-dismissed", "true")
+    }
+
+    setInstallPrompt(null)
+    setIsVisible(false)
+  }
+
+  const dismiss = () => {
+    sessionStorage.setItem("souki-pwa-install-dismissed", "true")
+    setIsVisible(false)
+  }
+
+  if (!isVisible || !installPrompt) {
+    return null
+  }
+
+  return (
+    <div
+      className={cn(
+        "fixed inset-x-3 bottom-24 z-[70] mx-auto max-w-md rounded-lg border border-green-market/20 bg-white p-3 shadow-2xl shadow-black/15",
+        "md:bottom-5 md:right-5 md:left-auto md:mx-0",
+        "dark:border-green-fresh/25 dark:bg-card",
+      )}
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex items-center gap-3">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-green-market text-white">
+          <Download className="size-5" aria-hidden="true" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-foreground">Installer SOUKI</p>
+          <p className="text-xs leading-5 text-muted-foreground">
+            Ajoutez SOUKI a votre ecran d'accueil pour l'ouvrir comme une application.
+          </p>
+        </div>
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="ghost"
+          className="shrink-0"
+          onClick={dismiss}
+          aria-label="Masquer l'installation"
+        >
+          <X className="size-4" aria-hidden="true" />
+        </Button>
+      </div>
+      <Button type="button" className="mt-3 w-full bg-orange-cta text-white hover:bg-orange-cta/90" onClick={installApp}>
+        <Download className="size-4" aria-hidden="true" />
+        Installer l'application SOUKI
+      </Button>
+    </div>
+  )
+}
