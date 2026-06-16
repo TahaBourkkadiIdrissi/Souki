@@ -324,7 +324,7 @@ function StatusBadge({ value }: { value: string | null }) {
 }
 
 export default function AdminDashboard() {
-  const { token, can } = useAuth()
+  const { token, can, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [periode, setPeriode] = useState<DashboardPeriod>("today")
   const [customDate, setCustomDate] = useState(todayInputValue())
@@ -376,6 +376,11 @@ export default function AdminDashboard() {
     () => adminNavItems.filter((item) => can(adminNavPermissions[item.href] || "admin.panel.access")),
     [can]
   )
+
+  const handleAdminLogout = async () => {
+    await logout()
+    window.location.assign("/login?logged_out=1")
+  }
 
   const metrics = dashboard
     ? (() => {
@@ -512,7 +517,7 @@ export default function AdminDashboard() {
           </nav>
 
           <div className="border-t border-white/20 p-3">
-            <button type="button" title="Deconnexion" aria-label="Deconnexion" className="flex h-11 w-11 items-center justify-center rounded-xl text-white/75 transition-colors hover:bg-white/10 hover:text-white">
+            <button type="button" title="Deconnexion" aria-label="Deconnexion" onClick={handleAdminLogout} className="flex h-11 w-11 items-center justify-center rounded-xl text-white/75 transition-colors hover:bg-white/10 hover:text-white">
               <LogOut className="h-5 w-5" />
             </button>
           </div>

@@ -7,6 +7,7 @@ import {
   History,
   LogOut,
   Menu,
+  RefreshCcw,
   Settings,
   Shield,
   Sparkles,
@@ -63,10 +64,16 @@ export function ProfileDropdown({ user }: { user: User }) {
     setIsOpen(false)
   }
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     setIsOpen(false)
-    router.push("/")
+    window.location.assign("/login?logged_out=1")
+  }
+
+  const handleSwitchAccount = async () => {
+    await logout()
+    setIsOpen(false)
+    window.location.assign("/login?switch=1")
   }
 
   const canAccessAdmin = user.permissions.includes("admin.panel.access")
@@ -195,6 +202,16 @@ export function ProfileDropdown({ user }: { user: User }) {
             </button>
 
             <div className="mx-2 my-2 h-px bg-[#E7F0E8]" />
+
+            <button
+              onClick={handleSwitchAccount}
+              className="group flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all hover:bg-[#F0FAF1]"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EAF2FF] text-[#1A73E8] transition-transform group-hover:scale-105">
+                <RefreshCcw size={17} />
+              </span>
+              <span className="text-sm font-black text-[#264129]">Changer de compte</span>
+            </button>
 
             <button
               onClick={handleLogout}
