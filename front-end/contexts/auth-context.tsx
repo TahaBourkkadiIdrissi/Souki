@@ -24,7 +24,7 @@ interface AuthContextType {
   login: (loginId: string, password: string, role?: string) => Promise<User>
   adminLogin: (loginId: string, password: string) => Promise<User>
   googleLogin: (googleToken: string, role?: string) => Promise<User>
-  logout: () => void
+  logout: () => Promise<void>
   validateToken: () => Promise<boolean>
   hasRole: (role: string) => boolean
   can: (permission: string) => boolean
@@ -326,8 +326,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
   }
 
-  const logout = () => {
-    void syncAuthState(null)
+  const logout = async () => {
+    await syncAuthState(null)
   }
 
   const hasRole = (role: string) => Boolean(user?.roles.includes(role.toUpperCase()))

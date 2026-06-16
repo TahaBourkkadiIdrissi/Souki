@@ -8,6 +8,8 @@ import { User, Users, Truck } from "lucide-react"
 function PreLoginContent() {
   const searchParams = useSearchParams()
   const redirectTarget = searchParams.get("redirect")
+  const switchAccount = searchParams.get("switch") === "1"
+  const loggedOut = searchParams.get("logged_out") === "1"
 
   const roles = [
     {
@@ -48,8 +50,20 @@ function PreLoginContent() {
     }
   ]
 
-  const withRedirect = (href: string) =>
-    redirectTarget ? `${href}?redirect=${encodeURIComponent(redirectTarget)}` : href
+  const withRedirect = (href: string) => {
+    const params = new URLSearchParams()
+    if (redirectTarget) {
+      params.set("redirect", redirectTarget)
+    }
+    if (switchAccount) {
+      params.set("switch", "1")
+    }
+    if (loggedOut) {
+      params.set("logged_out", "1")
+    }
+    const query = params.toString()
+    return query ? `${href}?${query}` : href
+  }
 
   return (
     <div className="min-h-screen flex">
