@@ -221,7 +221,10 @@ def get_panier_service(
     return PanierService(panier_dao)
 
 
-def get_ml_panier_service() -> MLPanierService:
+def get_ml_panier_service(
+    panier_dao: IPanierDao = Depends(get_panier_dao),
+) -> MLPanierService:
+    ml_panier_service.configure_panier_dao(panier_dao)
     return ml_panier_service
 
 

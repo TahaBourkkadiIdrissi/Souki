@@ -35,9 +35,8 @@ def generer_panier_intelligent(
     principal=Depends(require_permission("client.dashboard.access", "parent.dashboard.access", match="any")),
     service: MLPanierService = Depends(get_ml_panier_service),
 ):
-    _ = principal
     try:
-        return service.generer_panier(payload)
+        return service.generer_panier(payload, principal.user_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except MLModelUnavailableError as e:

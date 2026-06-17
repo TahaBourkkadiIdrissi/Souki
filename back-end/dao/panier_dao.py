@@ -98,6 +98,16 @@ class PanierDaoBD(IPanierDao):
             .all()
         )
 
+    def get_active_products_for_ml(self, session: Session) -> List[Product]:
+        """Recupere les produits actifs/en stock pour la generation ML."""
+        return (
+            session.query(Product)
+            .filter(Product.is_active == True)  # noqa: E712
+            .filter(Product.stock > 0)
+            .order_by(Product.id.asc())
+            .all()
+        )
+
     def decrement_stock(self, session: Session, product_id: int, quantity: float) -> None:
         """Réduit le stock d'un produit"""
         product = self.get_product_by_id(session, product_id)

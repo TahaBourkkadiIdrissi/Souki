@@ -21,4 +21,4 @@ def load_app_env() -> None:
                 merged_env[key] = value
 
     for key, value in merged_env.items():
-        os.environ.setdefault(key, value)
+        os.environ[key] = value

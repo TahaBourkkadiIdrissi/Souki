@@ -135,10 +135,11 @@ def initialize_application() -> None:
 
 def preload_ml_panier_model() -> None:
     ml_panier_service.load_model()
+    ml_panier_service.warmup_remote_model()
     if ml_panier_service.load_error:
         print(f"[STARTUP] Panier intelligent en mode fallback: {ml_panier_service.load_error}")
     else:
-        print("[STARTUP] Modele panier intelligent charge")
+        print("[STARTUP] Modele panier intelligent precharge")
 
 
 def get_startup_tasks() -> tuple[AppTask, ...]:

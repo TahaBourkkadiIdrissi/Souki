@@ -30,12 +30,16 @@ export interface BasketSelection {
 }
 
 export type SmartBasketProfile =
+  | "aromates_herbes"
+  | "cuisine_couscous"
+  | "cuisine_tajine"
+  | "equilibre"
+  | "fruits_dominant"
   | "legumes_base"
+  | "legumes_verts"
+  | "racines_tubercules"
   | "salade_fraicheur"
   | "soupe_hiver"
-  | "cuisine_tajine"
-  | "fruits_dominant"
-  | "equilibre"
 
 export interface SmartBasketRequest {
   budget: number
@@ -57,6 +61,7 @@ export interface SmartBasketLine {
 export interface SmartBasketResponse {
   status: string
   source: string
+  panier_id?: number | null
   criteres: Record<string, unknown>
   lignes_panier: SmartBasketLine[]
   total_dh: number

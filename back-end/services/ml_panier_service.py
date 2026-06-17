@@ -1,13 +1,24 @@
 import json
 import os
+import re
 import threading
+import unicodedata
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
+
+from sqlalchemy.exc import IntegrityError
 
 from config import LocalSession
 from dto.panier_dto import LignePanierResponseDTO, PanierRequestDTO, PanierResponseDTO
 from entities.product_entity import Product
-from services.panier_service import get_product_image
+from interfaces.panier_dao_interface import IPanierDao
+from services.panier_service import DELIVERY_FEE, SEUIL_LIVRAISON_GRATUITE, get_product_image
+
+
+DEFAULT_HF_REPO_ID = "TahaBDI/gemma-2-2b-panier-merged"
+VALID_LEVELS = (1, 2, 3)
 
 
 class MLModelUnavailableError(RuntimeError):
@@ -17,21 +28,25 @@ class MLModelUnavailableError(RuntimeError):
 class MLPanierService:
     """Service d'inference pour le panier intelligent SOUKI."""
 
-    def __init__(self) -> None:
+    def __init__(self, panier_dao: IPanierDao | None = None) -> None:
         self._lock = threading.Lock()
         self._loaded = False
         self._load_error: str | None = None
-        self._tokenizer: Any | None = None
-        self._model: Any | None = None
-        self._torch: Any | None = None
+        self.panier_dao = panier_dao
         self._fallback_compositions: list[dict[str, Any]] = []
 
         repo_root = Path(__file__).resolve().parents[2]
-        self._adapter_path = Path(
-            os.getenv("SOUKI_ML_ADAPTER_PATH", repo_root / "gemma-2-2b-panier-qlora")
-        )
         self._fallback_path = Path(
             os.getenv("SOUKI_ML_COMPOSITIONS_PATH", repo_root / "200-compositions.json")
+        )
+        self._repo_id = os.getenv("SOUKI_ML_REPO_ID", DEFAULT_HF_REPO_ID)
+        self._inference_url = os.getenv(
+            "SOUKI_ML_INFERENCE_URL",
+            f"https://router.huggingface.co/hf-inference/models/{self._repo_id}",
+        )
+        self._timeout_seconds = float(os.getenv("SOUKI_ML_TIMEOUT_SECONDS", "45"))
+        self._preload_timeout_seconds = float(
+            os.getenv("SOUKI_ML_PRELOAD_TIMEOUT_SECONDS", str(max(self._timeout_seconds, 180)))
         )
 
     @property
@@ -43,119 +58,225 @@ class MLPanierService:
         return self._load_error
 
     def load_model(self) -> None:
-        """Charge le modele HF/LoRA une seule fois et garde un fallback local."""
+        """Prepare the HF remote inference configuration and local fallback."""
         with self._lock:
             if self._loaded:
                 return
 
             self._load_fallback_compositions()
-
             if os.getenv("SOUKI_ML_DISABLE_MODEL", "0") == "1":
                 self._load_error = "Chargement HF desactive par SOUKI_ML_DISABLE_MODEL."
-                self._loaded = True
-                return
+            elif not self._get_hf_token():
+                self._load_error = "HF_TOKEN manquant pour appeler le modele Hugging Face prive."
+            else:
+                self._load_error = None
+            self._loaded = True
 
-            try:
-                self._load_hugging_face_model()
-            except Exception as exc:
-                self._load_error = str(exc)
-            finally:
-                self._loaded = True
-
-    def unload_model(self) -> None:
-        with self._lock:
-            self._model = None
-            self._tokenizer = None
-            self._torch = None
-            self._loaded = False
-
-    def generer_panier(self, payload: PanierRequestDTO) -> PanierResponseDTO:
+    def warmup_remote_model(self) -> None:
+        """Call the remote inference service once so a Space loads the model at startup."""
         if not self._loaded:
             self.load_model()
 
+        if os.getenv("SOUKI_ML_DISABLE_MODEL", "0") == "1":
+            return
+
+        token = self._get_hf_token()
+        if not token:
+            self._load_error = "HF_TOKEN manquant pour precharger le modele Hugging Face."
+            return
+
+        body = {
+            "inputs": (
+                "Retourne uniquement ce JSON valide: "
+                '{"composition":[{"produit_id":1,"nom_fr":"Tomates","quantite":1}]}'
+            ),
+            "parameters": {
+                "max_new_tokens": 64,
+                "do_sample": False,
+                "return_full_text": False,
+            },
+            "options": {
+                "wait_for_model": True,
+                "use_cache": False,
+            },
+        }
+        request = Request(
+            self._inference_url,
+            data=json.dumps(body).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            method="POST",
+        )
+
+        try:
+            with urlopen(request, timeout=self._preload_timeout_seconds) as response:
+                response.read()
+            self._load_error = None
+        except HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="ignore")
+            self._load_error = f"Prechargement HF indisponible ({exc.code}): {detail[:240]}"
+        except (TimeoutError, URLError) as exc:
+            self._load_error = f"Prechargement HF indisponible: {exc}"
+        except Exception as exc:
+            self._load_error = f"Prechargement HF indisponible: {exc}"
+
+    def unload_model(self) -> None:
+        with self._lock:
+            self._loaded = False
+
+    def configure_panier_dao(self, panier_dao: IPanierDao) -> None:
+        self.panier_dao = panier_dao
+
+    def generer_panier(self, payload: PanierRequestDTO, user_id: int | None = None) -> PanierResponseDTO:
+        if not self._loaded:
+            self.load_model()
+
+        if self.panier_dao is None:
+            raise MLModelUnavailableError("DAO panier non configure pour la generation ML.")
+
         with LocalSession() as session:
-            products = session.query(Product).all()
+            products = self.panier_dao.get_active_products_for_ml(session)
             if not products:
                 raise MLModelUnavailableError("Le catalogue produit est vide.")
 
-            generated = self._generate_with_model(payload)
-            source = "huggingface_lora"
+            generated = self._generate_with_hugging_face(payload, products)
+            source = "huggingface_inference"
             if generated is None:
                 generated = self._generate_from_fallback(payload)
                 source = "dataset_fallback"
 
-            lignes = self._build_response_lines(generated, products)
+            lignes = self._build_response_lines(generated, products, payload)
             if not lignes:
                 raise MLModelUnavailableError("Aucun produit exploitable n'a ete genere.")
 
-            total = round(sum(line.sous_total for line in lignes), 2)
+            panier_id = self._persist_panier(session, user_id, lignes) if user_id else None
+            sous_total = round(sum(line.sous_total for line in lignes), 2)
+            warning = self._load_error if source == "dataset_fallback" else None
             return PanierResponseDTO(
                 status="success",
                 source=source,
+                panier_id=panier_id,
                 criteres={
                     "budget": payload.budget,
                     "personnes": payload.personnes,
                     "duree": payload.duree,
                     "profil": payload.profil,
+                    "niveaux": list(VALID_LEVELS),
                 },
                 lignes_panier=lignes,
-                total_dh=total,
+                total_dh=sous_total,
                 nombre_articles=len(lignes),
-                model_warning=self._load_error if source == "dataset_fallback" else None,
+                model_warning=warning,
             )
 
-    def _load_hugging_face_model(self) -> None:
-        if not self._adapter_path.exists():
-            raise FileNotFoundError(f"Adaptateur LoRA introuvable: {self._adapter_path}")
+    def _get_hf_token(self) -> str | None:
+        return os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACEHUB_API_TOKEN")
 
-        from peft import PeftModel
-        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
-        import torch
+    def _generate_with_hugging_face(
+        self,
+        payload: PanierRequestDTO,
+        products: list[Product],
+    ) -> dict[str, Any] | None:
+        if os.getenv("SOUKI_ML_DISABLE_MODEL", "0") == "1":
+            return None
 
-        adapter_config_path = self._adapter_path / "adapter_config.json"
-        adapter_config = json.loads(adapter_config_path.read_text(encoding="utf-8"))
-        base_model_name = os.getenv(
-            "SOUKI_ML_BASE_MODEL", adapter_config.get("base_model_name_or_path", "")
+        token = self._get_hf_token()
+        if not token:
+            return None
+
+        prompt = self._build_prompt(payload, products)
+        body = {
+            "inputs": prompt,
+            "parameters": {
+                "max_new_tokens": 700,
+                "do_sample": False,
+                "return_full_text": False,
+            },
+            "options": {
+                "wait_for_model": True,
+                "use_cache": False,
+            },
+        }
+        request = Request(
+            self._inference_url,
+            data=json.dumps(body).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            method="POST",
         )
-        if not base_model_name:
-            raise ValueError("base_model_name_or_path manquant dans adapter_config.json")
 
-        local_files_only = os.getenv("SOUKI_ML_LOCAL_FILES_ONLY", "1") != "0"
-        os.environ.setdefault("DISABLE_SAFETENSORS_CONVERSION", "1")
-        if local_files_only:
-            os.environ.setdefault("HF_HUB_OFFLINE", "1")
-            os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+        try:
+            with urlopen(request, timeout=self._timeout_seconds) as response:
+                raw = response.read().decode("utf-8")
+            return self._extract_json_from_hf_response(raw)
+        except HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="ignore")
+            self._load_error = f"Inference HF indisponible ({exc.code}): {detail[:240]}"
+        except (TimeoutError, URLError) as exc:
+            self._load_error = f"Inference HF indisponible: {exc}"
+        except Exception as exc:
+            self._load_error = f"Inference HF indisponible: {exc}"
+        return None
 
-        use_cuda = torch.cuda.is_available()
-        quantization_config = (
-            BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16)
-            if use_cuda
-            else None
+    def _build_prompt(self, payload: PanierRequestDTO, products: list[Product]) -> str:
+        catalogue = [
+            {
+                "produit_id": int(product.id),  # type: ignore[arg-type]
+                "nom_fr": str(product.nom_fr),
+                "nom_darija": str(product.nom_darija),
+                "niveau": int(product.niveau or 2),
+                "prix": self._unit_price(product),
+                "stock": float(product.stock or 0),
+                "unite": str(product.unite),
+            }
+            for product in products
+            if int(product.niveau or 0) in VALID_LEVELS
+        ]
+        return (
+            "Tu es le modele SOUKI de generation de panier automatique.\n"
+            "Retourne uniquement un JSON valide, sans markdown, au format:\n"
+            '{"composition":[{"produit_id":1,"nom_fr":"Tomates","quantite":1.5}]}\n'
+            "Regles strictes: choisir seulement des produits du catalogue, respecter le budget autant "
+            "que possible, utiliser les niveaux 1, 2 et 3 si disponibles, quantites positives.\n"
+            f"Criteres client: {json.dumps(self._payload_for_model(payload), ensure_ascii=False)}\n"
+            f"Catalogue: {json.dumps(catalogue, ensure_ascii=False)}"
         )
 
-        tokenizer = AutoTokenizer.from_pretrained(
-            self._adapter_path,
-            local_files_only=local_files_only,
-        )
-        model_kwargs: dict[str, Any] = {"local_files_only": local_files_only}
-        if base_model_name == "sshleifer/tiny-gpt2":
-            model_kwargs["use_safetensors"] = False
-        if use_cuda:
-            model_kwargs["device_map"] = "auto"
-        if quantization_config is not None:
-            model_kwargs["quantization_config"] = quantization_config
+    def _payload_for_model(self, payload: PanierRequestDTO) -> dict[str, Any]:
+        return {
+            "prix_selectionne": payload.budget,
+            "nombre_de_personnes": payload.personnes,
+            "duree_panier": payload.duree,
+            "profil_panier": payload.profil,
+        }
 
-        base_model = AutoModelForCausalLM.from_pretrained(base_model_name, **model_kwargs)
-        model = PeftModel.from_pretrained(
-            base_model,
-            self._adapter_path,
-            local_files_only=local_files_only,
-        )
-        model.eval()
+    def _extract_json_from_hf_response(self, raw_response: str) -> dict[str, Any] | None:
+        try:
+            parsed_response = json.loads(raw_response)
+        except json.JSONDecodeError:
+            parsed_response = raw_response
 
-        self._torch = torch
-        self._tokenizer = tokenizer
-        self._model = model
+        if isinstance(parsed_response, list):
+            text = " ".join(
+                str(item.get("generated_text", item)) if isinstance(item, dict) else str(item)
+                for item in parsed_response
+            )
+        elif isinstance(parsed_response, dict):
+            text = str(
+                parsed_response.get("generated_text")
+                or parsed_response.get("text")
+                or parsed_response
+            )
+        else:
+            text = str(parsed_response)
+
+        return self._extract_json(text)
 
     def _load_fallback_compositions(self) -> None:
         if not self._fallback_path.exists():
@@ -167,44 +288,6 @@ class MLPanierService:
             )
         except Exception:
             self._fallback_compositions = []
-
-    def _generate_with_model(self, payload: PanierRequestDTO) -> dict[str, Any] | None:
-        if self._model is None or self._tokenizer is None or self._torch is None:
-            return None
-
-        prompt = (
-            "Generate basket for: "
-            + json.dumps(
-                {
-                    "prix_selectionne": payload.budget,
-                    "nombre_de_personnes": payload.personnes,
-                    "duree_panier": payload.duree,
-                    "profil_panier": payload.profil,
-                },
-                ensure_ascii=False,
-            )
-            + "\nReturn only valid JSON with a composition array."
-        )
-
-        try:
-            inputs = self._tokenizer(prompt, return_tensors="pt")
-            model_device = getattr(self._model, "device", None)
-            if model_device is not None:
-                inputs = {key: value.to(model_device) for key, value in inputs.items()}
-
-            with self._torch.inference_mode():
-                output_ids = self._model.generate(
-                    **inputs,
-                    max_new_tokens=512,
-                    do_sample=False,
-                    pad_token_id=self._tokenizer.eos_token_id,
-                )
-
-            generated_text = self._tokenizer.decode(output_ids[0], skip_special_tokens=True)
-            return self._extract_json(generated_text)
-        except Exception as exc:
-            self._load_error = f"Inference HF indisponible: {exc}"
-            return None
 
     def _generate_from_fallback(self, payload: PanierRequestDTO) -> dict[str, Any]:
         if not self._fallback_compositions:
@@ -275,15 +358,18 @@ class MLPanierService:
         self,
         generated: dict[str, Any],
         products: list[Product],
+        payload: PanierRequestDTO,
     ) -> list[LignePanierResponseDTO]:
         products_by_id = {int(product.id): product for product in products}  # type: ignore[arg-type]
-        products_by_name = {
-            self._normalize(str(product.nom_fr)): product
-            for product in products
-        }
+        products_by_name = {self._normalize(str(product.nom_fr)): product for product in products}
+        products_by_name.update(
+            {self._normalize(str(product.nom_darija)): product for product in products}
+        )
 
-        lignes: list[LignePanierResponseDTO] = []
+        lines_by_product_id: dict[int, LignePanierResponseDTO] = {}
         for item in generated.get("composition", []):
+            if not isinstance(item, dict):
+                continue
             product = self._resolve_product(item, products_by_id, products_by_name)
             if product is None:
                 continue
@@ -294,26 +380,169 @@ class MLPanierService:
             if quantity is None:
                 continue
 
-            stock = max(float(product.stock or 0), 0.0)  # type: ignore[arg-type]
-            effective_quantity = min(quantity, stock) if stock > 0 else quantity
-            if effective_quantity <= 0:
+            line = self._line_for_product(product, quantity)
+            if line is None:
                 continue
-
-            unit_price = float(product.prix_kg)  # type: ignore[arg-type]
-            subtotal = round(unit_price * effective_quantity, 2)
-            lignes.append(
-                LignePanierResponseDTO(
-                    product_id=int(product.id),  # type: ignore[arg-type]
-                    nom_produit=str(product.nom_fr),
-                    quantite_kg=round(effective_quantity, 2),
-                    prix_unitaire=unit_price,
-                    sous_total=subtotal,
-                    unite=str(product.unite),
-                    image=get_product_image(str(product.nom_fr)),
+            existing = lines_by_product_id.get(line.product_id)
+            if existing:
+                merged_quantity = min(
+                    existing.quantite_kg + line.quantite_kg,
+                    float(product.stock or existing.quantite_kg),
                 )
-            )
+                lines_by_product_id[line.product_id] = self._line_for_product(product, merged_quantity) or existing
+            else:
+                lines_by_product_id[line.product_id] = line
 
-        return lignes
+        lines = list(lines_by_product_id.values())
+        return self._ensure_three_level_basket(lines, products, payload)
+
+    def _ensure_three_level_basket(
+        self,
+        lines: list[LignePanierResponseDTO],
+        products: list[Product],
+        payload: PanierRequestDTO,
+    ) -> list[LignePanierResponseDTO]:
+        available_levels = {
+            int(product.niveau or 0)
+            for product in products
+            if int(product.niveau or 0) in VALID_LEVELS and float(product.stock or 0) > 0
+        }
+        present_levels = {
+            int(getattr(self._product_by_id(products, line.product_id), "niveau", 0) or 0)
+            for line in lines
+        }
+        used_ids = {line.product_id for line in lines}
+        target_total = max(float(payload.budget), 1.0)
+
+        for level in VALID_LEVELS:
+            if level not in available_levels or level in present_levels:
+                continue
+            candidate = self._best_level_candidate(products, level, used_ids, target_total)
+            if not candidate:
+                continue
+            remaining_budget = max(target_total - sum(line.sous_total for line in lines), 0.0)
+            quantity = self._suggested_quantity(candidate, remaining_budget)
+            line = self._line_for_product(candidate, quantity)
+            if line:
+                lines.append(line)
+                used_ids.add(line.product_id)
+                present_levels.add(level)
+
+        return sorted(
+            lines,
+            key=lambda line: (
+                int(getattr(self._product_by_id(products, line.product_id), "niveau", 2) or 2),
+                line.product_id,
+            ),
+        )
+
+    def _best_level_candidate(
+        self,
+        products: list[Product],
+        level: int,
+        used_ids: set[int],
+        budget: float,
+    ) -> Product | None:
+        candidates = [
+            product
+            for product in products
+            if int(product.niveau or 0) == level
+            and int(product.id) not in used_ids  # type: ignore[arg-type]
+            and float(product.stock or 0) > 0
+        ]
+        if not candidates:
+            return None
+
+        return min(
+            candidates,
+            key=lambda product: (
+                0 if self._unit_price(product) <= budget else 1,
+                self._unit_price(product),
+                int(product.id),  # type: ignore[arg-type]
+            ),
+        )
+
+    def _suggested_quantity(self, product: Product, remaining_budget: float) -> float:
+        unit = str(product.unite or "kg").lower()
+        price = max(self._unit_price(product), 0.01)
+        stock = max(float(product.stock or 0), 0.0)
+        step = 1.0 if unit != "kg" else 0.5
+        minimum = step
+
+        if remaining_budget > 0:
+            affordable = max(minimum, (remaining_budget / max(price, 0.01)) * 0.75)
+            quantity = min(affordable, stock or affordable)
+        else:
+            quantity = min(minimum, stock or minimum)
+
+        if unit == "kg":
+            quantity = round(max(minimum, round(quantity / step) * step), 2)
+        else:
+            quantity = round(max(minimum, round(quantity)), 2)
+        return min(quantity, stock) if stock > 0 else quantity
+
+    def _line_for_product(self, product: Product, quantity: float) -> LignePanierResponseDTO | None:
+        stock = max(float(product.stock or 0), 0.0)
+        effective_quantity = min(quantity, stock) if stock > 0 else quantity
+        if effective_quantity <= 0:
+            return None
+
+        unit_price = self._unit_price(product)
+        subtotal = round(unit_price * effective_quantity, 2)
+        return LignePanierResponseDTO(
+            product_id=int(product.id),  # type: ignore[arg-type]
+            nom_produit=str(product.nom_fr),
+            quantite_kg=round(effective_quantity, 2),
+            prix_unitaire=unit_price,
+            sous_total=subtotal,
+            unite=str(product.unite),
+            image=str(product.image_url) if product.image_url else get_product_image(str(product.nom_fr)),
+        )
+
+    def _persist_panier(
+        self,
+        session,
+        user_id: int | None,
+        lignes: list[LignePanierResponseDTO],
+    ) -> int | None:
+        if user_id is None:
+            return None
+
+        sous_total = round(sum(line.sous_total for line in lignes), 2)
+        total_legumes = round(sum(line.quantite_kg for line in lignes), 2)
+        frais_livraison = 0.0 if sous_total >= SEUIL_LIVRAISON_GRATUITE else DELIVERY_FEE
+        montant_total = round(sous_total + frais_livraison, 2)
+
+        if self.panier_dao is None:
+            raise MLModelUnavailableError("DAO panier non configure pour la persistence ML.")
+
+        panier = self.panier_dao.create_panier_draft(
+            session=session,
+            user_id=user_id,
+            total_legumes=total_legumes,
+            total_facture=montant_total,
+        )
+        try:
+            with session.begin_nested():
+                self.panier_dao.create_commande_draft(
+                    session=session,
+                    client_id=user_id,
+                    panier_id=int(panier.id),  # type: ignore[arg-type]
+                    montant_total=montant_total,
+                )
+        except IntegrityError:
+            pass
+
+        for line in lignes:
+            self.panier_dao.create_ligne_panier(
+                session=session,
+                panier_id=int(panier.id),  # type: ignore[arg-type]
+                produit_id=line.product_id,
+                quantite_kg=line.quantite_kg,
+                sous_total=line.sous_total,
+            )
+        session.commit()
+        return int(panier.id)  # type: ignore[arg-type]
 
     def _resolve_product(
         self,
@@ -330,10 +559,30 @@ class MLPanierService:
         if product_id in products_by_id:
             return products_by_id[product_id]
 
-        raw_name = item.get("nom_fr") or item.get("nom_produit") or item.get("name")
+        raw_name = (
+            item.get("nom_fr")
+            or item.get("nom_produit")
+            or item.get("produit_fr")
+            or item.get("name")
+            or item.get("produit")
+        )
         if not raw_name:
             return None
-        return products_by_name.get(self._normalize(str(raw_name)))
+        normalized_name = self._normalize(str(raw_name))
+        if normalized_name in products_by_name:
+            return products_by_name[normalized_name]
+
+        for key, product in products_by_name.items():
+            if normalized_name in key or key in normalized_name:
+                return product
+        return None
+
+    def _product_by_id(self, products: list[Product], product_id: int) -> Product | None:
+        return next((product for product in products if int(product.id) == product_id), None)  # type: ignore[arg-type]
+
+    def _unit_price(self, product: Product) -> float:
+        prix_affiche = getattr(product, "prix_affiche", None)
+        return round(float(prix_affiche if prix_affiche is not None else product.prix_kg), 2)  # type: ignore[arg-type]
 
     def _positive_float(self, value: Any) -> float | None:
         try:
@@ -343,15 +592,9 @@ class MLPanierService:
         return parsed if parsed > 0 else None
 
     def _normalize(self, value: str) -> str:
-        return (
-            value.strip()
-            .lower()
-            .replace("é", "e")
-            .replace("è", "e")
-            .replace("ê", "e")
-            .replace("à", "a")
-            .replace("ç", "c")
-        )
+        normalized = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
+        normalized = re.sub(r"[^a-zA-Z0-9]+", " ", normalized.lower()).strip()
+        return re.sub(r"\s+", " ", normalized)
 
 
 ml_panier_service = MLPanierService()
