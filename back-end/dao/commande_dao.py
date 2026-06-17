@@ -1,4 +1,5 @@
 from datetime import date, datetime, time
+from zoneinfo import ZoneInfo
 from sqlalchemy import func, update as sqlalchemy_update
 from sqlalchemy.orm import Session, joinedload, selectinload, with_loader_criteria
 from typing import Any, Iterable, Optional, List
@@ -43,15 +44,8 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
             langue_detectee=langue
         )
         session.add(cmd)
-        session.flush()
-        try:
-            session.commit()
-            session.refresh(cmd)
-            return cmd
-        except Exception as e:
-            session.rollback()
-            print(f"Erreur create commande: {e}")
-            return None
+        session.flush()  # assigne l'id sans committer ; le commit est gere par le service (__exit__)
+        return cmd
 
     def create_ligne(
         self, session: Session, commande_id: int, product_id: int,
@@ -68,13 +62,8 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
             message_ajustement=message
         )
         session.add(ligne)
-        try:
-            session.commit()
-            return True
-        except Exception as e:
-            session.rollback()
-            print(f"Erreur create ligne: {e}")
-            return False
+        session.flush()
+        return True
         
     def get_details_for_checkout(self, session: Session, commande_id: int) -> Optional[dict]:
         cmd = session.query(CommandeVocale).filter(CommandeVocale.id == commande_id).first()
@@ -659,7 +648,9 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
         return normalized_mode in {"cod", "cash", "especes", "especes_livraison", "cash_on_delivery"}
 
     def _today_bounds(self) -> tuple[datetime, datetime]:
-        today = date.today()
+        # Heure du Maroc (Africa/Casablanca), pas l'heure locale du serveur, pour que la
+        # fenetre "aujourd'hui" corresponde au fuseau metier (meme calcul que date_utils).
+        today = datetime.now(ZoneInfo("Africa/Casablanca")).date()
         return datetime.combine(today, time.min), datetime.combine(today, time.max)
 
     def _build_client_label(self, commande: Commande) -> str:
