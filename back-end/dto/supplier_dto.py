@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, validator
 
+from dto.phone_validator import validate_moroccan_phone
+
 
 class SupplierStatus(str, Enum):
     PENDING = "PENDING"
@@ -21,7 +23,7 @@ class AdminSupplierAction(str, Enum):
 class SupplierRequestDTO(BaseModel):
     shop_name: str = Field(min_length=2, max_length=180)
     description: Optional[str] = None
-    phone: str = Field(min_length=6, max_length=40)
+    phone: str
     address: str = Field(min_length=3)
     ville: Optional[str] = None
     code_postal: Optional[str] = None
@@ -29,6 +31,13 @@ class SupplierRequestDTO(BaseModel):
     logo_url: Optional[str] = None
     couverture_url: Optional[str] = None
     horaires: Optional[Dict[str, Any]] = None
+
+    @validator("phone")
+    def validate_phone(cls, v):
+        result = validate_moroccan_phone(v)
+        if result is None:
+            raise ValueError("Le téléphone du fournisseur est requis")
+        return result
 
 
 class SupplierProfileDTO(BaseModel):
@@ -53,12 +62,16 @@ class SupplierProfileDTO(BaseModel):
 class SupplierUpdateDTO(BaseModel):
     shop_name: Optional[str] = Field(default=None, min_length=2, max_length=180)
     description: Optional[str] = None
-    phone: Optional[str] = Field(default=None, min_length=6, max_length=40)
+    phone: Optional[str] = None
     address: Optional[str] = Field(default=None, min_length=3)
     ville: Optional[str] = None
     logo_url: Optional[str] = None
     couverture_url: Optional[str] = None
     horaires: Optional[Dict[str, Any]] = None
+
+    @validator("phone")
+    def validate_phone(cls, v):
+        return validate_moroccan_phone(v)
 
 
 class AdminSupplierValidationDTO(BaseModel):
