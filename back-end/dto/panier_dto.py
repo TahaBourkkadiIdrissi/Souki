@@ -47,12 +47,16 @@ class PanierDetailsDTO(BaseModel):
 
 
 ProfilPanier = Literal[
+    "aromates_herbes",
+    "cuisine_couscous",
+    "cuisine_tajine",
+    "equilibre",
+    "fruits_dominant",
     "legumes_base",
+    "legumes_verts",
+    "racines_tubercules",
     "salade_fraicheur",
     "soupe_hiver",
-    "cuisine_tajine",
-    "fruits_dominant",
-    "equilibre",
 ]
 
 
@@ -72,6 +76,7 @@ class PanierResponseDTO(BaseModel):
 
     status: str
     source: str
+    panier_id: Optional[int] = None
     criteres: Dict[str, object]
     lignes_panier: List[LignePanierResponseDTO] = Field(default_factory=list)
     total_dh: float = 0.0

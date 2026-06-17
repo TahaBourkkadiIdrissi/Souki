@@ -63,13 +63,17 @@ interface AIModalsProps {
 
 const personOptions = [1, 2, 3, 4, 5, 6, 7, 8]
 const durationOptions = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
-const profileOptions: Array<{ id: SmartBasketProfile; label: string }> = [
-  { id: "equilibre", label: "Equilibre" },
-  { id: "legumes_base", label: "Legumes de base" },
-  { id: "salade_fraicheur", label: "Salade fraicheur" },
-  { id: "soupe_hiver", label: "Soupe hiver" },
-  { id: "cuisine_tajine", label: "Cuisine tajine" },
-  { id: "fruits_dominant", label: "Fruits dominant" },
+const profileOptions: Array<{ id: SmartBasketProfile; label: string; helper: string }> = [
+  { id: "equilibre", label: "Equilibre", helper: "Panier varie pour la semaine" },
+  { id: "legumes_base", label: "Legumes de base", helper: "Essentiels du quotidien" },
+  { id: "salade_fraicheur", label: "Salade fraicheur", helper: "Crudites et produits frais" },
+  { id: "soupe_hiver", label: "Soupe hiver", helper: "Legumes pour soupes" },
+  { id: "cuisine_tajine", label: "Cuisine tajine", helper: "Selection pour plats marocains" },
+  { id: "cuisine_couscous", label: "Cuisine couscous", helper: "Profil couscous complet" },
+  { id: "fruits_dominant", label: "Fruits dominant", helper: "Plus de fruits dans le panier" },
+  { id: "legumes_verts", label: "Legumes verts", helper: "Produits verts et legers" },
+  { id: "racines_tubercules", label: "Racines & tubercules", helper: "Pommes de terre, carottes..." },
+  { id: "aromates_herbes", label: "Aromates & herbes", helper: "Menthe, persil, coriandre..." },
 ]
 
 export function AIModals({
@@ -337,8 +341,9 @@ export function AIModals({
       image: line.image,
     }))
     const encodedCart = encodeURIComponent(JSON.stringify(checkoutCart))
+    const panierQuery = smartResult.panier_id ? `&panier_id=${smartResult.panier_id}` : ""
     closeModal()
-    router.push(`/checkout?source=smart&cart=${encodedCart}`)
+    router.push(`/checkout?source=smart${panierQuery}&cart=${encodedCart}`)
   }
 
   const smartPreview = (smartResult?.lignes_panier ?? []).map((line: SmartBasketLine) => {
@@ -687,22 +692,48 @@ export function AIModals({
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-[#264129]">
-                  Profil du panier
-                </label>
-                <div className="relative">
-                  <select
-                    value={profile}
-                    onChange={(event) => setProfile(event.target.value as SmartBasketProfile)}
-                    className="w-full appearance-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 pr-10 text-[#264129] outline-none transition-all focus:border-[#F07C00]"
-                  >
-                    {profileOptions.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#6C7E6E]" />
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <label className="block text-sm font-semibold text-[#264129]">
+                    Profil du panier
+                  </label>
+                  <span className="rounded-full bg-[#FFF5EB] px-3 py-1 text-xs font-bold text-[#C96A00]">
+                    {profileOptions.length} profils
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {profileOptions.map((option) => {
+                    const selected = profile === option.id
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setProfile(option.id)}
+                        className={cn(
+                          "min-h-[72px] rounded-2xl border p-3 text-left transition-all",
+                          selected
+                            ? "border-[#F07C00] bg-[#FFF5EB] shadow-sm"
+                            : "border-gray-200 bg-gray-50 hover:border-[#F5D4AE] hover:bg-white"
+                        )}
+                        aria-pressed={selected}
+                      >
+                        <span className="flex items-start justify-between gap-3">
+                          <span className="min-w-0">
+                            <span className="block text-sm font-bold text-[#264129]">
+                              {option.label}
+                            </span>
+                            <span className="mt-1 block text-xs font-medium leading-4 text-[#6C7E6E]">
+                              {option.helper}
+                            </span>
+                          </span>
+                          {selected && (
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#F07C00] text-white">
+                              <Check className="h-3.5 w-3.5" />
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 

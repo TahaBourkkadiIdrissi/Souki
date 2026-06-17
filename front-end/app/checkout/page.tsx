@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils"
 import {
   DELIVERY_FEE,
   FREE_DELIVERY_THRESHOLD,
+  CatalogueProduct,
   fetchCatalogueProducts,
   getCataloguePresentation,
 } from "@/lib/catalogue"
@@ -116,6 +117,7 @@ function CheckoutContent() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [catalogueImages, setCatalogueImages] = useState<Record<number, string>>({})
   const [cataloguePrices, setCataloguePrices] = useState<Record<number, number>>({})
+  const [catalogueProducts, setCatalogueProducts] = useState<CatalogueProduct[]>([])
   const [mapboxModalOpen, setMapboxModalOpen] = useState(false)
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
 
@@ -274,6 +276,7 @@ function CheckoutContent() {
           acc[product.id] = product.price
           return acc
         }, {})
+        setCatalogueProducts(products)
         setCatalogueImages(imageMap)
         setCataloguePrices(priceMap)
       })
@@ -354,6 +357,13 @@ function CheckoutContent() {
   const walletDiscount = 0
   const total = subtotal + deliveryFee - walletDiscount
   const savings = merchantPrice - subtotal
+  const cartProductIds = new Set(cart.map((item) => Number(item.id)))
+  const suggestionsByLevel = [1, 2, 3].map((level) => ({
+    level,
+    items: catalogueProducts
+      .filter((product) => product.niveau === level && product.stock > 0 && !cartProductIds.has(product.id))
+      .slice(0, 3),
+  })).filter((group) => group.items.length > 0)
 
   const updateQuantity = (id: string, delta: number) => {
     setCart(prev => prev.map(item => {
@@ -367,6 +377,30 @@ function CheckoutContent() {
 
   const removeItem = (id: string) => {
     setCart(prev => prev.filter(item => item.id !== id))
+  }
+
+  const addSuggestionToCart = (product: CatalogueProduct) => {
+    setCart((prev) => {
+      const existing = prev.find((item) => item.id === String(product.id))
+      if (existing) {
+        return prev.map((item) =>
+          item.id === String(product.id)
+            ? { ...item, quantity: Number((item.quantity + product.quantityStep).toFixed(2)) }
+            : item
+        )
+      }
+      return [
+        ...prev,
+        {
+          id: String(product.id),
+          name: product.name,
+          price: product.price,
+          quantity: product.quantityStep,
+          unit: product.unit,
+          image: product.image,
+        },
+      ]
+    })
   }
 
   // Handle address detection from Mapbox
@@ -617,6 +651,50 @@ function CheckoutContent() {
                 </div>
               </div>
             </div>
+
+            {isSmartBasket && suggestionsByLevel.length > 0 && (
+              <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+                <div className="border-b border-gray-100 p-5 sm:p-6">
+                  <h2 className="text-lg font-bold text-[#1E8A3C]">Completer le panier par niveau</h2>
+                  <p className="mt-1 text-sm font-medium text-[#6F8070]">
+                    Suggestions catalogue pour enrichir votre panier genere.
+                  </p>
+                </div>
+                <div className="space-y-5 p-5 sm:p-6">
+                  {suggestionsByLevel.map((group) => (
+                    <div key={group.level}>
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <span className="text-sm font-bold text-[#264129]">Niveau {group.level}</span>
+                        <span className="rounded-full bg-[#F0FAF1] px-3 py-1 text-xs font-bold text-[#1E8A3C]">
+                          {group.items.length} suggestion{group.items.length > 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        {group.items.map((product) => (
+                          <div key={product.id} className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+                            <img src={product.image} alt={product.name} className="h-24 w-full object-cover" />
+                            <div className="p-3">
+                              <p className="truncate text-sm font-semibold text-[#264129]">{product.name}</p>
+                              <p className="mt-1 text-xs font-medium text-[#6F8070]">
+                                {product.price.toFixed(2)} DH/{product.displayUnit}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => addSuggestionToCart(product)}
+                                className="mt-3 flex min-h-9 w-full items-center justify-center gap-2 rounded-xl bg-[#1E8A3C] px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-[#176B2E]"
+                              >
+                                <Plus className="h-4 w-4" />
+                                Ajouter
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Column - Details */}
