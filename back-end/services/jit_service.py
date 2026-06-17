@@ -15,6 +15,7 @@ from interfaces.jit_dao_interface import IJITDao
 from interfaces.jit_service_interface import IJITService
 from interfaces.zone_jit_dao_interface import IZoneJITDao
 from services.commande_state_machine import changer_statut
+from services.date_utils import today_morocco
 from services.notification_jit_service import notifier_fournisseur
 from services.zone_resolver import resoudre_zone
 
@@ -37,7 +38,7 @@ class JITService(IJITService):
         self.zone_jit_dao = zone_jit_dao
 
     def _today_bounds(self) -> tuple[datetime, datetime]:
-        today = date.today()
+        today = today_morocco()  # heure du Maroc, pas l'heure locale du serveur
         return datetime.combine(today, time.min), datetime.combine(today, time.max)
 
     def _count_locked_commandes_today(self, session: Session) -> int:
@@ -197,23 +198,30 @@ class JITService(IJITService):
 
             nombre_verrouillees = 0
             for commande in commandes:
-                current_status = str(commande.statut or "").strip().upper()
-                if current_status == "EN_ATTENTE":
-                    changer_statut(
-                        session=session,
-                        commande=commande,
-                        nouveau_statut="CONFIRMEE",
-                        actor_id=actor_id,
-                        reason="JIT_CONFIRMATION",
-                    )
-                changer_statut(
-                    session=session,
-                    commande=commande,
-                    nouveau_statut=LOCKED_JIT_STATUS,
-                    actor_id=actor_id,
-                    reason="JIT_LOCK",
-                )
-                nombre_verrouillees += 1
+                # Savepoint par commande : une commande qui echoue (statut inattendu,
+                # erreur transitoire) est ignoree et loggee, sans abandonner le verrouillage
+                # des autres commandes du jour.
+                try:
+                    with session.begin_nested():
+                        current_status = str(commande.statut or "").strip().upper()
+                        if current_status == "EN_ATTENTE":
+                            changer_statut(
+                                session=session,
+                                commande=commande,
+                                nouveau_statut="CONFIRMEE",
+                                actor_id=actor_id,
+                                reason="JIT_CONFIRMATION",
+                            )
+                        changer_statut(
+                            session=session,
+                            commande=commande,
+                            nouveau_statut=LOCKED_JIT_STATUS,
+                            actor_id=actor_id,
+                            reason="JIT_LOCK",
+                        )
+                    nombre_verrouillees += 1
+                except Exception as exc:
+                    print(f"Commande {commande.id} non verrouillee (ignoree): {exc}")
 
             session.flush()
             return nombre_verrouillees
@@ -362,17 +370,17 @@ class JITService(IJITService):
             session.rollback()
 
             try:
-                error_session = LocalSession()
+                # Reutilise la session injectee (deja rollback, donc propre) pour journaliser
+                # l'erreur, au lieu de creer un LocalSession() dans le service (cf. MVC2).
                 error_log = self.jit_dao.create_log(
-                    error_session,
+                    session,
                     volume_total=0.0,
                     nombre_commandes=0,
                     nombre_abonnements=0,
                     statut="erreur",
                     message_alerte=f"Erreur: {exc}",
                 )
-                error_session.commit()
-                error_session.close()
+                session.commit()
                 return error_log or JITLogDTO(
                     volume_total=0.0,
                     nombre_commandes=0,
@@ -381,6 +389,7 @@ class JITService(IJITService):
                     message_alerte=str(exc),
                 )
             except Exception as log_error:
+                session.rollback()
                 print(f"Erreur lors de la creation du log d'erreur: {log_error}")
                 return JITLogDTO(
                     volume_total=0.0,
