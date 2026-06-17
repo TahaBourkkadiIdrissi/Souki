@@ -720,7 +720,7 @@ export default function AdminPricingPage() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-bold text-gray-950">Nouveau produit</h2>
-                <p className="mt-1 text-sm text-gray-500">Le stock initial sera cree a 0.0.</p>
+                <p className="mt-1 text-sm text-gray-500">Le stock initial sera cree a 999.</p>
               </div>
               <button
                 type="button"

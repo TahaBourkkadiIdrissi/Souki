@@ -93,7 +93,7 @@ class ProduitPricingDaoBD(IProduitPricingDao):
             nom_darija=data.nom_darija,
             prix_kg=data.prix_kg,
             unite=data.unite,
-            stock=0.0,
+            stock=999.0,
             is_active=True,
             niveau=data.niveau or 2,
             marge_cible=data.marge_cible or 0.25,
