@@ -110,13 +110,8 @@ class ProductDaoBD(IProductDao):
         product = session.query(Product).filter(Product.id == product_id).first()
         if product and float(product.stock) >= quantity:
             product.stock = float(product.stock) - quantity
-            try:
-                session.commit()
-                return True
-            except Exception as e:
-                session.rollback()
-                print(f"Erreur decrement stock: {e}")
-                return False
+            session.flush()  # le commit est gere par le service appelant (__exit__)
+            return True
         return False
 
     def sync_catalogue(self, session: Session, products_data: List[dict]) -> None:
