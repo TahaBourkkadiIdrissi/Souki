@@ -133,7 +133,9 @@ class ClientBlacklistService(IClientBlacklistService):
             raise HTTPException(status_code=400, detail="Motif obligatoire.")
 
         try:
-            client = session.get(Client, client_id)
+            # Verrou de ligne : serialise les demandes concurrentes du meme client
+            # pour eviter d'inserer deux demandes de levee en attente en parallele (anti-spam).
+            client = session.get(Client, client_id, with_for_update=True)
             if not client or not client.is_blacklisted:
                 raise HTTPException(status_code=400, detail="Client non blackliste.")
 
