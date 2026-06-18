@@ -71,8 +71,8 @@ export interface SmartBasketResponse {
 }
 
 export const CART_STORAGE_KEY = "souki-cart"
-export const FREE_DELIVERY_THRESHOLD = 80
-export const DELIVERY_FEE = 10
+export const FREE_DELIVERY_THRESHOLD = 300
+export const DELIVERY_FEE = 15
 export const POTATO_IMAGE_URL =
   "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=800&h=600&fit=crop"
 
