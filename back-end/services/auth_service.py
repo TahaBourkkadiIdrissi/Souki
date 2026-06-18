@@ -7,6 +7,7 @@ from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 
 from config import GOOGLE_CLIENT_ID, LocalSession
+from dao.client_blacklist_dao import ClientBlacklistDaoBD
 from dao.user_dao import UserDao
 from entities.client_entity import Client
 from entities.client_blacklist_log_entity import ClientBlacklistLog
@@ -26,6 +27,7 @@ OTP_RESEND_WINDOW_HOURS = 1
 OTP_MAX_ATTEMPTS = 5
 
 _dao = UserDao()
+_blacklist_dao = ClientBlacklistDaoBD()
 _email_service = EmailDeliveryService()
 
 
@@ -80,6 +82,16 @@ class AuthService:
                 db.flush()
                 if user.client_profile is not None:
                     user.client_profile.is_blacklisted = True
+                    # Trace BLACKLISTED pour le nouveau client : il apparait dans la liste
+                    # admin et le rapport, et reste coherent avec le flag (flag + log ensemble).
+                    _blacklist_dao.create_log(
+                        session=db,
+                        client_id=int(user.id),
+                        action="BLACKLISTED",
+                        source="REINSCRIPTION",
+                        phone_snapshot=user.phone,
+                        reason="Reinscription d'un numero deja blackliste",
+                    )
             self._ensure_rbac_role_assignment(db, user, role)
             db.commit()
 
