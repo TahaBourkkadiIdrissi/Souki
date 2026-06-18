@@ -5,29 +5,28 @@ import { Download, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { isPwaStandalone } from "@/lib/pwa"
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>
 }
 
-type NavigatorWithStandalone = Navigator & {
-  standalone?: boolean
-}
-
-function isStandaloneMode() {
-  return (
-    window.matchMedia("(display-mode: standalone)").matches ||
-    window.matchMedia("(display-mode: fullscreen)").matches ||
-    (navigator as NavigatorWithStandalone).standalone === true
-  )
-}
-
 export function PwaInstallPrompt() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [isVisible, setIsVisible] = useState(false)
+  const [isStandalone, setIsStandalone] = useState(true)
 
   useEffect(() => {
+    if (isPwaStandalone()) {
+      setIsStandalone(true)
+      setIsVisible(false)
+      return
+    }
+
+    setIsStandalone(false)
+    setIsVisible(true)
+
     if (!("serviceWorker" in navigator)) {
       return
     }
@@ -79,7 +78,7 @@ export function PwaInstallPrompt() {
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault()
 
-      if (isStandaloneMode() || sessionStorage.getItem("souki-pwa-install-dismissed") === "true") {
+      if (isPwaStandalone()) {
         return
       }
 
@@ -90,7 +89,6 @@ export function PwaInstallPrompt() {
     const handleAppInstalled = () => {
       setInstallPrompt(null)
       setIsVisible(false)
-      sessionStorage.setItem("souki-pwa-install-dismissed", "true")
     }
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt)
@@ -108,22 +106,60 @@ export function PwaInstallPrompt() {
     }
 
     await installPrompt.prompt()
-    const choice = await installPrompt.userChoice
-
-    if (choice.outcome === "accepted") {
-      sessionStorage.setItem("souki-pwa-install-dismissed", "true")
-    }
+    await installPrompt.userChoice
 
     setInstallPrompt(null)
     setIsVisible(false)
   }
 
   const dismiss = () => {
-    sessionStorage.setItem("souki-pwa-install-dismissed", "true")
     setIsVisible(false)
   }
 
   if (!isVisible || !installPrompt) {
+    if (!isVisible || isStandalone) {
+      return null
+    }
+
+    return (
+      <div
+        className={cn(
+          "fixed inset-x-3 bottom-24 z-[70] mx-auto max-w-md rounded-lg border border-green-market/20 bg-white p-3 shadow-2xl shadow-black/15",
+          "md:bottom-5 md:right-5 md:left-auto md:mx-0",
+          "dark:border-green-fresh/25 dark:bg-card",
+        )}
+        role="status"
+        aria-live="polite"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-green-market text-white">
+            <Download className="size-5" aria-hidden="true" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-foreground">Installer SOUKI</p>
+            <p className="text-xs leading-5 text-muted-foreground">
+              Ajoutez SOUKI a votre ecran d'accueil pour l'ouvrir comme une application.
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            className="shrink-0"
+            onClick={dismiss}
+            aria-label="Masquer l'installation"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </Button>
+        </div>
+        <p className="mt-3 rounded-md bg-green-market/10 px-3 py-2 text-xs font-medium leading-5 text-green-market">
+          Si le bouton natif n'apparait pas, ouvrez le menu du navigateur puis choisissez Ajouter a l'ecran d'accueil.
+        </p>
+      </div>
+    )
+  }
+
+  if (!isVisible || isStandalone) {
     return null
   }
 

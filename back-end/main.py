@@ -137,7 +137,17 @@ def preload_ml_panier_model() -> None:
     ml_panier_service.load_model()
     ml_panier_service.warmup_remote_model()
     if ml_panier_service.load_error:
-        print(f"[STARTUP] Panier intelligent en mode fallback: {ml_panier_service.load_error}")
+        if env_flag("SOUKI_ML_REQUIRE_REMOTE", False):
+            message = (
+                "Panier intelligent indisponible: le modele Hugging Face distant est requis, "
+                f"mais le prechargement a echoue. Detail: {ml_panier_service.load_error}"
+            )
+            if env_flag("SOUKI_ML_FAIL_STARTUP_ON_REMOTE_ERROR", False):
+                raise RuntimeError(message)
+            print(f"[STARTUP] {message}")
+            return
+        print("[STARTUP] Panier intelligent disponible via fallback local")
+        print(f"[STARTUP] Detail HF panier: {ml_panier_service.load_error}")
     else:
         print("[STARTUP] Modele panier intelligent precharge")
 

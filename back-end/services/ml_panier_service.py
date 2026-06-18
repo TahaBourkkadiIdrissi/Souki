@@ -117,7 +117,7 @@ class MLPanierService:
             self._load_error = None
         except HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="ignore")
-            self._load_error = f"Prechargement HF indisponible ({exc.code}): {detail[:240]}"
+            self._load_error = self._format_hf_error("Prechargement HF", exc.code, detail)
         except (TimeoutError, URLError) as exc:
             self._load_error = f"Prechargement HF indisponible: {exc}"
         except Exception as exc:
@@ -145,6 +145,11 @@ class MLPanierService:
             generated = self._generate_with_hugging_face(payload, products)
             source = "huggingface_inference"
             if generated is None:
+                if self._is_remote_required():
+                    raise MLModelUnavailableError(
+                        self._load_error
+                        or "Modele Hugging Face requis, mais aucune reponse exploitable n'a ete recue."
+                    )
                 generated = self._generate_from_fallback(payload)
                 source = "dataset_fallback"
 
@@ -174,6 +179,9 @@ class MLPanierService:
 
     def _get_hf_token(self) -> str | None:
         return os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACEHUB_API_TOKEN")
+
+    def _is_remote_required(self) -> bool:
+        return os.getenv("SOUKI_ML_REQUIRE_REMOTE", "0").strip().lower() in {"1", "true", "yes", "on"}
 
     def _generate_with_hugging_face(
         self,
@@ -217,7 +225,7 @@ class MLPanierService:
             return self._extract_json_from_hf_response(raw)
         except HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="ignore")
-            self._load_error = f"Inference HF indisponible ({exc.code}): {detail[:240]}"
+            self._load_error = self._format_hf_error("Inference HF", exc.code, detail)
         except (TimeoutError, URLError) as exc:
             self._load_error = f"Inference HF indisponible: {exc}"
         except Exception as exc:
@@ -277,6 +285,24 @@ class MLPanierService:
             text = str(parsed_response)
 
         return self._extract_json(text)
+
+    def _format_hf_error(self, context: str, code: int, detail: str) -> str:
+        if "protobuf" in detail.lower():
+            if self._is_remote_required():
+                return (
+                    f"{context} indisponible ({code}): dependance protobuf manquante cote service Hugging Face. "
+                    "Modele distant requis, fallback refuse."
+                )
+            return (
+                f"{context} indisponible ({code}): dependance protobuf manquante cote service Hugging Face. "
+                "Fallback local actif."
+            )
+        if "'list' object has no attribute 'keys'" in detail:
+            return (
+                f"{context} indisponible ({code}): version transformers incompatible cote Space Hugging Face. "
+                "Le tokenizer du modele utilise le format transformers v5; mets transformers>=5.12.1 dans le Space."
+            )
+        return f"{context} indisponible ({code}): {detail[:240]}"
 
     def _load_fallback_compositions(self) -> None:
         if not self._fallback_path.exists():
