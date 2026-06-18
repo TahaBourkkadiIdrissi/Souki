@@ -30,29 +30,28 @@ class ClientBlacklistService(IClientBlacklistService):
     ) -> None:
         motif = motif or "Refus de livraison"
 
-        try:
-            client = session.get(Client, client_id)
-            if client is None:
-                raise HTTPException(status_code=404, detail="Client introuvable.")
+        client = session.get(Client, client_id)
+        if client is None:
+            raise HTTPException(status_code=404, detail="Client introuvable.")
 
-            user = session.get(User, client_id)
-            client.is_blacklisted = True
-            self.client_blacklist_dao.flush(session)
+        user = session.get(User, client_id)
+        client.is_blacklisted = True
+        self.client_blacklist_dao.flush(session)
 
-            self.client_blacklist_dao.create_log(
-                session=session,
-                client_id=client_id,
-                action="BLACKLISTED",
-                source="AUTO_REFUS",
-                phone_snapshot=user.phone if user else None,
-                reason=motif,
-                commande_id=commande_id,
-                livreur_id=livreur_id,
-            )
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
+        # Pas de commit/rollback ici : cette methode est appelee au milieu de la
+        # transaction de LivreurService (refus de livraison). C'est l'appelant qui
+        # commit (ou rollback) a la fin, pour que refus + blacklist + notification
+        # soient atomiques (tout ou rien).
+        self.client_blacklist_dao.create_log(
+            session=session,
+            client_id=client_id,
+            action="BLACKLISTED",
+            source="AUTO_REFUS",
+            phone_snapshot=user.phone if user else None,
+            reason=motif,
+            commande_id=commande_id,
+            livreur_id=livreur_id,
+        )
 
     def blacklist_manual(
         self,
