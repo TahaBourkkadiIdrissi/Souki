@@ -289,7 +289,8 @@ class ClientBlacklistDaoBD(IClientBlacklistDao):
                 func.coalesce(func.sum(Commande.montant_total), 0).label("montant_perdu"),
             )
             .select_from(ClientBlacklistLog)
-            .join(User, User.id == ClientBlacklistLog.client_id)
+            .join(Client, Client.user_id == ClientBlacklistLog.client_id)
+            .join(User, User.id == Client.user_id)
             .outerjoin(Commande, Commande.id == ClientBlacklistLog.commande_id)
             .filter(*base_filters)
             .group_by(ClientBlacklistLog.client_id, User.email, User.phone)
@@ -365,7 +366,8 @@ class ClientBlacklistDaoBD(IClientBlacklistDao):
                 Address.neighborhood.label("quartier"),
             )
             .select_from(ClientBlacklistLog)
-            .join(User, User.id == ClientBlacklistLog.client_id)
+            .join(Client, Client.user_id == ClientBlacklistLog.client_id)
+            .join(User, User.id == Client.user_id)
             .outerjoin(Commande, Commande.id == ClientBlacklistLog.commande_id)
             .outerjoin(Livreur, Livreur.user_id == ClientBlacklistLog.livreur_id)
             .outerjoin(livreur_user, livreur_user.id == Livreur.user_id)
