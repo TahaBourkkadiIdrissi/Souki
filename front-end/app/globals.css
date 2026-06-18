@@ -272,6 +272,22 @@
   42%, 72% { transform: translateY(1px); }
 }
 
+@keyframes pwa-leaf-float {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(-18deg); opacity: 0.72; }
+  32% { transform: translate3d(10px, -14px, 0) rotate(14deg); opacity: 1; }
+  68% { transform: translate3d(-8px, 8px, 0) rotate(-32deg); opacity: 0.82; }
+}
+
+@keyframes pwa-tree-sway {
+  0%, 100% { transform: rotate(-2deg) scaleY(1); }
+  50% { transform: rotate(2deg) scaleY(1.04); }
+}
+
+@keyframes pwa-word-drift {
+  0%, 100% { transform: translate3d(-2px, 0, 0); opacity: 0.1; }
+  50% { transform: translate3d(4px, -3px, 0); opacity: 0.16; }
+}
+
 .animate-pulse-cta {
   animation: pulse-cta 2s ease-in-out infinite;
 }
@@ -287,6 +303,148 @@
 .animate-slow-zoom {
   animation: slow-zoom 8s ease-in-out infinite alternate;
   will-change: transform;
+}
+
+.pwa-hero-scene {
+  min-height: 430px;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.18), transparent 34%),
+    linear-gradient(180deg, #12351F 0%, #1E8A3C 58%, #DFF3D6 100%);
+}
+
+.pwa-hero-scene::after {
+  position: absolute;
+  inset: auto 0 0;
+  height: 34%;
+  content: "";
+  background: linear-gradient(180deg, transparent, rgba(246, 247, 239, 0.72));
+  pointer-events: none;
+}
+
+.pwa-hero-avatar {
+  height: 16.5rem;
+  width: 16.5rem;
+  filter: drop-shadow(0 26px 30px rgba(31, 37, 33, 0.24));
+}
+
+.pwa-word {
+  position: absolute;
+  z-index: 0;
+  color: #fff;
+  font-weight: 900;
+  line-height: 0.9;
+  pointer-events: none;
+  animation: pwa-word-drift 8s ease-in-out infinite;
+}
+
+.pwa-word-top {
+  left: -0.35rem;
+  right: -0.35rem;
+  top: 5.8rem;
+  font-size: 4rem;
+  text-align: center;
+}
+
+.pwa-word-bottom {
+  bottom: 8.1rem;
+  left: -0.25rem;
+  right: -0.25rem;
+  font-size: 2.55rem;
+  text-align: center;
+  animation-delay: -2.2s;
+}
+
+.pwa-leaf {
+  position: absolute;
+  z-index: 1;
+  width: 2rem;
+  height: 1.15rem;
+  border-radius: 100% 0 100% 0;
+  background: linear-gradient(135deg, #B7EA84, #1E8A3C);
+  box-shadow: 0 10px 22px rgba(20, 53, 31, 0.16);
+  animation: pwa-leaf-float 5.4s ease-in-out infinite;
+}
+
+.pwa-leaf::after {
+  position: absolute;
+  inset: 50% 14% auto 18%;
+  height: 1px;
+  content: "";
+  background: rgba(255, 255, 255, 0.72);
+  transform: rotate(-22deg);
+}
+
+.pwa-leaf-one {
+  left: 1.15rem;
+  top: 8.7rem;
+}
+
+.pwa-leaf-two {
+  right: 1.35rem;
+  top: 11.6rem;
+  transform: rotate(36deg);
+  animation-delay: -1.4s;
+}
+
+.pwa-leaf-three {
+  left: 2.4rem;
+  bottom: 7.8rem;
+  width: 1.55rem;
+  height: 0.95rem;
+  animation-delay: -2.6s;
+}
+
+.pwa-leaf-four {
+  right: 2.6rem;
+  bottom: 9.4rem;
+  width: 1.65rem;
+  height: 1rem;
+  animation-delay: -3.7s;
+}
+
+.pwa-tree {
+  position: absolute;
+  z-index: 0;
+  bottom: 5.3rem;
+  width: 4rem;
+  height: 7rem;
+  opacity: 0.22;
+  transform-origin: center bottom;
+  animation: pwa-tree-sway 6s ease-in-out infinite;
+}
+
+.pwa-tree::before {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 0.45rem;
+  height: 4rem;
+  content: "";
+  background: rgba(20, 53, 31, 0.5);
+  border-radius: 999px;
+  transform: translateX(-50%);
+}
+
+.pwa-tree::after {
+  position: absolute;
+  left: 50%;
+  bottom: 2.2rem;
+  width: 3.6rem;
+  height: 3.6rem;
+  content: "";
+  background: rgba(255, 255, 255, 0.42);
+  border-radius: 50% 50% 44% 50%;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.pwa-tree-left {
+  left: 0.2rem;
+}
+
+.pwa-tree-right {
+  right: 0.25rem;
+  bottom: 6rem;
+  animation-delay: -2s;
 }
 
 .souki-avatar-wave {

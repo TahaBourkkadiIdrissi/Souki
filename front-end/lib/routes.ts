@@ -48,6 +48,13 @@ export const ROUTES: RouteConfig[] = [
     blockedPermissions: ["admin.panel.access", "livreur.dashboard.access", "supplier.dashboard.view"],
   },
   {
+    path: "/pwa-welcome",
+    label: "Accueil application mobile",
+    authRequired: false,
+    allowedRoles: ["PUBLIC", "CLIENT", "PARENT"],
+    blockedPermissions: ["admin.panel.access", "livreur.dashboard.access", "supplier.dashboard.view"],
+  },
+  {
     path: "/login",
     label: "Choix du profil de connexion",
     match: "prefix",
