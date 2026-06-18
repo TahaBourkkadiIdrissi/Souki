@@ -25,12 +25,19 @@ import {
 import { API_BASE_URL } from "@/lib/api"
 import { isValidMoroccanPhone, normalizeMoroccanPhone, PHONE_ERROR_MSG } from "@/lib/phoneValidator"
 import { cn } from "@/lib/utils"
-import { fetchCatalogueProducts, getCataloguePresentation } from "@/lib/catalogue"
+import {
+  DELIVERY_FEE,
+  FREE_DELIVERY_THRESHOLD,
+  CatalogueProduct,
+  fetchCatalogueProducts,
+  getCataloguePresentation,
+} from "@/lib/catalogue"
 import { MapboxLocator } from "@/components/souki/mapbox-locator"
+import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
 
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&h=300&fit=crop"
-const SEUIL = 120
-const FRAIS = 15
+const SEUIL = FREE_DELIVERY_THRESHOLD
+const FRAIS = DELIVERY_FEE
 
 interface CartItem {
   id: string
@@ -78,7 +85,10 @@ function CheckoutContent() {
   const commandeId = searchParams.get('commande_id')
   const panierId = searchParams.get('panier_id')
   const cartParam = searchParams.get('cart')
-  const editCartHref = panierId
+  const isSmartBasket = searchParams.get('source') === 'smart'
+  const editCartHref = isSmartBasket
+    ? "/catalogue?assistant=smart"
+    : panierId
     ? `/catalogue?panier_id=${panierId}`
     : commandeId
       ? `/catalogue?commande_id=${commandeId}`
@@ -107,6 +117,8 @@ function CheckoutContent() {
   const [instructions, setInstructions] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [catalogueImages, setCatalogueImages] = useState<Record<number, string>>({})
+  const [cataloguePrices, setCataloguePrices] = useState<Record<number, number>>({})
+  const [catalogueProducts, setCatalogueProducts] = useState<CatalogueProduct[]>([])
   const [mapboxModalOpen, setMapboxModalOpen] = useState(false)
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
 
@@ -141,7 +153,10 @@ function CheckoutContent() {
       .map((line: any) => {
         const productId = Number(line.id ?? line.product_id)
         const productName = line.name || line.nom_produit || line.nom_fr || "Produit inconnu"
-        const price = Number(line.price ?? line.prix_unitaire ?? line.prix_kg ?? 0)
+        const currentCataloguePrice = Number.isFinite(productId) ? cataloguePrices[productId] : undefined
+        const price = Number(
+          currentCataloguePrice ?? line.price ?? line.prix_unitaire ?? line.prix_kg ?? 0
+        )
         const quantity = Number(
           line.quantity ?? line.quantite_effective ?? line.quantite_kg ?? 1
         )
@@ -258,7 +273,13 @@ function CheckoutContent() {
           acc[product.id] = product.image
           return acc
         }, {})
+        const priceMap = products.reduce<Record<number, number>>((acc, product) => {
+          acc[product.id] = product.price
+          return acc
+        }, {})
+        setCatalogueProducts(products)
         setCatalogueImages(imageMap)
+        setCataloguePrices(priceMap)
       })
       .catch(() => {
         // Fallback already handled in resolveCartItemImage.
@@ -327,7 +348,7 @@ function CheckoutContent() {
         { id: "4", name: "Carottes", price: 8.5, quantity: 2, unit: "kg", image: "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400&h=300&fit=crop" },
       ])
     }
-  }, [commandeId, panierId, cartParam, catalogueImages, token])
+  }, [commandeId, panierId, cartParam, catalogueImages, cataloguePrices, token])
 
   const merchantPrice = cart.reduce((sum, item) => sum + (item.price * 1.1) * item.quantity, 0)
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
@@ -337,6 +358,13 @@ function CheckoutContent() {
   const walletDiscount = 0
   const total = subtotal + deliveryFee - walletDiscount
   const savings = merchantPrice - subtotal
+  const cartProductIds = new Set(cart.map((item) => Number(item.id)))
+  const suggestionsByLevel = [1, 2, 3].map((level) => ({
+    level,
+    items: catalogueProducts
+      .filter((product) => product.niveau === level && product.stock > 0 && !cartProductIds.has(product.id))
+      .slice(0, 3),
+  })).filter((group) => group.items.length > 0)
 
   const updateQuantity = (id: string, delta: number) => {
     setCart(prev => prev.map(item => {
@@ -350,6 +378,30 @@ function CheckoutContent() {
 
   const removeItem = (id: string) => {
     setCart(prev => prev.filter(item => item.id !== id))
+  }
+
+  const addSuggestionToCart = (product: CatalogueProduct) => {
+    setCart((prev) => {
+      const existing = prev.find((item) => item.id === String(product.id))
+      if (existing) {
+        return prev.map((item) =>
+          item.id === String(product.id)
+            ? { ...item, quantity: Number((item.quantity + product.quantityStep).toFixed(2)) }
+            : item
+        )
+      }
+      return [
+        ...prev,
+        {
+          id: String(product.id),
+          name: product.name,
+          price: product.price,
+          quantity: product.quantityStep,
+          unit: product.unit,
+          image: product.image,
+        },
+      ]
+    })
   }
 
   // Handle address detection from Mapbox
@@ -390,7 +442,8 @@ function CheckoutContent() {
         delivery_city: city.trim(),
         delivery_instructions: instructions.trim() || null,
         // On envoie l'ID du brouillon vocal s'il existe, sinon null
-        brouillon_vocal_id: commandeId ? parseInt(commandeId) : null
+        brouillon_vocal_id: commandeId ? parseInt(commandeId) : null,
+        panier_id: panierId ? parseInt(panierId) : null
       }
 
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
@@ -442,8 +495,8 @@ function CheckoutContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F0]">
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
+    <div className="min-h-screen bg-[#F5F5F0] pb-24 md:pb-0">
+      <header className="sticky top-0 z-10 hidden glass-ios26 border-b border-gray-100 md:block">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-3">
             <div className="flex flex-col items-start gap-2">
@@ -472,8 +525,13 @@ function CheckoutContent() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-2xl lg:text-3xl font-bold text-[#1E8A3C] mb-8">Finaliser ma commande</h1>
+      <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 md:py-8 lg:px-8">
+        <div className="mb-6 md:mb-8">
+          <h1 className="text-2xl font-bold leading-tight text-[#1E8A3C] lg:text-3xl">Finaliser ma commande</h1>
+          <p className="mt-2 text-sm font-medium text-[#6F8070] md:hidden">
+            Vérifiez le panier, choisissez la livraison, puis confirmez.
+          </p>
+        </div>
 
         {voiceData && (
           <div className="bg-[#1E8A3C] text-white rounded-2xl p-5 mb-8 shadow-lg flex items-start gap-4">
@@ -498,39 +556,51 @@ function CheckoutContent() {
           </div>
         )}
 
-        <div className="grid lg:grid-cols-2 gap-8">
+        {isSmartBasket && (
+          <div className="bg-[#1E8A3C] text-white rounded-2xl p-5 mb-8 shadow-lg flex items-start gap-4">
+            <MessageCircle className="w-8 h-8 shrink-0 mt-1" />
+            <div>
+              <h2 className="font-bold text-lg mb-1">Panier intelligent IA-SOUKI</h2>
+              <p className="text-white/90">
+                {cart.length} article{cart.length > 1 ? "s" : ""} genere{cart.length > 1 ? "s" : ""} par le modele ML, affiches dans votre checkout.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(24rem,0.92fr)] lg:gap-8">
           {/* Left Column - Cart */}
-          <div className="space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-              <div className="p-6 border-b border-gray-100">
-                <h2 className="text-xl font-bold text-[#1E8A3C]">{voiceData ? "Panier validé par l'IA" : panierData ? "Votre panier validé" : "Votre Panier"}</h2>
+          <div id="checkout-cart" className="space-y-6 lg:sticky lg:top-28 lg:self-start">
+            <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+              <div className="border-b border-gray-100 p-5 sm:p-6">
+                <h2 className="text-xl font-bold text-[#1E8A3C]">{voiceData ? "Panier validé par l'IA" : isSmartBasket ? "Panier intelligent" : panierData ? "Votre panier validé" : "Votre Panier"}</h2>
               </div>
 
               <div className="divide-y divide-gray-100">
                 {cart.map(item => (
-                  <div key={item.id} className="p-4 flex gap-4">
+                  <div key={item.id} className="flex gap-3 p-4 sm:gap-4">
                     <Image
                       src={item.image}
                       alt={item.name}
                       width={80}
                       height={80}
-                      className="rounded-xl object-cover"
+                      className="h-20 w-20 shrink-0 rounded-xl object-cover"
                     />
-                    <div className="flex-1">
+                    <div className="min-w-0 flex-1">
                       <h3 className="font-semibold text-[#3D3D3D]">{item.name}</h3>
                       <p className="text-[#F07C00] font-bold">{item.price.toFixed(2)} DH/{item.unit}</p>
-                      <div className="flex items-center gap-3 mt-2">
-                        <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
-                          <button onClick={() => updateQuantity(item.id, -0.5)} className="p-2 hover:bg-gray-100"><Minus className="w-4 h-4" /></button>
-                          <span className="px-3 font-medium">{item.quantity} {item.unit}</span>
-                          <button onClick={() => updateQuantity(item.id, 0.5)} className="p-2 hover:bg-gray-100"><Plus className="w-4 h-4" /></button>
+                      <div className="mt-3 flex items-center gap-2">
+                        <div className="flex min-h-10 items-center overflow-hidden rounded-xl border border-gray-200">
+                          <button onClick={() => updateQuantity(item.id, -0.5)} className="flex h-10 w-10 items-center justify-center hover:bg-gray-100"><Minus className="w-4 h-4" /></button>
+                          <span className="min-w-16 px-2 text-center text-sm font-medium">{item.quantity} {item.unit}</span>
+                          <button onClick={() => updateQuantity(item.id, 0.5)} className="flex h-10 w-10 items-center justify-center hover:bg-gray-100"><Plus className="w-4 h-4" /></button>
                         </div>
-                        <button onClick={() => removeItem(item.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
+                        <button onClick={() => removeItem(item.id)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-red-400 hover:bg-red-50 hover:text-red-600" aria-label={`Retirer ${item.name}`}>
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="hidden text-right sm:block">
                       <p className="font-bold text-[#3D3D3D]">{(item.price * item.quantity).toFixed(2)} DH</p>
                     </div>
                   </div>
@@ -580,15 +650,59 @@ function CheckoutContent() {
                 </div>
                 <div className="flex items-center gap-2 text-[#1E8A3C] text-sm">
                   <PartyPopper className="w-4 h-4" />
-                  <span>{voiceData ? "Commande traitée par IA-SOUKI" : `Économie vs marchand : -${savings.toFixed(2)} DH`}</span>
+                  <span>{voiceData ? "Commande traitée par IA-SOUKI" : isSmartBasket ? "Panier compose par le modele ML SOUKI" : `Économie vs marchand : -${savings.toFixed(2)} DH`}</span>
                 </div>
               </div>
             </div>
+
+            {isSmartBasket && suggestionsByLevel.length > 0 && (
+              <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+                <div className="border-b border-gray-100 p-5 sm:p-6">
+                  <h2 className="text-lg font-bold text-[#1E8A3C]">Completer le panier par niveau</h2>
+                  <p className="mt-1 text-sm font-medium text-[#6F8070]">
+                    Suggestions catalogue pour enrichir votre panier genere.
+                  </p>
+                </div>
+                <div className="space-y-5 p-5 sm:p-6">
+                  {suggestionsByLevel.map((group) => (
+                    <div key={group.level}>
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <span className="text-sm font-bold text-[#264129]">Niveau {group.level}</span>
+                        <span className="rounded-full bg-[#F0FAF1] px-3 py-1 text-xs font-bold text-[#1E8A3C]">
+                          {group.items.length} suggestion{group.items.length > 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        {group.items.map((product) => (
+                          <div key={product.id} className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+                            <img src={product.image} alt={product.name} className="h-24 w-full object-cover" />
+                            <div className="p-3">
+                              <p className="truncate text-sm font-semibold text-[#264129]">{product.name}</p>
+                              <p className="mt-1 text-xs font-medium text-[#6F8070]">
+                                {product.price.toFixed(2)} DH/{product.displayUnit}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => addSuggestionToCart(product)}
+                                className="mt-3 flex min-h-9 w-full items-center justify-center gap-2 rounded-xl bg-[#1E8A3C] px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-[#176B2E]"
+                              >
+                                <Plus className="h-4 w-4" />
+                                Ajouter
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Column - Details */}
-          <div className="space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm p-6">
+          <div className="space-y-5 lg:space-y-6">
+            <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
               <h3 className="font-bold text-[#3D3D3D] mb-4 flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-[#1E8A3C]" />
                 Adresse de livraison
@@ -596,7 +710,7 @@ function CheckoutContent() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Adresse</label>
-                  <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Entrez votre adresse de livraison" className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none" />
+                  <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Entrez votre adresse de livraison" className="min-h-12 w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:border-[#4CB84A] focus:outline-none" />
                   {isAddressMissing && (
                     <p className="mt-2 text-xs font-semibold text-red-500">
                       Ajoutez votre adresse de livraison.
@@ -607,7 +721,7 @@ function CheckoutContent() {
                 {/* "Me localiser" button with Mapbox */}
                 <button
                   onClick={() => setMapboxModalOpen(true)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-[#1E8A3C] text-[#1E8A3C] rounded-xl font-semibold hover:bg-[#F0FAF1] transition-colors"
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border-2 border-[#1E8A3C] px-4 py-3 font-semibold text-[#1E8A3C] transition-colors hover:bg-[#F0FAF1]"
                 >
                   <Navigation className="w-4 h-4" />
                   Me localiser
@@ -615,7 +729,7 @@ function CheckoutContent() {
 
                 <div>
                   <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Ville</label>
-                  <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Ville" className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none" />
+                  <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Ville" className="min-h-12 w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:border-[#4CB84A] focus:outline-none" />
                   {isCityMissing && (
                     <p className="mt-2 text-xs font-semibold text-red-500">
                       Ajoutez votre ville pour la livraison.
@@ -629,12 +743,12 @@ function CheckoutContent() {
                     type="tel"
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder={profileLoading ? "Chargement du numero..." : "+212..."}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none"
+                    placeholder={profileLoading ? "Chargement du numéro..." : "+212..."}
+                    className="min-h-12 w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:border-[#4CB84A] focus:outline-none"
                   />
                   {isPhoneMissing && (
                     <p className="mt-2 text-xs font-semibold text-red-500">
-                      Ajoutez un numero pour que SOUKI confirme la livraison.
+                      Ajoutez un numéro pour que SOUKI confirme la livraison.
                     </p>
                   )}
                   {isPhoneInvalid && (
@@ -646,19 +760,19 @@ function CheckoutContent() {
 
                 <div>
                   <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Instructions livraison (optionnel)</label>
-                  <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Ex: 2ème étage, code porte 1234..." rows={3} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none resize-none" />
+                  <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Ex: 2ème étage, code porte 1234..." rows={3} className="w-full resize-none rounded-xl border-2 border-gray-200 px-4 py-3 focus:border-[#4CB84A] focus:outline-none" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm p-6">
+            <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
               <h3 className="font-bold text-[#3D3D3D] mb-4 flex items-center gap-2">
                 <Clock className="w-5 h-5 text-[#1E8A3C]" />
                 Créneau de livraison
               </h3>
-              <div className="flex gap-3">
+              <div className="grid gap-3 sm:grid-cols-3">
                 {timeSlots.map(slot => (
-                  <button key={slot.id} onClick={() => setSelectedTimeSlot(slot.id)} className={cn("flex-1 py-3 px-4 rounded-xl font-semibold transition-all", selectedTimeSlot === slot.id ? "bg-[#1E8A3C] text-white" : "bg-gray-100 text-[#3D3D3D] hover:bg-gray-200")}>
+                  <button key={slot.id} onClick={() => setSelectedTimeSlot(slot.id)} className={cn("min-h-12 rounded-xl px-4 py-3 font-semibold transition-all", selectedTimeSlot === slot.id ? "bg-[#1E8A3C] text-white" : "bg-gray-100 text-[#3D3D3D] hover:bg-gray-200")}>
                     {slot.label}
                   </button>
                 ))}
@@ -666,7 +780,7 @@ function CheckoutContent() {
               <p className="text-sm text-[#8A8A8A] mt-3">Livraison le lendemain matin</p>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm p-6">
+            <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
               <h3 className="font-bold text-[#3D3D3D] mb-4 flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-[#1E8A3C]" />
                 Méthode de Paiement
@@ -675,7 +789,7 @@ function CheckoutContent() {
                 {/* Cash on Delivery */}
                 <button
                   onClick={() => setSelectedPayment("cod")}
-                  className={cn("w-full p-4 rounded-xl border-2 text-left transition-all flex items-start gap-4", selectedPayment === "cod" ? "border-[#F07C00] bg-[#F07C00]/5" : "border-gray-200 hover:border-gray-300")}
+                  className={cn("flex min-h-16 w-full items-start gap-4 rounded-xl border-2 p-4 text-left transition-all", selectedPayment === "cod" ? "border-[#F07C00] bg-[#F07C00]/5" : "border-gray-200 hover:border-gray-300")}
                 >
                   <div className={cn("p-2 rounded-lg", selectedPayment === "cod" ? "bg-[#F07C00] text-white" : "bg-gray-100 text-[#3D3D3D]")}><Banknote className="w-5 h-5" /></div>
                   <div className="flex-1">
@@ -690,7 +804,7 @@ function CheckoutContent() {
                 {/* Wallet */}
                 <button
                   onClick={() => setSelectedPayment("wallet")}
-                  className={cn("w-full p-4 rounded-xl border-2 text-left transition-all flex items-start gap-4", selectedPayment === "wallet" ? "border-[#F07C00] bg-[#F07C00]/5" : "border-gray-200 hover:border-gray-300")}
+                  className={cn("flex min-h-16 w-full items-start gap-4 rounded-xl border-2 p-4 text-left transition-all", selectedPayment === "wallet" ? "border-[#F07C00] bg-[#F07C00]/5" : "border-gray-200 hover:border-gray-300")}
                 >
                   <div className={cn("p-2 rounded-lg", selectedPayment === "wallet" ? "bg-[#F07C00] text-white" : "bg-gray-100 text-[#3D3D3D]")}><Wallet className="w-5 h-5" /></div>
                   <div className="flex-1">
@@ -708,7 +822,7 @@ function CheckoutContent() {
                 {/* Card Payment - Disabled */}
                 <button
                   disabled
-                  className="w-full p-4 rounded-xl border-2 border-gray-200 text-left transition-all flex items-start gap-4 opacity-60 cursor-not-allowed"
+                  className="flex min-h-16 w-full cursor-not-allowed items-start gap-4 rounded-xl border-2 border-gray-200 p-4 text-left opacity-60 transition-all"
                 >
                   <div className="p-2 rounded-lg bg-gray-100 text-[#8A8A8A]"><CreditCard className="w-5 h-5" /></div>
                   <div className="flex-1">
@@ -725,7 +839,7 @@ function CheckoutContent() {
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4 rounded-2xl bg-white p-5 shadow-sm sm:p-6">
               <label className="flex items-start gap-3 cursor-pointer">
                 <div onClick={() => setAcceptTerms(!acceptTerms)} className={cn("w-5 h-5 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0 mt-0.5", acceptTerms ? "bg-[#1E8A3C] border-[#1E8A3C]" : "border-gray-300")}>
                   {acceptTerms && <Check className="w-3 h-3 text-white" />}
@@ -736,7 +850,7 @@ function CheckoutContent() {
               <button
                 onClick={handleFinalSubmit}
                 disabled={!canSubmitOrder}
-                className={cn("w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all", canSubmitOrder ? "bg-[#F07C00] text-white hover:bg-[#D66B00] shadow-lg shadow-[#F07C00]/30" : "bg-gray-200 text-gray-500 cursor-not-allowed")}
+                className={cn("flex min-h-14 w-full items-center justify-center gap-2 rounded-xl py-4 text-lg font-bold transition-all", canSubmitOrder ? "bg-[#F07C00] text-white hover:bg-[#D66B00] shadow-lg shadow-[#F07C00]/30" : "bg-gray-200 text-gray-500 cursor-not-allowed")}
               >
                 {isSubmitting ? (
                   <>
@@ -766,6 +880,10 @@ function CheckoutContent() {
         isOpen={mapboxModalOpen}
         onClose={() => setMapboxModalOpen(false)}
         onAddressDetected={handleAddressDetected}
+      />
+      <MobileBottomNav
+        cartCount={cart.length}
+        onCartClick={() => document.getElementById("checkout-cart")?.scrollIntoView({ behavior: "smooth" })}
       />
     </div>
   )

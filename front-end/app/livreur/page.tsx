@@ -447,13 +447,13 @@ function mapTourneeItemToDeliveryView(item: TourneeItem, index: number): Deliver
     id: String(item.commande_id),
     stepNumber: index + 1,
     orderNumber: String(item.commande_id),
-    timeSlot: item.creneau_livraison || "Non precise",
+    timeSlot: item.creneau_livraison || "Non précisé",
     address: item.full_address,
     street: item.street,
     neighborhood: item.neighborhood,
     details: item.details,
     clientName: item.client_label,
-    clientPhone: item.client_phone || "Telephone indisponible",
+    clientPhone: item.client_phone || "Téléphone indisponible",
     callHref: buildCallHref(item.client_phone),
     packageCount: item.colis_count,
     amount: Number(item.montant_total || 0),
@@ -496,7 +496,7 @@ function formatPaymentMethodLabel(paymentMethod: PaymentMethod) {
     return "CMI"
   }
 
-  return "Especes"
+  return "Espèces"
 }
 
 function formatAmount(amount: number) {
@@ -510,7 +510,7 @@ function buildPreciseAddress(delivery: DeliveryViewItem) {
   }
 
   const firstAddressSegment = delivery.address.split(",")[0]?.trim()
-  return firstAddressSegment || "Adresse non precise"
+  return firstAddressSegment || "Adresse non précisée"
 }
 
 function buildPackageSummary(delivery: DeliveryViewItem) {
@@ -1350,7 +1350,7 @@ export default function LivreurPage() {
       setDeliveryList([])
       setLoadSource(null)
       setBeforeSeven(false)
-      setNotice({ tone: "error", message: "Connectez-vous pour consulter votre tournee." })
+      setNotice({ tone: "error", message: "Connectez-vous pour consulter votre tournée." })
       return
     }
 
@@ -1363,12 +1363,12 @@ export default function LivreurPage() {
       setNotice(null)
 
       if (!window.navigator.onLine) {
-        const hasCache = loadCachedTournee("Mode hors ligne. Affichage de la derniere tournee enregistree.")
+        const hasCache = loadCachedTournee("Mode hors ligne. Affichage de la dernière tournée enregistrée.")
         if (!hasCache) {
           setTourneeData(null)
           setDeliveryList([])
           setLoadSource(null)
-          setNotice({ tone: "error", message: "Mode hors ligne et aucune tournee n'est disponible en cache." })
+          setNotice({ tone: "error", message: "Mode hors ligne et aucune tournée n'est disponible en cache." })
         }
         setIsTourneeLoading(false)
         window.clearTimeout(timeoutId)
@@ -1399,8 +1399,8 @@ export default function LivreurPage() {
         } else {
           const isTimeout = error instanceof DOMException && error.name === "AbortError"
           const cacheMessage = isTimeout
-            ? "Le chargement a expire. Affichage de la derniere tournee enregistree."
-            : "Serveur indisponible. Affichage de la derniere tournee enregistree."
+            ? "Le chargement a expiré. Affichage de la dernière tournée enregistrée."
+            : "Serveur indisponible. Affichage de la dernière tournée enregistrée."
           const hasCache = loadCachedTournee(cacheMessage)
 
           if (!hasCache) {
@@ -1410,10 +1410,10 @@ export default function LivreurPage() {
             setNotice({
               tone: "error",
               message: isTimeout
-                ? "Le chargement a expire et aucune tournee n'est disponible en cache."
+                ? "Le chargement a expiré et aucune tournée n'est disponible en cache."
                 : error instanceof Error
                   ? error.message
-                  : "Impossible de charger la tournee.",
+                  : "Impossible de charger la tournée.",
             })
           }
         }
@@ -1503,7 +1503,7 @@ export default function LivreurPage() {
     if (!isMapboxConfigured) {
       setRouteGeoJson(EMPTY_ROUTE_GEOJSON)
       setRouteSummary(null)
-      setRouteError("Le token Mapbox est requis pour calculer un itineraire.")
+      setRouteError("Le token Mapbox est requis pour calculer un itinéraire.")
       setIsRouteLoading(false)
       lastDirectionsRequestRef.current = null
       return
@@ -1512,7 +1512,7 @@ export default function LivreurPage() {
     if (isOffline) {
       setRouteGeoJson(createLineFeatureCollection([routeOriginCoordinates, destinationCoordinates], "fallback"))
       setRouteSummary(null)
-      setRouteError("Trace simplifiee active. L'itineraire detaille Mapbox est indisponible hors ligne.")
+      setRouteError("Trace simplifiée active. L'itinéraire détaillé Mapbox est indisponible hors ligne.")
       setIsRouteLoading(false)
       return
     }
@@ -1560,7 +1560,7 @@ export default function LivreurPage() {
         const payload = (await response.json()) as MapboxDirectionsResponse
         const bestRoute = payload.routes?.[0]
         if (!bestRoute || !Array.isArray(bestRoute.geometry?.coordinates)) {
-          throw new Error("Aucun itineraire exploitable n'a ete retourne par Mapbox.")
+          throw new Error("Aucun itinéraire exploitable n'a été retourné par Mapbox.")
         }
 
         if (isCancelled) {
@@ -1588,7 +1588,7 @@ export default function LivreurPage() {
         setRouteError(
           error instanceof Error
             ? `${error.message} La carte affiche un trace simplifie entre le livreur et la destination.`
-            : "Impossible de calculer l'itineraire detaille."
+            : "Impossible de calculer l'itinéraire détaillé."
         )
       } finally {
         if (!isCancelled) {
@@ -1818,7 +1818,7 @@ export default function LivreurPage() {
 
     const confirmed =
       typeof window === "undefined" ||
-      window.confirm("Etes-vous sur de vouloir refuser toutes les commandes de cette tournee ?")
+      window.confirm("Êtes-vous sûr de vouloir refuser toutes les commandes de cette tournée ?")
     if (!confirmed) {
       return
     }
@@ -1831,7 +1831,7 @@ export default function LivreurPage() {
     } catch (error) {
       setNotice({
         tone: "error",
-        message: error instanceof ApiError ? error.message : "Impossible de refuser toute la tournee.",
+        message: error instanceof ApiError ? error.message : "Impossible de refuser toute la tournée.",
       })
     } finally {
       setIsRefusingTournee(false)
@@ -1848,7 +1848,7 @@ export default function LivreurPage() {
       const hasStarted = await submitDeliveryStatusChange({
         delivery: nextDelivery,
         targetStatus: "enroute",
-        offlineMessage: "Demarrage enregistre hors ligne. Synchronisation des le retour du reseau.",
+        offlineMessage: "Démarrage enregistré hors ligne. Synchronisation dès le retour du réseau.",
       })
       setIsStartingTournee(false)
       if (!hasStarted) {
@@ -1874,7 +1874,7 @@ export default function LivreurPage() {
       const hasStarted = await submitDeliveryStatusChange({
         delivery: deliveryToComplete,
         targetStatus: "enroute",
-        offlineMessage: "Demarrage enregistre hors ligne. Synchronisation des le retour du reseau.",
+        offlineMessage: "Démarrage enregistré hors ligne. Synchronisation dès le retour du réseau.",
       })
 
       if (!hasStarted) {
@@ -1896,7 +1896,7 @@ export default function LivreurPage() {
     const hasCompleted = await submitDeliveryStatusChange({
       delivery: readyDelivery,
       targetStatus: "delivered",
-      offlineMessage: "Livraison enregistree hors ligne. Synchronisation des le retour du reseau.",
+      offlineMessage: "Livraison enregistrée hors ligne. Synchronisation dès le retour du réseau.",
     })
     setIsStartingTournee(false)
     if (hasCompleted) {
@@ -1917,12 +1917,12 @@ export default function LivreurPage() {
     }
 
     if (deliveryToValidate.paymentValidated) {
-      setNotice({ tone: "success", message: "Encaissement COD deja confirme." })
+      setNotice({ tone: "success", message: "Encaissement COD déjà confirmé." })
       return
     }
 
     if (typeof window !== "undefined" && !window.navigator.onLine) {
-      setNotice({ tone: "error", message: "La validation COD exige une connexion reseau active." })
+      setNotice({ tone: "error", message: "La validation COD exige une connexion réseau active." })
       return
     }
 
@@ -1951,7 +1951,7 @@ export default function LivreurPage() {
     const hasMarkedAbsent = await submitDeliveryStatusChange({
       delivery: deliveryToMarkAbsent,
       targetStatus: "absent",
-      offlineMessage: "Absence enregistree hors ligne. Alerte envoyee des le retour du reseau.",
+      offlineMessage: "Absence enregistrée hors ligne. Alerte envoyée dès le retour du réseau.",
     })
     setIsStartingTournee(false)
     if (hasMarkedAbsent) {
@@ -1984,7 +1984,7 @@ export default function LivreurPage() {
       const hasMarkedRefused = await submitDeliveryStatusChange({
         delivery: liveDelivery,
         targetStatus: "refused",
-        offlineMessage: "Refus client enregistre hors ligne. La mise en liste noire sera synchronisee au retour du reseau.",
+        offlineMessage: "Refus client enregistré hors ligne. La mise en liste noire sera synchronisée au retour du réseau.",
         clientEventIdOverride: freshEventId,
       })
 
@@ -2088,7 +2088,7 @@ export default function LivreurPage() {
             ? "Pret a demarrer"
             : nextDelivery
               ? "En livraison"
-              : "Tournee terminee"
+              : "Tournée terminée"
   const floatingStatusClass = isNavigating
     ? "bg-[#EAF2FF] text-[#1A73E8]"
     : beforeSeven
@@ -2104,8 +2104,8 @@ export default function LivreurPage() {
       return (
         <CenterStateCard
           icon={Truck}
-          title="Chargement de votre tournee"
-          description="Nous recuperons la tournee du jour, les etapes et les coordonnees GPS."
+          title="Chargement de votre tournée"
+          description="Nous récupérons la tournée du jour, les étapes et les coordonnées GPS."
           action={<Spinner className="mx-auto size-6 text-[#1E8A3C]" />}
         />
       )
@@ -2115,8 +2115,8 @@ export default function LivreurPage() {
       return (
         <CenterStateCard
           icon={Clock3}
-          title="La tournee arrive bientot"
-          description="Votre tournee s'affichera ici a partir de 7h00."
+          title="La tournée arrive bientôt"
+          description="Votre tournée s'affichera ici à partir de 7h00."
         />
       )
     }
@@ -2126,7 +2126,7 @@ export default function LivreurPage() {
         <CenterStateCard
           icon={Truck}
           title="Session livreur requise"
-          description="Connectez-vous pour consulter votre tournee et piloter vos prochaines livraisons."
+          description="Connectez-vous pour consulter votre tournée et piloter vos prochaines livraisons."
           action={
             <Link
               href="/login/livreur"
@@ -2144,7 +2144,7 @@ export default function LivreurPage() {
         <CenterStateCard
           icon={MapIcon}
           title="Aucune livraison assignee"
-          description="Revenez un peu plus tard pour verifier votre tournee du jour."
+          description="Revenez un peu plus tard pour vérifier votre tournée du jour."
         />
       )
     }
@@ -2354,7 +2354,7 @@ export default function LivreurPage() {
         <div className="mx-auto max-w-4xl space-y-2">
           {loadSource === "cache" && !beforeSeven && (
             <div className="rounded-2xl bg-[#FFF3E0]/95 px-4 py-3 text-sm text-[#8A5A00] shadow-sm backdrop-blur">
-              Mode hors ligne actif. La derniere tournee sauvegardee est affichee.
+              Mode hors ligne actif. La dernière tournée sauvegardée est affichée.
             </div>
           )}
 
@@ -2424,7 +2424,7 @@ export default function LivreurPage() {
                     <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#1E8A3C] text-white">
                       <CheckCircle2 className="h-7 w-7" />
                     </div>
-                    <h3 className="mt-3 text-xl font-bold text-[#17301E]">Tournee terminee</h3>
+                    <h3 className="mt-3 text-xl font-bold text-[#17301E]">Tournée terminée</h3>
                     <div className="mt-3 grid grid-cols-2 gap-3 text-left">
                       <div className="rounded-2xl bg-white px-4 py-3">
                         <p className="text-xs font-medium uppercase tracking-[0.16em] text-[#8A8A8A]">Livrees</p>
@@ -2444,7 +2444,7 @@ export default function LivreurPage() {
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="inline-flex rounded-full bg-[#F0FAF1] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#1E8A3C]">
-                            {isNavigating ? "En travail" : "Pret pour la course"}
+                            {isNavigating ? "En travail" : "Prêt pour la course"}
                           </span>
                           <span className="inline-flex rounded-full bg-[#EEF5FF] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#285C9A]">
                             {currentRouteDistanceLabel}
@@ -2498,7 +2498,7 @@ export default function LivreurPage() {
                         <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
                           <div className="flex items-center gap-2 text-[#6B7280]">
                             <MapPin className="h-4 w-4" />
-                            <span className="text-xs font-medium uppercase tracking-[0.16em]">Adresse complete</span>
+                            <span className="text-xs font-medium uppercase tracking-[0.16em]">Adresse complète</span>
                           </div>
                           <p className="mt-2 text-sm font-semibold text-[#17301E]">{currentDelivery.address}</p>
                         </div>
@@ -2518,7 +2518,7 @@ export default function LivreurPage() {
                                   : "bg-[#FFF3E0] text-[#8A5A00]"
                               )}
                             >
-                              {currentDelivery.paymentValidated ? "COD valide" : "COD a encaisser"}
+                              {currentDelivery.paymentValidated ? "COD validé" : "COD à encaisser"}
                             </span>
                           )}
                         </div>
@@ -2548,13 +2548,13 @@ export default function LivreurPage() {
 
                         {activeMissingCoordinatesCount > 0 && (
                           <div className="rounded-2xl bg-[#FFF3E0] px-4 py-3 text-sm text-[#8A5A00]">
-                            {activeMissingCoordinatesCount} livraison(s) restante(s) n'ont pas de coordonnees GPS exploitables.
+                            {activeMissingCoordinatesCount} livraison(s) restante(s) n'ont pas de coordonnées GPS exploitables.
                           </div>
                         )}
 
                         {!nextDeliveryWithCoordinates && (
                           <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">
-                            La prochaine livraison n'a pas de coordonnees GPS. Le guidage embarque est indisponible.
+                            La prochaine livraison n'a pas de coordonnées GPS. Le guidage embarqué est indisponible.
                           </div>
                         )}
 
@@ -2562,7 +2562,7 @@ export default function LivreurPage() {
                           <div className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-2">
                               <Truck className="h-4 w-4 text-[#1E8A3C]" />
-                              <span>{remainingCount} etape(s) restante(s)</span>
+                              <span>{remainingCount} étape(s) restante(s)</span>
                             </div>
                             <span>{routeSummary ? currentRouteDurationLabel : `ETA ${remainingTime}`}</span>
                           </div>

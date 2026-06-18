@@ -19,6 +19,7 @@ class CheckoutRequestDTO(BaseModel):
     delivery_city: Optional[str] = None
     delivery_instructions: Optional[str] = None
     brouillon_vocal_id: Optional[int] = None
+    panier_id: Optional[int] = None
 
     @validator("contact_phone")
     def validate_contact_phone(cls, v):

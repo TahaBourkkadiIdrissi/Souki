@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { Suspense, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
@@ -26,7 +26,7 @@ type AuthMode = "login" | "signup"
 type UserRole = "client" | "parent" | "livreur"
 
 const cities = ["Fès", "Meknès", "Casablanca", "Rabat"]
-export default function LivreurLoginPage() {
+function LivreurLoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { login, googleLogin } = useAuth()
@@ -654,5 +654,19 @@ export default function LivreurLoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LivreurLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-[#1E8A3C]" />
+        </div>
+      }
+    >
+      <LivreurLoginContent />
+    </Suspense>
   )
 }

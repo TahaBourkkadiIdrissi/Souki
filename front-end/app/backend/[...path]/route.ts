@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
-const BACKEND_PROXY_TIMEOUT_MS = 8000
+const BACKEND_PROXY_TIMEOUT_MS = 60000
 
 const backendTarget = (
   process.env.BACKEND_INTERNAL_URL ||
