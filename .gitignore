@@ -158,3 +158,11 @@ vite.config.ts.timestamp-*
 regles.txt
 *.md
 *.mmd
+
+# Expo mobile
+mobile/node_modules
+mobile/.expo
+mobile/dist
+mobile/web-build
+mobile/.env
+mobile/*.log

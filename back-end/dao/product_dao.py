@@ -74,6 +74,12 @@ class ProductDaoBD(IProductDao):
         return (
             session.query(Product)
             .filter(Product.is_active == True)  # noqa: E712
+            .filter(~Product.nom_fr.ilike("Tomate test"))
+            .filter(~Product.nom_fr.ilike("Taha"))
+            .filter(~Product.nom_fr.ilike("Hamza"))
+            .filter(~Product.nom_darija.ilike("Tomate test"))
+            .filter(~Product.nom_darija.ilike("Taha"))
+            .filter(~Product.nom_darija.ilike("Hamza"))
             .order_by(Product.id.asc())
             .all()
         )
@@ -83,8 +89,8 @@ class ProductDaoBD(IProductDao):
         session: Session,
         exclude_ids: list[int],
         panier_total: float = 0.0,
-        seuil: float = 120.0,
-        limit: int = 3,
+        seuil: float = 80.0,
+        limit: int = 4,
     ) -> List[Product]:
         reste = max(0, seuil - panier_total)
         query = (
@@ -93,6 +99,12 @@ class ProductDaoBD(IProductDao):
             .filter(Product.is_active == True)  # noqa: E712
             .filter(Product.prix_affiche.isnot(None))
             .filter(Product.stock > 0)
+            .filter(~Product.nom_fr.ilike("Tomate test"))
+            .filter(~Product.nom_fr.ilike("Taha"))
+            .filter(~Product.nom_fr.ilike("Hamza"))
+            .filter(~Product.nom_darija.ilike("Tomate test"))
+            .filter(~Product.nom_darija.ilike("Taha"))
+            .filter(~Product.nom_darija.ilike("Hamza"))
         )
         if exclude_ids:
             query = query.filter(Product.id.notin_(exclude_ids))
@@ -100,11 +112,26 @@ class ProductDaoBD(IProductDao):
 
         def score(produit: Product) -> float:
             prix_affiche = float(produit.prix_affiche or 0)
-            marge = {2: 10, 3: 30}.get(int(produit.niveau or 0), 0)
-            complete_seuil = 15 if reste > 0 and prix_affiche >= reste else 0
-            return marge + complete_seuil
+            niveau = int(produit.niveau or 0)
+            marge = {2: 24, 3: 42}.get(niveau, 0)
+            complete_seuil = 28 if reste > 0 and prix_affiche >= reste else 0
+            prix_confort = 12 if 0 < reste and prix_affiche <= max(reste + 15, 20) else 0
+            aventure = 10 if any(
+                mot in self._normalize_alias(str(produit.nom_fr))
+                for mot in ["menthe", "coriandre", "persil", "citron", "brocoli", "poivron"]
+            ) else 0
+            return marge + complete_seuil + prix_confort + aventure
 
-        return sorted(produits, key=score, reverse=True)[:limit]
+        suggestions = sorted(produits, key=score, reverse=True)
+        top_level_three = [p for p in suggestions if int(p.niveau or 0) == 3]
+        top_level_two = [p for p in suggestions if int(p.niveau or 0) == 2]
+        balanced = []
+        for candidate in [*top_level_three[:2], *top_level_two[:2], *suggestions]:
+            if candidate not in balanced:
+                balanced.append(candidate)
+            if len(balanced) >= limit:
+                break
+        return balanced
 
     def decrement_stock(self, session: Session, product_id: int, quantity: float) -> bool:
         product = session.query(Product).filter(Product.id == product_id).first()

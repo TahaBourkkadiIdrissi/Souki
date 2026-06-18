@@ -12,15 +12,18 @@ from interfaces.panier_service_interface import IPanierService
 from interfaces.panier_dao_interface import IPanierDao
 from sqlalchemy.orm import Session
 
-DELIVERY_FEE = 15.0
+SEUIL_LIVRAISON_GRATUITE = 80.0
+DELIVERY_FEE = 10.0
 
 # ── Mapping des images pour les produits ──────────────────────────────────────
 PRODUCT_IMAGES = {
     "tomate": "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&h=300&fit=crop",
     "oignon": "https://images.unsplash.com/photo-1620574387735-3624d75b2dbc?w=400&h=300&fit=crop",
     "carotte": "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400&h=300&fit=crop",
-    "pomme": "https://images.unsplash.com/photo-1560806e614371-9b0d8b0b4b0c?w=400&h=300&fit=crop",
-    "patate": "https://images.unsplash.com/photo-1599599810991-3f0f2e9b9b9c?w=400&h=300&fit=crop",
+    "pommes de terre": "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400&h=300&fit=crop",
+    "pomme de terre": "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400&h=300&fit=crop",
+    "patate": "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400&h=300&fit=crop",
+    "pomme": "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400&h=300&fit=crop",
     "concombre": "https://images.unsplash.com/photo-1590769033100-9f41a9bf3b94?w=400&h=300&fit=crop",
     "courgette": "https://images.unsplash.com/photo-1585070526059-c037fcd83b40?w=400&h=300&fit=crop",
     "poivron": "https://images.unsplash.com/photo-1599599810694-c6dc64f74f6f?w=400&h=300&fit=crop",
@@ -112,9 +115,10 @@ class PanierService(IPanierService):
                 product = products_by_id[item.product_id]
                 requested_quantity = float(item.quantity)
                 available_stock = float(product.stock) # type: ignore
+                prix_affiche = getattr(product, "prix_affiche", None)
                 unit_price = (
-                    float(item.prix_unitaire)
-                    if item.prix_unitaire
+                    float(prix_affiche)
+                    if prix_affiche is not None
                     else float(product.prix_kg) # type: ignore
                 )
 
@@ -142,7 +146,8 @@ class PanierService(IPanierService):
                 )
 
             # Créer le panier brouillon
-            montant_total = round(sous_total + DELIVERY_FEE, 2)
+            frais_livraison = 0.0 if sous_total >= SEUIL_LIVRAISON_GRATUITE else DELIVERY_FEE
+            montant_total = round(sous_total + frais_livraison, 2)
             panier = self.panier_dao.create_panier_draft(
                 session=session,
                 user_id=user_id,
@@ -167,9 +172,10 @@ class PanierService(IPanierService):
             # Créer les lignes du panier
             for i, item in enumerate(payload.items):
                 product = products_by_id[item.product_id]
+                prix_affiche = getattr(product, "prix_affiche", None)
                 unit_price = (
-                    float(item.prix_unitaire)
-                    if item.prix_unitaire
+                    float(prix_affiche)
+                    if prix_affiche is not None
                     else float(product.prix_kg) # type: ignore
                 )
                 line_total = round(unit_price * float(item.quantity), 2)
@@ -187,7 +193,7 @@ class PanierService(IPanierService):
                 lignes_panier=lignes_response,
                 total_dh=round(sous_total, 2),
                 nombre_articles=total_articles,
-                frais_livraison=DELIVERY_FEE,
+                frais_livraison=frais_livraison,
             )
 
         except ValueError:
@@ -230,13 +236,17 @@ class PanierService(IPanierService):
 
         total_legumes = float(panier.total_legumes) # type: ignore
         montant_total = float(panier.total_facture) # type: ignore
-        sous_total = montant_total - DELIVERY_FEE
+        sous_total = round(
+            sum(float(ligne.sous_total) for ligne in lignes), # type: ignore
+            2,
+        )
+        frais_livraison = round(max(0.0, montant_total - sous_total), 2)
 
         return PanierDetailsDTO(
             panier_id=int(panier.id), # type: ignore
             lignes=lignes_response,
             total_legumes=total_legumes,
             sous_total=round(sous_total, 2),
-            frais_livraison=DELIVERY_FEE,
+            frais_livraison=frais_livraison,
             montant_total=montant_total,
         )

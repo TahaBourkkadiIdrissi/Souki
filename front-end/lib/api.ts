@@ -1,4 +1,5 @@
-const DEFAULT_API_BASE_URL = "/backend"
+const DEFAULT_API_BASE_URL =
+  process.env.NODE_ENV === "development" ? "http://localhost:8000" : "/backend"
 
 export const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_BASE_URL

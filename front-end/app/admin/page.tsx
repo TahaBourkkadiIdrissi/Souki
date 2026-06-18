@@ -63,7 +63,7 @@ const adminNavItems = [
   { icon: BarChart3, label: "Analytics", href: "/admin/analytics" },
   { icon: Users, label: "Abonnements Parentaux", href: "/admin/subscriptions" },
   { icon: Wallet, label: "Transactions Wallet", href: "/admin/wallet" },
-  { icon: Settings, label: "Parametres Systeme", href: "/admin/settings" },
+  { icon: Settings, label: "Paramètres système", href: "/admin/settings" },
 ]
 
 const adminNavPermissions: Record<string, string> = {
@@ -357,7 +357,7 @@ function StatusBadge({ value }: { value: string | null }) {
 }
 
 export default function AdminDashboard() {
-  const { token, can } = useAuth()
+  const { token, can, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [periode, setPeriode] = useState<DashboardPeriod>("today")
   const [customDate, setCustomDate] = useState(todayInputValue())
@@ -410,6 +410,11 @@ export default function AdminDashboard() {
     [can]
   )
 
+  const handleAdminLogout = async () => {
+    await logout()
+    window.location.assign("/login?logged_out=1")
+  }
+
   const metrics = dashboard
     ? (() => {
         const kpi4 = periode === "today"
@@ -432,7 +437,7 @@ export default function AdminDashboard() {
           {
             label: "CA Total",
             value: formatMoney(dashboard.ca_total),
-            helper: "Livrees uniquement",
+            helper: "Livrées uniquement",
             icon: CircleDollarSign,
             colorClass: "bg-[#F0FDF4] text-[#1E8A3C]",
             variationValue: variation(dashboard.ca_total, dashboard.ca_total_precedent),
@@ -448,7 +453,7 @@ export default function AdminDashboard() {
             footer: periode === "today" ? <JitExecutionBadge executed={dashboard.jit_execute_aujourdhui} /> : undefined,
           },
           {
-            label: "Livrees",
+            label: "Livrées",
             value: `${formatNumber(dashboard.commandes_livrees)} (${dashboard.taux_livraison.toFixed(1)}%)`,
             helper: `${formatNumber(dashboard.commandes_absentes)} absentes`,
             icon: CheckCircle2,
@@ -459,7 +464,7 @@ export default function AdminDashboard() {
           {
             label: "Nouveaux clients",
             value: formatNumber(dashboard.nouveaux_clients),
-            helper: "Periode selectionnee",
+            helper: "Période sélectionnée",
             icon: Users,
             colorClass: "bg-[#F0FDF4] text-[#1E8A3C]",
             variationValue: variation(dashboard.nouveaux_clients, dashboard.nouveaux_clients_precedent),
@@ -483,7 +488,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
-      <header className="sticky top-0 z-50 border-b border-[#E5E7EB] bg-white shadow-sm">
+      <header className="sticky top-0 z-50 glass-ios26 border-b border-[#E5E7EB]">
         <div className="flex h-14 items-center justify-between px-4 lg:px-6">
           <div className="flex items-center gap-4">
             <button type="button" onClick={() => setSidebarOpen(true)} className="rounded-lg p-2 text-[#1F2937] hover:bg-gray-100 lg:hidden">
@@ -542,7 +547,7 @@ export default function AdminDashboard() {
           </nav>
 
           <div className="border-t border-white/20 p-3">
-            <button type="button" title="Deconnexion" aria-label="Deconnexion" className="flex h-11 w-11 items-center justify-center rounded-xl text-white/75 transition-colors hover:bg-white/10 hover:text-white">
+            <button type="button" title="Deconnexion" aria-label="Deconnexion" onClick={handleAdminLogout} className="flex h-11 w-11 items-center justify-center rounded-xl text-white/75 transition-colors hover:bg-white/10 hover:text-white">
               <LogOut className="h-5 w-5" />
             </button>
           </div>
@@ -551,13 +556,13 @@ export default function AdminDashboard() {
         {sidebarOpen ? <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} /> : null}
 
         <main className="min-w-0 flex-1">
-          <div className="sticky top-14 z-30 border-b border-[#E5E7EB] bg-white px-4 py-3 lg:px-6">
+          <div className="sticky top-14 z-30 glass-ios26 border-b border-[#E5E7EB] px-4 py-3 lg:px-6">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
                   <h1 className="text-2xl font-bold tracking-tight text-[#1F2937]">SOUKI Dashboard</h1>
                   <span className="text-xs font-semibold text-[#6B7280]">
-                    Derniere maj : {formatDateTime(dashboard?.derniere_maj)}
+                    Dernière maj : {formatDateTime(dashboard?.derniere_maj)}
                   </span>
                 </div>
                 <p className="text-sm text-[#6B7280]">Suivi global des performances</p>
@@ -640,7 +645,7 @@ export default function AdminDashboard() {
                     <div className="mb-3 flex items-end justify-between gap-3">
                       <div>
                         <h2 className="text-base font-bold text-[#1F2937]">{graphTitle(periode, customDate)}</h2>
-                        {courbeCaSubtitle ? <p className="text-xs text-gray-400">{courbeCaSubtitle}</p> : null}
+                        <p className="text-xs text-[#6B7280]">{periode === "custom" ? "Fenêtre fixe de 30 jours" : "Période sélectionnée"}</p>
                       </div>
                       <span className="text-sm font-bold text-[#1E8A3C]">{formatPreciseMoney(dashboard.ca_total)}</span>
                     </div>
@@ -770,7 +775,7 @@ export default function AdminDashboard() {
                       <div className="h-full rounded-full bg-[#1E8A3C]" style={{ width: `${Math.min(100, dashboard.taux_confirmation_cod)}%` }} />
                     </div>
                     <p className="mt-2 text-sm font-medium text-[#6B7280]">
-                      {formatNumber(dashboard.cod_confirmes)} confirmees | {formatNumber(dashboard.cod_annules)} annulees
+                      {formatNumber(dashboard.cod_confirmes)} confirmées | {formatNumber(dashboard.cod_annules)} annulées
                     </p>
                     <Link href="/admin/orders" className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#1E8A3C] hover:text-[#166d30]">
                       Gerer COD

@@ -75,7 +75,7 @@ const adminNavItems: Array<{ icon: LucideIcon; label: string; href: string; acti
   { icon: BarChart3, label: "Analytics", href: "/admin/analytics" },
   { icon: Users, label: "Abonnements Parentaux", href: "/admin/subscriptions" },
   { icon: Wallet, label: "Transactions Wallet", href: "/admin/wallet" },
-  { icon: Settings, label: "Parametres Systeme", href: "/admin/settings" },
+  { icon: Settings, label: "Paramètres système", href: "/admin/settings" },
 ]
 
 const adminNavPermissions: Record<string, string> = {
@@ -314,7 +314,7 @@ function EmptyState() {
 }
 
 export default function AdminPricingPage() {
-  const { token, isLoading: isAuthLoading, can } = useAuth()
+  const { token, isLoading: isAuthLoading, can, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pricingList, setPricingList] = useState<ProduitPricingListDTO | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -344,6 +344,11 @@ export default function AdminPricingPage() {
     () => adminNavItems.filter((item) => can(adminNavPermissions[item.href] || "admin.panel.access")),
     [can]
   )
+
+  const handleAdminLogout = async () => {
+    await logout()
+    window.location.assign("/login?logged_out=1")
+  }
 
   const loadPricing = useCallback(async (signal?: AbortSignal) => {
     if (!token) {
@@ -603,9 +608,9 @@ export default function AdminPricingPage() {
       setCreateValues(defaultCreateValues)
       setShowCreateModal(false)
       setError("")
-      setToast(`${createdProduit.nom_fr} cree. Stock initialise a 0.`)
+      setToast(`${createdProduit.nom_fr} créé. Stock initialisé à 0.`)
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "Impossible de creer le produit.")
+      setError(createError instanceof Error ? createError.message : "Impossible de créer le produit.")
     } finally {
       setIsCreating(false)
     }
@@ -632,7 +637,7 @@ export default function AdminPricingPage() {
       return
     }
     if (imageUrl.length > 500) {
-      setError("L'URL image ne doit pas depasser 500 caracteres.")
+      setError("L'URL image ne doit pas dépasser 500 caractères.")
       return
     }
     if (!/^https?:\/\/[^/]+\S*$/i.test(imageUrl)) {
@@ -1035,7 +1040,7 @@ export default function AdminPricingPage() {
           </nav>
 
           <div className="border-t border-white/20 p-3">
-            <button type="button" title="Deconnexion" aria-label="Deconnexion" className="flex h-11 w-11 items-center justify-center rounded-xl text-white/75 transition-colors hover:bg-white/10 hover:text-white">
+            <button type="button" title="Deconnexion" aria-label="Deconnexion" onClick={handleAdminLogout} className="flex h-11 w-11 items-center justify-center rounded-xl text-white/75 transition-colors hover:bg-white/10 hover:text-white">
               <LogOut className="h-5 w-5" />
             </button>
           </div>

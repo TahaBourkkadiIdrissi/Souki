@@ -1,9 +1,13 @@
 import type { Metadata, Viewport } from 'next'
+import { Suspense } from 'react'
 import { Inter, Poppins } from 'next/font/google'
 // import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { AuthProvider } from '@/contexts/auth-context'
 import { ThemeProvider } from "@/components/theme-provider"
+import { MobilePullToRefresh } from "@/components/souki/mobile-pull-to-refresh"
+import { PwaInstallPrompt } from "@/components/souki/pwa-install-prompt"
+import { RouteGuard } from "@/components/routing/route-guard"
 
 const inter = Inter({ 
   subsets: ["latin"],
@@ -17,6 +21,23 @@ const poppins = Poppins({
 })
 
 export const metadata: Metadata = {
+  applicationName: 'SOUKI',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: 'SOUKI',
+    statusBarStyle: 'default',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    icon: [
+      { url: '/pwa-icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/pwa-icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [{ url: '/apple-icon.png' }],
+  },
   title: 'SOUKI Fresh Market | Du champ au panier, le matin même',
   description: 'Légumes frais du marché de gros de Fès, livrés chez vous le matin même. Commandé ce soir avant 20h00, livré demain matin entre 8h et 13h.',
   keywords: ['légumes frais', 'marché de gros', 'Fès', 'Maroc', 'livraison', 'fruits', 'herbes'],
@@ -42,10 +63,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" suppressHydrationWarning>
+      <head>
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="SOUKI" />
+        <link rel="apple-touch-icon" href="/apple-icon.png" />
+      </head>
       <body className={`${inter.variable} ${poppins.variable} font-sans antialiased`}>
         <AuthProvider>
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-            {children}
+            <MobilePullToRefresh />
+            <Suspense fallback={null}>
+              <RouteGuard>{children}</RouteGuard>
+            </Suspense>
+            <PwaInstallPrompt />
           </ThemeProvider>
         </AuthProvider>
       </body>

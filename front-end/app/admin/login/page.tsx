@@ -1,13 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { Suspense, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { AlertCircle, Eye, EyeOff, Lock, Mail, Shield, Loader2 } from "lucide-react"
 
 import { useAuth } from "@/hooks/useAuth"
 
-export default function AdminLoginPage() {
+function AdminLoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { adminLogin } = useAuth()
@@ -62,7 +62,7 @@ export default function AdminLoginPage() {
             Acces reserve au back-office.
           </h1>
           <p className="mt-6 text-xl text-white/75">
-            Utilisez votre compte staff pour acceder aux operations, aux produits, aux paiements et aux statistiques.
+            Utilisez votre compte staff pour accéder aux opérations, aux produits, aux paiements et aux statistiques.
           </p>
         </div>
 
@@ -90,7 +90,7 @@ export default function AdminLoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-[#334438] mb-2">Email ou Telephone</label>
+              <label className="block text-sm font-medium text-[#334438] mb-2">Email ou téléphone</label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
                 <input
@@ -138,5 +138,19 @@ export default function AdminLoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function AdminLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-[#1E8A3C]" />
+        </div>
+      }
+    >
+      <AdminLoginContent />
+    </Suspense>
   )
 }

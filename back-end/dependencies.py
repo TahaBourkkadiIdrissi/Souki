@@ -56,6 +56,7 @@ from services.dashboard_service import DashboardService
 from services.dispatch_service import DispatchService
 from services.fournisseur_service import FournisseurService
 from services.livreur_service import LivreurService
+from services.ml_panier_service import MLPanierService, ml_panier_service
 from services.notification_outbox_service import NotificationOutboxService
 from services.panier_service import PanierService
 from services.produit_pricing_service import ProduitPricingServiceBD
@@ -218,6 +219,13 @@ def get_panier_service(
     panier_dao: IPanierDao = Depends(get_panier_dao)
 ) -> IPanierService:
     return PanierService(panier_dao)
+
+
+def get_ml_panier_service(
+    panier_dao: IPanierDao = Depends(get_panier_dao),
+) -> MLPanierService:
+    ml_panier_service.configure_panier_dao(panier_dao)
+    return ml_panier_service
 
 
 def get_souki_wallet_service(

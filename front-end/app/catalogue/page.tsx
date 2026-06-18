@@ -1,9 +1,11 @@
 "use client"
 
-import { useCallback, useEffect, useState, type SyntheticEvent } from "react"
+import { Suspense, useCallback, useEffect, useState, type SyntheticEvent } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
+  ArrowRight,
+  BadgeCheck,
   ChevronDown,
   Clock,
   AlertCircle,
@@ -12,10 +14,12 @@ import {
   Leaf,
   Menu,
   MessageCircle,
+  Mic,
   PackageCheck,
   ReceiptText,
   Search,
   ShoppingCart,
+  Sparkles,
   Trash2,
   X,
   Zap,
@@ -24,6 +28,8 @@ import {
 } from "lucide-react"
 
 import { AIModals } from "@/components/souki/ai-modals"
+import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
+import { RecolteAvatar } from "@/components/avatar/recolte-avatar"
 import { ProductCard } from "@/components/souki/product-card"
 import { useAuth } from "@/hooks/useAuth"
 import type { CommandeHistoriqueDTO, ProduitSuggestionDTO } from "@/lib/api"
@@ -33,6 +39,8 @@ import {
   CatalogueProduct,
   ClaimReason,
   CartItem,
+  DELIVERY_FEE,
+  FREE_DELIVERY_THRESHOLD,
   deleteOrderFromHistory,
   fetchCommandeCheckout,
   fetchCatalogueProducts,
@@ -42,6 +50,7 @@ import {
   getCataloguePresentation,
   loadStoredCart,
   mergeSelectionsIntoCart,
+  resolveCatalogueImage,
   saveStoredCart,
   submitClaim,
   submitManualBasket,
@@ -51,8 +60,8 @@ import { cn } from "@/lib/utils"
 
 const CATALOGUE_REFRESH_INTERVAL_MS = 5 * 60 * 1000
 const CLAIM_WINDOW_MS = 24 * 60 * 60 * 1000
-const SEUIL = 300
-const FRAIS = 15
+const SEUIL = FREE_DELIVERY_THRESHOLD
+const FRAIS = DELIVERY_FEE
 const DEFAULT_CATALOGUE_IMAGE = getCataloguePresentation("").image
 
 const applyImageFallback = (
@@ -66,7 +75,7 @@ const applyImageFallback = (
 
 const categories = [
   { id: "tous", label: "Tous" },
-  { id: "legumes", label: "Legumes" },
+  { id: "legumes", label: "Légumes" },
   { id: "fruits", label: "Fruits" },
   { id: "herbes", label: "Herbes" },
 ] as const
@@ -74,17 +83,17 @@ const categories = [
 const sortOptions = [
   { id: "popular", label: "Pertinence" },
   { id: "price-asc", label: "Prix croissant" },
-  { id: "price-desc", label: "Prix decroissant" },
-  { id: "name", label: "Ordre alphabetique" },
+  { id: "price-desc", label: "Prix décroissant" },
+  { id: "name", label: "Ordre alphabétique" },
 ] as const
 
 const claimReasonOptions: Array<{ id: ClaimReason; label: string }> = [
-  { id: "abime", label: "Produit abime" },
+  { id: "abime", label: "Produit abîmé" },
   { id: "poids_incorrect", label: "Poids incorrect" },
   { id: "erreur_produit", label: "Erreur de produit" },
   { id: "produit_manquant", label: "Produit manquant" },
-  { id: "qualite", label: "Qualite insuffisante" },
-  { id: "autre", label: "Autre probleme" },
+  { id: "qualite", label: "Qualité insuffisante" },
+  { id: "autre", label: "Autre problème" },
 ]
 
 const formatOrderDate = (value?: string | null) => {
@@ -111,10 +120,10 @@ const getOrderStatusLabel = (status?: string | null) => {
   const labels: Record<string, string> = {
     EN_ATTENTE: "En attente",
     EN_ROUTE: "En route",
-    LIVRE: "Livree",
+    LIVRE: "Livrée",
     ABSENT: "Absent",
-    REFUS: "Refusee",
-    ANNULE: "Annulee",
+    REFUS: "Refusée",
+    ANNULE: "Annulée",
   }
   return labels[normalizedStatus] || status || "Statut inconnu"
 }
@@ -136,12 +145,12 @@ const getOrderStatusClassName = (status?: string | null) => {
 const formatPaymentMode = (mode?: string | null) => {
   const normalizedMode = (mode || "").toLowerCase()
   const labels: Record<string, string> = {
-    cod: "Cash a la livraison",
-    cash: "Cash a la livraison",
+    cod: "Cash à la livraison",
+    cash: "Cash à la livraison",
     wallet: "Wallet SOUKI",
     cmi: "Carte bancaire CMI",
   }
-  return labels[normalizedMode] || mode || "Paiement non precise"
+  return labels[normalizedMode] || mode || "Paiement non précisé"
 }
 
 const formatDh = (value: string | number) => `${Number(value || 0).toFixed(2)} DH`
@@ -169,16 +178,85 @@ const canClaimOrder = (order: CommandeHistoriqueDTO) => {
 const getClaimWindowLabel = (order: CommandeHistoriqueDTO) => {
   const deliveredAt = parseDate(order.delivered_at)
   if (!deliveredAt) {
-    return "Disponible apres livraison"
+    return "Disponible après livraison"
   }
   const deadline = new Date(deliveredAt.getTime() + CLAIM_WINDOW_MS)
   if (Date.now() > deadline.getTime()) {
-    return "Delai SAV expire"
+    return "Délai SAV expiré"
   }
   return `SAV ouvert jusqu'au ${formatOrderDate(deadline.toISOString())}`
 }
 
-export default function CataloguePage() {
+function RecolteWarmWelcome() {
+  return (
+    <div className="pointer-events-none absolute right-3 top-4 z-20 w-24 sm:right-5 sm:w-32 xl:w-40 2xl:w-44">
+      <div className="relative pt-7 sm:pt-8">
+        <div className="absolute right-10 top-0 z-30 whitespace-nowrap rounded-2xl border border-[#F3D8B2] bg-white px-2.5 py-1.5 text-center text-[11px] font-black text-[#9A5C11] shadow-[0_12px_30px_-22px_rgba(154,92,17,0.55)] sm:right-16 sm:text-xs xl:right-20 2xl:text-base">
+          Ach heb lkhater ?
+        </div>
+        <RecolteAvatar
+          size="lg"
+          expression="welcome"
+          className="relative z-10 h-auto w-full"
+          label="Recolte accueille chaleureusement les clients Souki"
+        />
+      </div>
+    </div>
+  )
+}
+
+function SoukiGuideAvatar({
+  cartCount,
+  cartSubtotal,
+  remainingForFreeDelivery,
+  compact = false,
+}: {
+  cartCount: number
+  cartSubtotal: number
+  remainingForFreeDelivery: number
+  compact?: boolean
+}) {
+  const guideMessage =
+    cartCount === 0
+      ? "Salam, je peux te composer un panier frais en moins d'une minute."
+      : remainingForFreeDelivery > 0
+        ? `Encore ${remainingForFreeDelivery.toFixed(0)} DH pour profiter de la livraison offerte.`
+        : "Ton panier est bien parti. Tu peux valider ou ajouter quelques favoris."
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-3 rounded-2xl border border-[#D7EBD9] bg-white/85 p-3 shadow-[0_14px_40px_-34px_rgba(30,65,41,0.35)]">
+        <RecolteAvatar size="md" expression="curious" className="shrink-0" />
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-[#1E8A3C]">
+            Recolte de Souki
+          </p>
+          <p className="mt-1 text-sm font-bold leading-5 text-[#264129]">{guideMessage}</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-[#D7EBD9] bg-white p-4 shadow-[0_18px_50px_-36px_rgba(30,65,41,0.35)]">
+      <div className="absolute right-4 top-4 rounded-full bg-[#F0FAF1] px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-[#1E8A3C]">
+        Recolte Souki
+      </div>
+      <div className="flex items-end justify-center pt-5">
+        <RecolteAvatar size="lg" expression={cartCount > 0 ? "success" : "welcome"} />
+      </div>
+      <div className="mt-2 rounded-2xl bg-[#F7FCF7] p-4">
+        <p className="text-sm font-bold text-[#264129]">{guideMessage}</p>
+        <div className="mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-[#6F8070]">
+          <span>{cartCount} article{cartCount > 1 ? "s" : ""}</span>
+          <span>{cartSubtotal.toFixed(2)} DH</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CatalogueContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { isAuthenticated, isLoading } = useAuth()
@@ -221,7 +299,7 @@ export default function CataloguePage() {
       niveau: product.niveau,
       unit: product.unite,
       displayUnit: presentation.displayUnit || product.unite,
-      image: product.image_url || presentation.image,
+      image: resolveCatalogueImage(product.nom_fr, product.image_url),
       fallbackImage: presentation.image,
       category: presentation.category,
       quantityStep: presentation.quantityStep || (product.unite === "kg" ? 0.5 : 1),
@@ -343,9 +421,7 @@ export default function CataloguePage() {
       return
     }
 
-    setSuccessMessage(`Votre commande N-${validatedOrderId} a ete enregistree avec succes.`)
-    setShowOrderHistory(true)
-    router.replace("/catalogue")
+    router.replace(`/historique?commande_validee=${validatedOrderId}`)
   }, [router, searchParams])
 
   useEffect(() => {
@@ -464,6 +540,42 @@ export default function CataloguePage() {
     })
   }
 
+  const handleProductView = (id: number | string) => {
+    if (typeof window === "undefined") {
+      return
+    }
+
+    const normalizedId = Number(id)
+    const product = products.find((item) => item.id === normalizedId)
+    if (!product) {
+      return
+    }
+
+    const viewedProduct = {
+      id: product.id,
+      name: product.name,
+      image: product.image,
+      price: product.price,
+      unit: product.unit,
+      displayUnit: product.displayUnit,
+      viewedAt: new Date().toISOString(),
+    }
+
+    try {
+      const rawHistory = window.localStorage.getItem("souki_recent_products")
+      const currentHistory = rawHistory ? JSON.parse(rawHistory) : []
+      const nextHistory = [
+        viewedProduct,
+        ...(Array.isArray(currentHistory) ? currentHistory : []).filter(
+          (item: { id?: number }) => item.id !== product.id
+        ),
+      ].slice(0, 12)
+      window.localStorage.setItem("souki_recent_products", JSON.stringify(nextHistory))
+    } catch {
+      window.localStorage.setItem("souki_recent_products", JSON.stringify([viewedProduct]))
+    }
+  }
+
   const handleAddSuggestionToCart = (product: CatalogueProduct) => {
     requireAuth("/catalogue", () => {
       setAddedSuggestionIds((currentIds) =>
@@ -511,7 +623,7 @@ export default function CataloguePage() {
       return
     }
     if (claimableLines.length === 0) {
-      alert("Cette commande ne contient aucune ligne eligible au SAV.")
+      alert("Cette commande ne contient aucune ligne éligible au SAV.")
       return
     }
     const firstLine = claimableLines[0]
@@ -542,11 +654,11 @@ export default function CataloguePage() {
     }
     const normalizedQuantity = Number(claimQuantity.replace(",", "."))
     if (!Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) {
-      setClaimError("La quantite reclamee doit etre positive.")
+      setClaimError("La quantité réclamée doit être positive.")
       return
     }
     if (normalizedQuantity > selectedLine.quantite_kg) {
-      setClaimError("La quantite reclamee depasse la quantite commandee.")
+      setClaimError("La quantité réclamée dépasse la quantité commandée.")
       return
     }
 
@@ -564,7 +676,7 @@ export default function CataloguePage() {
         ],
       })
       setSuccessMessage(
-        `Reclamation envoyee. ${formatDh(result.amount_refunded)} ont ete credites sur votre wallet SOUKI. Nouveau solde: ${formatDh(result.new_wallet_balance)}.`
+        `Réclamation envoyée. ${formatDh(result.amount_refunded)} ont été crédités sur votre wallet SOUKI. Nouveau solde : ${formatDh(result.new_wallet_balance)}.`
       )
       if (typeof window !== "undefined") {
         window.dispatchEvent(
@@ -674,7 +786,9 @@ export default function CataloguePage() {
   )?.id
   const addedSuggestionItems = cart.filter((item) => addedSuggestionIds.includes(item.id))
   const suggestionSavings = addedSuggestionItems.reduce(
-    (sum, item) => sum + item.price * 0.12,
+    (sum, item) =>
+      sum +
+      Math.max(0, Number(item.prix_khddar_estime || 0) - item.price) * item.quantity,
     0
   )
   const claimableLines =
@@ -691,17 +805,17 @@ export default function CataloguePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FBFDF9]">
+    <div className="min-h-screen bg-[#FBFDF9] pb-24 md:pb-0">
       <div className="bg-[#F07C00] px-4 py-3 text-center text-sm font-semibold text-white">
-        Commandes ouvertes - Livraison demain pour garantir la fraicheur
+        Paniers ouverts après 20h - Livraison demain, prix recalculés au moment de la validation
       </div>
 
-      <nav className="sticky top-0 z-40 border-b border-[#E7F0E8] bg-white/90 backdrop-blur">
+      <nav className="sticky top-0 z-40 hidden glass-ios26 border-b border-[#E7F0E8] md:block">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowSidebar((value) => !value)}
-              className="rounded-xl p-2 text-[#264129] lg:hidden"
+              className="rounded-xl p-2 text-[#264129] xl:hidden"
             >
               <Menu className="h-6 w-6" />
             </button>
@@ -726,7 +840,7 @@ export default function CataloguePage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowCart((value) => !value)}
-              className="relative rounded-xl p-2 text-[#264129] lg:hidden"
+              className="relative rounded-xl p-2 text-[#264129] xl:hidden"
             >
               <ShoppingCart className="h-6 w-6" />
               {cart.length > 0 && (
@@ -739,22 +853,22 @@ export default function CataloguePage() {
         </div>
       </nav>
 
-      <div className="mx-auto flex max-w-[1600px]">
+      <div className="mx-auto flex max-w-[1680px]">
         <aside
           className={cn(
-            "fixed left-0 top-0 z-30 h-screen w-72 overflow-y-auto border-r border-[#E6F0E7] bg-[#F2FAF2] p-6 transition-transform lg:sticky lg:top-20 lg:h-[calc(100vh-80px)] lg:translate-x-0",
-            showSidebar ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+            "fixed left-0 top-0 z-50 h-[100dvh] w-[min(100vw,18rem)] overflow-y-auto border-r border-[#E6F0E7] bg-[#F2FAF2] p-6 transition-transform xl:sticky xl:top-20 xl:h-[calc(100vh-80px)] xl:translate-x-0",
+            showSidebar ? "translate-x-0" : "-translate-x-full xl:translate-x-0"
           )}
         >
           <button
             onClick={() => setShowSidebar(false)}
-            className="absolute right-4 top-4 rounded-xl p-2 text-[#264129] lg:hidden"
+            className="absolute right-4 top-4 rounded-xl p-2 text-[#264129] xl:hidden"
           >
             <X className="h-5 w-5" />
           </button>
 
           <div className="space-y-8">
-            <div className="rounded-3xl bg-white p-4 shadow-sm">
+            <div className="glass-ios26 rounded-3xl p-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#7B8B7D]" />
                 <input
@@ -781,7 +895,7 @@ export default function CataloguePage() {
                       "w-full rounded-2xl px-4 py-3 text-left text-sm font-semibold transition-colors",
                       selectedCategory === category.id
                         ? "bg-[#1E8A3C] text-white"
-                        : "bg-white text-[#264129] hover:bg-[#E7F5E8]"
+                        : "glass-ios26 text-[#264129] hover:bg-white/45"
                     )}
                   >
                     {category.label}
@@ -790,34 +904,29 @@ export default function CataloguePage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-[#D7EBD9] bg-white p-5">
+            <div className="glass-ios26 rounded-3xl border border-[#D7EBD9] p-5">
               <div className="flex items-center gap-3 text-[#1E8A3C]">
                 <Clock className="h-5 w-5" />
                 <span className="font-semibold">Commandes ouvertes</span>
               </div>
               <p className="mt-2 text-sm text-[#718272]">
-                Livraison demain pour garantir la fraicheur.
+                Livraison demain pour garantir la fraîcheur.
               </p>
             </div>
 
             {isAuthenticated && (
-              <button
-                onClick={() => setShowOrderHistory(true)}
-                className={cn(
-                  "flex w-full items-center justify-between rounded-3xl border px-5 py-4 text-left transition-colors",
-                  showOrderHistory
-                    ? "border-[#BFE6C4] bg-[#EAF8EC] text-[#1E8A3C]"
-                    : "border-[#D7EBD9] bg-white text-[#264129] hover:bg-[#F0FAF1]"
-                )}
+              <Link
+                href="/historique"
+                className="glass-ios26 flex w-full items-center justify-between rounded-3xl border border-[#D7EBD9] px-5 py-4 text-left text-[#264129] transition-colors hover:bg-white/45"
               >
                 <span className="flex items-center gap-3 font-semibold">
                   <History className="h-5 w-5" />
-                  Historique commandes
+                  Historique
                 </span>
                 <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[#F07C00]">
                   {orderHistory.length}
                 </span>
-              </button>
+              </Link>
             )}
 
             {!isAuthenticated && !isLoading && (
@@ -836,44 +945,140 @@ export default function CataloguePage() {
           </div>
         </aside>
 
-        <main className="flex-1 px-4 py-6 lg:px-8 lg:py-8">
-          <div className="mb-8 rounded-[32px] bg-gradient-to-br from-[#F7FFF6] via-white to-[#FFF7EF] p-6 shadow-[0_18px_50px_-32px_rgba(0,0,0,0.18)] lg:p-8">
-            <div className="mb-6 flex flex-col gap-5">
-              <div className="max-w-3xl">
-                <div className="mb-3 flex items-center gap-2 text-[#1E8A3C]">
-                  <Leaf className="h-6 w-6" />
-                  <span className="text-sm font-bold uppercase tracking-[0.22em]">
+        <main className="min-w-0 flex-1 px-4 py-5 lg:px-8 lg:py-8">
+          <div className="relative mb-6 overflow-hidden rounded-2xl border border-[#D7EBD9] bg-[linear-gradient(135deg,#FFFFFF_0%,#F7FCF7_58%,#FFF7EE_100%)] p-5 shadow-[0_18px_50px_-34px_rgba(0,0,0,0.2)] lg:p-6">
+            <RecolteWarmWelcome />
+            <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_19rem]">
+              <div className="min-w-0 xl:pr-40 2xl:pr-0">
+                <div className="mb-4 flex flex-wrap items-center gap-3 pr-24 sm:pr-32 xl:pr-0">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-[#1E8A3C] ring-1 ring-[#D7EBD9]">
+                    <Leaf className="h-4 w-4" />
                     Catalogue du jour
                   </span>
+                  <span className="inline-flex items-center gap-2 rounded-full bg-[#FFF7EE] px-3 py-1.5 text-xs font-bold text-[#9A5C11] ring-1 ring-[#F3D8B2]">
+                    <Sparkles className="h-4 w-4" />
+                    Guide d'achat actif
+                  </span>
                 </div>
-                <h1 className="text-3xl font-black text-[#1E8A3C] lg:text-4xl">
-                  Fruits, legumes et herbes fraiches au prix du marche
+
+                <h1 className="max-w-4xl pr-24 text-2xl font-black leading-tight text-[#1E8A3C] sm:pr-32 lg:text-3xl xl:pr-0">
+                  Salam, je t'aide a composer un panier frais sans perdre de temps
                 </h1>
-                <p className="mt-3 max-w-2xl text-sm text-[#6F8070] lg:text-base">
-                  Le catalogue est charge depuis votre back-end. Le panier et la validation de
-                  commande passent par les routes de l'application.
+                <p className="mt-3 max-w-3xl text-sm leading-6 text-[#5F735F] sm:pr-28 lg:text-base xl:pr-0">
+                  Choisis toi-même tes produits, parle à l'assistant vocal, ou laisse Souki composer
+                  un panier malin selon ton budget.
                 </p>
+
+                <div className="mt-4 2xl:hidden">
+                  <SoukiGuideAvatar
+                    cartCount={cart.length}
+                    cartSubtotal={cartSubtotal}
+                    remainingForFreeDelivery={reste}
+                    compact
+                  />
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <button
+                    onClick={() => requireAuth("/catalogue", () => setActiveModal("smart"))}
+                    className="group flex min-h-[112px] min-w-0 items-center gap-4 rounded-2xl bg-[#F07C00] p-4 text-left text-white shadow-[0_16px_35px_-22px_rgba(240,124,0,0.75)] transition-transform hover:-translate-y-0.5 hover:bg-[#D66B00] lg:min-h-[124px] lg:flex-col lg:items-start lg:justify-between"
+                  >
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/18 lg:h-10 lg:w-10">
+                        <Zap className="h-5 w-5" />
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col justify-center">
+                      <span className="block text-base font-black leading-tight">Panier intelligent</span>
+                      <span className="mt-1 block text-xs font-semibold leading-snug text-white/85">
+                        Budget, duree, foyer: Souki compose.
+                      </span>
+                    </span>
+                    <ArrowRight className="ml-auto h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1 lg:ml-0 lg:self-end" />
+                  </button>
+
+                  <button
+                    onClick={() => requireAuth("/catalogue", () => setActiveModal("voice"))}
+                    className="glass-ios26 group flex min-h-[112px] min-w-0 items-center gap-4 rounded-2xl border border-[#CFE6D2] p-4 text-left text-[#264129] transition-transform hover:-translate-y-0.5 hover:bg-white/45 lg:min-h-[124px] lg:flex-col lg:items-start lg:justify-between"
+                  >
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#F0FAF1] text-[#1E8A3C] lg:h-10 lg:w-10">
+                        <Mic className="h-5 w-5" />
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col justify-center">
+                      <span className="block text-base font-black leading-tight">Assistant IA</span>
+                      <span className="mt-1 block text-xs font-semibold leading-snug text-[#6F8070]">
+                        Dis les produits, on prépare le panier.
+                      </span>
+                    </span>
+                    <ArrowRight className="ml-auto h-5 w-5 shrink-0 text-[#9AB49C] transition-transform group-hover:translate-x-1 lg:ml-0 lg:self-end" />
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      document
+                        .getElementById("catalogue-products")
+                        ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                    }
+                    className="glass-ios26 group flex min-h-[112px] min-w-0 items-center gap-4 rounded-2xl border border-[#E6F0E7] p-4 text-left text-[#264129] transition-transform hover:-translate-y-0.5 hover:bg-white/45 sm:col-span-2 lg:col-span-1 lg:min-h-[124px] lg:flex-col lg:items-start lg:justify-between"
+                  >
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#FFF7EE] text-[#F07C00] lg:h-10 lg:w-10">
+                        <ShoppingCart className="h-5 w-5" />
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col justify-center">
+                      <span className="block text-base font-black leading-tight">Commander moi-même</span>
+                      <span className="mt-1 block text-xs font-semibold leading-snug text-[#6F8070]">
+                        Parcours le catalogue a ton rythme.
+                      </span>
+                    </span>
+                    <ArrowRight className="ml-auto h-5 w-5 shrink-0 text-[#9AB49C] transition-transform group-hover:translate-x-1 lg:ml-0 lg:self-end" />
+                  </button>
+                </div>
+
+                <div className="mt-4 grid gap-3 text-sm font-semibold text-[#607061] md:grid-cols-3">
+                  <div className="glass-ios26 flex min-h-[72px] items-center gap-3 rounded-xl px-4 py-3 text-left ring-1 ring-[#E6F0E7]">
+                    <BadgeCheck className="h-5 w-5 shrink-0 text-[#1E8A3C]" />
+                    <span className="block leading-snug">Produits frais du marché</span>
+                  </div>
+                  <div className="glass-ios26 flex min-h-[72px] items-center gap-3 rounded-xl px-4 py-3 text-left ring-1 ring-[#E6F0E7]">
+                    <Clock className="h-5 w-5 shrink-0 text-[#1E8A3C]" />
+                    <span className="block leading-snug">Livraison demain matin</span>
+                  </div>
+                  <div className="glass-ios26 flex min-h-[72px] items-center gap-3 rounded-xl px-4 py-3 text-left ring-1 ring-[#E6F0E7]">
+                    <MessageCircle className="h-5 w-5 shrink-0 text-[#1E8A3C]" />
+                    <span className="block leading-snug">Aide disponible à chaque étape</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <button
-                  onClick={() => requireAuth("/catalogue", () => setActiveModal("voice"))}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-[#CFE6D2] bg-white px-5 py-3 font-semibold text-[#1E8A3C] transition-colors hover:bg-[#F0FAF1] disabled:cursor-not-allowed disabled:opacity-55"
-                >
-                  <MessageCircle className="h-5 w-5" />
-                  Assistant vocale IA
-                </button>
-                <button
-                  onClick={() => requireAuth("/catalogue", () => setActiveModal("smart"))}
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-[#F07C00] px-5 py-3 font-semibold text-white transition-colors hover:bg-[#D66B00] disabled:cursor-not-allowed disabled:bg-gray-300"
-                >
-                  <Zap className="h-5 w-5" />
-                  Panier intelligent
-                </button>
+              <div className="hidden 2xl:block">
+                <SoukiGuideAvatar
+                  cartCount={cart.length}
+                  cartSubtotal={cartSubtotal}
+                  remainingForFreeDelivery={reste}
+                />
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="mt-5 grid gap-3 border-t border-[#EEF2EE] pt-5 sm:grid-cols-3">
+              <div className="relative overflow-hidden rounded-[2rem] border border-[#D7EBD9] bg-[linear-gradient(145deg,#FFFFFF_0%,#F0FAF1_100%)] px-4 py-4 text-center shadow-[0_16px_36px_-28px_rgba(30,138,60,0.45)]">
+                <p className="relative text-[11px] font-bold uppercase tracking-wide text-[#7B8B7D]">Seuil confort</p>
+                <p className="relative mt-1 text-base font-black leading-tight text-[#264129] sm:text-lg">
+                  {SEUIL} DH livraison offerte
+                </p>
+              </div>
+              <div className="relative overflow-hidden rounded-[2rem] border border-[#F3D8B2] bg-[linear-gradient(145deg,#FFFFFF_0%,#FFF7EE_100%)] px-4 py-4 text-center shadow-[0_16px_36px_-28px_rgba(240,124,0,0.42)] sm:translate-y-2">
+                <p className="relative text-[11px] font-bold uppercase tracking-wide text-[#9A5C11]">Apres 20h</p>
+                <p className="relative mt-1 text-base font-black leading-tight text-[#264129] sm:text-lg">
+                  En attente pour demain
+                </p>
+              </div>
+              <div className="relative overflow-hidden rounded-[2rem] border border-[#DDEBDD] bg-[linear-gradient(145deg,#FFFFFF_0%,#F7FCF7_100%)] px-4 py-4 text-center shadow-[0_16px_36px_-28px_rgba(38,65,41,0.36)]">
+                <p className="relative text-[11px] font-bold uppercase tracking-wide text-[#7B8B7D]">Prix</p>
+                <p className="relative mt-1 text-base font-black leading-tight text-[#264129] sm:text-lg">
+                  Recalcules a validation
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
               <p className="text-sm text-[#6F8070]">
                 {showOrderHistory
                   ? `${orderHistory.length} commande${orderHistory.length > 1 ? "s" : ""} dans l'historique`
@@ -932,6 +1137,25 @@ export default function CataloguePage() {
 
           {isAuthenticated && showOrderHistory && (
             <section className="mb-8">
+              <div className="mb-5 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-[#E6F0E7] bg-white px-4 py-3 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#7B8B7D]">Commandes</p>
+                  <p className="mt-1 text-2xl font-black text-[#264129]">{orderHistory.length}</p>
+                </div>
+                <div className="rounded-2xl border border-[#E6F0E7] bg-white px-4 py-3 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#7B8B7D]">Depense totale</p>
+                  <p className="mt-1 text-2xl font-black text-[#F07C00]">
+                    {orderHistory.reduce((sum, order) => sum + Number(order.montant_total || 0), 0).toFixed(2)} DH
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-[#E6F0E7] bg-white px-4 py-3 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#7B8B7D]">SAV</p>
+                  <p className="mt-1 text-2xl font-black text-[#1E8A3C]">
+                    {orderHistory.filter(canClaimOrder).length} ouvert
+                  </p>
+                </div>
+              </div>
+
               <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                 <div>
                   <div className="flex items-center gap-2 text-[#1E8A3C]">
@@ -939,7 +1163,7 @@ export default function CataloguePage() {
                     <h2 className="text-xl font-black">Historique des commandes</h2>
                   </div>
                   <p className="mt-1 text-sm text-[#6F8070]">
-                    Retrouvez les commandes validees depuis le checkout.
+                    Retrouvez les commandes validées depuis le checkout.
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -981,9 +1205,9 @@ export default function CataloguePage() {
               {!isFetchingHistory && !historyError && orderHistory.length === 0 && (
                 <div className="rounded-[24px] border border-[#E6EFE7] bg-white p-8 text-center">
                   <PackageCheck className="mx-auto mb-3 h-10 w-10 text-[#B8C9BA]" />
-                  <p className="font-semibold text-[#264129]">Aucune commande validee pour le moment.</p>
+                  <p className="font-semibold text-[#264129]">Aucune commande validée pour le moment.</p>
                   <p className="mt-1 text-sm text-[#6F8070]">
-                    Vos prochaines commandes apparaitront ici apres validation.
+                    Vos prochaines commandes apparaîtront ici après validation.
                   </p>
                 </div>
               )}
@@ -993,9 +1217,10 @@ export default function CataloguePage() {
                   {orderHistory.map((order) => (
                     <article
                       key={order.id}
-                      className="rounded-[24px] border border-[#E6F0E7] bg-white p-5 shadow-sm"
+                      className="overflow-hidden rounded-2xl border border-[#E6F0E7] bg-white shadow-[0_18px_55px_-36px_rgba(30,65,41,0.35)]"
                     >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="h-1.5 bg-gradient-to-r from-[#1E8A3C] via-[#4CB84A] to-[#F07C00]" />
+                      <div className="flex flex-wrap items-start justify-between gap-3 p-5 pb-0">
                         <div>
                           <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#7B8B7D]">
                             Commande N-{order.id}
@@ -1024,7 +1249,7 @@ export default function CataloguePage() {
                         </div>
                       </div>
 
-                      <div className="mt-4 space-y-3">
+                      <div className="mt-4 space-y-3 px-5">
                         {order.produits.map((product, index) => (
                           <div
                             key={`${order.id}-${product.nom_fr}-${index}`}
@@ -1053,7 +1278,7 @@ export default function CataloguePage() {
                         ))}
                       </div>
 
-                      <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                      <div className="mt-4 grid gap-3 px-5 text-sm sm:grid-cols-2">
                         <div className="rounded-2xl bg-[#FBFDF9] p-3">
                           <p className="text-[#7B8B7D]">Paiement</p>
                           <p className="mt-1 font-bold text-[#264129]">
@@ -1076,7 +1301,7 @@ export default function CataloguePage() {
                         </div>
                       </div>
 
-                      <div className="mt-4 grid gap-2 text-xs font-semibold text-[#6F8070] sm:grid-cols-2">
+                      <div className="mt-4 grid gap-2 px-5 text-xs font-semibold text-[#6F8070] sm:grid-cols-2">
                         {order.creneau_livraison && (
                           <p>
                             Creneau: <span className="text-[#264129]">{order.creneau_livraison}</span>
@@ -1089,7 +1314,7 @@ export default function CataloguePage() {
                         )}
                         {order.delivered_at && (
                           <p>
-                            Livree: <span className="text-[#264129]">{formatOrderDate(order.delivered_at)}</span>
+                            Livrée : <span className="text-[#264129]">{formatOrderDate(order.delivered_at)}</span>
                           </p>
                         )}
                         {order.absent_at && (
@@ -1099,7 +1324,7 @@ export default function CataloguePage() {
                         )}
                       </div>
 
-                      <div className="mt-4 space-y-2">
+                      <div className="mt-4 space-y-2 bg-[#FBFDF9] p-5">
                         <button
                           onClick={() => openClaimModal(order)}
                           disabled={!canClaimOrder(order)}
@@ -1111,7 +1336,7 @@ export default function CataloguePage() {
                           )}
                         >
                           <AlertCircle className="h-4 w-4" />
-                          Signaler un probleme
+                          Signaler un problème
                         </button>
                         <p className="text-center text-xs font-semibold text-[#7B8B7D]">
                           {getClaimWindowLabel(order)}
@@ -1125,7 +1350,7 @@ export default function CataloguePage() {
           )}
 
           {!showOrderHistory && isFetching && (
-            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:gap-5 md:[grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr))]">
               {Array.from({ length: 6 }).map((_, index) => (
                 <div
                   key={index}
@@ -1143,7 +1368,10 @@ export default function CataloguePage() {
 
           {!showOrderHistory && !isFetching && !error && (
             <>
-              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              <div
+                id="catalogue-products"
+                className="grid grid-cols-2 gap-3 scroll-mt-28 sm:gap-5 md:[grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr))]"
+              >
                 {filteredProducts.map((product) => (
                   <ProductCard
                     key={product.id}
@@ -1152,10 +1380,13 @@ export default function CataloguePage() {
                     image={product.image}
                     fallbackImage={product.fallbackImage}
                     price={product.price}
+                    prixKhddarEstime={product.prix_khddar_estime}
+                    niveau={product.niveau}
                     unit={product.unit}
                     displayUnit={product.displayUnit}
                     quantityStep={product.quantityStep}
                     stock={product.stock}
+                    onView={handleProductView}
                     onAddToCart={handleAddToCart}
                   />
                 ))}
@@ -1163,7 +1394,7 @@ export default function CataloguePage() {
 
               {filteredProducts.length === 0 && (
                 <div className="rounded-[28px] border border-[#E6EFE7] bg-white p-12 text-center">
-                  <p className="text-[#6F8070]">Aucun produit ne correspond a votre recherche.</p>
+                  <p className="text-[#6F8070]">Aucun produit ne correspond à votre recherche.</p>
                 </div>
               )}
             </>
@@ -1172,40 +1403,40 @@ export default function CataloguePage() {
 
         <aside
           className={cn(
-            "fixed right-0 top-0 z-30 flex h-screen w-80 flex-col border-l border-[#E6F0E7] bg-white transition-transform lg:sticky lg:top-20 lg:h-[calc(100vh-80px)] lg:w-[22rem] lg:translate-x-0 xl:w-[25rem]",
-            showCart ? "translate-x-0" : "translate-x-full lg:translate-x-0"
+            "fixed right-0 top-0 z-50 flex h-[100dvh] w-[min(100vw,22rem)] flex-col border-l border-[#E6F0E7] bg-white transition-transform xl:sticky xl:top-20 xl:h-[calc(100vh-80px)] xl:w-[20rem] xl:translate-x-0 2xl:w-[22rem]",
+            showCart ? "translate-x-0" : "translate-x-full xl:translate-x-0"
           )}
         >
           <button
             onClick={() => setShowCart(false)}
-            className="absolute right-4 top-4 rounded-xl p-2 text-[#264129] lg:hidden"
+            className="absolute right-4 top-4 rounded-xl p-2 text-[#264129] xl:hidden"
           >
             <X className="h-5 w-5" />
           </button>
 
-          <div className="border-b border-[#EEF2EE] p-6">
+          <div className="border-b border-[#EEF2EE] p-4 xl:p-5">
             <div className="flex items-center gap-2 text-[#1E8A3C]">
               <ShoppingCart className="h-5 w-5" />
               <h2 className="text-xl font-black">Votre panier</h2>
             </div>
             <p className="mt-2 text-sm text-[#6F8070]">
               {isAuthenticated
-                ? "Ajustez vos quantites puis validez votre commande."
-                : "Le panier est reserve aux utilisateurs connectes."}
+                ? "Ajustez vos quantités puis validez votre commande."
+                : "Le panier est réservé aux utilisateurs connectés."}
             </p>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-3 xl:p-4">
             {!isAuthenticated && !isLoading ? (
               <div className="rounded-[28px] border border-[#F3D8B2] bg-[#FFF7EE] p-5">
                 <p className="text-sm font-semibold text-[#9A5C11]">
-                  Connectez-vous pour utiliser le panier, modifier les quantites et commander.
+                  Connectez-vous pour utiliser le panier, modifier les quantités et commander.
                 </p>
                 <button
                   onClick={() => redirectToLogin("/catalogue")}
                   className="mt-4 w-full rounded-2xl bg-[#F07C00] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#D66B00]"
                 >
-                  Aller a la connexion
+                  Aller à la connexion
                 </button>
               </div>
             ) : cart.length === 0 ? (
@@ -1275,7 +1506,7 @@ export default function CataloguePage() {
                                   : "border-gray-200"
                             )}
                           >
-                            <div className="relative flex h-[110px] items-center justify-center bg-gray-50">
+                            <div className="relative flex h-24 items-center justify-center bg-gray-50 2xl:h-[105px]">
                               <img
                                 src={suggestion.image}
                                 alt={suggestion.name}
@@ -1342,13 +1573,13 @@ export default function CataloguePage() {
                 {cart.map((item) => (
                   <div
                     key={item.id}
-                    className="flex gap-3 rounded-[24px] border border-[#E6F0E7] bg-[#F7FCF7] p-4"
+                    className="flex gap-3 rounded-2xl border border-[#E6F0E7] bg-[#F7FCF7] p-3"
                   >
                     <img
                       src={item.image}
                       alt={item.name}
                       onError={(event) => applyImageFallback(event, item.fallbackImage)}
-                      className="h-16 w-16 shrink-0 rounded-2xl object-cover"
+                      className="h-14 w-14 shrink-0 rounded-xl object-cover 2xl:h-16 2xl:w-16 2xl:rounded-2xl"
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
@@ -1366,20 +1597,20 @@ export default function CataloguePage() {
                         </button>
                       </div>
 
-                      <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
                         <div className="flex shrink-0 items-center rounded-full border border-[#CDE8D0] bg-white">
                           <button
                             onClick={() => updateCartQuantity(item.id, -item.quantityStep)}
-                            className="p-2 text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] disabled:cursor-not-allowed disabled:opacity-40"
+                            className="p-1.5 text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] disabled:cursor-not-allowed disabled:opacity-40 2xl:p-2"
                           >
                             <Minus className="h-3 w-3" />
                           </button>
-                          <span className="min-w-[90px] px-3 text-center text-xs font-semibold text-[#264129]">
+                          <span className="min-w-[72px] px-2 text-center text-xs font-semibold text-[#264129] 2xl:min-w-[90px] 2xl:px-3">
                             {formatQuantity(item.quantity, item.unit)}
                           </span>
                           <button
                             onClick={() => updateCartQuantity(item.id, item.quantityStep)}
-                            className="p-2 text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] disabled:cursor-not-allowed disabled:opacity-40"
+                            className="p-1.5 text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] disabled:cursor-not-allowed disabled:opacity-40 2xl:p-2"
                           >
                             <Plus className="h-3 w-3" />
                           </button>
@@ -1396,7 +1627,7 @@ export default function CataloguePage() {
           </div>
 
           {isAuthenticated && cart.length > 0 && (
-            <div className="border-t border-[#EEF2EE] p-5">
+            <div className="border-t border-[#EEF2EE] p-4 xl:p-5">
               <div className="space-y-2 text-sm">
                 <div className="flex items-center justify-between text-[#6F8070]">
                   <span>Sous-total</span>
@@ -1412,7 +1643,7 @@ export default function CataloguePage() {
 
               <div className="mt-4 flex items-center justify-between border-t border-[#EEF2EE] pt-4">
                 <span className="text-lg font-black text-[#264129]">Total</span>
-                <span className="text-2xl font-black text-[#F07C00]">{cartTotal.toFixed(2)} DH</span>
+                <span className="text-xl font-black text-[#F07C00] 2xl:text-2xl">{cartTotal.toFixed(2)} DH</span>
               </div>
 
               <button
@@ -1424,7 +1655,7 @@ export default function CataloguePage() {
               </button>
 
               <p className="mt-3 text-center text-xs text-[#6F8070]">
-                Livraison demain pour garantir la fraicheur.
+                Livraison demain pour garantir la fraîcheur.
               </p>
             </div>
           )}
@@ -1433,13 +1664,19 @@ export default function CataloguePage() {
 
       {(showSidebar || showCart) && (
         <div
-          className="fixed inset-0 z-20 bg-black/40 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/40 xl:hidden"
           onClick={() => {
             setShowSidebar(false)
             setShowCart(false)
           }}
         />
       )}
+
+      <MobileBottomNav
+        cartCount={cart.length}
+        onCartClick={() => setShowCart(true)}
+        onMenuClick={() => setShowSidebar(true)}
+      />
 
       <AIModals
         isOpen={activeModal !== null}
@@ -1458,10 +1695,10 @@ export default function CataloguePage() {
                   SAV Wallet
                 </p>
                 <h3 className="mt-1 text-2xl font-black text-[#264129]">
-                  Signaler un probleme
+                  Signaler un problème
                 </h3>
                 <p className="mt-1 text-sm text-[#6F8070]">
-                  Commande N-{claimOrder.id} · remboursement credite sur votre wallet SOUKI.
+                  Commande N-{claimOrder.id} · remboursement crédité sur votre wallet SOUKI.
                 </p>
               </div>
               <button
@@ -1476,7 +1713,7 @@ export default function CataloguePage() {
 
             <div className="mt-5 space-y-4">
               <label className="block">
-                <span className="text-sm font-bold text-[#264129]">Produit concerne</span>
+                <span className="text-sm font-bold text-[#264129]">Produit concerné</span>
                 <select
                   value={claimLineId ?? ""}
                   onChange={(event) => {
@@ -1497,7 +1734,7 @@ export default function CataloguePage() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
-                  <span className="text-sm font-bold text-[#264129]">Quantite a rembourser</span>
+                  <span className="text-sm font-bold text-[#264129]">Quantité à rembourser</span>
                   <input
                     type="number"
                     min="0.001"
@@ -1531,7 +1768,7 @@ export default function CataloguePage() {
               </div>
 
               <div className="rounded-2xl border border-[#F3D8B2] bg-[#FFF7EE] p-4 text-sm text-[#7A4C0E]">
-                Le remboursement est automatiquement credite sur votre wallet SOUKI. Aucun remboursement CB ou cash
+                Le remboursement est automatiquement crédité sur votre wallet SOUKI. Aucun remboursement CB ou cash
                 n'est propose pour ce parcours.
               </div>
 
@@ -1562,5 +1799,19 @@ export default function CataloguePage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function CataloguePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#FBFDF9] flex items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#1E8A3C] border-t-transparent" />
+        </div>
+      }
+    >
+      <CatalogueContent />
+    </Suspense>
   )
 }

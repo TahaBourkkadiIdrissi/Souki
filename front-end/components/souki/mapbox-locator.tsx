@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useCallback, useState, useRef, useEffect } from "react"
 import { MapPin, Loader2, AlertCircle, X } from "lucide-react"
 import "mapbox-gl/dist/mapbox-gl.css"
 
@@ -17,10 +17,22 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose }: MapboxLoca
   const map = useRef<any>(null)
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
 
+  const resetMap = useCallback(() => {
+    if (map.current) {
+      map.current.remove()
+      map.current = null
+    }
+    setUserLocation(null)
+    setLoading(false)
+  }, [])
+
   // Request user location when modal opens
   useEffect(() => {
-    if (!isOpen) return
-    if (map.current) return
+    if (!isOpen) {
+      resetMap()
+      setError(null)
+      return
+    }
 
     setError(null)
     setLoading(true)
@@ -51,7 +63,7 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose }: MapboxLoca
       },
       { enableHighAccuracy: true, timeout: 10000 }
     )
-  }, [isOpen])
+  }, [isOpen, resetMap])
 
   // Initialize Mapbox when location and container are ready
   useEffect(() => {
@@ -151,12 +163,9 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose }: MapboxLoca
   // Cleanup map on unmount
   useEffect(() => {
     return () => {
-      if (map.current) {
-        map.current.remove()
-        map.current = null
-      }
+      resetMap()
     }
-  }, [])
+  }, [resetMap])
 
   if (!isOpen) return null
 
