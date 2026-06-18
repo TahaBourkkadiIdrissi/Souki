@@ -43,9 +43,11 @@ class AuthService:
                         detail="Un compte non verifie existe deja pour cet email. Utilisez le renvoi du code OTP."
                     )
 
+            phone_blacklisted = False
             if data.phone:
-                if self._is_phone_currently_blacklisted(db, data.phone):
-                    raise HTTPException(status_code=400, detail="Ce numero n'est pas autorise.")
+                # Un numero blackliste peut se reinscrire, mais le compte restera restreint
+                # au COD (cf. plus bas). Il pourra demander une levee que l'admin tranchera.
+                phone_blacklisted = self._is_phone_currently_blacklisted(db, data.phone)
 
                 existing_phone = _dao.find_by_identifier(db, data.phone)
                 if existing_phone and existing_phone.is_verified:
@@ -74,6 +76,10 @@ class AuthService:
                 raise HTTPException(status_code=500, detail="Erreur interne lors de la creation du compte.")
 
             self._ensure_role_profile(db, user)
+            if phone_blacklisted:
+                db.flush()
+                if user.client_profile is not None:
+                    user.client_profile.is_blacklisted = True
             self._ensure_rbac_role_assignment(db, user, role)
             db.commit()
 
