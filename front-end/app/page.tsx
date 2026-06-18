@@ -5,6 +5,7 @@ import Link from "next/link"
 import Image from "next/image"      
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
+import { isPwaStandalone } from "@/lib/pwa"
 import { 
   ShoppingCart, 
   Leaf, 
@@ -79,6 +80,12 @@ export default function HomePage() {
   const { isAuthenticated, validateToken } = useAuth()
   const router = useRouter()
   const [activeModal, setActiveModal] = useState<"voice" | "smart" | null>(null)
+
+  useEffect(() => {
+    if (isPwaStandalone()) {
+      router.replace("/pwa-welcome")
+    }
+  }, [router])
 
   // Fonction helper pour protéger les actions
   const requireAuth = (callback: () => void) => {
