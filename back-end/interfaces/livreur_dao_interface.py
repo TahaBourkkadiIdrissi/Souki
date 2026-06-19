@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Iterable, Optional
 from uuid import UUID
 
@@ -17,6 +17,7 @@ class ILivreurDao(ABC):
         session: Session,
         livreur_id: int,
         visible_statuses: Iterable[str],
+        target_date: date,
     ) -> list[dict[str, Any]]:
         pass
 

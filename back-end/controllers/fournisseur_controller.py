@@ -6,6 +6,7 @@ from dto.supplier_dto import (
     AdminSupplierValidationDTO,
     PendingSupplierRequestDTO,
     SupplierOrdersDTO,
+    SupplierPreparationDTO,
     SupplierPageDTO,
     SupplierProfileDTO,
     SupplierRequestDTO,
@@ -63,6 +64,15 @@ def get_supplier_orders(
 ):
     with service:
         return service.get_supplier_orders(principal.user_id)
+
+
+@router_supplier.get("/preparation", response_model=SupplierPreparationDTO)
+def get_supplier_preparation(
+    principal=Depends(require_permission("supplier.orders.read")),
+    service: IFournisseurService = Depends(get_fournisseur_service),
+):
+    with service:
+        return service.get_supplier_preparation(principal.user_id)
 
 
 @router_admin_supplier.get("/pending", response_model=list[PendingSupplierRequestDTO])

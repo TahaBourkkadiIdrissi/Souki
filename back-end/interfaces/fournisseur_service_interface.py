@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from dto.supplier_dto import (
     AdminSupplierValidationDTO,
     SupplierOrdersDTO,
+    SupplierPreparationDTO,
     SupplierPageDTO,
     SupplierProfileDTO,
     SupplierRequestDTO,
@@ -59,6 +60,10 @@ class IFournisseurService(ABC):
 
     @abstractmethod
     def get_supplier_orders(self, user_id: int) -> SupplierOrdersDTO:
+        pass
+
+    @abstractmethod
+    def get_supplier_preparation(self, user_id: int) -> SupplierPreparationDTO:
         pass
 
     @abstractmethod

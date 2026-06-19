@@ -83,8 +83,7 @@ export default function HomePage() {
   const [isPwa, setIsPwa] = useState<boolean | null>(null)
 
   useEffect(() => {
-    const standalone = isPwaStandalone()
-    if (standalone) {
+    if (typeof window !== "undefined" && isPwaStandalone()) {
       router.replace("/pwa-welcome")
     } else {
       setIsPwa(false)
@@ -131,7 +130,7 @@ export default function HomePage() {
   const handleOpenSmartModal = () => requireAuth(() => setActiveModal("smart"))
 
   return (
-    <div className="min-h-screen bg-white pb-24 md:pb-0">
+    <div className="min-h-screen bg-white pb-24 md:pb-0" suppressHydrationWarning>
       <Navbar />
 
       {/* ===== HERO SECTION ===== */}

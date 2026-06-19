@@ -36,15 +36,18 @@ type ReassignTarget = {
   sourceTourneeId: number
 } | null
 
-type LivreurTourneesGroup = {
+type FournisseurTourneesGroup = {
   key: string
   livreur: AdminDispatchTournee["livreur"]
   tournees: AdminDispatchTournee[]
   totalCommandes: number
+  livreurNames: string[]
+  pickup: AdminDispatchTournee["pickup"]
 }
 
 type DisplayedTournee = AdminDispatchTournee & {
   tourneeIds: number[]
+  livreurNames: string[]
 }
 
 function todayAsIsoDate() {
@@ -214,43 +217,50 @@ export default function AdminLivreurPage() {
     () => tournees.reduce((sum, tournee) => sum + tournee.commandes.length, 0),
     [tournees]
   )
-  const livreurTourneeGroups = useMemo<LivreurTourneesGroup[]>(() => {
-    const groupsByLivreur = new Map<string, LivreurTourneesGroup>()
+  const fournisseurTourneeGroups = useMemo<FournisseurTourneesGroup[]>(() => {
+    const groupsByFournisseur = new Map<string, FournisseurTourneesGroup>()
 
     for (const tournee of tournees) {
-      const livreurKey =
-        tournee.livreur.user_id !== null
-          ? `livreur-${tournee.livreur.user_id}`
-          : `livreur-${tournee.livreur.email || tournee.livreur.phone || tournee.livreur.nom}`
-      const existingGroup = groupsByLivreur.get(livreurKey)
+      const fournisseurKey =
+        tournee.pickup?.fournisseur_id !== null && tournee.pickup?.fournisseur_id !== undefined
+          ? `fournisseur-${tournee.pickup.fournisseur_id}`
+          : `fournisseur-inconnu-${tournee.id}`
+      const existingGroup = groupsByFournisseur.get(fournisseurKey)
 
       if (existingGroup) {
         existingGroup.tournees.push(tournee)
         existingGroup.totalCommandes += tournee.commandes.length
+        if (!existingGroup.livreurNames.includes(tournee.livreur.nom)) {
+          existingGroup.livreurNames.push(tournee.livreur.nom)
+        }
       } else {
-        groupsByLivreur.set(livreurKey, {
-          key: livreurKey,
+        groupsByFournisseur.set(fournisseurKey, {
+          key: fournisseurKey,
           livreur: tournee.livreur,
           tournees: [tournee],
           totalCommandes: tournee.commandes.length,
+          livreurNames: [tournee.livreur.nom],
+          pickup: tournee.pickup,
         })
       }
     }
 
-    return Array.from(groupsByLivreur.values())
+    return Array.from(groupsByFournisseur.values())
   }, [tournees])
   const displayedTournees = useMemo<DisplayedTournee[]>(
     () =>
-      livreurTourneeGroups.map((group) => {
+      fournisseurTourneeGroups.map((group) => {
         const firstTournee = group.tournees[0]
         return {
           ...firstTournee,
           livreur: group.livreur,
           commandes: group.tournees.flatMap((tournee) => tournee.commandes),
           tourneeIds: group.tournees.map((tournee) => tournee.id),
+          livreurNames: group.livreurNames,
+          pickup: group.pickup,
         }
       }),
-    [livreurTourneeGroups]
+    [fournisseurTourneeGroups]
   )
   const commandeSourceTourneeIds = useMemo(() => {
     const sourceIds = new Map<number, number>()
@@ -627,11 +637,16 @@ export default function AdminLivreurPage() {
                               : `Tournée #${tournee.id}`}
                           </p>
                           <h2 className="mt-1 text-lg font-black text-[#1E8A3C]">
-                            {tournee.livreur.nom}
+                            {tournee.pickup?.shop_name || "Fournisseur non renseigné"}
                           </h2>
                           <p className="mt-1 flex items-center gap-2 text-sm text-[#6F8070]">
+                            <MapPin className="h-4 w-4" />
+                            {[tournee.pickup?.address, tournee.pickup?.ville].filter(Boolean).join(", ") ||
+                              "Point de ramassage non renseigné"}
+                          </p>
+                          <p className="mt-1 flex items-center gap-2 text-xs font-semibold text-[#6F8070]">
                             <Bike className="h-4 w-4" />
-                            {tournee.livreur.vehicule || "Véhicule non renseigné"}
+                            Livreurs : {tournee.livreurNames.join(", ")}
                           </p>
                           {tournee.tourneeIds.length > 1 && (
                             <p className="mt-2 text-xs font-semibold text-[#7A8A7C]">

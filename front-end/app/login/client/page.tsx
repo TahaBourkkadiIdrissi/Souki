@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import { API_BASE_URL } from "@/lib/api"
+import { isValidMoroccanPhone, normalizeMoroccanPhone, PHONE_ERROR_MSG } from "@/lib/phoneValidator"
 import { GoogleLoginButton } from "@/components/auth/google-login-button"
 import { PasswordStrength } from "@/components/souki/password-strength"
 import { shouldShowOnboarding } from "@/lib/onboarding"
@@ -77,10 +78,8 @@ function ClientLoginContent() {
       let currentError = "";
 
       if (field === "phone") {
-        const localRegex = /^(0|)[67]\d{8}$/;
-        const intlRegex = /^\+212[67]\d{8}$/;
-        if (value && !localRegex.test(value) && !intlRegex.test(value)) {
-          currentError = "Format invalide (ex: 06XXXXXXXX ou +2126XXXXXXXX)";
+        if (value && !isValidMoroccanPhone(value)) {
+          currentError = PHONE_ERROR_MSG;
         }
       }
 
@@ -132,16 +131,7 @@ function ClientLoginContent() {
           throw new Error("Vous devez accepter les conditions (CGU).");
         }
 
-        let formattedPhone = phone.trim();
-        if (formattedPhone) {
-          if (formattedPhone.startsWith("+212")) {
-             // Déjà formaté
-          } else if (formattedPhone.startsWith("0")) {
-            formattedPhone = `+212${formattedPhone.substring(1)}`;
-          } else {
-            formattedPhone = `+212${formattedPhone}`;
-          }
-        }
+        const formattedPhone = phone.trim() ? normalizeMoroccanPhone(phone) : "";
 
         const response = await fetch(`${API_BASE_URL}/auth/register`, {
           method: "POST",

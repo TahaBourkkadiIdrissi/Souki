@@ -8,7 +8,7 @@ from typing import Optional
 
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from config import LocalSession, SOUKI_DEPOT_LAT, SOUKI_DEPOT_LNG
 from dto.livreur_dto import (
@@ -17,6 +17,8 @@ from dto.livreur_dto import (
     DeliveryEventResponseDTO,
     DemarrerTourneeResponseDTO,
     LivraisonDecisionRequestDTO,
+    PickupDTO,
+    RamassageResponseDTO,
     TourneeItemDTO,
     TourneeRefusResponseDTO,
     TourneeResponseDTO,
@@ -24,11 +26,17 @@ from dto.livreur_dto import (
 from entities.client_entity import Client
 from entities.commande_entity import Commande
 from entities.delivery_event_entity import DeliveryEvent
+from entities.tournee_entity import Tournee
 from interfaces.livreur_dao_interface import ILivreurDao
 from interfaces.livreur_service_interface import ILivreurService
 from interfaces.client_blacklist_service_interface import IClientBlacklistService
 from interfaces.dispatch_service_interface import IDispatchService
 from services.commande_state_machine import CommandeTransitionError, TRANSITIONS, changer_statut
+from services.date_utils import today_morocco
+from services.logistics_visibility import (
+    LIVREUR_VISIBLE_STATUSES,
+    is_livreur_tournee_row_visible,
+)
 
 TOURNEE_RELEASE_TIME = time(7, 0)
 LEGACY_PENDING_DELIVERY_STATUS = "EN_ATTENTE"
@@ -41,13 +49,7 @@ DELIVERED_STATUS = "LIVRE"
 ABSENT_STATUS = "ABSENT"
 REFUSED_STATUS = "REFUS"
 VISIBLE_TOURNEE_STATUSES = {
-    LEGACY_PENDING_DELIVERY_STATUS,
-    ASSIGNMENT_PENDING_STATUS,
-    PENDING_DELIVERY_STATUS,
-    STARTED_DELIVERY_STATUS,
-    DELIVERED_STATUS,
-    ABSENT_STATUS,
-    REFUSED_STATUS,
+    *LIVREUR_VISIBLE_STATUSES,
 }
 logger = logging.getLogger(__name__)
 
@@ -96,20 +98,115 @@ class LivreurService(ILivreurService):
             session=session,
             livreur_id=livreur_id,
             visible_statuses=VISIBLE_TOURNEE_STATUSES,
+            target_date=today_morocco(),
         )
+        rows = [
+            row
+            for row in rows
+            if is_livreur_tournee_row_visible(row, today_morocco())
+        ]
         items = [self._build_tournee_item(row) for row in rows]
-        sorted_items, sort_strategy = self._sort_items(items)
+        sorted_items = sorted(
+            items,
+            key=lambda item: (item.ordre_passage or 999_999, item.commande_id),
+        )
+        sort_strategy = "ORDRE_PASSAGE"
         tournee_started = any(
             self._canonical_delivery_status(item.statut) in {STARTED_DELIVERY_STATUS, DELIVERED_STATUS, ABSENT_STATUS, REFUSED_STATUS}
             for item in sorted_items
         )
+        first_row = rows[0] if rows else {}
+        ramasse_at = first_row.get("ramasse_at")
+        pickup = None
+        if first_row.get("tournee_id") is not None:
+            pickup = PickupDTO(
+                fournisseur_id=first_row.get("fournisseur_id"),
+                shop_name=self._clean_optional_text(first_row.get("pickup_shop_name")),
+                address=self._clean_optional_text(first_row.get("pickup_address")),
+                ville=self._clean_optional_text(first_row.get("pickup_ville")),
+                phone=self._clean_optional_text(first_row.get("pickup_phone")),
+                latitude=self._as_float(first_row.get("pickup_lat")),
+                longitude=self._as_float(first_row.get("pickup_lng")),
+            )
 
         return TourneeResponseDTO(
-            date_jour=date.today(),
+            date_jour=today_morocco(),
             sort_strategy=sort_strategy,
             tournee_started=tournee_started,
+            tournee_id=int(first_row["tournee_id"]) if first_row.get("tournee_id") is not None else None,
+            pickup=pickup,
+            ramassee=ramasse_at is not None,
+            ramasse_at=ramasse_at,
             items=sorted_items,
         )
+
+    def confirmer_ramassage(self, livreur_id: int, tournee_id: int) -> RamassageResponseDTO:
+        session = self._ensure_session()
+        try:
+            tournee = (
+                session.query(Tournee)
+                .options(
+                    joinedload(Tournee.fournisseur),
+                    selectinload(Tournee.commandes),
+                )
+                .filter(Tournee.id == tournee_id)
+                .with_for_update(of=Tournee)
+                .first()
+            )
+            if tournee is None:
+                raise HTTPException(status_code=404, detail="Tournée introuvable.")
+            if int(tournee.livreur_id) != int(livreur_id):
+                raise HTTPException(status_code=403, detail="Cette tournée appartient à un autre livreur.")
+            if tournee.date_tournee != today_morocco():
+                raise HTTPException(status_code=409, detail="Seule la tournée du jour peut être ramassée.")
+
+            if tournee.ramasse_at is not None:
+                response = RamassageResponseDTO(
+                    tournee_id=int(tournee.id),
+                    ramasse_at=tournee.ramasse_at,
+                    commandes_ramassees=0,
+                    idempotent=True,
+                )
+                session.commit()
+                return response
+
+            ramasse_at = datetime.now(timezone.utc)
+            tournee.ramasse_at = ramasse_at
+            tournee.statut = "EN_COURS"
+            commandes_ramassees = 0
+            for commande in tournee.commandes or []:
+                if self._canonical_delivery_status(commande.statut) != ASSIGNMENT_PENDING_STATUS:
+                    continue
+                changer_statut(
+                    session=session,
+                    commande=commande,
+                    nouveau_statut=PENDING_DELIVERY_STATUS,
+                    actor_id=livreur_id,
+                    reason="RAMASSAGE_FOURNISSEUR",
+                )
+                commandes_ramassees += 1
+
+            session.commit()
+            return RamassageResponseDTO(
+                tournee_id=int(tournee.id),
+                ramasse_at=ramasse_at,
+                commandes_ramassees=commandes_ramassees,
+                idempotent=False,
+            )
+        except HTTPException:
+            session.rollback()
+            raise
+        except CommandeTransitionError as exc:
+            session.rollback()
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except Exception as exc:
+            session.rollback()
+            logger.exception(
+                "Erreur lors du ramassage tournee_id=%s livreur_id=%s",
+                tournee_id,
+                livreur_id,
+            )
+            raise HTTPException(status_code=500, detail="Erreur interne lors du ramassage.") from exc
 
     def demarrer_tournee(self, livreur_id: int) -> DemarrerTourneeResponseDTO:
         session = self._ensure_session()
@@ -396,6 +493,14 @@ class LivreurService(ILivreurService):
                     detail=f"Transition interdite: {previous_status} -> {target_status}.",
                 )
 
+            if target_status == STARTED_DELIVERY_STATUS:
+                tournee = commande.tournee
+                if tournee is None or tournee.ramasse_at is None:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Ramassez d'abord chez le fournisseur.",
+                    )
+
             if target_status == DELIVERED_STATUS and self._is_cod_mode(commande.mode_paiement):
                 if context["payment_validated"] is not True:
                     raise HTTPException(
@@ -584,6 +689,7 @@ class LivreurService(ILivreurService):
 
         return TourneeItemDTO(
             commande_id=int(row["commande_id"]),
+            ordre_passage=int(row["ordre_passage"]) if row.get("ordre_passage") is not None else None,
             client_phone=client_phone,
             client_label=client_phone or f"Client #{row['commande_id']}",
             street=street,
