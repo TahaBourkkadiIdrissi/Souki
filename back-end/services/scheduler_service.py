@@ -16,6 +16,7 @@ from dao.commande_dao import CommandeVocaleDaoBD
 from dao.jit_dao import JITDaoBD
 from dao.livreur_dao import LivreurDaoBD
 from dao.tournee_dao import TourneeDaoBD
+from dao.zone_jit_dao import ZoneJITDaoBD
 from services.dispatch_service import DispatchService
 from services.jit_service import JITService
 
@@ -92,12 +93,21 @@ def job_agregation_jit():
 
         session = LocalSession()
         jit_dao = JITDaoBD()
-        service = JITService(jit_dao)
+        zone_dao = ZoneJITDaoBD()
+        service = JITService(jit_dao, zone_dao)
+        zones_actives = zone_dao.get_zones_actives(session)
 
-        log = service.executer_job_jit(session)
+        if zones_actives:
+            session.close()
+            session = None
+            resultats = service.executer_job_jit_regional()
+            statut = "termine" if resultats else "aucune_zone"
+        else:
+            log = service.executer_job_jit(session)
+            statut = log.statut if log else "ERREUR"
 
         print(f"\n{'=' * 80}")
-        print(f"[JIT] Job termine. Statut: {log.statut if log else 'ERREUR'}")
+        print(f"[JIT] Job termine. Statut: {statut}")
         print(f"{'=' * 80}\n")
 
     except Exception as exc:
@@ -167,7 +177,7 @@ def start_scheduler():
             )
             scheduler.add_job(
                 job_dispatch_daily,
-                CronTrigger(hour=21, minute=30, second=0, timezone=MOROCCO_TIMEZONE),
+                CronTrigger(hour=21, minute=35, second=0, timezone=MOROCCO_TIMEZONE),
                 id="dispatch_daily_21h35",
                 name="Generation automatique des tournees a 21h35",
                 replace_existing=True,

@@ -30,6 +30,7 @@ import { useAuth } from "@/hooks/useAuth"
 import {
   ApiError,
   CodValidationResponse,
+  confirmerRamassageLivreur,
   DeliveryEventRequest,
   DeliveryEventResponse,
   envoyerEvenementLivraison,
@@ -211,6 +212,10 @@ function normalizeTourneeItem(item: TourneeItem): TourneeItem {
 function normalizeTourneeResponse(response: TourneeResponse): TourneeResponse {
   return {
     ...response,
+    tournee_id: response.tournee_id ?? null,
+    pickup: response.pickup ?? null,
+    ramassee: Boolean(response.ramassee),
+    ramasse_at: response.ramasse_at ?? null,
     items: Array.isArray(response.items) ? response.items.map(normalizeTourneeItem) : [],
   }
 }
@@ -704,6 +709,7 @@ export default function LivreurPage() {
   const [isOffline, setIsOffline] = useState(false)
   const [isTourneeLoading, setIsTourneeLoading] = useState(true)
   const [isStartingTournee, setIsStartingTournee] = useState(false)
+  const [isConfirmingPickup, setIsConfirmingPickup] = useState(false)
   const [isValidatingCodPayment, setIsValidatingCodPayment] = useState(false)
   const [isLoadingRefus, setIsLoadingRefus] = useState(false)
   const [isRefusingTournee, setIsRefusingTournee] = useState(false)
@@ -723,6 +729,44 @@ export default function LivreurPage() {
   const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null)
   const [isRouteLoading, setIsRouteLoading] = useState(false)
   const [routeError, setRouteError] = useState<string | null>(null)
+
+  const handleConfirmPickup = async () => {
+    if (!token || !tourneeData?.tournee_id || tourneeData.ramassee) {
+      return
+    }
+    setIsConfirmingPickup(true)
+    setNotice(null)
+    try {
+      const response = await confirmerRamassageLivreur(token, tourneeData.tournee_id)
+      const nextTournee = {
+        ...tourneeData,
+        ramassee: true,
+        ramasse_at: response.ramasse_at,
+        items: tourneeData.items.map((item) =>
+          normalizeBackendStatus(item.statut) === "EN_ATTENTE_LIVREUR"
+            ? {
+                ...item,
+                statut: "A_LIVRER",
+                status_version: Number(item.status_version || 1) + 1,
+              }
+            : item
+        ),
+      }
+      applyTourneeData(nextTournee, "api")
+      writeCachedTournee(nextTournee)
+      setNotice({
+        tone: "success",
+        message: `${response.commandes_ramassees} commande(s) ramassée(s). Les livraisons sont débloquées.`,
+      })
+    } catch (error) {
+      setNotice({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Impossible de confirmer le ramassage.",
+      })
+    } finally {
+      setIsConfirmingPickup(false)
+    }
+  }
 
   const applyTourneeData = useEffectEvent((response: TourneeResponse, source: "api" | "cache") => {
     const normalizedResponse = normalizeTourneeResponse(response)
@@ -1797,7 +1841,12 @@ export default function LivreurPage() {
   const topOverlayOffset = isHeaderCollapsed ? "3.75rem" : "8.75rem"
   const showMap =
     isMapboxConfigured && !isTourneeLoading && !beforeSeven && Boolean(token) && mappableDeliveries.length > 0
-  const showBottomSheet = !isTourneeLoading && !beforeSeven && Boolean(token) && deliveryList.length > 0
+  const showBottomSheet =
+    !isTourneeLoading &&
+    !beforeSeven &&
+    Boolean(token) &&
+    Boolean(tourneeData?.ramassee) &&
+    deliveryList.length > 0
   const isCodDeliveryPendingValidation = Boolean(
     currentDelivery && currentDelivery.paymentMethod === "cod" && !currentDelivery.paymentValidated
   )
@@ -1839,6 +1888,10 @@ export default function LivreurPage() {
   }
 
   const handleStartDriveMode = async () => {
+    if (!tourneeData?.ramassee) {
+      setNotice({ tone: "info", message: "Ramassez d'abord chez le fournisseur." })
+      return
+    }
     if (!nextDelivery) {
       return
     }
@@ -2356,6 +2409,52 @@ export default function LivreurPage() {
             <div className="rounded-2xl bg-[#FFF3E0]/95 px-4 py-3 text-sm text-[#8A5A00] shadow-sm backdrop-blur">
               Mode hors ligne actif. La dernière tournée sauvegardée est affichée.
             </div>
+          )}
+
+          {tourneeData?.pickup && tourneeData.tournee_id && (
+            <section className="pointer-events-auto rounded-2xl border border-[#BFE2C4] bg-white/95 p-4 shadow-lg backdrop-blur">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EAF8EC]">
+                  <Package className="h-5 w-5 text-[#1E8A3C]" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-black uppercase tracking-[0.15em] text-[#1E8A3C]">Ramassage</p>
+                  <h2 className="mt-1 truncate font-black text-[#17301E]">
+                    {tourneeData.pickup.shop_name || "Fournisseur"}
+                  </h2>
+                  <p className="mt-1 text-sm text-[#5B6B60]">
+                    {[tourneeData.pickup.address, tourneeData.pickup.ville].filter(Boolean).join(", ") ||
+                      "Adresse non renseignée"}
+                  </p>
+                  {tourneeData.pickup.phone && (
+                    <a href={`tel:${tourneeData.pickup.phone}`} className="mt-1 inline-flex items-center gap-1 text-sm font-bold text-[#285C9A]">
+                      <Phone className="h-4 w-4" />
+                      {tourneeData.pickup.phone}
+                    </a>
+                  )}
+                </div>
+              </div>
+              {!tourneeData.ramassee ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleConfirmPickup}
+                    disabled={isConfirmingPickup}
+                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#1E8A3C] px-4 py-3 font-black text-white disabled:opacity-60"
+                  >
+                    {isConfirmingPickup ? <Spinner className="size-5" /> : <CheckCircle2 className="h-5 w-5" />}
+                    {isConfirmingPickup ? "Confirmation..." : "J'ai ramassé les commandes"}
+                  </button>
+                  <p className="mt-2 text-center text-xs font-bold text-[#8A5A00]">
+                    Ramassez d'abord chez le fournisseur pour débloquer les livraisons.
+                  </p>
+                </>
+              ) : (
+                <div className="mt-3 rounded-xl bg-[#F0FAF1] px-4 py-2 text-center text-sm font-bold text-[#1E8A3C]">
+                  Ramassage confirmé · livraisons débloquées
+                </div>
+              )}
+            </section>
           )}
 
           {canRejectEntireTournee && (

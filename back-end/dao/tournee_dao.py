@@ -21,11 +21,17 @@ class TourneeDaoBD(ITourneeDao):
         session: Session,
         livreur_id: int,
         date_tournee: date,
+        fournisseur_id: int | None = None,
+        pickup_lat: float | None = None,
+        pickup_lng: float | None = None,
     ) -> Tournee:
         tournee = Tournee(
             livreur_id=livreur_id,
+            fournisseur_id=fournisseur_id,
             date_tournee=date_tournee,
             statut="PLANIFIEE",
+            pickup_lat=pickup_lat,
+            pickup_lng=pickup_lng,
         )
         session.add(tournee)
         session.flush()
@@ -48,6 +54,7 @@ class TourneeDaoBD(ITourneeDao):
             session.query(Tournee)
             .options(
                 joinedload(Tournee.livreur).joinedload(Livreur.user),
+                joinedload(Tournee.fournisseur),
                 selectinload(Tournee.commandes)
                 .joinedload(Commande.client)
                 .joinedload(Client.user)

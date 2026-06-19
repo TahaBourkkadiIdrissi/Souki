@@ -8,6 +8,7 @@ from dao.cod_confirmation_log_dao import CODConfirmationLogDaoBD
 from dao.commande_dao import CommandeVocaleDaoBD
 from dao.dashboard_dao import DashboardDaoBD
 from dao.fournisseur_dao import FournisseurDaoBD
+from dao.fournisseur_produit_dao import FournisseurProduitDaoBD
 from dao.notification_outbox_dao import NotificationOutboxDaoBD
 from dao.panier_dao import PanierDaoBD
 from dao.livreur_dao import LivreurDaoBD
@@ -33,6 +34,8 @@ from interfaces.dashboard_service_interface import IDashboardService
 from interfaces.dispatch_service_interface import IDispatchService
 from interfaces.fournisseur_dao_interface import IFournisseurDao
 from interfaces.fournisseur_service_interface import IFournisseurService
+from interfaces.fournisseur_produit_dao_interface import IFournisseurProduitDao
+from interfaces.fournisseur_produit_service_interface import IFournisseurProduitService
 from interfaces.livreur_dao_interface import ILivreurDao
 from interfaces.livreur_service_interface import ILivreurService
 from interfaces.notification_outbox_dao_interface import INotificationOutboxDao
@@ -55,6 +58,7 @@ from services.commande_service import CommandeVocaleService
 from services.dashboard_service import DashboardService
 from services.dispatch_service import DispatchService
 from services.fournisseur_service import FournisseurService
+from services.fournisseur_produit_service import FournisseurProduitService
 from services.livreur_service import LivreurService
 from services.ml_panier_service import MLPanierService, ml_panier_service
 from services.notification_outbox_service import NotificationOutboxService
@@ -111,6 +115,10 @@ def get_livreur_dao() -> ILivreurDao:
 
 def get_fournisseur_dao() -> IFournisseurDao:
     return FournisseurDaoBD()
+
+
+def get_fournisseur_produit_dao() -> IFournisseurProduitDao:
+    return FournisseurProduitDaoBD()
 
 
 def get_notification_outbox_dao() -> INotificationOutboxDao:
@@ -211,8 +219,18 @@ def get_livreur_service(
 
 def get_fournisseur_service(
     fournisseur_dao: IFournisseurDao = Depends(get_fournisseur_dao),
+    fournisseur_produit_dao: IFournisseurProduitDao = Depends(get_fournisseur_produit_dao),
 ) -> IFournisseurService:
-    return FournisseurService(fournisseur_dao=fournisseur_dao)
+    return FournisseurService(
+        fournisseur_dao=fournisseur_dao,
+        fournisseur_produit_dao=fournisseur_produit_dao,
+    )
+
+
+def get_fournisseur_produit_service(
+    dao: IFournisseurProduitDao = Depends(get_fournisseur_produit_dao),
+) -> IFournisseurProduitService:
+    return FournisseurProduitService(fournisseur_produit_dao=dao)
 
 
 def get_panier_service(

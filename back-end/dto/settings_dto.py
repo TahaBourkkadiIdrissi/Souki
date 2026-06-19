@@ -1,5 +1,7 @@
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
+from dto.phone_validator import validate_moroccan_phone
+
 
 class PersonalInfoUpdateDTO(BaseModel):
     prenom: str
@@ -10,10 +12,10 @@ class PersonalInfoUpdateDTO(BaseModel):
     @field_validator("telephone")
     @classmethod
     def validate_phone(cls, value: str) -> str:
-        cleaned = value.replace(" ", "")
-        if not cleaned.startswith("+212") or len(cleaned) != 13:
-            raise ValueError("Format de telephone marocain invalide. Exemple: +212612345678")
-        return cleaned
+        result = validate_moroccan_phone(value)
+        if result is None:
+            raise ValueError("Le téléphone est requis")
+        return result
 
 
 class AddressUpdateDTO(BaseModel):

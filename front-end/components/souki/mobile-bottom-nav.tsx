@@ -10,10 +10,12 @@ import {
   PackageCheck,
   Settings,
   ShoppingCart,
+  Store,
   User,
   X,
 } from "lucide-react"
 
+import { useAuth } from "@/hooks/useAuth"
 import { cn } from "@/lib/utils"
 
 interface MobileBottomNavProps {
@@ -26,6 +28,9 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
   const [drawerOpen, setDrawerOpen] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
+  const { user } = useAuth()
+
+  const isFournisseur = user?.roles.includes("FOURNISSEUR") ?? false
 
   const navItems = [
     { label: "Accueil", href: "/", icon: Home },
@@ -52,7 +57,7 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
         className="fixed inset-x-0 bottom-0 z-30 glass-ios26 border-t border-[#DDEBDD] px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-2 md:hidden"
         aria-label="Navigation mobile principale"
       >
-        <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
+        <div className={cn("mx-auto grid max-w-md gap-1", isFournisseur ? "grid-cols-5" : "grid-cols-4")}>
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href
@@ -70,6 +75,19 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
               </Link>
             )
           })}
+
+          {isFournisseur && (
+            <Link
+              href="/supplier"
+              className={cn(
+                "flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl px-2 text-[11px] font-bold transition-colors",
+                pathname.startsWith("/supplier") ? "bg-[#FFF0DC] text-[#F07C00]" : "text-[#607061] hover:bg-[#FFF7EE]"
+              )}
+            >
+              <Store className="h-5 w-5" />
+              <span>Vendre</span>
+            </Link>
+          )}
 
           <button
             type="button"

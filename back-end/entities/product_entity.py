@@ -24,7 +24,8 @@ class Product(Base):
     prix_affiche      = Column(Float,      nullable=True)
     fournisseur_id    = Column(Integer, ForeignKey("t_fournisseurs.user_id"), nullable=True, index=True)
 
-    lignes_commande_vocale = relationship("LigneCommandeVocale", back_populates="produit")
-    lignes_panier          = relationship("LignePanier", back_populates="produit")
-    produits_b2b           = relationship("ProduitB2B", back_populates="produit")
-    fournisseur            = relationship("Fournisseur", back_populates="products")
+    lignes_commande_vocale  = relationship("LigneCommandeVocale", back_populates="produit")
+    lignes_panier           = relationship("LignePanier", back_populates="produit")
+    produits_b2b            = relationship("ProduitB2B", back_populates="produit")
+    fournisseur             = relationship("Fournisseur", back_populates="products")
+    offres_fournisseurs     = relationship("FournisseurProduit", back_populates="produit")

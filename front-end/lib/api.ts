@@ -26,6 +26,7 @@ export class ApiError extends Error {
 
 export interface TourneeItem {
   commande_id: number
+  ordre_passage?: number | null
   client_phone: string | null
   client_label: string
   street: string | null
@@ -54,7 +55,27 @@ export interface TourneeResponse {
   available_after: string
   sort_strategy: string
   tournee_started: boolean
+  tournee_id: number | null
+  pickup: {
+    fournisseur_id: number | null
+    shop_name: string | null
+    address: string | null
+    ville: string | null
+    phone: string | null
+    latitude: number | null
+    longitude: number | null
+  } | null
+  ramassee: boolean
+  ramasse_at: string | null
   items: TourneeItem[]
+}
+
+export interface RamassageResponse {
+  status: string
+  tournee_id: number
+  ramasse_at: string
+  commandes_ramassees: number
+  idempotent: boolean
 }
 
 export interface AdminDispatchAddress {
@@ -108,6 +129,15 @@ export interface AdminDispatchTournee {
   distance_totale_km: number | null
   created_at: string | null
   livreur: AdminDispatchLivreur
+  pickup?: {
+    fournisseur_id: number | null
+    shop_name: string | null
+    address: string | null
+    ville: string | null
+    phone: string | null
+    latitude: number | null
+    longitude: number | null
+  }
   commandes: AdminDispatchCommande[]
 }
 
@@ -689,6 +719,37 @@ export async function demarrerLivreurTournee(token: string) {
   })
 }
 
+export interface AdminCommandeException {
+  id: number
+  statut: string | null
+  raisons: string[]
+  date_commande: string | null
+  client_nom: string
+  client_phone: string | null
+  ville: string | null
+  montant_total: number
+  fournisseur_id: number | null
+  fournisseur_nom: string | null
+  tournee_id: number | null
+  livreur_id: number | null
+}
+
+export interface AdminCommandeExceptionsPage {
+  status: string
+  items: AdminCommandeException[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
+export async function confirmerRamassageLivreur(token: string, tourneeId: number) {
+  return apiCall<RamassageResponse>(`/api/livreur/tournees/${tourneeId}/ramassage`, {
+    method: "POST",
+    token,
+  })
+}
+
 export async function jitAgreger(token: string) {
   return apiCall<ResultatAgregationJIT>("/api/jit/agreguer", {
     method: "POST",
@@ -796,6 +857,65 @@ export async function reassignAdminDispatchCommande(
       body: { nouvelle_tournee_id: nouvelleTourneeId },
     }
   )
+}
+
+export async function getAdminCommandeExceptions(
+  token: string,
+  params: {
+    raison?: string
+    search?: string
+    date_from?: string
+    date_to?: string
+    page?: number
+    page_size?: number
+  } = {},
+) {
+  const query = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== "") query.set(key, String(value))
+  })
+  return apiCall<AdminCommandeExceptionsPage>(
+    `/api/admin/commandes/exceptions${query.size ? `?${query}` : ""}`,
+    { token, cache: "no-store" },
+  )
+}
+
+export async function rattacherAdminCommandeFournisseur(
+  token: string,
+  commandeId: number,
+  fournisseurId: number,
+) {
+  return apiCall(`/api/admin/commandes/${commandeId}/rattacher-fournisseur`, {
+    method: "POST",
+    token,
+    body: { fournisseur_id: fournisseurId },
+  })
+}
+
+export async function replanifierAdminCommande(token: string, commandeId: number) {
+  return apiCall(`/api/admin/commandes/${commandeId}/replanifier`, {
+    method: "POST",
+    token,
+  })
+}
+
+export async function annulerAdminCommande(token: string, commandeId: number) {
+  return apiCall(`/api/admin/commandes/${commandeId}/annuler`, {
+    method: "POST",
+    token,
+  })
+}
+
+export async function reassignerAdminCommandeException(
+  token: string,
+  commandeId: number,
+  nouvelleTourneeId: number,
+) {
+  return apiCall(`/api/admin/commandes/${commandeId}/reassigner`, {
+    method: "POST",
+    token,
+    body: { nouvelle_tournee_id: nouvelleTourneeId },
+  })
 }
 
 export async function replanifierAdminAnomalie(token: string, anomalieId: number) {

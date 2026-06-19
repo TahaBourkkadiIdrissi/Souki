@@ -15,6 +15,9 @@ class ITourneeDao(ABC):
         session: Session,
         livreur_id: int,
         date_tournee: date,
+        fournisseur_id: int | None = None,
+        pickup_lat: float | None = None,
+        pickup_lng: float | None = None,
     ) -> Tournee:
         """Cree une tournee et laisse le service gerer la transaction."""
         pass

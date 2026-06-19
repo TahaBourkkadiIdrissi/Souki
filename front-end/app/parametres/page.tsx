@@ -64,7 +64,8 @@ function SectionCard({ title, children, onSave, saving }: { title: string; child
 }
 
 function dhFromCentimes(c: number) { return `${(c / 100).toFixed(2).replace(".", ",")} DH` }
-const isMoroccanPhone = (v: string) => /^\+212[67]\d{8}$/.test(v.replace(/\s+/g, ""))
+import { isValidMoroccanPhone, normalizeMoroccanPhone } from "@/lib/phoneValidator"
+const isMoroccanPhone = (v: string) => isValidMoroccanPhone(v)
 const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
 const walletPasswordChecks = (value: string) => ({
   minLength: value.length >= 8,
@@ -176,10 +177,11 @@ export default function ParametresPage() {
   const onSavePersonal = async () => {
     const nextErrors: Record<string, string> = {}
     if (!isEmail(personal.email)) nextErrors.email = "Email invalide"
-    if (!isMoroccanPhone(personal.telephone)) nextErrors.telephone = "Format marocain requis (+212...)"
+    if (!isMoroccanPhone(personal.telephone)) nextErrors.telephone = "Format marocain requis (ex: 0612345678)"
     setErrors(nextErrors); if (Object.keys(nextErrors).length) return
+    const normalizedPersonal = { ...personal, telephone: normalizeMoroccanPhone(personal.telephone) }
     try {
-      const res = await profileApi.updateProfile(personal)
+      const res = await profileApi.updateProfile(normalizedPersonal)
       if (res.email_changed) setErrors((e) => ({ ...e, email_info: "Un email de vérification a été envoyé" }))
       showSaved()
     } catch (e) { setErrors((v) => ({ ...v, email: e instanceof Error ? e.message : "Erreur" })) }

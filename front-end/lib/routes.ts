@@ -127,6 +127,26 @@ export const ROUTES: RouteConfig[] = [
     loginPath: "/login/livreur",
   },
   {
+    path: "/devenir-fournisseur",
+    label: "Demande fournisseur",
+    match: "prefix",
+    authRequired: true,
+    allowedRoles: ["CLIENT"],
+    // Pas de requiredPermissions : un compte CLIENT hérité (rôle dans t_users.role,
+    // pas encore dans user_roles) n'a pas forcément la permission supplier.request.create.
+    // Le backend protège déjà l'endpoint via require_role("CLIENT").
+    loginPath: "/login/client",
+  },
+  {
+    path: "/supplier",
+    label: "Espace fournisseur",
+    match: "prefix",
+    authRequired: true,
+    allowedRoles: ["FOURNISSEUR"],
+    requiredPermissions: ["supplier.dashboard.view"],
+    loginPath: "/login/client",
+  },
+  {
     path: "/admin",
     label: "Back-office",
     match: "prefix",

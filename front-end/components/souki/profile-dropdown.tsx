@@ -11,6 +11,8 @@ import {
   Settings,
   Shield,
   Sparkles,
+  Store,
+  TrendingUp,
   User as UserIcon,
 } from "lucide-react"
 
@@ -79,6 +81,15 @@ export function ProfileDropdown({ user }: { user: User }) {
   const canAccessAdmin = user.permissions.includes("admin.panel.access")
   const canAccessLivreur = user.permissions.includes("livreur.dashboard.access")
   const canAccessParent = user.permissions.includes("parent.dashboard.access")
+  const effectiveRoles = new Set(
+    [user.role, user.legacy_role, ...(user.roles ?? [])]
+      .filter(Boolean)
+      .map((r) => String(r).toUpperCase()),
+  )
+  const canAccessSupplier = effectiveRoles.has("FOURNISSEUR")
+  const canBecomeSupplier =
+    !canAccessSupplier &&
+    (effectiveRoles.has("CLIENT") || user.permissions.includes("supplier.request.create"))
   const dashboardTarget =
     canAccessAdmin ? "/admin" : canAccessLivreur ? "/livreur" : canAccessParent ? "/parent" : null
   const dashboardLabel =
@@ -154,6 +165,36 @@ export function ProfileDropdown({ user }: { user: User }) {
                 <span className="min-w-0">
                   <span className="block text-sm font-black text-[#264129]">{dashboardLabel}</span>
                   <span className="block text-xs font-medium text-[#7B8B7D]">Accéder à votre espace dédié</span>
+                </span>
+              </button>
+            )}
+
+            {canAccessSupplier && (
+              <button
+                onClick={() => navigateTo("/supplier")}
+                className="group flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all hover:bg-[#FFF7EE]"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FFF0DC] text-[#F07C00] transition-transform group-hover:scale-105">
+                  <Store size={18} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-black text-[#264129]">Espace fournisseur</span>
+                  <span className="block text-xs font-medium text-[#7B8B7D]">Gérer vos produits et commandes</span>
+                </span>
+              </button>
+            )}
+
+            {canBecomeSupplier && (
+              <button
+                onClick={() => navigateTo("/devenir-fournisseur")}
+                className="group flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all hover:bg-[#F0FAF1]"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EAF8EC] text-[#1E8A3C] transition-transform group-hover:scale-105">
+                  <TrendingUp size={18} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-black text-[#264129]">Devenir fournisseur</span>
+                  <span className="block text-xs font-medium text-[#7B8B7D]">Vendez vos produits sur Souki</span>
                 </span>
               </button>
             )}
