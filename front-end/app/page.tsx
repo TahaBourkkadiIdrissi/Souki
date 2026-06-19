@@ -80,9 +80,11 @@ export default function HomePage() {
   const { isAuthenticated, validateToken } = useAuth()
   const router = useRouter()
   const [activeModal, setActiveModal] = useState<"voice" | "smart" | null>(null)
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
-    if (isPwaStandalone()) {
+    setIsMounted(true)
+    if (typeof window !== "undefined" && isPwaStandalone()) {
       router.replace("/pwa-welcome")
     }
   }, [router])
@@ -118,7 +120,7 @@ export default function HomePage() {
   const handleOpenSmartModal = () => requireAuth(() => setActiveModal("smart"))
 
   return (
-    <div className="min-h-screen bg-white pb-24 md:pb-0">
+    <div className="min-h-screen bg-white pb-24 md:pb-0" suppressHydrationWarning>
       <Navbar />
 
       {/* ===== HERO SECTION ===== */}
