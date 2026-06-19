@@ -14,6 +14,7 @@ from interfaces.jit_dao_interface import IJITDao
 from interfaces.jit_service_interface import IJITService
 from interfaces.zone_jit_dao_interface import IZoneJITDao
 from services.commande_state_machine import changer_statut
+from services.fournisseur_resolver import resoudre_fournisseur_pour_commande
 from services.notification_jit_service import notifier_fournisseur
 from services.zone_resolver import resoudre_zone
 
@@ -192,9 +193,26 @@ class JITService(IJITService):
         """
         try:
             commandes = self._get_commandes_du_jour(session, zone=zone)
+            zones = [zone] if zone is not None else (
+                self.zone_jit_dao.get_zones_actives(session)
+                if self.zone_jit_dao
+                else []
+            )
 
             nombre_verrouillees = 0
             for commande in commandes:
+                fournisseur_id = resoudre_fournisseur_pour_commande(
+                    session,
+                    commande,
+                    zones,
+                )
+                if fournisseur_id is None:
+                    print(
+                        f"[JIT] Commande {commande.id} sans fournisseur résolu; "
+                        "conservée pour le backlog admin."
+                    )
+                    continue
+
                 current_status = str(commande.statut or "").strip().upper()
                 if current_status == "EN_ATTENTE":
                     changer_statut(
@@ -204,6 +222,7 @@ class JITService(IJITService):
                         actor_id=actor_id,
                         reason="JIT_CONFIRMATION",
                     )
+                commande.fournisseur_id = fournisseur_id
                 changer_statut(
                     session=session,
                     commande=commande,
@@ -416,6 +435,7 @@ class JITService(IJITService):
                 if resultat.statut == "succès":
                     nb = self.verrouiller_commandes(zone_session, actor_id=actor_id, zone=zone_dto)
                     print(f"[JIT] {zone_dto.nom_ville}: {nb} commandes verrouillees")
+                    notifier_fournisseur(zone_session, zone_dto, resultat)
 
                 details_json = self._build_details_json(resultat)
 
@@ -433,8 +453,6 @@ class JITService(IJITService):
 
                 zone_session.commit()
                 print(f"[JIT] Zone {zone_dto.nom_ville} terminee (log ID: {log.id if log else 'N/A'})")
-
-                notifier_fournisseur(zone_dto, resultat)
 
                 resultats[zone_dto.nom_ville] = {
                     "statut": resultat.statut,
@@ -492,6 +510,7 @@ class JITService(IJITService):
 
             if resultat.statut == "succès":
                 self.verrouiller_commandes(session, actor_id=actor_id, zone=zone_dto)
+                notifier_fournisseur(session, zone_dto, resultat)
 
             details_json = self._build_details_json(resultat)
 
@@ -508,7 +527,6 @@ class JITService(IJITService):
             )
 
             session.commit()
-            notifier_fournisseur(zone_dto, resultat)
 
             return log or JITLogDTO(
                 volume_total=resultat.volume_total_kg,

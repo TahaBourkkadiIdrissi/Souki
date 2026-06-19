@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Iterable, Optional
 from uuid import UUID
 
@@ -12,6 +12,8 @@ from entities.ligne_panier_entity import LignePanier
 from entities.livreur_entity import Livreur
 from entities.notification_outbox_entity import NotificationOutbox
 from entities.paiement_entity import Paiement
+from entities.fournisseur_entity import Fournisseur
+from entities.tournee_entity import Tournee
 from entities.user_entity import User
 from interfaces.livreur_dao_interface import ILivreurDao
 
@@ -31,6 +33,7 @@ class LivreurDaoBD(ILivreurDao):
         session: Session,
         livreur_id: int,
         visible_statuses: Iterable[str],
+        target_date: date,
     ) -> list[dict[str, Any]]:
         address_table = Table("t_addresses", MetaData(), autoload_with=session.bind)
         address_alias = address_table.alias("delivery_address")
@@ -86,6 +89,17 @@ class LivreurDaoBD(ILivreurDao):
         statement = (
             select(
                 Commande.id.label("commande_id"),
+                Commande.ordre_passage.label("ordre_passage"),
+                Tournee.id.label("tournee_id"),
+                Tournee.date_tournee.label("date_tournee"),
+                Tournee.ramasse_at.label("ramasse_at"),
+                Tournee.fournisseur_id.label("fournisseur_id"),
+                Tournee.pickup_lat.label("pickup_lat"),
+                Tournee.pickup_lng.label("pickup_lng"),
+                Fournisseur.shop_name.label("pickup_shop_name"),
+                Fournisseur.address.label("pickup_address"),
+                Fournisseur.ville.label("pickup_ville"),
+                Fournisseur.phone.label("pickup_phone"),
                 Commande.creneau_livraison.label("creneau_livraison"),
                 Commande.statut.label("statut"),
                 Commande.status_version.label("status_version"),
@@ -104,6 +118,8 @@ class LivreurDaoBD(ILivreurDao):
                 longitude_selectable,
             )
             .select_from(Commande)
+            .join(Tournee, Tournee.id == Commande.tournee_id)
+            .outerjoin(Fournisseur, Fournisseur.user_id == Tournee.fournisseur_id)
             .join(Client, Client.user_id == Commande.client_id)
             .join(User, User.id == Client.user_id)
             .outerjoin(Paiement, Paiement.commande_id == Commande.id)
@@ -118,9 +134,11 @@ class LivreurDaoBD(ILivreurDao):
             .outerjoin(colis_subquery, colis_subquery.c.panier_id == Commande.panier_id)
             .where(
                 Commande.livreur_id == livreur_id,
+                Tournee.livreur_id == livreur_id,
+                Tournee.date_tournee == target_date,
                 status_expression.in_(normalized_statuses),
             )
-            .order_by(Commande.creneau_livraison.asc(), Commande.id.asc())
+            .order_by(Commande.ordre_passage.asc(), Commande.id.asc())
         )
 
         return [dict(row._mapping) for row in session.execute(statement).all()]

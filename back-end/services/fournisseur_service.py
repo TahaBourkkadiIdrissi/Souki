@@ -1,6 +1,6 @@
 import re
 import unicodedata
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone
 from typing import Optional
 
 from fastapi import HTTPException
@@ -11,13 +11,16 @@ from sqlalchemy.orm import Session
 from config import LocalSession
 from dao.authorization_dao import AuthorizationDao
 from entities.commande_entity import Commande
+from entities.address_entity import Address
 from entities.fournisseur_entity import Fournisseur
+from entities.fournisseur_produit_entity import FournisseurProduit
 from entities.ligne_panier_entity import LignePanier
 from entities.notification_outbox_entity import NotificationOutbox
 from entities.panier_entity import Panier
 from entities.product_entity import Product
 from entities.user_entity import User
 from interfaces.fournisseur_dao_interface import IFournisseurDao
+from interfaces.fournisseur_produit_dao_interface import IFournisseurProduitDao
 from interfaces.fournisseur_service_interface import IFournisseurService
 from dto.supplier_dto import (
     AdminSupplierAction,
@@ -25,6 +28,10 @@ from dto.supplier_dto import (
     PendingSupplierRequestDTO,
     SupplierListItemDTO,
     SupplierOrdersDTO,
+    SupplierPickingItemDTO,
+    SupplierPreparationDTO,
+    SupplierPreparationLineDTO,
+    SupplierPreparationOrderDTO,
     SupplierPageDTO,
     SupplierProfileDTO,
     SupplierRequestDTO,
@@ -32,12 +39,26 @@ from dto.supplier_dto import (
     SupplierUpdateDTO,
 )
 from services.authorization_service import AuthorizationService
+from services.date_utils import today_morocco
+from services.logistics_visibility import (
+    SUPPLIER_VISIBLE_STATUSES,
+    is_supplier_order_visible,
+)
+
+
+SUPPLIER_ACTIVE_ORDER_STATUSES = tuple(sorted(SUPPLIER_VISIBLE_STATUSES))
 
 
 class FournisseurService(IFournisseurService):
 
-    def __init__(self, fournisseur_dao: IFournisseurDao, session: Optional[Session] = None) -> None:
+    def __init__(
+        self,
+        fournisseur_dao: IFournisseurDao,
+        fournisseur_produit_dao: Optional[IFournisseurProduitDao] = None,
+        session: Optional[Session] = None,
+    ) -> None:
         self.fournisseur_dao = fournisseur_dao
+        self.fournisseur_produit_dao = fournisseur_produit_dao
         self.authorization_dao = AuthorizationDao()
         self.session = session
         self._owns_session = False
@@ -77,6 +98,23 @@ class FournisseurService(IFournisseurService):
             if self.fournisseur_dao.exists_by_user_id(session, user_id):
                 raise HTTPException(status_code=409, detail="Une demande fournisseur existe deja pour cet utilisateur.")
 
+            # Valider que tous les produits existent et sont actifs
+            produits = (
+                session.query(Product)
+                .filter(Product.id.in_(payload.produit_ids))
+                .all()
+            )
+            found_ids = {p.id for p in produits}
+            missing = set(payload.produit_ids) - found_ids
+            if missing:
+                raise HTTPException(status_code=404, detail=f"Produits introuvables: {sorted(missing)}")
+            inactive = [p for p in produits if not p.is_active]
+            if inactive:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Produits inactifs au catalogue: {[p.id for p in inactive]}",
+                )
+
             fournisseur = Fournisseur(
                 user_id=user_id,
                 shop_name=payload.shop_name.strip(),
@@ -93,6 +131,20 @@ class FournisseurService(IFournisseurService):
                 statut="PENDING",
             )
             self.fournisseur_dao.save(session, fournisseur)
+            session.flush()
+
+            # Créer les offres pendant la demande (CLIENT a encore la permission supplier.request.create)
+            if self.fournisseur_produit_dao:
+                for produit_id in payload.produit_ids:
+                    self.fournisseur_produit_dao.upsert(
+                        session,
+                        fournisseur_id=user_id,
+                        produit_id=produit_id,
+                        prix_gros=None,
+                        stock=0.0,
+                        is_active=True,
+                    )
+
             session.commit()
             session.refresh(fournisseur)
             return self._to_profile_dto(fournisseur)
@@ -115,6 +167,20 @@ class FournisseurService(IFournisseurService):
 
             now = datetime.now(timezone.utc)
             if action == AdminSupplierAction.APPROVE:
+                active_offers = int(
+                    session.query(func.count(FournisseurProduit.id))
+                    .filter(
+                        FournisseurProduit.fournisseur_id == fournisseur.user_id,
+                        FournisseurProduit.is_active.is_(True),
+                    )
+                    .scalar()
+                    or 0
+                )
+                if active_offers == 0:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Le fournisseur doit avoir au moins un produit avant approbation.",
+                    )
                 fournisseur.statut = "APPROVED"
                 fournisseur.rejected_reason = None
                 fournisseur.validated_by = admin_user_id
@@ -231,14 +297,17 @@ class FournisseurService(IFournisseurService):
         session = self._ensure_session()
         self._ensure_supplier_role(session, user_id)
         products_count = int(
-            session.query(func.count(Product.id))
-            .filter(Product.fournisseur_id == user_id)
+            session.query(func.count(FournisseurProduit.id))
+            .filter(FournisseurProduit.fournisseur_id == user_id)
             .scalar()
             or 0
         )
         active_products_count = int(
-            session.query(func.count(Product.id))
-            .filter(Product.fournisseur_id == user_id, Product.is_active.is_(True))
+            session.query(func.count(FournisseurProduit.id))
+            .filter(
+                FournisseurProduit.fournisseur_id == user_id,
+                FournisseurProduit.is_active.is_(True),
+            )
             .scalar()
             or 0
         )
@@ -247,14 +316,24 @@ class FournisseurService(IFournisseurService):
             .join(Panier, Panier.id == Commande.panier_id)
             .join(LignePanier, LignePanier.panier_id == Panier.id)
             .join(Product, Product.id == LignePanier.produit_id)
-            .filter(Product.fournisseur_id == user_id)
+            .join(
+                FournisseurProduit,
+                (FournisseurProduit.produit_id == Product.id)
+                & (FournisseurProduit.fournisseur_id == user_id)
+                & FournisseurProduit.is_active.is_(True),
+            )
             .scalar()
             or 0
         )
         revenue_total = float(
             session.query(func.coalesce(func.sum(LignePanier.sous_total), 0))
             .join(Product, Product.id == LignePanier.produit_id)
-            .filter(Product.fournisseur_id == user_id)
+            .join(
+                FournisseurProduit,
+                (FournisseurProduit.produit_id == Product.id)
+                & (FournisseurProduit.fournisseur_id == user_id)
+                & FournisseurProduit.is_active.is_(True),
+            )
             .scalar()
             or 0
         )
@@ -266,36 +345,109 @@ class FournisseurService(IFournisseurService):
         )
 
     def get_supplier_orders(self, user_id: int) -> SupplierOrdersDTO:
-        session = self._ensure_session()
-        self._ensure_supplier_role(session, user_id)
-        rows = (
-            session.query(
-                Commande.id.label("commande_id"),
-                Commande.statut.label("statut"),
-                Commande.date_commande.label("date_commande"),
-                Commande.montant_total.label("montant_total"),
-                func.sum(LignePanier.sous_total).label("supplier_total"),
-            )
-            .join(Panier, Panier.id == Commande.panier_id)
-            .join(LignePanier, LignePanier.panier_id == Panier.id)
-            .join(Product, Product.id == LignePanier.produit_id)
-            .filter(Product.fournisseur_id == user_id)
-            .group_by(Commande.id, Commande.statut, Commande.date_commande, Commande.montant_total)
-            .order_by(Commande.date_commande.desc())
-            .limit(100)
-            .all()
-        )
+        preparation = self.get_supplier_preparation(user_id)
         return SupplierOrdersDTO(
             orders=[
                 {
-                    "commande_id": row.commande_id,
-                    "statut": row.statut,
-                    "date_commande": row.date_commande,
-                    "montant_total": float(row.montant_total or 0),
-                    "supplier_total": float(row.supplier_total or 0),
+                    **order.model_dump(),
+                    "commande_id": order.id,
                 }
-                for row in rows
+                for order in preparation.commandes
             ]
+        )
+
+    def get_supplier_preparation(self, user_id: int) -> SupplierPreparationDTO:
+        session = self._ensure_session()
+        self._ensure_supplier_role(session, user_id)
+        current_date = today_morocco()
+        start_of_day = datetime.combine(current_date, time.min)
+        end_of_day = datetime.combine(current_date, time.max)
+        commandes = (
+            session.query(Commande)
+            .filter(
+                Commande.fournisseur_id == user_id,
+                Commande.date_commande >= start_of_day,
+                Commande.date_commande <= end_of_day,
+                Commande.statut.in_(SUPPLIER_ACTIVE_ORDER_STATUSES),
+            )
+            .order_by(Commande.date_commande.asc(), Commande.id.asc())
+            .all()
+        )
+        commandes = [
+            commande
+            for commande in commandes
+            if is_supplier_order_visible(commande, user_id, current_date)
+        ]
+
+        picking: dict[int, SupplierPickingItemDTO] = {}
+        commandes_dto: list[SupplierPreparationOrderDTO] = []
+        for commande in commandes:
+            lignes: list[SupplierPreparationLineDTO] = []
+            panier = commande.panier
+            for ligne in panier.lignes if panier else []:
+                produit = ligne.produit
+                if not produit:
+                    continue
+                quantite = float(ligne.quantite_kg or 0)
+                product_id = int(produit.id)
+                lignes.append(
+                    SupplierPreparationLineDTO(
+                        product_id=product_id,
+                        nom_fr=str(produit.nom_fr),
+                        quantite_kg=quantite,
+                        unite=str(produit.unite),
+                    )
+                )
+                if product_id not in picking:
+                    picking[product_id] = SupplierPickingItemDTO(
+                        product_id=product_id,
+                        nom_fr=str(produit.nom_fr),
+                        quantite_kg=0,
+                        unite=str(produit.unite),
+                    )
+                picking[product_id].quantite_kg = round(
+                    picking[product_id].quantite_kg + quantite,
+                    3,
+                )
+
+            client_user = commande.client.user if commande.client else None
+            adresse = (
+                session.query(Address)
+                .filter(Address.user_id == commande.client_id)
+                .order_by(Address.is_default.desc(), Address.id.desc())
+                .first()
+            )
+            adresse_label = None
+            if adresse:
+                adresse_label = ", ".join(
+                    str(value)
+                    for value in (adresse.street, adresse.neighborhood, adresse.ville)
+                    if value
+                )
+            client_nom = (
+                str(client_user.email or client_user.phone)
+                if client_user
+                else f"Client #{commande.client_id}"
+            )
+            commandes_dto.append(
+                SupplierPreparationOrderDTO(
+                    id=int(commande.id),
+                    statut=str(commande.statut),
+                    date_commande=commande.date_commande,
+                    creneau_livraison=commande.creneau_livraison,
+                    montant_total=float(commande.montant_total or 0),
+                    client_nom=client_nom,
+                    client_phone=str(client_user.phone) if client_user and client_user.phone else None,
+                    adresse=adresse_label,
+                    produits=lignes,
+                )
+            )
+
+        return SupplierPreparationDTO(
+            date=current_date.isoformat(),
+            nombre_commandes=len(commandes_dto),
+            picking=sorted(picking.values(), key=lambda item: item.nom_fr.lower()),
+            commandes=commandes_dto,
         )
 
     def suspend_supplier(self, admin_user_id: int, supplier_user_id: int) -> SupplierProfileDTO:

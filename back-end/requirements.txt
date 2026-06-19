@@ -20,7 +20,7 @@ python-dotenv==1.0.0
 google-auth==2.38.0
 google-genai==0.2.0
 google-auth-httplib2==0.2.0
-psycopg2-binary>=2.9.10
+psycopg2-binary==2.9.9
 rsa==4.9.1
 six==1.17.0
 SQLAlchemy==2.0.49

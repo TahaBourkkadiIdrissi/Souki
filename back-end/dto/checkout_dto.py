@@ -1,6 +1,8 @@
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
+
+from dto.phone_validator import validate_moroccan_phone
 
 
 class CheckoutItemDTO(BaseModel):
@@ -18,6 +20,10 @@ class CheckoutRequestDTO(BaseModel):
     delivery_instructions: Optional[str] = None
     brouillon_vocal_id: Optional[int] = None
     panier_id: Optional[int] = None
+
+    @validator("contact_phone")
+    def validate_contact_phone(cls, v):
+        return validate_moroccan_phone(v)
 
 
 class CheckoutResponseDTO(BaseModel):

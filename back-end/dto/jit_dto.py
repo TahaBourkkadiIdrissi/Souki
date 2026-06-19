@@ -63,6 +63,8 @@ class ZoneJITDTO(BaseModel):
     lng_centre: float
     rayon_km: float = 25.0
     fournisseur_id: Optional[int] = None
+    fournisseur_nom: Optional[str] = None
+    fournisseur_statut: Optional[str] = None
     actif: bool = True
     created_at: Optional[str] = None
 

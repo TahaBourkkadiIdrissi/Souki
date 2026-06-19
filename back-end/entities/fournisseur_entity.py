@@ -39,3 +39,4 @@ class Fournisseur(Base):
 
     user = relationship("User", foreign_keys=[user_id], back_populates="fournisseur_profile")
     products = relationship("Product", back_populates="fournisseur")
+    offres = relationship("FournisseurProduit", back_populates="fournisseur")
