@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useCallback, useEffect, useState } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
@@ -29,7 +29,7 @@ import {
 
 import { AIModals } from "@/components/souki/ai-modals"
 import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
-import { RecolteAvatar } from "@/components/avatar/recolte-avatar"
+import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
 import { ProductCard } from "@/components/souki/product-card"
 import { useAuth } from "@/hooks/useAuth"
 import type { CommandeHistoriqueDTO, ProduitSuggestionDTO } from "@/lib/api"
@@ -184,11 +184,11 @@ function RecolteWarmWelcome() {
         <div className="absolute right-10 top-0 z-30 whitespace-nowrap rounded-2xl border border-[#F3D8B2] bg-white px-2.5 py-1.5 text-center text-[11px] font-black text-[#9A5C11] shadow-[0_12px_30px_-22px_rgba(154,92,17,0.55)] sm:right-16 sm:text-xs xl:right-20 2xl:text-base">
           Ach heb lkhater ?
         </div>
-        <RecolteAvatar
+        <FarmerAvatar
           size="lg"
           expression="welcome"
           className="relative z-10 h-auto w-full"
-          label="Recolte accueille chaleureusement les clients Souki"
+          label="Souki farmer guide greets customers"
         />
       </div>
     </div>
@@ -216,7 +216,7 @@ function SoukiGuideAvatar({
   if (compact) {
     return (
       <div className="flex items-center gap-3 rounded-2xl border border-[#D7EBD9] bg-white/85 p-3 shadow-[0_14px_40px_-34px_rgba(30,65,41,0.35)]">
-        <RecolteAvatar size="md" expression="curious" className="shrink-0" />
+        <FarmerAvatar size="md" expression="explain" className="shrink-0" />
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-bold uppercase tracking-wide text-[#1E8A3C]">
             Recolte de Souki
@@ -233,7 +233,7 @@ function SoukiGuideAvatar({
         Recolte Souki
       </div>
       <div className="flex items-end justify-center pt-5">
-        <RecolteAvatar size="lg" expression={cartCount > 0 ? "success" : "welcome"} />
+        <FarmerAvatar size="lg" expression={cartCount > 0 ? "celebrate" : "welcome"} />
       </div>
       <div className="mt-2 rounded-2xl bg-[#F7FCF7] p-4">
         <p className="text-sm font-bold text-[#264129]">{guideMessage}</p>
@@ -764,6 +764,16 @@ function CatalogueContent() {
       }
       return left.id - right.id
     })
+
+  const productsByLevel = useMemo(() => {
+    const hasSearchOrFilter = searchQuery.trim() !== "" || selectedCategory !== "tous"
+    if (hasSearchOrFilter) return null // skip level grouping when filtering
+    return {
+      level1: filteredProducts.filter((p) => p.niveau === 1),
+      level2: filteredProducts.filter((p) => p.niveau === 2),
+      level3: filteredProducts.filter((p) => p.niveau === 3),
+    }
+  }, [filteredProducts, searchQuery, selectedCategory])
 
   const cartSubtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const reste = Math.max(0, SEUIL - cartSubtotal)
@@ -1356,28 +1366,82 @@ function CatalogueContent() {
 
           {!showOrderHistory && !isFetching && !error && (
             <>
-              <div
-                id="catalogue-products"
-                className="grid grid-cols-2 gap-3 scroll-mt-28 sm:gap-5 md:[grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr))]"
-              >
-                {filteredProducts.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    id={product.id}
-                    name={product.name}
-                    image={product.image}
-                    price={product.price}
-                    prixKhddarEstime={product.prix_khddar_estime}
-                    niveau={product.niveau}
-                    unit={product.unit}
-                    displayUnit={product.displayUnit}
-                    quantityStep={product.quantityStep}
-                    stock={product.stock}
-                    onView={handleProductView}
-                    onAddToCart={handleAddToCart}
-                  />
-                ))}
-              </div>
+              {/* Level-grouped horizontal scroll (default view) */}
+              {productsByLevel ? (
+                <div id="catalogue-products" className="space-y-8 scroll-mt-28">
+                  {([
+                    { key: "level1" as const, label: "Essentiels", subtitle: "Les indispensables du quotidien" },
+                    { key: "level2" as const, label: "Populaires", subtitle: "Les préférés de nos clients" },
+                    { key: "level3" as const, label: "À découvrir", subtitle: "Des pépites à essayer" },
+                  ] as const).map((section) => {
+                    const items = productsByLevel[section.key]
+                    if (items.length === 0) return null
+                    return (
+                      <section key={section.key}>
+                        <div className="mb-3 flex items-end justify-between">
+                          <div>
+                            <h3 className="text-lg font-bold text-[#264129]">{section.label}</h3>
+                            <p className="text-sm text-[#6F8070]">{section.subtitle}</p>
+                          </div>
+                          <span className="rounded-full bg-[#F0FAF1] px-3 py-1 text-xs font-bold text-[#1E8A3C]">
+                            {items.length} produit{items.length > 1 ? "s" : ""}
+                          </span>
+                        </div>
+                        <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-3 scrollbar-none sm:gap-4">
+                          {items.map((product) => (
+                            <div key={product.id} className="w-[10.5rem] shrink-0 snap-start sm:w-[12rem]">
+                              <ProductCard
+                                id={product.id}
+                                name={product.name}
+                                image={product.image}
+                                price={product.price}
+                                prixKhddarEstime={product.prix_khddar_estime}
+                                niveau={product.niveau}
+                                unit={product.unit}
+                                displayUnit={product.displayUnit}
+                                quantityStep={product.quantityStep}
+                                stock={product.stock}
+                                onView={handleProductView}
+                                onAddToCart={handleAddToCart}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    )
+                  })}
+
+                  {filteredProducts.length === 0 && (
+                    <div className="rounded-[28px] border border-[#E6EFE7] bg-white p-12 text-center">
+                      <p className="text-[#6F8070]">Aucun produit disponible pour le moment.</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Flat grid when searching/filtering */
+                <div
+                  id="catalogue-products"
+                  className="grid grid-cols-2 gap-3 scroll-mt-28 sm:gap-5 md:[grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr))]"
+                >
+                  {filteredProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      id={product.id}
+                      name={product.name}
+                      image={product.image}
+                      price={product.price}
+                      prixKhddarEstime={product.prix_khddar_estime}
+                      niveau={product.niveau}
+                      unit={product.unit}
+                      displayUnit={product.displayUnit}
+                      quantityStep={product.quantityStep}
+                      stock={product.stock}
+                      onView={handleProductView}
+                      onAddToCart={handleAddToCart}
+                    />
+                  ))}
+                </div>
+              )}
 
               {filteredProducts.length === 0 && (
                 <div className="rounded-[28px] border border-[#E6EFE7] bg-white p-12 text-center">

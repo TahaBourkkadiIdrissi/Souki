@@ -27,7 +27,7 @@ import {
 import { ProductCard } from "@/components/souki/product-card"
 import { Navbar } from "@/components/souki/navbar"
 import { AIModals } from "@/components/souki/ai-modals"
-import { RecolteAvatar } from "@/components/avatar/recolte-avatar"
+import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
 
 const BACKEND_URL = "http://localhost:8000"
 
@@ -80,14 +80,24 @@ export default function HomePage() {
   const { isAuthenticated, validateToken } = useAuth()
   const router = useRouter()
   const [activeModal, setActiveModal] = useState<"voice" | "smart" | null>(null)
-  const [isMounted, setIsMounted] = useState(false)
+  const [isPwa, setIsPwa] = useState<boolean | null>(null)
 
   useEffect(() => {
-    setIsMounted(true)
     if (typeof window !== "undefined" && isPwaStandalone()) {
       router.replace("/pwa-welcome")
+    } else {
+      setIsPwa(false)
     }
   }, [router])
+
+  // Block render until we know it's NOT PWA
+  if (isPwa === null) {
+    return (
+      <div className="min-h-dvh bg-[#1E8A3C] flex items-center justify-center">
+        <div className="h-12 w-12 animate-pulse rounded-2xl bg-white/20" />
+      </div>
+    )
+  }
 
   // Fonction helper pour protéger les actions
   const requireAuth = (callback: () => void) => {
@@ -141,11 +151,11 @@ export default function HomePage() {
           <div className="space-y-10">
             {/* Badge with animation */}
             <div className="inline-flex items-center gap-3 px-5 py-2.5 glass-ios26 rounded-2xl mx-auto animate-scale-up">
-              <RecolteAvatar
+              <FarmerAvatar
                 size="sm"
                 expression="welcome"
                 className="block"
-                label="Recolte, mascotte Souki, accueille les familles"
+                label="Souki farmer guide welcomes families"
               />
               <span className="text-sm font-semibold text-white tracking-wide">+250 familles à Fès commandent déjà avec SOUKI</span>
             </div>

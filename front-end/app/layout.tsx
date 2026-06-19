@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { MobilePullToRefresh } from "@/components/souki/mobile-pull-to-refresh"
 import { PwaInstallPrompt } from "@/components/souki/pwa-install-prompt"
 import { RouteGuard } from "@/components/routing/route-guard"
+import { PwaNavShell } from "@/components/souki/pwa-nav-shell"
 
 const inter = Inter({ 
   subsets: ["latin"],
@@ -77,6 +78,7 @@ export default function RootLayout({
             <Suspense fallback={null}>
               <RouteGuard>{children}</RouteGuard>
             </Suspense>
+            <PwaNavShell />
             <PwaInstallPrompt />
           </ThemeProvider>
         </AuthProvider>

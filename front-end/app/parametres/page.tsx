@@ -145,10 +145,10 @@ export default function ParametresPage() {
         const n = data.notifications
         const s = data.sessions
         const w = data.wallet
-        setPersonal({ prenom: p.prenom, nom: p.nom, email: p.email, telephone: p.telephone })
+        setPersonal({ prenom: p.prenom ?? "", nom: p.nom ?? "", email: p.email ?? "", telephone: p.telephone ?? "" })
         setPhotoUrl(p.photo_url ?? p.avatar_url ?? null)
         setEmailVerified(Boolean(p.email_verified))
-        setAddress({ adresse: p.address.adresse, ville: p.address.ville || moroccanCities[0], code_postal: p.address.code_postal })
+        setAddress({ adresse: p.address.adresse ?? "", ville: p.address.ville || moroccanCities[0], code_postal: p.address.code_postal ?? "" })
         setNotifications(n)
         setSessions(s)
         setWalletState(w)
