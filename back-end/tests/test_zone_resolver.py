@@ -15,9 +15,9 @@ from services.zone_resolver import haversine, resoudre_zone
 class TestHaversine:
 
     def test_fes_meknes(self):
-        # Distance Fès → Meknès ≈ 60 km (source : coordonnées réelles)
+        # Distance à vol d'oiseau calculée depuis les coordonnées réelles.
         dist = haversine(34.0331, -5.0003, 33.8935, -5.5473)
-        assert 55 <= dist <= 65, f"Distance Fès-Meknès attendue ~60 km, obtenu {dist:.1f} km"
+        assert dist == pytest.approx(52.781, abs=0.05)
 
     def test_meme_point(self):
         assert haversine(34.0331, -5.0003, 34.0331, -5.0003) == pytest.approx(0.0, abs=0.001)
@@ -32,9 +32,9 @@ class TestHaversine:
         assert dist > 0
 
     def test_fes_casablanca(self):
-        # Fès → Casablanca ≈ 290 km
+        # Distance à vol d'oiseau calculée depuis les coordonnées réelles.
         dist = haversine(34.0331, -5.0003, 33.5731, -7.5898)
-        assert 270 <= dist <= 310, f"Distance Fès-Casa attendue ~290 km, obtenu {dist:.1f} km"
+        assert dist == pytest.approx(244.663, abs=0.05)
 
 
 # ============================================================
@@ -85,8 +85,8 @@ class TestResoudreZone:
 
     def test_point_juste_dans_rayon(self):
         # Point à ~29 km de Fès (dans rayon 30 km)
-        # Décalage en longitude ≈ 0.36° ≈ 30 km à cette latitude
-        zone = resoudre_zone(34.0331, -5.0003 - 0.33, [ZONE_FES])
+        # Décalage en longitude de 0.32° ≈ 29.5 km à cette latitude.
+        zone = resoudre_zone(34.0331, -5.0003 - 0.32, [ZONE_FES])
         assert zone is ZONE_FES
 
     def test_point_juste_hors_rayon(self):

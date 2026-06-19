@@ -38,3 +38,8 @@ class IZoneJITDao(ABC):
     def toggle_actif(self, session: Session, zone_id: int) -> Optional[ZoneJITDTO]:
         """Active ou désactive une zone"""
         pass
+
+    @abstractmethod
+    def deactivate_zone(self, session: Session, zone_id: int) -> Optional[ZoneJITDTO]:
+        """Désactive une zone sans supprimer son historique"""
+        pass

@@ -31,6 +31,7 @@ class SupplierRequestDTO(BaseModel):
     logo_url: Optional[str] = None
     couverture_url: Optional[str] = None
     horaires: Optional[Dict[str, Any]] = None
+    produit_ids: List[int] = Field(min_items=1)
 
     @validator("phone")
     def validate_phone(cls, v):
@@ -115,3 +116,81 @@ class SupplierStatsDTO(BaseModel):
 class SupplierOrdersDTO(BaseModel):
     status: str = "success"
     orders: List[dict] = Field(default_factory=list)
+
+
+class SupplierPreparationLineDTO(BaseModel):
+    product_id: int
+    nom_fr: str
+    quantite_kg: float
+    unite: str
+
+
+class SupplierPreparationOrderDTO(BaseModel):
+    id: int
+    statut: str
+    date_commande: Optional[datetime] = None
+    creneau_livraison: Optional[str] = None
+    montant_total: float = 0
+    client_nom: str
+    client_phone: Optional[str] = None
+    adresse: Optional[str] = None
+    produits: List[SupplierPreparationLineDTO] = Field(default_factory=list)
+
+
+class SupplierPickingItemDTO(BaseModel):
+    product_id: int
+    nom_fr: str
+    quantite_kg: float
+    unite: str
+
+
+class SupplierPreparationDTO(BaseModel):
+    status: str = "success"
+    date: str
+    nombre_commandes: int
+    picking: List[SupplierPickingItemDTO] = Field(default_factory=list)
+    commandes: List[SupplierPreparationOrderDTO] = Field(default_factory=list)
+
+
+class SupplierProductOfferDTO(BaseModel):
+    produit_id: int
+    nom_fr: str
+    nom_darija: str
+    unite: str
+    prix_affiche: Optional[float] = None
+    prix_gros: Optional[float] = None
+    stock: float = 0
+    is_active: bool = True
+
+    class Config:
+        from_attributes = True
+
+
+class SupplierCatalogueItemDTO(BaseModel):
+    produit_id: int
+    nom_fr: str
+    nom_darija: str
+    unite: str
+    prix_affiche: Optional[float] = None
+    deja_propose: bool = False
+
+
+class SupplierProductCreateDTO(BaseModel):
+    produit_id: int
+    prix_gros: Optional[float] = None
+    stock: float = 0
+
+
+class SupplierProductUpdateDTO(BaseModel):
+    prix_gros: Optional[float] = None
+    stock: Optional[float] = None
+    is_active: Optional[bool] = None
+
+
+class SupplierProductSelectionDTO(BaseModel):
+    produit_ids: List[int] = Field(min_items=1)
+
+
+class SupplierProductsListDTO(BaseModel):
+    status: str = "success"
+    items: List[SupplierProductOfferDTO] = Field(default_factory=list)

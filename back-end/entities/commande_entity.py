@@ -9,6 +9,7 @@ class Commande(Base):
     id                 = Column(Integer, primary_key=True, autoincrement=True)
     client_id          = Column(Integer, ForeignKey("t_clients.user_id"))
     panier_id          = Column(Integer, ForeignKey("t_paniers.id"))
+    fournisseur_id     = Column(Integer, ForeignKey("t_fournisseurs.user_id"), nullable=True, index=True)
     livreur_id         = Column(Integer, ForeignKey("t_livreurs.user_id"))
     tournee_id         = Column(Integer, ForeignKey("t_tournees.id"), nullable=True, index=True)
     ordre_passage      = Column(Integer, nullable=True)
@@ -28,6 +29,7 @@ class Commande(Base):
 
     client          = relationship("Client", back_populates="commandes")
     panier          = relationship("Panier", back_populates="commande")
+    fournisseur     = relationship("Fournisseur", foreign_keys=[fournisseur_id])
     livreur         = relationship("Livreur", back_populates="commandes")
     tournee         = relationship("Tournee", back_populates="commandes")
     paiement        = relationship("Paiement", back_populates="commande", uselist=False)
