@@ -1,170 +1,294 @@
 "use client"
 
+import { Suspense, useState } from "react"
 import Link from "next/link"
-import { Suspense } from "react"
-import { useSearchParams } from "next/navigation"
-import { User, Users, Truck } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Eye, EyeOff, Loader2, Phone, Lock, Users, Truck, ShoppingBag } from "lucide-react"
+import { useAuth } from "@/hooks/useAuth"
+import { GoogleLoginButton } from "@/components/auth/google-login-button"
+import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
+import { shouldShowOnboarding } from "@/lib/onboarding"
 
 function PreLoginContent() {
   const searchParams = useSearchParams()
-  const redirectTarget = searchParams.get("redirect")
+  const router = useRouter()
+  const { login, googleLogin } = useAuth()
+  const redirectTarget = searchParams.get("redirect") || "/"
   const switchAccount = searchParams.get("switch") === "1"
   const loggedOut = searchParams.get("logged_out") === "1"
 
+  const [phone, setPhone] = useState("")
+  const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [shakeError, setShakeError] = useState(false)
+
   const roles = [
     {
-      title: "Client",
-      description: "Pour commander vos produits frais",
-      icon: User,
-      href: "/login/client",
-      color: "bg-[#1E8A3C]",
-      textHover: "group-[&:hover]:text-[#1E8A3C]",
-      bgHover: "group-[&:hover]:bg-[#1E8A3C]",
-      lightBgHover: "group-[&:hover]:bg-[#F0FAF1]",
-      borderColor: "hover:border-[#4CB84A]",
-      shadowColor: "hover:shadow-[#4CB84A]/10"
-    },
-    {
       title: "Parent",
-      description: "Accédez à l'espace parent",
+      description: "Espace parent & famille",
       icon: Users,
       href: "/login/parent",
-      color: "bg-[#F5C400]",
-      textHover: "group-[&:hover]:text-[#F5C400]",
-      bgHover: "group-[&:hover]:bg-[#F5C400]",
-      lightBgHover: "group-[&:hover]:bg-[#FFFBEB]",
-      borderColor: "hover:border-[#EAB308]",
-      shadowColor: "hover:shadow-[#EAB308]/10"
+      emoji: "👨‍👩‍👧",
+      gradient: "from-amber-500/10 to-orange-500/10",
+      border: "border-amber-200",
+      iconColor: "text-amber-600",
     },
     {
       title: "Livreur",
-      description: "Gérez vos courses et livraisons",
+      description: "Gérez vos livraisons",
       icon: Truck,
       href: "/login/livreur",
-      color: "bg-[#F07C00]",
-      textHover: "group-[&:hover]:text-[#F07C00]",
-      bgHover: "group-[&:hover]:bg-[#F07C00]",
-      lightBgHover: "group-[&:hover]:bg-[#FFF3E0]",
-      borderColor: "hover:border-[#F07C00]",
-      shadowColor: "hover:shadow-[#F07C00]/10"
-    }
+      emoji: "🚚",
+      gradient: "from-blue-500/10 to-indigo-500/10",
+      border: "border-blue-200",
+      iconColor: "text-blue-600",
+    },
   ]
 
   const withRedirect = (href: string) => {
     const params = new URLSearchParams()
-    if (redirectTarget) {
-      params.set("redirect", redirectTarget)
-    }
-    if (switchAccount) {
-      params.set("switch", "1")
-    }
-    if (loggedOut) {
-      params.set("logged_out", "1")
-    }
+    if (searchParams.get("redirect")) params.set("redirect", searchParams.get("redirect")!)
+    if (switchAccount) params.set("switch", "1")
+    if (loggedOut) params.set("logged_out", "1")
     const query = params.toString()
     return query ? `${href}?${query}` : href
   }
 
+  const resolvePostLoginRedirect = (nextUser: { default_dashboard?: string }) => {
+    if (redirectTarget !== "/") return redirectTarget
+    if (shouldShowOnboarding()) return "/onboarding"
+    return nextUser.default_dashboard || "/"
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    if (!phone.trim() || !password.trim()) {
+      setError("Veuillez remplir tous les champs.")
+      setShakeError(true)
+      setTimeout(() => setShakeError(false), 500)
+      return
+    }
+    setLoading(true)
+    try {
+      let loginId = phone.trim()
+      if (loginId.startsWith("0")) {
+        loginId = `+212${loginId.substring(1)}`
+      } else if (!loginId.startsWith("+")) {
+        loginId = `+212${loginId}`
+      }
+      const nextUser = await login(loginId, password, "CLIENT")
+      router.push(resolvePostLoginRedirect(nextUser))
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Une erreur inattendue est survenue."
+      setError(message)
+      setShakeError(true)
+      setTimeout(() => setShakeError(false), 500)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleGoogleLogin = async (credential: string) => {
+    setError("")
+    try {
+      const nextUser = await googleLogin(credential, "CLIENT")
+      router.push(resolvePostLoginRedirect(nextUser))
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "La connexion Google a échoué."
+      setError(message)
+    }
+  }
+
   return (
-    <div className="min-h-screen flex">
-      {/* Left Side - Brand Visual */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#1E8A3C] to-[#4CB84A] p-12 flex-col justify-between relative overflow-hidden">
-        {/* Floating vegetables decoration */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-20 left-20 text-8xl rotate-12 animate-bounce" style={{ animationDuration: '3s' }}>🍅</div>
-          <div className="absolute top-40 right-32 text-7xl -rotate-12 animate-bounce" style={{ animationDuration: '4s', animationDelay: '1s' }}>🥕</div>
-          <div className="absolute bottom-40 left-32 text-6xl rotate-45 animate-bounce" style={{ animationDuration: '5s', animationDelay: '0.5s' }}>🥒</div>
-          <div className="absolute bottom-20 right-20 text-8xl -rotate-6 animate-bounce" style={{ animationDuration: '3.5s', animationDelay: '1.5s' }}>🌽</div>
+    <div className="flex min-h-dvh flex-col bg-[#F8FAF9] pb-[env(safe-area-inset-bottom)]">
+      {/* ─── Hero Section with animated gradient ─── */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-[#1B4332] via-[#1B4332] to-[#2D6A4F] px-6 pb-20 pt-12 text-center animate-gradient-shift">
+        {/* Floating decorative elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-6 left-8 text-3xl opacity-20 animate-float-slow" style={{ animationDelay: '0s' }}>🌿</div>
+          <div className="absolute top-12 right-10 text-2xl opacity-15 animate-float-slow" style={{ animationDelay: '1s' }}>🍃</div>
+          <div className="absolute bottom-12 left-12 text-2xl opacity-15 animate-float-slow" style={{ animationDelay: '2s' }}>🌱</div>
+          <div className="absolute bottom-8 right-8 text-3xl opacity-20 animate-float-slow" style={{ animationDelay: '0.5s' }}>☘️</div>
         </div>
 
-        {/* Logo */}
+        {/* Subtle dot-pattern overlay */}
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
+            backgroundSize: "28px 28px",
+          }}
+        />
+
         <div className="relative z-10">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-14 h-14 rounded-2xl shadow-lg overflow-hidden flex items-center justify-center bg-white p-0.5 pointer-events-none">
-              <img src="/logo3.png" alt="SOUKI" className="w-[175%] h-full max-w-none object-cover" style={{ objectPosition: "left center" }} />
+          {/* Logo */}
+          <Link href="/" className="inline-flex items-center gap-2.5">
+            <div className="h-11 w-11 overflow-hidden rounded-2xl bg-white p-0.5 shadow-lg shadow-black/20">
+              <img
+                src="/logo3.png"
+                alt="SOUKI"
+                className="h-full w-[175%] max-w-none object-cover"
+                style={{ objectPosition: "left center" }}
+              />
             </div>
-            <div>
-              <span className="text-3xl font-bold text-white">SOUKI</span>
-              <span className="text-lg text-white/80 ml-2">Fresh Market</span>
-            </div>
+            <span className="text-2xl font-black tracking-tight text-white">SOUKI</span>
           </Link>
-        </div>
 
-        {/* Central content */}
-        <div className="relative z-10 flex-1 flex flex-col justify-center">
-          <h1 className="text-4xl xl:text-5xl font-bold text-white mb-6 leading-tight text-balance">
-            Bienvenue sur SOUKI.
-          </h1>
-          <p className="text-xl text-white/80 mb-8 max-w-md">
-            Identifiez-vous pour accéder à votre espace dédié.
+          {/* Avatar */}
+          <div className="mt-5 flex justify-center">
+            <FarmerAvatar expression="welcome" size="lg" />
+          </div>
+
+          <p className="mx-auto mt-4 max-w-xs text-base font-medium leading-relaxed text-white/80">
+            Vos légumes frais, livrés à l&apos;aube 🌅
           </p>
-        </div>
-
-        {/* Bottom decoration */}
-        <div className="relative z-10 text-white/60 text-sm">
-          © 2026 SOUKI Fresh Market
+          <p className="mt-1.5 text-sm text-white/50">Du marché de Fès, directement chez vous.</p>
         </div>
       </div>
 
-      {/* Right Side - Selection */}
-      <div className="flex-1 flex flex-col justify-center px-6 lg:px-12 xl:px-20 py-12 bg-white">
-        <div className="max-w-md mx-auto w-full">
-          {/* Mobile logo */}
-          <div className="lg:hidden mb-8">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-xl shadow-sm overflow-hidden flex items-center justify-center bg-white p-0.5 pointer-events-none">
-                <img src="/logo3.png" alt="SOUKI" className="w-[175%] h-full max-w-none object-cover" style={{ objectPosition: "left center" }} />
+      {/* ─── Animated Emoji Strip ─── */}
+      <div className="relative -mt-5 z-10 overflow-hidden py-2.5">
+        <div
+          className="flex gap-6 whitespace-nowrap px-4 text-2xl"
+          style={{ animation: "souki-scroll-x 18s linear infinite" }}
+        >
+          {["🍅","🥕","🥦","🍋","🫑","🧅","🥒","🍆","🌽","🥬","🍅","🥕","🥦","🍋","🫑","🧅","🥒","🍆","🌽","🥬"].map((emoji, i) => (
+            <span key={i} className="inline-block select-none opacity-70">
+              {emoji}
+            </span>
+          ))}
+        </div>
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `@keyframes souki-scroll-x { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }`,
+          }}
+        />
+      </div>
+
+      {/* ─── Glassmorphism Card ─── */}
+      <div className="relative z-20 -mt-1 flex-1 overflow-y-auto">
+        <div className="mx-4 mb-6 rounded-3xl border border-white/60 bg-white/95 px-5 pb-8 pt-7 shadow-xl shadow-black/5 backdrop-blur-xl animate-fade-in-up">
+          {/* Welcome heading */}
+          <h1 className="text-[22px] font-black text-[#1A1A1A]">Bienvenue 👋</h1>
+          <p className="mt-1 text-sm text-[#6B7280]">
+            Connectez-vous pour commander vos produits frais.
+          </p>
+
+          {/* Error banner */}
+          {error && (
+            <div className={`mt-4 flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 ${shakeError ? 'animate-shake' : ''}`}>
+              <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                !
+              </span>
+              {error}
+            </div>
+          )}
+
+          {/* Login Form */}
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            {/* Phone */}
+            <div className="animate-fade-in-up-delay-1">
+              <label className="mb-1.5 block text-sm font-semibold text-[#1A1A1A]">
+                Numéro de téléphone
+              </label>
+              <div className="flex items-stretch overflow-hidden rounded-2xl border-2 border-gray-200 transition-all duration-200 focus-within:border-[#1E8A3C] focus-within:shadow-[0_0_0_3px_rgba(30,138,60,0.1)]">
+                <div className="flex shrink-0 items-center gap-1 border-r border-gray-200 bg-gray-50 px-3 text-sm font-bold text-[#1A1A1A]">
+                  <span className="text-lg">🇲🇦</span>
+                  <span className="text-[#6B7280]">+212</span>
+                </div>
+                <div className="relative flex-1">
+                  <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    placeholder="6XX-XXXXXX"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="h-12 w-full bg-transparent pl-10 pr-3 text-sm text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none"
+                  />
+                </div>
               </div>
-              <span className="text-xl font-bold text-[#1E8A3C]">SOUKI Fresh Market</span>
-            </Link>
-          </div>
+            </div>
 
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-[#3D3D3D] mb-2">Connexion</h2>
-            <p className="text-[#8A8A8A]">Sélectionnez votre type de profil pour continuer.</p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4">
-            {roles.map((role) => {
-              const Icon = role.icon
-              return (
-                <Link 
-                  key={role.href} 
-                  href={withRedirect(role.href)}
-                  className={`group relative flex items-center p-4 rounded-2xl border-2 border-gray-100 bg-white transition-all duration-300 overflow-hidden ${role.borderColor} ${role.shadowColor} hover:shadow-lg`}
+            {/* Password */}
+            <div className="animate-fade-in-up-delay-2">
+              <label className="mb-1.5 block text-sm font-semibold text-[#1A1A1A]">Mot de passe</label>
+              <div className="relative overflow-hidden rounded-2xl border-2 border-gray-200 transition-all duration-200 focus-within:border-[#1E8A3C] focus-within:shadow-[0_0_0_3px_rgba(30,138,60,0.1)]">
+                <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="h-12 w-full bg-transparent pl-10 pr-12 text-sm text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#6B7280] hover:text-[#1A1A1A] transition-colors"
                 >
-                  <div className={`absolute inset-0 opacity-0 group-[&:hover]:opacity-5 ${role.color} transition-opacity duration-300`} />
-                  
-                  <div className="flex items-center gap-4 relative z-10 w-full">
-                    <div className={`w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center transition-colors duration-300 ${role.lightBgHover}`}>
-                      <Icon className={`w-6 h-6 text-[#8A8A8A] transition-colors duration-300 ${role.textHover}`} />
-                    </div>
-                    
-                    <div className="flex-1">
-                      <h3 className={`font-semibold text-lg text-[#3D3D3D] transition-colors duration-300 ${role.textHover}`}>
-                        {role.title}
-                      </h3>
-                      <p className="text-sm text-[#8A8A8A]">
-                        {role.description}
-                      </p>
-                    </div>
-                    
-                    <div className={`w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center transition-colors duration-300 ${role.bgHover}`}>
-                      <svg 
-                        className="w-4 h-4 text-[#8A8A8A] group-[&:hover]:text-white transition-colors duration-300 transform group-[&:hover]:translate-x-0.5" 
-                        fill="none" 
-                        viewBox="0 0 24 24" 
-                        stroke="currentColor" strokeWidth={2.5}
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                  </div>
-                </Link>
-              )
-            })}
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Submit CTA */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="mt-2 flex h-[52px] w-full items-center justify-center rounded-full bg-[#1B4332] text-base font-bold text-white shadow-lg shadow-[#1B4332]/25 transition-all active:scale-[0.97] disabled:opacity-60 animate-fade-in-up-delay-3"
+            >
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Se connecter"}
+            </button>
+          </form>
+
+          {/* Divider */}
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-gray-200" />
+            <span className="text-xs font-semibold text-[#6B7280]">ou</span>
+            <div className="h-px flex-1 bg-gray-200" />
           </div>
 
+          {/* Google OAuth */}
+          <GoogleLoginButton onCredential={handleGoogleLogin} onError={setError} disabled={loading} />
+
+          {/* Sign-up link */}
+          <p className="mt-6 text-center text-sm text-[#6B7280]">
+            Pas encore inscrit ?{" "}
+            <Link
+              href={withRedirect("/login/client")}
+              className="font-bold text-[#1B4332] underline-offset-2 hover:underline"
+            >
+              Créer un compte
+            </Link>
+          </p>
+        </div>
+
+        {/* ─── Role Selection Cards ─── */}
+        <div className="mx-4 mb-8">
+          <p className="mb-3 text-center text-xs font-semibold uppercase tracking-widest text-[#6B7280]">
+            Autres profils
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            {roles.map((role) => (
+              <Link
+                key={role.href}
+                href={withRedirect(role.href)}
+                className={`group relative flex flex-col items-center gap-2 rounded-2xl border ${role.border} bg-gradient-to-br ${role.gradient} p-4 transition-all duration-200 hover:scale-[1.02] hover:shadow-md active:scale-[0.98]`}
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm">
+                  <role.icon className={`h-6 w-6 ${role.iconColor}`} />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-bold text-[#1A1A1A]">{role.title}</p>
+                  <p className="text-[11px] text-[#6B7280] leading-tight mt-0.5">{role.description}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -173,7 +297,7 @@ function PreLoginContent() {
 
 export default function PreLoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-white" />}>
+    <Suspense fallback={<div className="min-h-dvh bg-[#1B4332]" />}>
       <PreLoginContent />
     </Suspense>
   )

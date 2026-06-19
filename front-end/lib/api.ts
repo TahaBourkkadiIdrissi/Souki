@@ -1003,3 +1003,42 @@ export async function getBlacklistMonthlyReport(
     { token }
   )
 }
+
+export async function fetchUserFavorites(token: string): Promise<CatalogueProductDTO[]> {
+  try {
+    const orders = await apiCall<CommandeHistoriqueDTO[]>("/api/commandes/historique", { token })
+    const productCounts: Record<string, { product: ProduitCommandeJourDTO; count: number }> = {}
+
+    for (const order of orders) {
+      if (order.produits) {
+        for (const ligne of order.produits) {
+          const key = ligne.product_id?.toString() || ligne.nom_fr
+          if (!productCounts[key]) {
+            productCounts[key] = { product: ligne, count: 0 }
+          }
+          productCounts[key].count++
+        }
+      }
+    }
+
+    // Return top 8 most ordered products mapped to CatalogueProductDTO shape
+    return Object.values(productCounts)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8)
+      .map(item => ({
+        id: item.product.product_id ?? 0,
+        nom_fr: item.product.nom_fr,
+        nom_darija: "",
+        prix_kg: item.product.sous_total ? item.product.sous_total / (item.product.quantite_kg || 1) : 0,
+        prix_affiche: item.product.sous_total ? item.product.sous_total / (item.product.quantite_kg || 1) : null,
+        prix_khddar_estime: null,
+        is_active: true,
+        image_url: item.product.image ?? null,
+        niveau: 1 as ProduitNiveau,
+        unite: "kg",
+        stock: 100,
+      }))
+  } catch {
+    return []
+  }
+}

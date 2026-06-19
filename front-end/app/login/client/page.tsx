@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { API_BASE_URL } from "@/lib/api"
 import { GoogleLoginButton } from "@/components/auth/google-login-button"
 import { PasswordStrength } from "@/components/souki/password-strength"
+import { shouldShowOnboarding } from "@/lib/onboarding"
 import { 
   Eye, 
   EyeOff, 
@@ -173,7 +174,8 @@ function ClientLoginContent() {
       } else {
         // --- NOUVELLE LOGIQUE DE CONNEXION SÉCURISÉE ---
         const nextUser = await login(loginId, password, "CLIENT");
-        router.push(redirectTarget !== "/" ? redirectTarget : nextUser.default_dashboard || "/");
+        const dest = redirectTarget !== "/" ? redirectTarget : shouldShowOnboarding() ? "/onboarding" : nextUser.default_dashboard || "/";
+        router.push(dest);
       }
     } catch (err: any) {
       setError(
@@ -189,7 +191,8 @@ function ClientLoginContent() {
   const handleGoogleLogin = async (credential: string) => {
     setError("")
     const nextUser = await googleLogin(credential, "CLIENT")
-    router.push(redirectTarget !== "/" ? redirectTarget : nextUser.default_dashboard || "/")
+    const dest = redirectTarget !== "/" ? redirectTarget : shouldShowOnboarding() ? "/onboarding" : nextUser.default_dashboard || "/"
+    router.push(dest)
   }
 
   const ErrorMessage = ({ message }: { message?: string }) => {
