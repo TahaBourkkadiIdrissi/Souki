@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
-import { BottomTabBar } from "@/components/souki/bottom-tab-bar"
+import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
 import { ProfileAvatar } from "@/components/souki/profile-avatar"
 
 const HIDDEN_ROUTES = ["/login", "/verify", "/admin", "/livreur", "/parent", "/onboarding"]
@@ -20,7 +20,7 @@ export function PwaNavShell() {
   return (
     <>
       {isAuthenticated && <ProfileAvatar />}
-      <BottomTabBar />
+      <MobileBottomNav />
     </>
   )
 }

@@ -1,11 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   AlertCircle,
   Building2,
+  Camera,
   Check,
   Link2,
+  Loader2,
   LogOut,
   MapPin,
   Phone,
@@ -48,6 +50,10 @@ export default function SupplierProfilPage() {
   const [saved, setSaved] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [logoBase64, setLogoBase64] = useState<string | null>(null)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [form, setForm] = useState({
     shop_name: "",
@@ -98,6 +104,7 @@ export default function SupplierProfilPage() {
           phone: form.phone || undefined,
           address: form.address || undefined,
           ville: form.ville || undefined,
+          ...(logoBase64 ? { logo_url: logoBase64 } : {}),
         }),
       })
       if (!res.ok) {
@@ -106,6 +113,8 @@ export default function SupplierProfilPage() {
       }
       const updated: SupplierProfile = await res.json()
       setProfile(updated)
+      setLogoPreview(null)
+      setLogoBase64(null)
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
@@ -120,6 +129,26 @@ export default function SupplierProfilPage() {
     onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setForm((previous) => ({ ...previous, [key]: event.target.value })),
   })
+
+  const handleLogoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setUploadingLogo(true)
+    const reader = new FileReader()
+    reader.onload = () => {
+      const base64 = reader.result as string
+      setLogoPreview(base64)
+      setLogoBase64(base64)
+      setUploadingLogo(false)
+    }
+    reader.onerror = () => {
+      setError("Impossible de lire l'image sélectionnée.")
+      setUploadingLogo(false)
+    }
+    reader.readAsDataURL(file)
+    // Reset value so the same file can be re-selected
+    event.target.value = ""
+  }
 
   const handleLogout = async () => {
     setLoggingOut(true)
@@ -153,12 +182,45 @@ export default function SupplierProfilPage() {
                   <div className="h-full bg-[radial-gradient(circle_at_85%_10%,rgba(76,184,74,0.4),transparent_42%)]" />
                 </div>
                 <CardContent className="-mt-10 p-5 pt-0">
-                  <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border-4 border-background bg-primary text-2xl font-black text-primary-foreground shadow-md dark:border-card">
-                    {profile.logo_url ? (
-                      <img src={profile.logo_url} alt={`Logo ${profile.shop_name}`} className="h-full w-full object-cover" />
-                    ) : (
-                      profile.shop_name?.charAt(0).toUpperCase() || <Store className="h-8 w-8" />
-                    )}
+                  <div className="group relative h-20 w-20">
+                    <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border-4 border-background bg-primary text-2xl font-black text-primary-foreground shadow-md dark:border-card">
+                      {uploadingLogo ? (
+                        <Loader2 className="h-8 w-8 animate-spin text-primary-foreground/70" />
+                      ) : logoPreview ? (
+                        <img src={logoPreview} alt="Aperçu logo" className="h-full w-full object-cover" />
+                      ) : profile.logo_url ? (
+                        <img src={profile.logo_url} alt={`Logo ${profile.shop_name}`} className="h-full w-full object-cover" />
+                      ) : (
+                        profile.shop_name?.charAt(0).toUpperCase() || <Store className="h-8 w-8" />
+                      )}
+                    </div>
+                    {/* Hover overlay */}
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingLogo}
+                      className="absolute inset-0 flex cursor-pointer items-center justify-center rounded-2xl bg-black/0 transition-all duration-200 group-hover:bg-black/40"
+                      aria-label="Changer le logo"
+                    >
+                      <Camera className="h-6 w-6 text-white opacity-0 drop-shadow-md transition-all duration-200 group-hover:scale-110 group-hover:opacity-100" />
+                    </button>
+                    {/* Camera badge – always visible */}
+                    <span
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute -bottom-1 -right-1 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 border-background bg-primary text-white shadow-lg transition-transform duration-200 hover:scale-110 dark:border-card"
+                      aria-label="Changer le logo"
+                    >
+                      <Camera className="h-3.5 w-3.5" />
+                    </span>
+                    {/* Hidden file input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoSelect}
+                      className="hidden"
+                      aria-hidden="true"
+                    />
                   </div>
                   <h2 className="mt-4 text-xl font-black text-[#264129] dark:text-card-foreground [font-family:var(--font-poppins)]">
                     {profile.shop_name}

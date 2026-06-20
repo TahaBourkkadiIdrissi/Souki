@@ -54,10 +54,10 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
   return (
     <>
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 glass-ios26 border-t border-[#DDEBDD] px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-2 md:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 glass-ios26 border-t border-[#DDEBDD] px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-1.5 md:hidden"
         aria-label="Navigation mobile principale"
       >
-        <div className={cn("mx-auto grid max-w-md gap-1", isFournisseur ? "grid-cols-5" : "grid-cols-4")}>
+        <div className={cn("mx-auto grid max-w-md gap-0.5", isFournisseur ? "grid-cols-5" : "grid-cols-4")}>
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href
@@ -66,12 +66,12 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl px-2 text-[11px] font-bold transition-colors",
+                  "flex min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-[14px] px-1 text-[10px] font-bold transition-colors",
                   isActive ? "bg-[#EAF8EC] text-[#1E8A3C]" : "text-[#607061] hover:bg-[#F7FCF7]"
                 )}
               >
-                <Icon className="h-5 w-5" />
-                <span>{item.label}</span>
+                <Icon className="h-4 w-4" />
+                <span className="truncate w-full text-center">{item.label}</span>
               </Link>
             )
           })}
@@ -80,12 +80,12 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
             <Link
               href="/supplier"
               className={cn(
-                "flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl px-2 text-[11px] font-bold transition-colors",
+                "flex min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-[14px] px-1 text-[10px] font-bold transition-colors",
                 pathname.startsWith("/supplier") ? "bg-[#FFF0DC] text-[#F07C00]" : "text-[#607061] hover:bg-[#FFF7EE]"
               )}
             >
-              <Store className="h-5 w-5" />
-              <span>Vendre</span>
+              <Store className="h-4 w-4" />
+              <span className="truncate w-full text-center">Vendre</span>
             </Link>
           )}
 
@@ -93,14 +93,14 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
             type="button"
             onClick={onCartClick ?? (() => router.push("/catalogue"))}
             className={cn(
-              "relative flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl px-2 text-[11px] font-bold transition-colors",
+              "relative flex min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-[14px] px-1 text-[10px] font-bold transition-colors",
               pathname === "/checkout" ? "bg-[#FFF7EE] text-[#F07C00]" : "text-[#607061] hover:bg-[#F7FCF7]"
             )}
           >
-            <ShoppingCart className="h-5 w-5" />
-            <span>Panier</span>
+            <ShoppingCart className="h-4 w-4" />
+            <span className="truncate w-full text-center">Panier</span>
             {cartCount > 0 && (
-              <span className="absolute right-4 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F07C00] px-1 text-[10px] font-black text-white">
+              <span className="absolute right-2 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#F07C00] px-1 text-[9px] font-black text-white">
                 {cartCount}
               </span>
             )}
@@ -109,10 +109,10 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
           <button
             type="button"
             onClick={openDrawer}
-            className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl px-2 text-[11px] font-bold text-[#607061] transition-colors hover:bg-[#F7FCF7]"
+            className="flex min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-[14px] px-1 text-[10px] font-bold text-[#607061] transition-colors hover:bg-[#F7FCF7]"
           >
-            <Menu className="h-5 w-5" />
-            <span>Plus</span>
+            <Menu className="h-4 w-4" />
+            <span className="truncate w-full text-center">Plus</span>
           </button>
         </div>
       </nav>

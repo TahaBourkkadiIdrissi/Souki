@@ -8,6 +8,13 @@ import {
   Plus,
   ShoppingBasket,
   Truck,
+  Leaf,
+  TreeDeciduous,
+  TreePine,
+  Apple,
+  Carrot,
+  Cherry,
+  Grape,
 } from "lucide-react"
 
 import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
@@ -178,146 +185,120 @@ export default function PwaWelcomePage() {
   }
 
   return (
-    <main className="min-h-dvh bg-[#F5F5F0] text-[#3D3D3D]">
+    <main className="min-h-dvh bg-[#F2F6F3] text-[#3D3D3D] font-sans">
       <section className="mx-auto flex min-h-dvh w-full max-w-md flex-col pb-24 md:pb-0">
-        {/* Header */}
-        <header className="sticky top-0 z-30 bg-[#F5F5F0]/95 px-5 pb-3 pt-4 backdrop-blur-md">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-lg font-bold text-[#3D3D3D]">
-                Bonjour{userName ? `, ${userName}` : ""} 👋
-              </h1>
-              {isAuthenticated && (
-                <p className="mt-0.5 text-xs text-[#8A8A8A]">Fès, Maroc</p>
+        
+        {/* Cinematic Nature Header - Agressif & Thématique */}
+        <div className="relative bg-gradient-to-br from-[#113B1E] via-[#1A4F2C] to-[#2DA050] pb-6 rounded-b-[32px] shadow-lg mb-4 overflow-hidden">
+          
+          {/* SVG Background Elements - Arbres et Aliments */}
+          <div className="absolute inset-0 pointer-events-none opacity-20">
+            {/* Arbres à gauche */}
+            <TreeDeciduous className="absolute -left-6 bottom-4 w-32 h-32 text-[#8EDD8B]" strokeWidth={1} />
+            <TreePine className="absolute -left-2 top-0 w-24 h-24 text-[#A7D7B5]" strokeWidth={1} />
+            
+            {/* Arbres à droite */}
+            <TreeDeciduous className="absolute -right-8 top-10 w-40 h-40 text-[#8EDD8B]" strokeWidth={1} />
+            <TreePine className="absolute -right-4 bottom-0 w-28 h-28 text-[#A7D7B5]" strokeWidth={1} />
+
+            {/* Fruits et Légumes flottants / doodles */}
+            <Apple className="absolute left-[15%] top-[40%] w-8 h-8 text-white rotate-12" strokeWidth={1.5} />
+            <Carrot className="absolute left-[40%] top-[15%] w-10 h-10 text-white -rotate-45" strokeWidth={1.5} />
+            <Cherry className="absolute right-[30%] top-[30%] w-8 h-8 text-white rotate-12" strokeWidth={1.5} />
+            <Grape className="absolute right-[20%] top-[60%] w-10 h-10 text-white -rotate-12" strokeWidth={1.5} />
+          </div>
+
+          {/* Falling Leaves Animation (Vraies feuilles) */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+            {[...Array(8)].map((_, i) => (
+              <Leaf 
+                key={i}
+                className={`absolute text-[#A7D7B5] animate-falling-leaf`}
+                style={{
+                  left: `${10 + i * 12}%`,
+                  top: '-15%',
+                  animationDelay: `${i * 1.2}s`,
+                  animationDuration: `${5 + (i % 4) * 2}s`,
+                  width: `${14 + (i % 3) * 6}px`,
+                  height: `${14 + (i % 3) * 6}px`,
+                  opacity: 0.6 + (i % 3) * 0.2
+                }}
+                strokeWidth={1.5}
+                fill="currentColor"
+              />
+            ))}
+          </div>
+
+          <header className="relative z-10 px-5 pt-6 pb-2">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col animate-slide-in-down">
+                <span className="text-xs font-bold text-[#A7D7B5] uppercase tracking-wider">Livraison à</span>
+                <div className="flex items-center gap-1">
+                  <h1 className="text-xl font-black text-white truncate max-w-[200px] drop-shadow-sm">
+                    Fès, Maroc
+                  </h1>
+                  <svg className="w-4 h-4 text-white drop-shadow-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                </div>
+              </div>
+              {isAuthenticated && userName && (
+                <button
+                  onClick={() => router.push("/parametres")}
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-[#EAF8EC] text-sm font-black text-[#1A4F2C] shadow-lg ring-2 ring-transparent transition-transform active:scale-90 animate-bounce-in"
+                  aria-label="Profil et paramètres"
+                >
+                  {userName.charAt(0).toUpperCase()}
+                </button>
               )}
             </div>
-            {isAuthenticated && userName && (
-              <button
-                onClick={() => router.push("/parametres")}
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-[#1B4332] to-[#1E8A3C] text-sm font-bold text-white shadow-lg shadow-[#1E8A3C]/20 ring-2 ring-white/80 transition-all active:scale-95"
-                aria-label="Profil et paramètres"
-              >
-                {userName.charAt(0).toUpperCase()}
-              </button>
-            )}
-          </div>
-        </header>
-
-        {/* Hero Section with parallax & layered visuals */}
-        <div className="px-4 pt-2">
-          <div
-            ref={heroRef}
-            className="relative overflow-hidden rounded-3xl shadow-xl shadow-[#1E8A3C]/20"
-            style={{
-              background: "linear-gradient(155deg, #145C28 0%, #1E8A3C 30%, #2DA050 60%, #4CB84A 100%)",
-            }}
-          >
-            {/* Mesh gradient blobs */}
-            <div className="absolute inset-0 overflow-hidden">
-              <div className="absolute -left-10 -top-10 h-48 w-48 rounded-full bg-[#4CB84A]/30 blur-3xl" style={{ transform: `translateY(${scrollY * 0.15}px)` }} />
-              <div className="absolute -bottom-12 -right-12 h-56 w-56 rounded-full bg-[#1B4332]/40 blur-3xl" style={{ transform: `translateY(${-scrollY * 0.1}px)` }} />
-              <div className="absolute left-1/2 top-1/2 h-36 w-36 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#F5C400]/10 blur-2xl" />
-
-              {/* Floating orbs with animation */}
-              <div className="absolute left-[15%] top-[20%] h-3 w-3 rounded-full bg-white/25 animate-float-slow" />
-              <div className="absolute right-[20%] top-[15%] h-2 w-2 rounded-full bg-white/20 animate-float-slow" style={{ animationDelay: "1s" }} />
-              <div className="absolute left-[60%] top-[65%] h-2.5 w-2.5 rounded-full bg-white/15 animate-float-slow" style={{ animationDelay: "2s" }} />
-              <div className="absolute left-[30%] top-[70%] h-1.5 w-1.5 rounded-full bg-[#F5C400]/30 animate-float-slow" style={{ animationDelay: "0.5s" }} />
-              <div className="absolute right-[35%] top-[40%] h-2 w-2 rounded-full bg-white/20 animate-float-slow" style={{ animationDelay: "1.5s" }} />
-
-              {/* Decorative leaf shapes */}
-              <svg className="absolute right-6 top-5 h-10 w-10 text-white/[0.07] drop-shadow-sm" viewBox="0 0 24 24" fill="currentColor" style={{ transform: `rotate(${scrollY * 0.08}deg)` }}>
-                <path d="M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66.95-2.3c.48.17.98.3 1.34.3C19 20 22 3 22 3c-1 2-8 2.25-13 3.25S2 11.5 2 13.5s1.75 3.75 1.75 3.75" />
-              </svg>
-              <svg className="absolute bottom-10 left-5 h-8 w-8 text-white/[0.07] drop-shadow-sm" viewBox="0 0 24 24" fill="currentColor" style={{ transform: `rotate(${-scrollY * 0.06}deg)` }}>
-                <path d="M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66.95-2.3c.48.17.98.3 1.34.3C19 20 22 3 22 3c-1 2-8 2.25-13 3.25S2 11.5 2 13.5s1.75 3.75 1.75 3.75" />
-              </svg>
-              <svg className="absolute left-[45%] top-4 h-6 w-6 text-white/[0.05]" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66.95-2.3c.48.17.98.3 1.34.3C19 20 22 3 22 3c-1 2-8 2.25-13 3.25S2 11.5 2 13.5s1.75 3.75 1.75 3.75" />
-              </svg>
-
-              {/* Shimmer sweep */}
-              <div
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.06] to-transparent"
-                style={{
-                  transform: `translateX(${-100 + (scrollY * 0.4)}%)`,
-                  transition: "transform 0.1s linear",
-                }}
-              />
-
-              {/* Bottom gradient fade for depth */}
-              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/15 to-transparent" />
+            <div className="mt-6 flex items-center justify-between">
+               <div className="animate-slide-in-up">
+                 <h2 className="text-2xl font-black text-white leading-tight drop-shadow-md">
+                   Bonjour {userName ? userName : "!"} 👋
+                 </h2>
+                 <p className="text-sm font-medium text-[#D3EEDB] mt-1 drop-shadow-sm">Vos courses fraîches en un clic.</p>
+               </div>
+               <div className="mr-2">
+                 <FarmerAvatar size="md" expression="welcome" label="Souki farmer guide" className="animate-gentle-float drop-shadow-xl ring-4 ring-white/20 rounded-full bg-[#EAF8EC]" />
+               </div>
             </div>
-
-            {/* Content with parallax */}
-            <div
-              className="relative z-10 flex flex-col items-center px-6 pb-8 pt-8"
-              style={{
-                transform: `translateY(${scrollY * 0.25}px) scale(${Math.max(0.92, 1 - scrollY * 0.0004)})`,
-                opacity: Math.max(0, 1 - scrollY / 350),
-              }}
-            >
-              {/* Glass text backdrop */}
-              <div className="mb-1 rounded-2xl bg-white/[0.08] px-5 py-3 backdrop-blur-sm">
-                <h2 className="text-center text-xl font-black leading-tight text-white drop-shadow-sm">
-                  Votre marché frais<br />dans la poche
-                </h2>
-              </div>
-              <p className="mt-2 text-center text-sm font-medium text-white/85">
-                Produits du jour, prix transparents
-              </p>
-
-              {/* Avatar with glow ring */}
-              <div className="relative mt-5">
-                <div className="absolute -inset-3 rounded-full bg-gradient-to-br from-[#4CB84A]/40 via-[#F5C400]/20 to-[#4CB84A]/30 blur-xl" />
-                <div className="absolute -inset-1.5 rounded-full bg-white/10 ring-2 ring-white/20" />
-                <FarmerAvatar
-                  size="xl"
-                  expression="welcome"
-                  label="Souki farmer guide"
-                />
-              </div>
-            </div>
-          </div>
+          </header>
         </div>
 
-        {/* AI Feature Buttons */}
-        <div className="px-4 pt-5">
+        {/* AI Feature Buttons - Glovo style cards */}
+        <div className="px-4 -mt-8 relative z-10 animate-slide-in-up">
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => router.push("/catalogue?ai=smart")}
-              className="flex flex-col items-start gap-2 rounded-2xl bg-white p-4 shadow-sm transition active:scale-[0.97]"
+              className="flex flex-col items-center justify-center gap-2 rounded-3xl bg-white p-5 shadow-sm shadow-gray-200/50 transition active:scale-[0.95] active:shadow-inner"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1E8A3C]/10">
-                <ShoppingBasket className="h-5 w-5 text-[#1E8A3C]" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#1E8A3C]/10 mb-1">
+                <ShoppingBasket className="h-7 w-7 text-[#1E8A3C]" />
               </div>
-              <div>
-                <p className="text-sm font-bold text-[#3D3D3D]">Panier Intelligent</p>
-                <p className="mt-0.5 text-xs text-[#8A8A8A]">IA compose pour vous</p>
+              <div className="text-center">
+                <p className="text-[15px] font-black text-[#3D3D3D] leading-tight">Panier<br/>Intelligent</p>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => router.push("/catalogue?ai=voice")}
-              className="flex flex-col items-start gap-2 rounded-2xl bg-white p-4 shadow-sm transition active:scale-[0.97]"
+              className="flex flex-col items-center justify-center gap-2 rounded-3xl bg-white p-5 shadow-sm shadow-gray-200/50 transition active:scale-[0.95] active:shadow-inner"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F07C00]/10">
-                <Mic className="h-5 w-5 text-[#F07C00]" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F07C00]/10 mb-1">
+                <Mic className="h-7 w-7 text-[#F07C00]" />
               </div>
-              <div>
-                <p className="text-sm font-bold text-[#3D3D3D]">Commande Vocale</p>
-                <p className="mt-0.5 text-xs text-[#8A8A8A]">Parlez, on s'occupe</p>
+              <div className="text-center">
+                <p className="text-[15px] font-black text-[#3D3D3D] leading-tight">Commande<br/>Vocale</p>
               </div>
             </button>
           </div>
 
           {/* Helper speech bubble */}
-          <div className="mt-4 flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm">
+          <div className="mt-4 flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm shadow-gray-200/50 border border-gray-100 animate-fade-in" style={{ animationDelay: "0.2s" }}>
             <FarmerAvatar size="sm" expression="explain" />
-            <p className="flex-1 text-xs font-medium text-[#3D3D3D]">
-              Laissez-moi vous aider à composer votre panier !
+            <p className="flex-1 text-[13px] font-semibold text-[#3D3D3D] leading-tight">
+              Appuyez pour laisser notre IA composer votre marché du jour !
             </p>
           </div>
         </div>
@@ -325,7 +306,7 @@ export default function PwaWelcomePage() {
         {/* Favorites Section */}
         {(favorites.length > 0 || (!isFetching && products.length > 0)) && (
           <div className="mt-6 px-4">
-            <h3 className="text-base font-bold text-[#3D3D3D]">
+            <h3 className="text-[17px] font-black text-[#3D3D3D] mb-1">
               {favorites.length > 0
                 ? `${userName || "Vos"}, vos produits préférés`
                 : "Découvrez nos produits"}
@@ -346,14 +327,14 @@ export default function PwaWelcomePage() {
         {/* Category Suggestions */}
         {!isFetching && levels.some((l) => l.products.length > 0) && (
           <div className="mt-6 px-4">
-            <h3 className="text-base font-bold text-[#3D3D3D]">Nos sélections pour vous</h3>
+            <h3 className="text-[17px] font-black text-[#3D3D3D] mb-1">Nos sélections pour vous</h3>
 
             <div className="mt-4 space-y-5">
               {levels.map((level) => {
                 if (level.products.length === 0) return null
                 return (
                   <div key={level.id}>
-                    <p className="mb-2 text-sm font-semibold text-[#8A8A8A]">{level.title}</p>
+                    <p className="mb-2 text-[14px] font-bold text-[#8A8A8A] uppercase tracking-wide">{level.title}</p>
                     <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 scrollbar-none">
                       {level.products.map((product) => (
                         <ProductCard
@@ -384,13 +365,13 @@ export default function PwaWelcomePage() {
 
         {/* Promotional Banner */}
         <div className="mt-6 px-4">
-          <div className="flex items-center gap-4 rounded-2xl bg-gradient-to-r from-[#1E8A3C]/10 to-[#4CB84A]/10 p-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#1E8A3C]/15">
-              <Truck className="h-6 w-6 text-[#1E8A3C]" />
+          <div className="flex items-center gap-4 rounded-3xl bg-[#FFF9EB] p-4 border border-[#FFC244]/30 shadow-sm">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#FFC244]/20">
+              <Truck className="h-6 w-6 text-[#F07C00]" />
             </div>
             <div>
-              <p className="text-sm font-bold text-[#3D3D3D]">Livraison gratuite dès 80 DH</p>
-              <p className="mt-0.5 text-xs text-[#8A8A8A]">Demain matin, frais et local</p>
+              <p className="text-[15px] font-black text-[#3D3D3D]">Livraison gratuite dès 80 DH</p>
+              <p className="mt-0.5 text-[13px] font-medium text-[#3D3D3D]/70">Demain matin, frais et local</p>
             </div>
           </div>
         </div>
@@ -412,12 +393,12 @@ function ProductCard({
   onQuickAdd: (product: CatalogueProduct) => void
 }) {
   return (
-    <article className="w-36 shrink-0 snap-start rounded-2xl bg-white p-2.5 shadow-sm">
-      <div className="relative aspect-square overflow-hidden rounded-xl bg-[#F5F5F0]">
+    <article className="w-[140px] shrink-0 snap-start rounded-3xl bg-white p-2 shadow-sm shadow-gray-200/50 border border-gray-100 transition hover:shadow-md">
+      <div className="relative aspect-square overflow-hidden rounded-2xl bg-[#F9F9F9]">
         <img
           src={product.image}
           alt={product.name}
-          className="h-full w-full object-cover"
+          className="h-full w-full object-cover mix-blend-multiply"
           loading="lazy"
         />
         <button
@@ -425,18 +406,20 @@ function ProductCard({
           aria-label={`Ajouter ${product.name}`}
           onClick={() => onQuickAdd(product)}
           className={cn(
-            "absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full shadow-md transition active:scale-90",
+            "absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full shadow-sm transition-all active:scale-90",
             isAdded
-              ? "bg-[#1E8A3C] text-white"
-              : "bg-white text-[#1E8A3C]"
+              ? "bg-[#1E8A3C] text-white scale-110"
+              : "bg-white text-[#1E8A3C] hover:bg-[#F0FAF1]"
           )}
         >
-          {isAdded ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+          {isAdded ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
         </button>
       </div>
-      <div className="mt-2 px-0.5">
-        <p className="truncate text-sm font-semibold text-[#3D3D3D]">{product.name}</p>
-        <p className="mt-0.5 text-xs font-bold text-[#1E8A3C]">{product.price.toFixed(2)} DH</p>
+      <div className="mt-2.5 px-1 pb-1">
+        <p className="truncate text-[14px] font-bold text-[#3D3D3D]">{product.name}</p>
+        <p className="mt-0.5 text-[13px] font-black text-[#1E8A3C]">
+          {product.price.toFixed(2)} DH <span className="text-[10px] font-medium text-gray-400">/ {product.displayUnit}</span>
+        </p>
       </div>
     </article>
   )
