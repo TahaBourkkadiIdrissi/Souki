@@ -1,9 +1,34 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Link from "next/link"
-import { ArrowLeft, CheckCircle2, Circle, Package, Plus, Trash2 } from "lucide-react"
+import {
+  AlertCircle,
+  Archive,
+  BadgeCheck,
+  CircleDollarSign,
+  Package,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react"
 
+import { SupplierPageHeader } from "@/components/souki/supplier-shell"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Spinner } from "@/components/ui/spinner"
+import { Switch } from "@/components/ui/switch"
 import { useAuth } from "@/hooks/useAuth"
 import { API_BASE_URL } from "@/lib/api"
 
@@ -37,6 +62,7 @@ export default function SupplierProduitsPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [togglingId, setTogglingId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [catalogueSearch, setCatalogueSearch] = useState("")
 
   const fetchData = async () => {
     if (!token) return
@@ -57,7 +83,9 @@ export default function SupplierProduitsPage() {
     }
   }
 
-  useEffect(() => { void fetchData() }, [token]) // eslint-disable-line
+  useEffect(() => {
+    void fetchData()
+  }, [token]) // eslint-disable-line
 
   const handleAdd = async (produitId: number) => {
     if (!token) return
@@ -125,118 +153,296 @@ export default function SupplierProduitsPage() {
     }
   }
 
-  const availableToAdd = catalogue.filter((c) => !c.deja_propose)
+  const availableToAdd = catalogue.filter((item) => !item.deja_propose)
+  const filteredCatalogue = availableToAdd.filter((item) => {
+    const query = catalogueSearch.trim().toLocaleLowerCase("fr")
+    if (!query) return true
+    return `${item.nom_fr} ${item.nom_darija}`.toLocaleLowerCase("fr").includes(query)
+  })
+  const activeCount = offres.filter((offre) => offre.is_active).length
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
-      <div className="mb-6 flex items-center gap-3">
-        <Link href="/supplier" className="text-[#6F8070]">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-xl font-black text-[#264129]">Mes produits</h1>
-          <p className="text-xs text-[#6F8070]">{offres.length} offre{offres.length !== 1 ? "s" : ""}</p>
-        </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          disabled={availableToAdd.length === 0}
-          className="flex items-center gap-2 rounded-xl bg-[#1E8A3C] px-4 py-2 text-xs font-black text-white disabled:opacity-50"
-        >
-          <Plus className="h-4 w-4" />
-          Ajouter
-        </button>
-      </div>
+    <main className="mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
+      <SupplierPageHeader
+        eyebrow="Catalogue fournisseur"
+        title="Mes produits"
+        description="Pilotez la visibilité de vos offres et enrichissez votre sélection depuis le catalogue Souki."
+        action={
+          <Button
+            onClick={() => setShowAddModal(true)}
+            disabled={availableToAdd.length === 0}
+            className="h-11 rounded-xl bg-accent px-5 font-black text-accent-foreground hover:bg-[#D66B00]"
+          >
+            <Plus />
+            Ajouter un produit
+          </Button>
+        }
+      />
 
       {error && (
-        <div className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">{error}</div>
+        <Alert variant="destructive" className="rounded-2xl border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30">
+          <AlertCircle />
+          <AlertTitle>Action impossible</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {loading ? (
-        <div className="space-y-3">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-20 animate-pulse rounded-2xl bg-[#DDEBDD]" />
-          ))}
-        </div>
-      ) : offres.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[#DDEBDD] py-16 text-center">
-          <Package className="mx-auto mb-3 h-10 w-10 text-[#DDEBDD]" />
-          <p className="text-sm font-bold text-[#6F8070]">Aucun produit proposé</p>
-          <p className="mt-1 text-xs text-[#6F8070]">Cliquez sur Ajouter pour proposer vos premiers produits</p>
-        </div>
+        <>
+          <div className="grid grid-cols-3 gap-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Skeleton key={index} className="h-24 rounded-2xl" />
+            ))}
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <Skeleton key={index} className="h-64 rounded-2xl" />
+            ))}
+          </div>
+        </>
       ) : (
-        <div className="space-y-3">
-          {offres.map((offre) => (
-            <div
-              key={offre.produit_id}
-              className="flex items-center gap-4 rounded-2xl border border-[#DDEBDD] bg-white p-4 shadow-sm"
-            >
-              <button
-                onClick={() => handleToggle(offre)}
-                disabled={togglingId === offre.produit_id}
-                className="shrink-0"
-                title={offre.is_active ? "Désactiver" : "Activer"}
-              >
-                {offre.is_active ? (
-                  <CheckCircle2 className="h-6 w-6 text-[#1E8A3C]" />
-                ) : (
-                  <Circle className="h-6 w-6 text-[#DDEBDD]" />
-                )}
-              </button>
-              <div className="flex-1 min-w-0">
-                <p className="truncate text-sm font-black text-[#264129]">{offre.nom_fr}</p>
-                <p className="text-xs text-[#6F8070]">
-                  {offre.unite}
-                  {offre.prix_gros != null ? ` · ${offre.prix_gros} DH/gros` : ""}
-                  {` · Stock: ${offre.stock}`}
-                </p>
+        <>
+          <section className="grid grid-cols-3 gap-3" aria-label="Résumé du catalogue">
+            <Card className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 dark:border-border dark:bg-card">
+              <CardContent className="p-4 sm:p-5">
+                <Package className="h-5 w-5 text-primary" />
+                <p className="mt-3 text-2xl font-black text-[#264129] dark:text-card-foreground">{offres.length}</p>
+                <p className="mt-1 text-[11px] font-bold text-muted-foreground sm:text-xs">Produits proposés</p>
+              </CardContent>
+            </Card>
+            <Card className="gap-0 rounded-2xl border-[#DDEBDD] bg-[#F0FAF1] py-0 dark:border-border dark:bg-card">
+              <CardContent className="p-4 sm:p-5">
+                <BadgeCheck className="h-5 w-5 text-primary" />
+                <p className="mt-3 text-2xl font-black text-[#264129] dark:text-card-foreground">{activeCount}</p>
+                <p className="mt-1 text-[11px] font-bold text-muted-foreground sm:text-xs">Produits actifs</p>
+              </CardContent>
+            </Card>
+            <Card className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 dark:border-border dark:bg-card">
+              <CardContent className="p-4 sm:p-5">
+                <Plus className="h-5 w-5 text-accent" />
+                <p className="mt-3 text-2xl font-black text-[#264129] dark:text-card-foreground">{availableToAdd.length}</p>
+                <p className="mt-1 text-[11px] font-bold text-muted-foreground sm:text-xs">Encore disponibles</p>
+              </CardContent>
+            </Card>
+          </section>
+
+          <section>
+            <div className="mb-4 flex items-end justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">Offres actuelles</p>
+                <h2 className="mt-1 text-xl font-black text-[#264129] dark:text-foreground [font-family:var(--font-poppins)]">
+                  Mon assortiment
+                </h2>
               </div>
-              <button
-                onClick={() => handleDelete(offre.produit_id)}
-                disabled={deletingId === offre.produit_id}
-                className="shrink-0 rounded-lg p-2 text-red-400 hover:bg-red-50 disabled:opacity-40"
-                title="Supprimer"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              <Badge variant="secondary" className="hidden rounded-full px-3 py-1 sm:inline-flex">
+                {activeCount} actif{activeCount > 1 ? "s" : ""} sur {offres.length}
+              </Badge>
             </div>
-          ))}
-        </div>
+
+            {offres.length === 0 ? (
+              <Empty className="min-h-80 rounded-3xl border border-dashed border-[#DDEBDD] bg-background dark:border-border dark:bg-card">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon" className="h-14 w-14 rounded-2xl bg-[#EAF8EC] text-primary dark:bg-primary/10">
+                    <Package />
+                  </EmptyMedia>
+                  <EmptyTitle className="text-[#264129] dark:text-foreground">Aucun produit proposé</EmptyTitle>
+                  <EmptyDescription>
+                    Ajoutez vos premiers produits depuis le catalogue disponible.
+                  </EmptyDescription>
+                </EmptyHeader>
+                <Button
+                  onClick={() => setShowAddModal(true)}
+                  disabled={availableToAdd.length === 0}
+                  className="rounded-xl bg-accent text-accent-foreground hover:bg-[#D66B00]"
+                >
+                  <Plus />
+                  Ajouter
+                </Button>
+              </Empty>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {offres.map((offre) => (
+                  <Card
+                    key={offre.produit_id}
+                    className="group gap-0 overflow-hidden rounded-2xl border-[#DDEBDD] bg-background py-0 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md dark:border-border dark:bg-card"
+                  >
+                    <div className={`h-1.5 ${offre.is_active ? "bg-primary" : "bg-muted-foreground/30"}`} />
+                    <CardContent className="flex h-full flex-col p-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <div
+                            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                              offre.is_active
+                                ? "bg-[#EAF8EC] text-primary dark:bg-primary/10"
+                                : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            <Package className="h-5 w-5" />
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="truncate font-black text-[#264129] dark:text-card-foreground">{offre.nom_fr}</h3>
+                            {offre.nom_darija && (
+                              <p className="mt-0.5 truncate text-xs text-muted-foreground">{offre.nom_darija}</p>
+                            )}
+                          </div>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={`rounded-full ${
+                            offre.is_active
+                              ? "border-[#BFE2C4] bg-[#EAF8EC] text-primary dark:border-primary/30 dark:bg-primary/10"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {offre.is_active ? "Actif" : "Inactif"}
+                        </Badge>
+                      </div>
+
+                      <div className="mt-5 grid grid-cols-2 gap-2">
+                        <div className="rounded-xl bg-muted/65 p-3">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                            <CircleDollarSign className="h-3.5 w-3.5" />
+                            Prix
+                          </div>
+                          <p className="mt-1.5 text-sm font-black text-[#264129] dark:text-foreground">
+                            {offre.prix_gros != null ? `${offre.prix_gros} DH` : "—"}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">par {offre.unite}</p>
+                        </div>
+                        <div className="rounded-xl bg-muted/65 p-3">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                            <Archive className="h-3.5 w-3.5" />
+                            Stock
+                          </div>
+                          <p className="mt-1.5 text-sm font-black text-[#264129] dark:text-foreground">{offre.stock}</p>
+                          <p className="text-[10px] text-muted-foreground">{offre.unite}</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 flex items-center justify-between gap-3 border-t border-[#DDEBDD] pt-4 dark:border-border">
+                        <label
+                          htmlFor={`active-${offre.produit_id}`}
+                          className="flex min-w-0 items-center gap-3 text-sm font-bold text-[#264129] dark:text-foreground"
+                        >
+                          <Switch
+                            id={`active-${offre.produit_id}`}
+                            checked={offre.is_active}
+                            onCheckedChange={() => void handleToggle(offre)}
+                            disabled={togglingId === offre.produit_id}
+                            aria-label={`${offre.is_active ? "Désactiver" : "Activer"} ${offre.nom_fr}`}
+                          />
+                          <span className="truncate">
+                            {togglingId === offre.produit_id
+                              ? "Mise à jour…"
+                              : offre.is_active
+                                ? "Visible"
+                                : "Masqué"}
+                          </span>
+                        </label>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => void handleDelete(offre.produit_id)}
+                          disabled={
+                            deletingId === offre.produit_id ||
+                            (offre.is_active && activeCount <= 1)
+                          }
+                          className="rounded-xl text-destructive hover:bg-red-50 hover:text-destructive dark:hover:bg-red-950/30"
+                          aria-label={`Supprimer ${offre.nom_fr}`}
+                          title={
+                            offre.is_active && activeCount <= 1
+                              ? "La boutique doit conserver au moins un produit actif"
+                              : "Supprimer"
+                          }
+                        >
+                          {deletingId === offre.produit_id ? <Spinner /> : <Trash2 />}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </section>
+        </>
       )}
 
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-4">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-black text-[#264129]">Ajouter un produit</h2>
-              <button onClick={() => setShowAddModal(false)} className="text-xs font-bold text-[#6F8070]">
-                Fermer
-              </button>
-            </div>
+      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+        <DialogContent className="max-h-[85vh] overflow-hidden rounded-3xl border-[#DDEBDD] p-0 dark:border-border sm:max-w-xl">
+          <DialogHeader className="border-b border-[#DDEBDD] bg-[#F0FAF1] px-6 py-5 text-left dark:border-border dark:bg-muted/40">
+            <DialogTitle className="text-xl font-black text-[#264129] dark:text-foreground [font-family:var(--font-poppins)]">
+              Ajouter un produit
+            </DialogTitle>
+            <DialogDescription>
+              Sélectionnez un produit du catalogue Souki qui n’est pas encore dans votre assortiment.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="min-h-0 p-4 sm:p-6">
+            {availableToAdd.length > 0 && (
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={catalogueSearch}
+                  onChange={(event) => setCatalogueSearch(event.target.value)}
+                  placeholder="Rechercher dans le catalogue…"
+                  className="h-11 rounded-xl border-[#DDEBDD] bg-background pl-10 dark:border-border"
+                />
+              </div>
+            )}
+
             {availableToAdd.length === 0 ? (
-              <p className="text-sm text-[#6F8070]">Vous proposez déjà tous les produits du catalogue.</p>
+              <Empty className="min-h-56">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon" className="bg-[#EAF8EC] text-primary dark:bg-primary/10">
+                    <BadgeCheck />
+                  </EmptyMedia>
+                  <EmptyTitle className="text-[#264129] dark:text-foreground">Catalogue complet</EmptyTitle>
+                  <EmptyDescription>Vous proposez déjà tous les produits disponibles.</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : filteredCatalogue.length === 0 ? (
+              <Empty className="min-h-48">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Search />
+                  </EmptyMedia>
+                  <EmptyTitle>Aucun résultat</EmptyTitle>
+                  <EmptyDescription>Essayez un autre nom de produit.</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             ) : (
-              <div className="max-h-72 space-y-2 overflow-y-auto">
-                {availableToAdd.map((item) => (
+              <div className="max-h-[52vh] space-y-2 overflow-y-auto pr-1">
+                {filteredCatalogue.map((item) => (
                   <button
                     key={item.produit_id}
-                    onClick={() => handleAdd(item.produit_id)}
+                    type="button"
+                    onClick={() => void handleAdd(item.produit_id)}
                     disabled={addingId === item.produit_id}
-                    className="flex w-full items-center justify-between rounded-xl border border-[#DDEBDD] px-4 py-3 text-left text-sm hover:border-[#1E8A3C]/40 disabled:opacity-50"
+                    className="group flex min-h-16 w-full items-center gap-3 rounded-2xl border border-[#DDEBDD] bg-background px-4 py-3 text-left transition hover:border-primary/35 hover:bg-[#F8FCF8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50 dark:border-border dark:hover:bg-muted"
                   >
-                    <div>
-                      <p className="font-bold text-[#264129]">{item.nom_fr}</p>
-                      <p className="text-xs text-[#6F8070]">{item.unite}</p>
-                    </div>
-                    <span className="text-xs font-black text-[#1E8A3C]">
-                      {addingId === item.produit_id ? "..." : "+ Ajouter"}
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EAF8EC] text-primary dark:bg-primary/10">
+                      <Package className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-black text-[#264129] dark:text-foreground">
+                        {item.nom_fr}
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                        {item.nom_darija || `Vendu par ${item.unite}`}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-xs font-black text-primary">
+                      {addingId === item.produit_id ? <Spinner /> : "+ Ajouter"}
                     </span>
                   </button>
                 ))}
               </div>
             )}
           </div>
-        </div>
-      )}
-    </div>
+        </DialogContent>
+      </Dialog>
+    </main>
   )
 }
