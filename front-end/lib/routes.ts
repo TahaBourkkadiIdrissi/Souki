@@ -250,7 +250,9 @@ export function getDefaultDashboard(user: User | null) {
   if (user.permissions.includes("livreur.dashboard.access")) {
     return "/livreur"
   }
-
+  if (user.permissions.includes("supplier.dashboard.view")) {
+    return "/supplier"
+  }
   if (user.permissions.includes("parent.dashboard.access")) {
     return "/parent"
   }

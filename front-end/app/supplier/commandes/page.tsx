@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   AlertCircle,
   CalendarDays,
@@ -20,6 +20,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/hooks/useAuth"
+import { useSupplierLiveRefresh } from "@/hooks/useSupplierLiveRefresh"
 import { API_BASE_URL } from "@/lib/api"
 
 interface SupplierOrder {
@@ -60,24 +61,29 @@ export default function SupplierCommandesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  const fetchOrders = useCallback(async () => {
     if (!token) return
-    const fetchOrders = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/supplier/orders`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (!res.ok) throw new Error(`Erreur ${res.status}`)
-        const data = await res.json()
-        setOrders(data.orders ?? [])
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Erreur")
-      } finally {
-        setLoading(false)
-      }
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/supplier/orders`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      })
+      if (!res.ok) throw new Error(`Erreur ${res.status}`)
+      const data = await res.json()
+      setOrders(data.orders ?? [])
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur")
+    } finally {
+      setLoading(false)
     }
-    void fetchOrders()
   }, [token])
+
+  useEffect(() => {
+    void fetchOrders()
+  }, [fetchOrders])
+
+  useSupplierLiveRefresh(fetchOrders, Boolean(token))
 
   const totalRevenue = orders.reduce((sum, order) => sum + order.montant_total, 0)
   const activeOrders = orders.filter((order) => !["LIVREE", "ANNULEE"].includes(order.statut)).length
@@ -120,7 +126,7 @@ export default function SupplierCommandesPage() {
                   <ReceiptText className="h-5 w-5" />
                 </div>
                 <p className="mt-4 text-2xl font-black text-[#264129] dark:text-card-foreground">{orders.length}</p>
-                <p className="mt-1 text-xs font-bold text-muted-foreground">Commandes au total</p>
+                <p className="mt-1 text-xs font-bold text-muted-foreground">Commandes du jour</p>
               </CardContent>
             </Card>
             <Card className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 dark:border-border dark:bg-card">
@@ -138,7 +144,7 @@ export default function SupplierCommandesPage() {
                   <CircleDollarSign className="h-5 w-5" />
                 </div>
                 <p className="mt-4 text-2xl font-black">{totalRevenue.toFixed(2)} DH</p>
-                <p className="mt-1 text-xs font-bold text-white/60">Montant cumulé affiché</p>
+                <p className="mt-1 text-xs font-bold text-white/60">Montant actif du jour</p>
               </CardContent>
             </Card>
           </section>

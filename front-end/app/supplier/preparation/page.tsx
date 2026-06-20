@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   AlertCircle,
   CalendarDays,
@@ -23,6 +23,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/hooks/useAuth"
+import { useSupplierLiveRefresh } from "@/hooks/useSupplierLiveRefresh"
 import { API_BASE_URL } from "@/lib/api"
 
 type PreparationLine = {
@@ -73,24 +74,28 @@ export default function SupplierPreparationPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!token) return
-    const load = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/supplier/preparation`, {
-          headers: { Authorization: `Bearer ${token}` },
-          cache: "no-store",
-        })
-        if (!response.ok) throw new Error(`Erreur ${response.status}`)
-        setData(await response.json())
-      } catch (reason) {
-        setError(reason instanceof Error ? reason.message : "Chargement impossible.")
-      } finally {
-        setLoading(false)
-      }
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/supplier/preparation`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      })
+      if (!response.ok) throw new Error(`Erreur ${response.status}`)
+      setData(await response.json())
+      setError(null)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Chargement impossible.")
+    } finally {
+      setLoading(false)
     }
-    void load()
   }, [token])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  useSupplierLiveRefresh(load, Boolean(token))
 
   return (
     <main className="mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 xl:px-10 xl:py-10">

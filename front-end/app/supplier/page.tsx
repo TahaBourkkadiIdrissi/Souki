@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import {
   ArrowRight,
@@ -19,6 +19,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/hooks/useAuth"
+import { useSupplierLiveRefresh } from "@/hooks/useSupplierLiveRefresh"
 import { API_BASE_URL } from "@/lib/api"
 
 interface SupplierStats {
@@ -68,20 +69,24 @@ export default function SupplierDashboardPage() {
   const [stats, setStats] = useState<SupplierStats | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  const fetchStats = useCallback(async () => {
     if (!token) return
-    const fetchStats = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/supplier/stats`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (res.ok) setStats(await res.json())
-      } finally {
-        setLoading(false)
-      }
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/supplier/stats`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      })
+      if (res.ok) setStats(await res.json())
+    } finally {
+      setLoading(false)
     }
-    void fetchStats()
   }, [token])
+
+  useEffect(() => {
+    void fetchStats()
+  }, [fetchStats])
+
+  useSupplierLiveRefresh(fetchStats, Boolean(token))
 
   const activationRate =
     stats && stats.products_count > 0
@@ -144,13 +149,13 @@ export default function SupplierDashboardPage() {
               className="border-[#DDEBDD] dark:border-border dark:bg-card dark:[&_p]:text-foreground"
             />
             <KPICard
-              title="Commandes"
+              title="Commandes du jour"
               value={stats?.orders_count ?? "—"}
               icon={ShoppingCart}
               className="border-[#DDEBDD] bg-background dark:border-border dark:bg-card dark:[&_p]:text-foreground"
             />
             <KPICard
-              title="Chiffre d’affaires"
+              title="CA du jour"
               value={stats ? formatMoney(stats.revenue_total) : "—"}
               icon={CircleDollarSign}
               variant="warning"
