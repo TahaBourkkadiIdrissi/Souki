@@ -1,9 +1,16 @@
 "use client"
 
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ClipboardList, LayoutDashboard, Package, ShoppingCart, Store } from "lucide-react"
+import { ChevronDown, ClipboardList, LayoutDashboard, Package, ShoppingCart, Store } from "lucide-react"
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -68,6 +75,9 @@ export function SupplierShell({ children }: { children: ReactNode }) {
   const { token } = useAuth()
   const [identity, setIdentity] = useState<SupplierIdentity | null>(null)
   const [identityLoading, setIdentityLoading] = useState(true)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+
+  const activeItem = supplierNav.find((item) => isActiveRoute(pathname, item.href)) || supplierNav[0]
 
   useEffect(() => {
     if (!token) return
@@ -211,31 +221,70 @@ export function SupplierShell({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          <nav className="scrollbar-none flex gap-1 overflow-x-auto px-3 pb-2" aria-label="Navigation fournisseur mobile">
-            {supplierNav.map((item) => {
-              const Icon = item.icon
-              const active = isActiveRoute(pathname, item.href)
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
+          <div className="px-3 pb-2.5">
+            <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
+              <DropdownMenuTrigger asChild>
+                <button
                   className={cn(
-                    "flex min-h-10 shrink-0 items-center gap-2 rounded-xl px-3 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                    active
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted/70 text-muted-foreground hover:text-primary",
+                    "flex w-full items-center justify-between gap-2 rounded-2xl border border-[#DDEBDD] bg-[#F0FAF1] px-3.5 py-2.5 text-sm font-bold text-[#264129] shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:border-border dark:bg-card dark:text-foreground",
+                    dropdownOpen && "ring-2 ring-primary/30",
                   )}
                 >
-                  <Icon className="h-4 w-4" />
-                  {item.shortLabel}
-                </Link>
-              )
-            })}
-          </nav>
+                  <span className="flex items-center gap-2.5">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                      <activeItem.icon className="h-4 w-4" />
+                    </span>
+                    {activeItem.shortLabel}
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                      dropdownOpen && "rotate-180",
+                    )}
+                  />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                sideOffset={6}
+                className="w-[calc(100vw-1.5rem)] rounded-2xl border border-[#DDEBDD]/60 bg-white/80 p-1.5 shadow-xl backdrop-blur-xl dark:border-border dark:bg-card/80"
+              >
+                {supplierNav.map((item) => {
+                  const Icon = item.icon
+                  const active = isActiveRoute(pathname, item.href)
+                  return (
+                    <DropdownMenuItem key={item.href} asChild>
+                      <Link
+                        href={item.href}
+                        aria-current={active ? "page" : undefined}
+                        className={cn(
+                          "flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-bold transition-colors focus-visible:outline-none",
+                          active
+                            ? "bg-primary text-primary-foreground"
+                            : "text-[#607061] hover:bg-[#EAF8EC] hover:text-primary dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "flex h-8 w-8 items-center justify-center rounded-xl transition-colors",
+                            active
+                              ? "bg-white/15"
+                              : "bg-[#F0FAF1] text-primary dark:bg-muted",
+                          )}
+                        >
+                          <Icon className="h-4 w-4" />
+                        </span>
+                        {item.label}
+                      </Link>
+                    </DropdownMenuItem>
+                  )
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </header>
 
-        <div className="mobile-native-surface min-h-screen pb-24 lg:pb-8">{children}</div>
+        <div className="mobile-native-surface min-h-screen pb-20 lg:pb-8">{children}</div>
       </div>
     </div>
   )

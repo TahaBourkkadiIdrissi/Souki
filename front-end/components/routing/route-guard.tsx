@@ -83,7 +83,7 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
       <div className="max-w-md rounded-3xl border border-[#DDE7DE] bg-white px-8 py-10 text-center shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#6E8B73]">SOUKI</p>
         <h1 className="mt-3 text-2xl font-bold text-[#1E8A3C]">Verification des acces</h1>
-        <p className="mt-3 text-sm leading-6 text-[#677669]">{getAccessDeniedMessage(decision.reason)}</p>
+        <p className="mt-3 text-sm leading-6 text-[#677669]">Préparation de votre expérience marché</p>
       </div>
     </div>
   )

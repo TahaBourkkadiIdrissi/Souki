@@ -28,6 +28,7 @@ import { ProductCard } from "@/components/souki/product-card"
 import { Navbar } from "@/components/souki/navbar"
 import { AIModals } from "@/components/souki/ai-modals"
 import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
+import { useScrollReveal } from "@/hooks/useScrollReveal"
 
 const BACKEND_URL = "http://localhost:8000"
 
@@ -81,8 +82,11 @@ export default function HomePage() {
   const router = useRouter()
   const [activeModal, setActiveModal] = useState<"voice" | "smart" | null>(null)
   const [isPwa, setIsPwa] = useState<boolean | null>(null)
+  const [mounted, setMounted] = useState(false)
+  const revealRef = useScrollReveal<HTMLDivElement>()
 
   useEffect(() => {
+    setMounted(true)
     if (typeof window !== "undefined" && isPwaStandalone()) {
       router.replace("/pwa-welcome")
     } else {
@@ -90,11 +94,15 @@ export default function HomePage() {
     }
   }, [router])
 
-  // Block render until we know it's NOT PWA
-  if (isPwa === null) {
+  // Block render until hydration completes (prevents hydration mismatch)
+  if (!mounted || isPwa === null) {
     return (
-      <div className="min-h-dvh bg-[#1E8A3C] flex items-center justify-center">
-        <div className="h-12 w-12 animate-pulse rounded-2xl bg-white/20" />
+      <div className="min-h-dvh bg-[#F5F5F0] flex items-center justify-center px-6">
+        <div className="max-w-md rounded-3xl border border-[#DDE7DE] bg-white px-8 py-10 text-center shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#6E8B73]">SOUKI</p>
+          <h1 className="mt-3 text-2xl font-bold text-[#1E8A3C]">Chargement...</h1>
+          <p className="mt-3 text-sm leading-6 text-[#677669]">Préparation de votre expérience marché</p>
+        </div>
       </div>
     )
   }
@@ -130,7 +138,7 @@ export default function HomePage() {
   const handleOpenSmartModal = () => requireAuth(() => setActiveModal("smart"))
 
   return (
-    <div className="min-h-screen bg-white pb-24 md:pb-0" suppressHydrationWarning>
+    <div ref={revealRef} className="min-h-screen bg-white pb-24 md:pb-0" suppressHydrationWarning>
       <Navbar />
 
       {/* ===== HERO SECTION ===== */}
@@ -154,7 +162,7 @@ export default function HomePage() {
               <FarmerAvatar
                 size="sm"
                 expression="welcome"
-                className="block"
+                className="block animate-gentle-float"
                 label="Souki farmer guide welcomes families"
               />
               <span className="text-sm font-semibold text-white tracking-wide">+250 familles à Fès commandent déjà avec SOUKI</span>
@@ -176,7 +184,7 @@ export default function HomePage() {
               {/* Primary CTA */}
               <button
                 onClick={() => requireAuth(() => router.push("/catalogue"))}
-                className="group relative inline-flex min-h-14 items-center justify-center gap-3 overflow-hidden rounded-2xl bg-[#1E8A3C] px-10 py-5 text-xl font-black text-white shadow-[0_20px_50px_-10px_rgba(30,138,60,0.5)] transition-all hover:scale-105 hover:bg-[#176B2E]"
+                className="group relative inline-flex min-h-14 items-center justify-center gap-3 overflow-hidden rounded-2xl bg-[#1E8A3C] px-10 py-5 text-xl font-black text-white shadow-[0_20px_50px_-10px_rgba(30,138,60,0.5)] transition-all hover:scale-105 hover:bg-[#176B2E] animate-pulse-glow"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
                 Composer mon panier
@@ -243,28 +251,28 @@ export default function HomePage() {
       <section className="bg-[#1E8A3C] border-y border-[#176B2E]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-white">
-            <div className="flex items-center gap-3 justify-center md:justify-start">
+            <div data-reveal="up" data-delay="1" className="flex items-center gap-3 justify-center md:justify-start">
               <Truck className="w-6 h-6 shrink-0 opacity-80" />
               <div>
                 <p className="font-bold text-sm leading-tight">Livraison dès 8h</p>
                 <p className="text-xs text-white/70">Fès et environs</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 justify-center md:justify-start">
+            <div data-reveal="up" data-delay="2" className="flex items-center gap-3 justify-center md:justify-start">
               <Leaf className="w-6 h-6 shrink-0 opacity-80" />
               <div>
                 <p className="font-bold text-sm leading-tight">100% Frais</p>
                 <p className="text-xs text-white/70">Du marché de gros</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 justify-center md:justify-start">
+            <div data-reveal="up" data-delay="3" className="flex items-center gap-3 justify-center md:justify-start">
               <Shield className="w-6 h-6 shrink-0 opacity-80" />
               <div>
                 <p className="font-bold text-sm leading-tight">Paiement Sécurisé</p>
                 <p className="text-xs text-white/70">Cash et CMI</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 justify-center md:justify-start">
+            <div data-reveal="up" data-delay="4" className="flex items-center gap-3 justify-center md:justify-start">
               <CheckCircle className="w-6 h-6 shrink-0 opacity-80" />
               <div>
                 <p className="font-bold text-sm leading-tight">Qualité Garantie</p>
@@ -298,7 +306,9 @@ export default function HomePage() {
             ].map((step, index) => (
               <div 
                 key={index}
-                className="bg-white rounded-3xl p-8 border border-gray-100/80 shadow-sm relative overflow-hidden group hover:shadow-xl transition-all duration-500 hover:-translate-y-2 animate-slide-up"
+                data-reveal="up"
+                data-delay={String(index + 1)}
+                className="bg-white rounded-3xl p-8 border border-gray-100/80 shadow-sm relative overflow-hidden group hover:shadow-xl transition-all duration-500 hover:-translate-y-2 animate-slide-up glovo-card"
                 style={{ animationDelay: `${index * 0.15}s` }}
               >
                 <div className="absolute -right-4 -top-8 text-8xl font-black text-green-700/5 select-none pointer-events-none transition-transform group-hover:translate-y-2 group-hover:scale-105 duration-500">
@@ -320,7 +330,7 @@ export default function HomePage() {
 
       {/* ===== PRODUCTS OF THE DAY ===== */}
       <section className="py-16 lg:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div data-reveal="fade" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-12 gap-4">
             <div>
               <div className="flex items-center gap-2 mb-2">
@@ -338,7 +348,7 @@ export default function HomePage() {
           {/* Horizontal scroll on mobile, grid on desktop */}
           <div className="flex overflow-x-auto gap-4 pb-6 scrollbar-none snap-x snap-mandatory md:gap-6 md:grid md:grid-cols-2 lg:grid-cols-3 md:overflow-visible md:pb-0">
             {products.map((product) => (
-              <div key={product.id} className="min-w-[280px] sm:min-w-[320px] md:min-w-0 snap-start flex-shrink-0 md:flex-shrink">
+              <div key={product.id} data-reveal="scale" data-delay={String(Math.min((products.indexOf(product) % 3) + 1, 3))} className="min-w-[280px] sm:min-w-[320px] md:min-w-0 snap-start flex-shrink-0 md:flex-shrink glovo-card rounded-2xl">
                 <ProductCard
                   {...product}
                   onAddToCart={handleAddToCart}
@@ -384,7 +394,9 @@ export default function HomePage() {
               {missionPillars.map((pillar, index) => (
                 <div 
                   key={index}
-                  className="group overflow-hidden rounded-3xl border border-gray-100/80 bg-white text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                  data-reveal="up"
+                  data-delay={String(index + 1)}
+                  className="group overflow-hidden rounded-3xl border border-gray-100/80 bg-white text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl glovo-card"
                 >
                   <div className="relative h-36 w-full overflow-hidden bg-[#EAF8EC]">
                     <Image
@@ -437,12 +449,12 @@ export default function HomePage() {
 
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
           <div className="space-y-10 animate-fade-in">
-            <div className="glass-morphism inline-flex items-center gap-2 px-6 py-2 border border-white/20 rounded-full shadow-2xl mx-auto">
+            <div data-reveal="fade" className="glass-morphism inline-flex items-center gap-2 px-6 py-2 border border-white/20 rounded-full shadow-2xl mx-auto">
               <Users className="w-5 h-5 text-white" />
               <span className="text-sm font-bold text-white tracking-widest uppercase">Nouveau</span>
             </div>
             
-            <h2 className="text-5xl md:text-6xl lg:text-7xl font-black text-white leading-tight tracking-tight text-balance transition-all drop-shadow-2xl">
+            <h2 data-reveal="up" className="text-5xl md:text-6xl lg:text-7xl font-black text-white leading-tight tracking-tight text-balance transition-all drop-shadow-2xl">
               Abonnement Premium <br className="hidden md:block" /> — L'essentiel pour vos proches
             </h2>
             
@@ -486,7 +498,7 @@ export default function HomePage() {
 
       {/* ===== PAYMENT METHODS ===== */}
       <section className="py-12 bg-[#F5F5F0]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div data-reveal="fade" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <p className="text-center text-[#8A8A8A] mb-8 font-medium">Paiements 100% sécurisés</p>
           <div className="flex flex-wrap justify-center gap-6 lg:gap-12">
             <div className="flex flex-col items-center gap-3">
@@ -538,7 +550,9 @@ export default function HomePage() {
             {testimonials.map((testimonial, index) => (
               <div
                 key={index}
-                className="bg-[#F9F9F6] rounded-2xl p-8 border border-gray-100/80 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+                data-reveal={index % 2 === 0 ? "left" : "right"}
+                data-delay={String(index + 1)}
+                className="bg-[#F9F9F6] rounded-2xl p-8 border border-gray-100/80 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 glovo-card"
               >
                 {/* Rating */}
                 <div className="flex gap-1 mb-4">
@@ -569,7 +583,7 @@ export default function HomePage() {
       </section>
 
       {/* ===== FOOTER ===== */}
-      <footer className="bg-[#1E8A3C] text-white py-12">
+      <footer data-reveal="fade" className="bg-[#1E8A3C] text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div className="md:col-span-2">

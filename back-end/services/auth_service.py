@@ -1,3 +1,4 @@
+import logging
 import random
 from datetime import datetime, timedelta
 from typing import Optional
@@ -24,6 +25,8 @@ OTP_EXPIRATION_MINUTES = 15
 OTP_RESEND_LIMIT = 3
 OTP_RESEND_WINDOW_HOURS = 1
 OTP_MAX_ATTEMPTS = 5
+
+logger = logging.getLogger("souki.otp")
 
 _dao = UserDao()
 _email_service = EmailDeliveryService()
@@ -383,25 +386,25 @@ class AuthService:
 
     def _send_otp(self, user: User, channel: str, code: str):
         destination = user.email if channel == "email" else user.phone
-        print("")
-        print("=" * 64)
-        print("SOUKI OTP DEBUG")
-        print(f"Canal       : {channel}")
-        print(f"Destination : {destination}")
-        print(f"Code OTP    : {code}")
-        print("=" * 64)
-        print("")
+        
+        # CRITICAL: Use logging with ERROR level to ensure immediate output
+        logger.error("\n" + "=" * 64)
+        logger.error("SOUKI OTP CODE - TEST LOCAL")
+        logger.error(f"Canal       : {channel}")
+        logger.error(f"Destination : {destination}")
+        logger.error(f"Code OTP    : {code}")
+        logger.error("=" * 64 + "\n")
 
         if channel == "email":
             try:
                 _email_service.send_otp_email(destination, code)
-                print(f"[SMTP] Email OTP envoye avec succes vers {destination}")
+                logger.info(f"[SMTP] Email OTP envoye avec succes vers {destination}")
             except Exception as exc:
-                print(f"[SMTP] Envoi email impossible: {exc}")
-                print("[SMTP] Le code reste visible ci-dessus pour les tests locaux.")
+                logger.warning(f"[SMTP] Envoi email impossible: {exc}")
+                logger.warning("[SMTP] Le code reste visible ci-dessus pour les tests locaux.")
             return
 
-        print(f"[OTP:{channel}] Envoi reel non configure pour ce canal, utilisez le code affiche dans le terminal.")
+        logger.warning(f"[OTP:{channel}] Envoi reel non configure pour ce canal, utilisez le code affiche dans le terminal.")
 
     def _has_google_provider(self, provider: Optional[str]) -> bool:
         return bool(provider and "google" in provider.split(","))
