@@ -14,9 +14,7 @@ from entities.commande_entity import Commande
 from entities.address_entity import Address
 from entities.fournisseur_entity import Fournisseur
 from entities.fournisseur_produit_entity import FournisseurProduit
-from entities.ligne_panier_entity import LignePanier
 from entities.notification_outbox_entity import NotificationOutbox
-from entities.panier_entity import Panier
 from entities.product_entity import Product
 from entities.user_entity import User
 from interfaces.fournisseur_dao_interface import IFournisseurDao
@@ -296,6 +294,7 @@ class FournisseurService(IFournisseurService):
     def get_supplier_stats(self, user_id: int) -> SupplierStatsDTO:
         session = self._ensure_session()
         self._ensure_supplier_role(session, user_id)
+        current_date = today_morocco()
         products_count = int(
             session.query(func.count(FournisseurProduit.id))
             .filter(FournisseurProduit.fournisseur_id == user_id)
@@ -311,32 +310,9 @@ class FournisseurService(IFournisseurService):
             .scalar()
             or 0
         )
-        orders_count = int(
-            session.query(func.count(func.distinct(Commande.id)))
-            .join(Panier, Panier.id == Commande.panier_id)
-            .join(LignePanier, LignePanier.panier_id == Panier.id)
-            .join(Product, Product.id == LignePanier.produit_id)
-            .join(
-                FournisseurProduit,
-                (FournisseurProduit.produit_id == Product.id)
-                & (FournisseurProduit.fournisseur_id == user_id)
-                & FournisseurProduit.is_active.is_(True),
-            )
-            .scalar()
-            or 0
-        )
-        revenue_total = float(
-            session.query(func.coalesce(func.sum(LignePanier.sous_total), 0))
-            .join(Product, Product.id == LignePanier.produit_id)
-            .join(
-                FournisseurProduit,
-                (FournisseurProduit.produit_id == Product.id)
-                & (FournisseurProduit.fournisseur_id == user_id)
-                & FournisseurProduit.is_active.is_(True),
-            )
-            .scalar()
-            or 0
-        )
+        commandes = self._get_visible_supplier_orders(session, user_id, current_date)
+        orders_count = len(commandes)
+        revenue_total = float(sum(float(commande.montant_total or 0) for commande in commandes))
         return SupplierStatsDTO(
             products_count=products_count,
             active_products_count=active_products_count,
@@ -360,24 +336,7 @@ class FournisseurService(IFournisseurService):
         session = self._ensure_session()
         self._ensure_supplier_role(session, user_id)
         current_date = today_morocco()
-        start_of_day = datetime.combine(current_date, time.min)
-        end_of_day = datetime.combine(current_date, time.max)
-        commandes = (
-            session.query(Commande)
-            .filter(
-                Commande.fournisseur_id == user_id,
-                Commande.date_commande >= start_of_day,
-                Commande.date_commande <= end_of_day,
-                Commande.statut.in_(SUPPLIER_ACTIVE_ORDER_STATUSES),
-            )
-            .order_by(Commande.date_commande.asc(), Commande.id.asc())
-            .all()
-        )
-        commandes = [
-            commande
-            for commande in commandes
-            if is_supplier_order_visible(commande, user_id, current_date)
-        ]
+        commandes = self._get_visible_supplier_orders(session, user_id, current_date)
 
         picking: dict[int, SupplierPickingItemDTO] = {}
         commandes_dto: list[SupplierPreparationOrderDTO] = []
@@ -449,6 +408,32 @@ class FournisseurService(IFournisseurService):
             picking=sorted(picking.values(), key=lambda item: item.nom_fr.lower()),
             commandes=commandes_dto,
         )
+
+    def _get_visible_supplier_orders(
+        self,
+        session: Session,
+        user_id: int,
+        current_date,
+    ) -> list[Commande]:
+        start_of_day = datetime.combine(current_date, time.min)
+        end_of_day = datetime.combine(current_date, time.max)
+        commandes = (
+            session.query(Commande)
+            .filter(
+                Commande.fournisseur_id == user_id,
+                Commande.date_commande >= start_of_day,
+                Commande.date_commande <= end_of_day,
+                Commande.statut.in_(SUPPLIER_ACTIVE_ORDER_STATUSES),
+            )
+            .order_by(Commande.date_commande.asc(), Commande.id.asc())
+            .all()
+        )
+        commandes = [
+            commande
+            for commande in commandes
+            if is_supplier_order_visible(commande, user_id, current_date)
+        ]
+        return commandes
 
     def suspend_supplier(self, admin_user_id: int, supplier_user_id: int) -> SupplierProfileDTO:
         payload = AdminSupplierValidationDTO(
