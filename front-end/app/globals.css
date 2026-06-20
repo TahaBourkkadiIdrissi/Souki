@@ -1272,3 +1272,39 @@ html {
 .animate-pulse-glow {
   animation: pulseGlow 2.5s ease-in-out infinite;
 }
+
+/* Catalogue bento grid */
+.catalogue-bento-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(11rem, auto);
+  gap: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .catalogue-bento-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-rows: minmax(12.5rem, auto);
+    gap: 1.25rem;
+  }
+}
+
+.catalogue-bento-grid .bento-cell {
+  min-height: 0;
+}
+
+.catalogue-bento-grid .bento-cell > article {
+  height: 100%;
+}
+
+@keyframes avatar-celebrate-pop {
+  0% { transform: translateY(0) scale(1); }
+  25% { transform: translateY(-14px) scale(1.06); }
+  50% { transform: translateY(-6px) scale(1.03); }
+  75% { transform: translateY(-10px) scale(1.04); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+.animate-avatar-celebrate {
+  animation: avatar-celebrate-pop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
+}

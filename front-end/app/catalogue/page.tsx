@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
+import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
@@ -25,6 +25,7 @@ import {
   Zap,
   Minus,
   Plus,
+  type LucideIcon,
 } from "lucide-react"
 
 import { AIModals } from "@/components/souki/ai-modals"
@@ -32,6 +33,7 @@ import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
 import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
 import { ProductCard } from "@/components/souki/product-card"
 import { useAuth } from "@/hooks/useAuth"
+import { useScrollReveal } from "@/hooks/useScrollReveal"
 import type { CommandeHistoriqueDTO, ProduitSuggestionDTO } from "@/lib/api"
 import { getCatalogueSuggestions } from "@/lib/api"
 import {
@@ -177,6 +179,8 @@ const getClaimWindowLabel = (order: CommandeHistoriqueDTO) => {
   return `SAV ouvert jusqu'au ${formatOrderDate(deadline.toISOString())}`
 }
 
+type FarmerExpression = "welcome" | "explain" | "celebrate"
+
 function RecolteWarmWelcome() {
   return (
     <div className="pointer-events-none absolute right-3 top-4 z-20 w-24 sm:right-5 sm:w-32 xl:w-40 2xl:w-44">
@@ -200,11 +204,13 @@ function SoukiGuideAvatar({
   cartSubtotal,
   remainingForFreeDelivery,
   compact = false,
+  expressionOverride,
 }: {
   cartCount: number
   cartSubtotal: number
   remainingForFreeDelivery: number
   compact?: boolean
+  expressionOverride?: FarmerExpression
 }) {
   const guideMessage =
     cartCount === 0
@@ -213,10 +219,17 @@ function SoukiGuideAvatar({
         ? `Encore ${remainingForFreeDelivery.toFixed(0)} DH pour profiter de la livraison offerte.`
         : "Ton panier est bien parti. Tu peux valider ou ajouter quelques favoris."
 
+  const avatarExpression: FarmerExpression =
+    expressionOverride ?? (cartCount > 0 ? "celebrate" : "welcome")
+
   if (compact) {
     return (
       <div className="flex items-center gap-3 rounded-2xl border border-[#D7EBD9] bg-white/85 p-3 shadow-[0_14px_40px_-34px_rgba(30,65,41,0.35)]">
-        <FarmerAvatar size="md" expression="explain" className="shrink-0" />
+        <FarmerAvatar
+          size="md"
+          expression={avatarExpression}
+          className={cn("shrink-0", avatarExpression === "celebrate" && "animate-avatar-celebrate")}
+        />
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-bold uppercase tracking-wide text-[#1E8A3C]">
             Recolte de Souki
@@ -233,7 +246,11 @@ function SoukiGuideAvatar({
         Recolte Souki
       </div>
       <div className="flex items-end justify-center pt-5">
-        <FarmerAvatar size="lg" expression={cartCount > 0 ? "celebrate" : "welcome"} />
+        <FarmerAvatar
+          size="lg"
+          expression={avatarExpression}
+          className={avatarExpression === "celebrate" ? "animate-avatar-celebrate" : undefined}
+        />
       </div>
       <div className="mt-2 rounded-2xl bg-[#F7FCF7] p-4">
         <p className="text-sm font-bold text-[#264129]">{guideMessage}</p>
@@ -242,6 +259,109 @@ function SoukiGuideAvatar({
           <span>{cartSubtotal.toFixed(2)} DH</span>
         </div>
       </div>
+    </div>
+  )
+}
+
+type InterludeTone = "green" | "orange" | "neutral"
+
+const interludeToneStyles: Record<
+  InterludeTone,
+  { shell: string; iconWrap: string; icon: string; eyebrow: string; glow: string }
+> = {
+  green: {
+    shell: "border-[#CFE6D2] bg-[linear-gradient(125deg,#FFFFFF_0%,#F0FAF1_52%,#EAF8EC_100%)]",
+    iconWrap: "bg-white ring-[#D7EBD9] text-[#1E8A3C]",
+    icon: "text-[#1E8A3C]",
+    eyebrow: "text-[#1E8A3C]",
+    glow: "bg-[#4CB84A]/15",
+  },
+  orange: {
+    shell: "border-[#F3D8B2] bg-[linear-gradient(125deg,#FFFFFF_0%,#FFF7EE_55%,#FFEFD9_100%)]",
+    iconWrap: "bg-white ring-[#F3D8B2] text-[#F07C00]",
+    icon: "text-[#F07C00]",
+    eyebrow: "text-[#9A5C11]",
+    glow: "bg-[#F07C00]/12",
+  },
+  neutral: {
+    shell: "border-[#DDEBDD] bg-[linear-gradient(125deg,#FFFFFF_0%,#F7FCF7_55%,#F0F4F0_100%)]",
+    iconWrap: "bg-white ring-[#DDEBDD] text-[#607061]",
+    icon: "text-[#607061]",
+    eyebrow: "text-[#7B8B7D]",
+    glow: "bg-[#264129]/8",
+  },
+}
+
+function CatalogueTrustInterlude({
+  icon: Icon,
+  eyebrow,
+  title,
+  description,
+  tone,
+  delay = "1",
+}: {
+  icon: LucideIcon
+  eyebrow: string
+  title: string
+  description: string
+  tone: InterludeTone
+  delay?: string
+}) {
+  const styles = interludeToneStyles[tone]
+
+  return (
+    <div
+      data-reveal="fade"
+      data-delay={delay}
+      className={cn(
+        "relative overflow-hidden rounded-[1.75rem] border p-4 shadow-[0_20px_50px_-36px_rgba(30,65,41,0.35)] sm:p-5",
+        styles.shell
+      )}
+    >
+      <div className={cn("pointer-events-none absolute -right-6 -top-8 h-28 w-28 rounded-full blur-2xl", styles.glow)} />
+      <div className="relative flex items-start gap-4">
+        <div
+          className={cn(
+            "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-sm ring-1",
+            styles.iconWrap
+          )}
+        >
+          <Icon className={cn("h-6 w-6", styles.icon)} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className={cn("text-[10px] font-black uppercase tracking-[0.18em]", styles.eyebrow)}>{eyebrow}</p>
+          <p className="mt-1 text-base font-black leading-snug text-[#264129] sm:text-lg">{title}</p>
+          <p className="mt-1 text-sm leading-6 text-[#6F8070]">{description}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CatalogueStatInterlude({
+  label,
+  value,
+  tone,
+  delay = "2",
+}: {
+  label: string
+  value: string
+  tone: InterludeTone
+  delay?: string
+}) {
+  const styles = interludeToneStyles[tone]
+
+  return (
+    <div
+      data-reveal="up"
+      data-delay={delay}
+      className={cn(
+        "flex min-h-[5.5rem] flex-col justify-center rounded-[1.75rem] border px-5 py-4 text-center shadow-[0_16px_40px_-32px_rgba(30,65,41,0.28)] sm:min-h-[6rem]",
+        styles.shell
+      )}
+    >
+      <p className={cn("text-[10px] font-black uppercase tracking-[0.16em]", styles.eyebrow)}>{label}</p>
+      <p className="mt-1 text-base font-black leading-tight text-[#264129] sm:text-lg">{value}</p>
     </div>
   )
 }
@@ -277,6 +397,27 @@ function CatalogueContent() {
   const [deletingOrderId, setDeletingOrderId] = useState<number | null>(null)
   const [pricingSuggestions, setPricingSuggestions] = useState<CatalogueProduct[]>([])
   const [addedSuggestionIds, setAddedSuggestionIds] = useState<number[]>([])
+  const [avatarExpression, setAvatarExpression] = useState<FarmerExpression>("welcome")
+  const avatarResetTimerRef = useRef<number | null>(null)
+  const revealRef = useScrollReveal()
+
+  const triggerAvatarCelebrate = useCallback(() => {
+    setAvatarExpression("celebrate")
+    if (avatarResetTimerRef.current) {
+      window.clearTimeout(avatarResetTimerRef.current)
+    }
+    avatarResetTimerRef.current = window.setTimeout(() => {
+      setAvatarExpression("welcome")
+    }, 2400)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (avatarResetTimerRef.current) {
+        window.clearTimeout(avatarResetTimerRef.current)
+      }
+    }
+  }, [])
 
   const toCatalogueProduct = (product: ProduitSuggestionDTO): CatalogueProduct => {
     const presentation = getCataloguePresentation(product.nom_fr)
@@ -526,6 +667,7 @@ function CatalogueContent() {
       }
       setCart((currentCart) => upsertCartItem(currentCart, product, quantity))
       setShowCart(true)
+      triggerAvatarCelebrate()
     })
   }
 
@@ -572,6 +714,7 @@ function CatalogueContent() {
       )
       setCart((currentCart) => upsertCartItem(currentCart, product, product.quantityStep))
       setShowCart(true)
+      triggerAvatarCelebrate()
     })
   }
 
@@ -803,6 +946,55 @@ function CatalogueContent() {
     return catalogueProduct?.image || getCataloguePresentation(product.nom_fr).image
   }
 
+  const sectionBreaks = useMemo(
+    () =>
+      [
+        {
+          trust: {
+            icon: BadgeCheck,
+            eyebrow: "Qualité marché",
+            title: "Produits frais du marché",
+            description: "Une sélection renouvelée chaque matin auprès de nos producteurs partenaires.",
+            tone: "green" as const,
+          },
+          stat: {
+            label: "Seuil confort",
+            value: `${SEUIL} DH livraison offerte`,
+            tone: "green" as const,
+          },
+        },
+        {
+          trust: {
+            icon: Clock,
+            eyebrow: "Logistique Souki",
+            title: "Livraison demain matin",
+            description: "Commande validée aujourd'hui, panier livré demain pour garantir la fraîcheur.",
+            tone: "orange" as const,
+          },
+          stat: {
+            label: "Après 20h",
+            value: "En attente pour demain",
+            tone: "orange" as const,
+          },
+        },
+        {
+          trust: {
+            icon: MessageCircle,
+            eyebrow: "Accompagnement",
+            title: "Aide à chaque étape",
+            description: "Assistant vocal, panier malin ou parcours libre selon ton humeur du moment.",
+            tone: "green" as const,
+          },
+          stat: {
+            label: "Prix transparents",
+            value: "Recalculés à validation",
+            tone: "neutral" as const,
+          },
+        },
+      ] as const,
+    []
+  )
+
   return (
     <div className="min-h-screen bg-[#FBFDF9] pb-24 md:pb-0">
       <div className="bg-[#F07C00] px-4 py-3 text-center text-sm font-semibold text-white">
@@ -974,75 +1166,57 @@ function CatalogueContent() {
                     cartSubtotal={cartSubtotal}
                     remainingForFreeDelivery={reste}
                     compact
+                    expressionOverride={avatarExpression}
                   />
                 </div>
 
-                <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  <button
-                    onClick={() => requireAuth("/catalogue", () => setActiveModal("smart"))}
-                    className="group flex min-h-[112px] min-w-0 items-center gap-4 rounded-2xl bg-[#F07C00] p-4 text-left text-white shadow-[0_16px_35px_-22px_rgba(240,124,0,0.75)] transition-transform hover:-translate-y-0.5 hover:bg-[#D66B00] lg:min-h-[124px] lg:flex-col lg:items-start lg:justify-between"
-                  >
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/18 lg:h-10 lg:w-10">
-                        <Zap className="h-5 w-5" />
-                    </span>
-                    <span className="flex min-w-0 flex-1 flex-col justify-center">
-                      <span className="block text-base font-black leading-tight">Panier intelligent</span>
-                      <span className="mt-1 block text-xs font-semibold leading-snug text-white/85">
-                        Budget, duree, foyer: Souki compose.
-                      </span>
-                    </span>
-                    <ArrowRight className="ml-auto h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1 lg:ml-0 lg:self-end" />
-                  </button>
-
-                  <button
-                    onClick={() => requireAuth("/catalogue", () => setActiveModal("voice"))}
-                    className="glass-ios26 group flex min-h-[112px] min-w-0 items-center gap-4 rounded-2xl border border-[#CFE6D2] p-4 text-left text-[#264129] transition-transform hover:-translate-y-0.5 hover:bg-white/45 lg:min-h-[124px] lg:flex-col lg:items-start lg:justify-between"
-                  >
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#F0FAF1] text-[#1E8A3C] lg:h-10 lg:w-10">
-                        <Mic className="h-5 w-5" />
-                    </span>
-                    <span className="flex min-w-0 flex-1 flex-col justify-center">
-                      <span className="block text-base font-black leading-tight">Assistant IA</span>
-                      <span className="mt-1 block text-xs font-semibold leading-snug text-[#6F8070]">
-                        Dis les produits, on prépare le panier.
-                      </span>
-                    </span>
-                    <ArrowRight className="ml-auto h-5 w-5 shrink-0 text-[#9AB49C] transition-transform group-hover:translate-x-1 lg:ml-0 lg:self-end" />
-                  </button>
-
+                <div className="mt-4 space-y-2">
                   <button
                     onClick={() =>
                       document
                         .getElementById("catalogue-products")
                         ?.scrollIntoView({ behavior: "smooth", block: "start" })
                     }
-                    className="glass-ios26 group flex min-h-[112px] min-w-0 items-center gap-4 rounded-2xl border border-[#E6F0E7] p-4 text-left text-[#264129] transition-transform hover:-translate-y-0.5 hover:bg-white/45 sm:col-span-2 lg:col-span-1 lg:min-h-[124px] lg:flex-col lg:items-start lg:justify-between"
+                    className="glass-ios26 group flex w-full min-h-[72px] items-center gap-3 rounded-xl border border-[#E6F0E7] p-3 text-left text-[#264129] transition-transform hover:-translate-y-0.5 hover:bg-white/45"
                   >
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#FFF7EE] text-[#F07C00] lg:h-10 lg:w-10">
-                        <ShoppingCart className="h-5 w-5" />
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#FFF7EE] text-[#F07C00]">
+                      <ShoppingCart className="h-4 w-4" />
                     </span>
-                    <span className="flex min-w-0 flex-1 flex-col justify-center">
-                      <span className="block text-base font-black leading-tight">Commander moi-même</span>
-                      <span className="mt-1 block text-xs font-semibold leading-snug text-[#6F8070]">
-                        Parcours le catalogue a ton rythme.
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-black leading-tight">Commander moi-même</span>
+                      <span className="mt-0.5 block text-[11px] font-semibold leading-snug text-[#6F8070]">
+                        Parcours le catalogue et choisis tes produits librement.
                       </span>
                     </span>
-                    <ArrowRight className="ml-auto h-5 w-5 shrink-0 text-[#9AB49C] transition-transform group-hover:translate-x-1 lg:ml-0 lg:self-end" />
+                    <ArrowRight className="h-4 w-4 shrink-0 text-[#9AB49C] transition-transform group-hover:translate-x-1" />
                   </button>
-                </div>
 
-                <div className="mt-4 grid gap-3 text-sm font-semibold text-[#607061] md:grid-cols-3">
-                  <div className="glass-ios26 flex min-h-[72px] items-center gap-3 rounded-xl px-4 py-3 text-left ring-1 ring-[#E6F0E7]">
-                    <BadgeCheck className="h-5 w-5 shrink-0 text-[#1E8A3C]" />
-                    <span className="block leading-snug">Produits frais du marché</span>
-                  </div>
-                  <div className="glass-ios26 flex min-h-[72px] items-center gap-3 rounded-xl px-4 py-3 text-left ring-1 ring-[#E6F0E7]">
-                    <Clock className="h-5 w-5 shrink-0 text-[#1E8A3C]" />
-                    <span className="block leading-snug">Livraison demain matin</span>
-                  </div>
-                  <div className="glass-ios26 flex min-h-[72px] items-center gap-3 rounded-xl px-4 py-3 text-left ring-1 ring-[#E6F0E7]">
-                    <MessageCircle className="h-5 w-5 shrink-0 text-[#1E8A3C]" />
-                    <span className="block leading-snug">Aide disponible à chaque étape</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => requireAuth("/catalogue", () => setActiveModal("smart"))}
+                      className="group flex min-h-[6.75rem] flex-col items-center justify-center gap-1 rounded-xl bg-[#F07C00] p-2.5 text-white shadow-[0_12px_28px_-20px_rgba(240,124,0,0.75)] transition-transform hover:-translate-y-0.5 hover:bg-[#D66B00]"
+                    >
+                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/18">
+                        <Zap className="h-4 w-4" />
+                      </span>
+                      <span className="text-xs font-black leading-tight">Panier intelligent</span>
+                      <span className="px-1 text-center text-[10px] font-semibold leading-snug text-white/85">
+                        Budget, durée et foyer : Souki compose pour toi.
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => requireAuth("/catalogue", () => setActiveModal("voice"))}
+                      className="glass-ios26 group flex min-h-[6.75rem] flex-col items-center justify-center gap-1 rounded-xl border border-[#CFE6D2] p-2.5 text-[#264129] transition-transform hover:-translate-y-0.5 hover:bg-white/45"
+                    >
+                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#F0FAF1] text-[#1E8A3C]">
+                        <Mic className="h-4 w-4" />
+                      </span>
+                      <span className="text-xs font-black leading-tight">Assistant IA</span>
+                      <span className="px-1 text-center text-[10px] font-semibold leading-snug text-[#6F8070]">
+                        Dis tes produits à voix haute, on prépare le panier.
+                      </span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1052,32 +1226,12 @@ function CatalogueContent() {
                   cartCount={cart.length}
                   cartSubtotal={cartSubtotal}
                   remainingForFreeDelivery={reste}
+                  expressionOverride={avatarExpression}
                 />
               </div>
             </div>
 
-            <div className="mt-5 grid gap-3 border-t border-[#EEF2EE] pt-5 sm:grid-cols-3">
-              <div className="relative overflow-hidden rounded-[2rem] border border-[#D7EBD9] bg-[linear-gradient(145deg,#FFFFFF_0%,#F0FAF1_100%)] px-4 py-4 text-center shadow-[0_16px_36px_-28px_rgba(30,138,60,0.45)]">
-                <p className="relative text-[11px] font-bold uppercase tracking-wide text-[#7B8B7D]">Seuil confort</p>
-                <p className="relative mt-1 text-base font-black leading-tight text-[#264129] sm:text-lg">
-                  {SEUIL} DH livraison offerte
-                </p>
-              </div>
-              <div className="relative overflow-hidden rounded-[2rem] border border-[#F3D8B2] bg-[linear-gradient(145deg,#FFFFFF_0%,#FFF7EE_100%)] px-4 py-4 text-center shadow-[0_16px_36px_-28px_rgba(240,124,0,0.42)] sm:translate-y-2">
-                <p className="relative text-[11px] font-bold uppercase tracking-wide text-[#9A5C11]">Apres 20h</p>
-                <p className="relative mt-1 text-base font-black leading-tight text-[#264129] sm:text-lg">
-                  En attente pour demain
-                </p>
-              </div>
-              <div className="relative overflow-hidden rounded-[2rem] border border-[#DDEBDD] bg-[linear-gradient(145deg,#FFFFFF_0%,#F7FCF7_100%)] px-4 py-4 text-center shadow-[0_16px_36px_-28px_rgba(38,65,41,0.36)]">
-                <p className="relative text-[11px] font-bold uppercase tracking-wide text-[#7B8B7D]">Prix</p>
-                <p className="relative mt-1 text-base font-black leading-tight text-[#264129] sm:text-lg">
-                  Recalcules a validation
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border-t border-[#EEF2EE] pt-5">
               <p className="text-sm text-[#6F8070]">
                 {showOrderHistory
                   ? `${orderHistory.length} commande${orderHistory.length > 1 ? "s" : ""} dans l'historique`
@@ -1348,12 +1502,20 @@ function CatalogueContent() {
           )}
 
           {!showOrderHistory && isFetching && (
-            <div className="grid grid-cols-2 gap-3 sm:gap-5 md:[grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr))]">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="h-[390px] animate-pulse rounded-[28px] bg-gradient-to-br from-[#F3F7F3] to-[#EAF3EB]"
-                />
+            <div className="space-y-12">
+              {Array.from({ length: 2 }).map((_, sectionIndex) => (
+                <div key={sectionIndex} className="space-y-6">
+                  <div className="h-6 w-40 animate-pulse rounded-xl bg-gradient-to-br from-[#F3F7F3] to-[#EAF3EB]" />
+                  <div className="flex gap-3 overflow-hidden sm:gap-4">
+                    {Array.from({ length: 4 }).map((__, index) => (
+                      <div
+                        key={index}
+                        className="h-[390px] w-[10.5rem] shrink-0 animate-pulse rounded-[28px] bg-gradient-to-br from-[#F3F7F3] to-[#EAF3EB] sm:w-[12rem]"
+                      />
+                    ))}
+                  </div>
+                  <div className="h-24 animate-pulse rounded-[1.75rem] bg-gradient-to-br from-[#F3F7F3] to-[#EAF3EB]" />
+                </div>
               ))}
             </div>
           )}
@@ -1366,48 +1528,85 @@ function CatalogueContent() {
 
           {!showOrderHistory && !isFetching && !error && (
             <>
-              {/* Level-grouped horizontal scroll (default view) */}
               {productsByLevel ? (
-                <div id="catalogue-products" className="space-y-8 scroll-mt-28">
+                <div
+                  ref={revealRef}
+                  id="catalogue-products"
+                  className="space-y-12 scroll-mt-28"
+                >
                   {([
                     { key: "level1" as const, label: "Essentiels", subtitle: "Les indispensables du quotidien" },
                     { key: "level2" as const, label: "Populaires", subtitle: "Les préférés de nos clients" },
                     { key: "level3" as const, label: "À découvrir", subtitle: "Des pépites à essayer" },
-                  ] as const).map((section) => {
+                  ] as const).map((section, sectionIndex) => {
                     const items = productsByLevel[section.key]
                     if (items.length === 0) return null
+                    const interlude = sectionBreaks[sectionIndex]
                     return (
-                      <section key={section.key}>
-                        <div className="mb-3 flex items-end justify-between">
-                          <div>
-                            <h3 className="text-lg font-bold text-[#264129]">{section.label}</h3>
-                            <p className="text-sm text-[#6F8070]">{section.subtitle}</p>
-                          </div>
-                          <span className="rounded-full bg-[#F0FAF1] px-3 py-1 text-xs font-bold text-[#1E8A3C]">
-                            {items.length} produit{items.length > 1 ? "s" : ""}
-                          </span>
-                        </div>
-                        <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-3 scrollbar-none sm:gap-4">
-                          {items.map((product) => (
-                            <div key={product.id} className="w-[10.5rem] shrink-0 snap-start sm:w-[12rem]">
-                              <ProductCard
-                                id={product.id}
-                                name={product.name}
-                                image={product.image}
-                                price={product.price}
-                                prixKhddarEstime={product.prix_khddar_estime}
-                                niveau={product.niveau}
-                                unit={product.unit}
-                                displayUnit={product.displayUnit}
-                                quantityStep={product.quantityStep}
-                                stock={product.stock}
-                                onView={handleProductView}
-                                onAddToCart={handleAddToCart}
-                              />
+                      <Fragment key={section.key}>
+                        <section>
+                          <div
+                            data-reveal="up"
+                            data-delay={String((sectionIndex % 4) + 1)}
+                            className="mb-4 flex items-end justify-between"
+                          >
+                            <div>
+                              <h3 className="text-lg font-bold text-[#264129]">{section.label}</h3>
+                              <p className="text-sm text-[#6F8070]">{section.subtitle}</p>
                             </div>
-                          ))}
-                        </div>
-                      </section>
+                            <span className="rounded-full bg-[#F0FAF1] px-3 py-1 text-xs font-bold text-[#1E8A3C]">
+                              {items.length} produit{items.length > 1 ? "s" : ""}
+                            </span>
+                          </div>
+                          <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-3 scrollbar-none sm:gap-4">
+                            {items.map((product, index) => {
+                              const delay = ((sectionIndex * 3 + index) % 4) + 1
+                              return (
+                                <div
+                                  key={product.id}
+                                  data-reveal="scale"
+                                  data-delay={String(delay)}
+                                  className="w-[10.5rem] shrink-0 snap-start sm:w-[12rem]"
+                                >
+                                  <ProductCard
+                                    id={product.id}
+                                    name={product.name}
+                                    image={product.image}
+                                    price={product.price}
+                                    prixKhddarEstime={product.prix_khddar_estime}
+                                    niveau={product.niveau}
+                                    unit={product.unit}
+                                    displayUnit={product.displayUnit}
+                                    quantityStep={product.quantityStep}
+                                    stock={product.stock}
+                                    onView={handleProductView}
+                                    onAddToCart={handleAddToCart}
+                                  />
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </section>
+
+                        {interlude && (
+                          <div className="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] sm:gap-4">
+                            <CatalogueTrustInterlude
+                              icon={interlude.trust.icon}
+                              eyebrow={interlude.trust.eyebrow}
+                              title={interlude.trust.title}
+                              description={interlude.trust.description}
+                              tone={interlude.trust.tone}
+                              delay={String((sectionIndex % 3) + 1)}
+                            />
+                            <CatalogueStatInterlude
+                              label={interlude.stat.label}
+                              value={interlude.stat.value}
+                              tone={interlude.stat.tone}
+                              delay={String((sectionIndex % 3) + 2)}
+                            />
+                          </div>
+                        )}
+                      </Fragment>
                     )
                   })}
 
@@ -1418,32 +1617,43 @@ function CatalogueContent() {
                   )}
                 </div>
               ) : (
-                /* Flat grid when searching/filtering */
                 <div
+                  ref={revealRef}
                   id="catalogue-products"
-                  className="grid grid-cols-2 gap-3 scroll-mt-28 sm:gap-5 md:[grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr))]"
+                  className="scroll-mt-28"
                 >
-                  {filteredProducts.map((product) => (
-                    <ProductCard
-                      key={product.id}
-                      id={product.id}
-                      name={product.name}
-                      image={product.image}
-                      price={product.price}
-                      prixKhddarEstime={product.prix_khddar_estime}
-                      niveau={product.niveau}
-                      unit={product.unit}
-                      displayUnit={product.displayUnit}
-                      quantityStep={product.quantityStep}
-                      stock={product.stock}
-                      onView={handleProductView}
-                      onAddToCart={handleAddToCart}
-                    />
-                  ))}
+                  <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-3 scrollbar-none sm:gap-4">
+                    {filteredProducts.map((product, index) => {
+                      const delay = (index % 4) + 1
+                      return (
+                        <div
+                          key={product.id}
+                          data-reveal="scale"
+                          data-delay={String(delay)}
+                          className="w-[10.5rem] shrink-0 snap-start sm:w-[12rem]"
+                        >
+                          <ProductCard
+                            id={product.id}
+                            name={product.name}
+                            image={product.image}
+                            price={product.price}
+                            prixKhddarEstime={product.prix_khddar_estime}
+                            niveau={product.niveau}
+                            unit={product.unit}
+                            displayUnit={product.displayUnit}
+                            quantityStep={product.quantityStep}
+                            stock={product.stock}
+                            onView={handleProductView}
+                            onAddToCart={handleAddToCart}
+                          />
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
 
-              {filteredProducts.length === 0 && (
+              {filteredProducts.length === 0 && !productsByLevel && (
                 <div className="rounded-[28px] border border-[#E6EFE7] bg-white p-12 text-center">
                   <p className="text-[#6F8070]">Aucun produit ne correspond à votre recherche.</p>
                 </div>
