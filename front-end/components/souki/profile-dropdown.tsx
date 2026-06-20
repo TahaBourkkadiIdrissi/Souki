@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import {
   ChevronDown,
@@ -24,10 +24,24 @@ import { cn } from "@/lib/utils"
 export function ProfileDropdown({ user }: { user: User }) {
   const [isOpen, setIsOpen] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [photoVersion, setPhotoVersion] = useState(
+    () => Number(typeof window !== "undefined" ? localStorage.getItem("souki_photo_version") || "0" : "0")
+  )
   const dropdownRef = useRef<HTMLDivElement>(null)
   const { logout } = useAuth()
   const { getProfile } = useProfile()
   const router = useRouter()
+
+  // Listen for cross-component photo update events
+  const handlePhotoUpdated = useCallback((e: Event) => {
+    const detail = (e as CustomEvent).detail
+    if (detail?.version) setPhotoVersion(detail.version)
+  }, [])
+
+  useEffect(() => {
+    window.addEventListener("souki:photo-updated", handlePhotoUpdated)
+    return () => window.removeEventListener("souki:photo-updated", handlePhotoUpdated)
+  }, [handlePhotoUpdated])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -59,7 +73,7 @@ export function ProfileDropdown({ user }: { user: User }) {
     return () => {
       isMounted = false
     }
-  }, [getProfile, user.id])
+  }, [getProfile, user.id, photoVersion])
 
   const navigateTo = (href: string) => {
     router.push(href)

@@ -1,4 +1,6 @@
+import logging
 import os
+import sys
 import time
 from collections.abc import Callable, Iterable
 from contextlib import asynccontextmanager
@@ -10,6 +12,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
+
+# Configure logging to ensure immediate output (bypasses buffering)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+    stream=sys.stdout,
+)
 
 import entities
 from config import Base, engine

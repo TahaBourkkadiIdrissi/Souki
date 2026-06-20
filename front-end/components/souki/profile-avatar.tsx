@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import { useProfile } from "@/hooks/useProfile"
@@ -13,6 +13,20 @@ export function ProfileAvatar() {
   const { getProfile } = useProfile()
   const router = useRouter()
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [photoVersion, setPhotoVersion] = useState(
+    () => Number(typeof window !== "undefined" ? localStorage.getItem("souki_photo_version") || "0" : "0")
+  )
+
+  // Listen for cross-component photo update events
+  const handlePhotoUpdated = useCallback((e: Event) => {
+    const detail = (e as CustomEvent).detail
+    if (detail?.version) setPhotoVersion(detail.version)
+  }, [])
+
+  useEffect(() => {
+    window.addEventListener("souki:photo-updated", handlePhotoUpdated)
+    return () => window.removeEventListener("souki:photo-updated", handlePhotoUpdated)
+  }, [handlePhotoUpdated])
 
   useEffect(() => {
     let isMounted = true
@@ -28,7 +42,7 @@ export function ProfileAvatar() {
     }
     if (user) void loadAvatar()
     return () => { isMounted = false }
-  }, [getProfile, user?.id])
+  }, [getProfile, user?.id, photoVersion])
 
   if (!user) return null
   if (HIDE_ON_ROUTES.some((r) => pathname.startsWith(r))) return null
@@ -46,7 +60,7 @@ export function ProfileAvatar() {
       aria-label="Profil et paramètres"
     >
       {avatarUrl ? (
-        <img src={avatarUrl} alt="Profil" className="h-full w-full object-cover" />
+        <img src={`${avatarUrl}${avatarUrl.includes("?") ? "&" : "?"}v=${photoVersion}`} alt="Profil" className="h-full w-full object-cover" />
       ) : (
         initials
       )}

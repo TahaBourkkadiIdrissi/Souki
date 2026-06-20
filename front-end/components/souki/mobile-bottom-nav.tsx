@@ -32,7 +32,7 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
 
   const isFournisseur = user?.roles.includes("FOURNISSEUR") ?? false
 
-  const navItems = [
+  const linkItems = [
     { label: "Accueil", href: "/", icon: Home },
     { label: "Catalogue", href: "/catalogue", icon: Leaf },
   ]
@@ -42,6 +42,8 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
     { label: "Mon profil", href: "/parametres/compte", icon: User },
     { label: "Paramètres", href: "/parametres/notifications", icon: Settings },
   ]
+
+  const gridCols = isFournisseur ? "grid-cols-5" : "grid-cols-4"
 
   const openDrawer = () => {
     if (onMenuClick) {
@@ -57,8 +59,8 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
         className="fixed inset-x-0 bottom-0 z-30 glass-ios26 border-t border-[#DDEBDD] px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-2 md:hidden"
         aria-label="Navigation mobile principale"
       >
-        <div className={cn("mx-auto grid max-w-md gap-1", isFournisseur ? "grid-cols-5" : "grid-cols-4")}>
-          {navItems.map((item) => {
+        <div className={cn("mx-auto grid max-w-md gap-1", gridCols)}>
+          {linkItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href
             return (

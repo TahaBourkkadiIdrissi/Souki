@@ -13,7 +13,7 @@ import { useNotifications, type NotificationPrefs } from "@/hooks/useNotificatio
 import { useSecurity } from "@/hooks/useSecurity"
 import { useWallet, type WalletState } from "@/hooks/useWallet"
 import { useAuth } from "@/hooks/useAuth"
-import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
+
 
 type Section = "compte" | "notifications" | "securite" | "paiement"
 const sections: Section[] = ["compte", "notifications", "securite", "paiement"]
@@ -219,6 +219,10 @@ export default function ParametresPage() {
       setPhotoUrl(previewUrl)
       const response = await profileApi.uploadPhoto(file)
       setPhotoUrl(response.photo_url ?? response.avatar_url ?? previewUrl)
+      // Bump photo version so ProfileAvatar / ProfileDropdown re-fetch
+      const v = Number(localStorage.getItem("souki_photo_version") || "0") + 1
+      localStorage.setItem("souki_photo_version", String(v))
+      window.dispatchEvent(new CustomEvent("souki:photo-updated", { detail: { version: v } }))
       showSaved()
     } catch (err) {
       setPhotoUrl(previousPhotoUrl)
@@ -476,7 +480,7 @@ export default function ParametresPage() {
       </div>
       {showDeleteModal && <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"><div className="bg-white rounded-2xl w-full max-w-md p-6"><h3 className="font-bold text-lg text-[#3D3D3D]">Confirmer la suppression</h3><p className="text-sm text-[#8A8A8A] mt-2">Tapez SUPPRIMER pour confirmer</p><input value={deleteText} onChange={(e) => setDeleteText(e.target.value)} className="mt-4 w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-red-400 focus:outline-none" /><div className="mt-4 flex gap-2 justify-end"><button onClick={() => setShowDeleteModal(false)} className="px-4 py-2 border border-gray-200 rounded-xl">Annuler</button><button disabled={deleteText !== "SUPPRIMER"} onClick={onDeleteAccount} className="px-4 py-2 bg-red-500 text-white rounded-xl disabled:opacity-50">Supprimer</button></div></div></div>}
       {showWalletIdModal && <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"><div className="w-full max-w-lg rounded-3xl border border-[#4CB84A]/30 bg-white p-6 shadow-[0_20px_70px_rgba(30,138,60,0.18)]"><div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F0FAF1] text-[#1E8A3C]"><Wallet className="h-5 w-5" /></div><div><h3 className="font-bold text-[#3D3D3D]">Portefeuille Souki créé</h3><p className="text-sm text-[#8A8A8A]">Ce code complet n'est affiché qu'une seule fois.</p></div></div><div className="mt-5 rounded-2xl border border-gray-200 bg-[#FAFAF8] px-4 py-4"><p className="text-xs uppercase tracking-[0.22em] text-[#8A8A8A]">Code portefeuille</p><p className="mt-2 break-all font-mono text-lg font-semibold tracking-[0.18em] text-[#1E8A3C]">{walletIdFull}</p></div><div className="mt-5 flex flex-wrap justify-end gap-3"><button onClick={() => navigator.clipboard.writeText(walletIdFull)} className="inline-flex items-center gap-2 rounded-xl border border-[#1E8A3C] px-4 py-2 text-[#1E8A3C] transition hover:bg-[#F0FAF1]"><Copy className="h-4 w-4" />Copier le code</button><button onClick={() => setShowWalletIdModal(false)} className="rounded-xl bg-[#1E8A3C] px-4 py-2 text-white transition hover:bg-[#176B2E]">J'ai noté mon code</button></div></div></div>}
-      <MobileBottomNav />
+
     </div>
   )
 }

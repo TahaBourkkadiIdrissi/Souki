@@ -44,15 +44,15 @@ export const ROUTES: RouteConfig[] = [
     path: "/",
     label: "Accueil public",
     authRequired: false,
-    allowedRoles: ["PUBLIC", "CLIENT", "PARENT"],
-    blockedPermissions: ["admin.panel.access", "livreur.dashboard.access", "supplier.dashboard.view"],
+    allowedRoles: ["PUBLIC", "CLIENT", "PARENT", "FOURNISSEUR"],
+    blockedPermissions: ["admin.panel.access", "livreur.dashboard.access"],
   },
   {
     path: "/pwa-welcome",
     label: "Accueil application mobile",
     authRequired: false,
-    allowedRoles: ["PUBLIC", "CLIENT", "PARENT"],
-    blockedPermissions: ["admin.panel.access", "livreur.dashboard.access", "supplier.dashboard.view"],
+    allowedRoles: ["PUBLIC", "CLIENT", "PARENT", "FOURNISSEUR"],
+    blockedPermissions: ["admin.panel.access", "livreur.dashboard.access"],
   },
   {
     path: "/login",
@@ -76,20 +76,20 @@ export const ROUTES: RouteConfig[] = [
     path: "/verify",
     label: "Verification de compte",
     authRequired: false,
-    allowedRoles: ["PUBLIC", "CLIENT", "PARENT", "LIVREUR"],
+    allowedRoles: ["PUBLIC", "CLIENT", "PARENT", "LIVREUR", "FOURNISSEUR"],
   },
   {
     path: "/catalogue",
     label: "Catalogue",
     authRequired: false,
-    allowedRoles: ["PUBLIC", "CLIENT", "PARENT"],
-    blockedPermissions: ["admin.panel.access", "livreur.dashboard.access", "supplier.dashboard.view"],
+    allowedRoles: ["PUBLIC", "CLIENT", "PARENT", "FOURNISSEUR"],
+    blockedPermissions: ["admin.panel.access", "livreur.dashboard.access"],
   },
   {
     path: "/checkout",
     label: "Checkout",
     authRequired: true,
-    allowedRoles: ["CLIENT", "PARENT"],
+    allowedRoles: ["CLIENT", "PARENT", "FOURNISSEUR"],
     requiredPermissions: ["checkout.create"],
     loginPath: "/login/client",
   },
@@ -97,7 +97,7 @@ export const ROUTES: RouteConfig[] = [
     path: "/historique",
     label: "Historique commandes",
     authRequired: true,
-    allowedRoles: ["CLIENT", "PARENT"],
+    allowedRoles: ["CLIENT", "PARENT", "FOURNISSEUR"],
     requiredPermissions: ["orders.read_self"],
     loginPath: "/login/client",
   },
@@ -106,7 +106,7 @@ export const ROUTES: RouteConfig[] = [
     label: "Parametres",
     match: "prefix",
     authRequired: true,
-    allowedRoles: ["CLIENT", "PARENT", "LIVREUR"],
+    allowedRoles: ["CLIENT", "PARENT", "LIVREUR", "FOURNISSEUR"],
     requiredPermissions: ["profile.manage_self"],
     loginPath: "/login/client",
   },
@@ -250,9 +250,7 @@ export function getDefaultDashboard(user: User | null) {
   if (user.permissions.includes("livreur.dashboard.access")) {
     return "/livreur"
   }
-  if (user.permissions.includes("supplier.dashboard.view")) {
-    return "/supplier"
-  }
+
   if (user.permissions.includes("parent.dashboard.access")) {
     return "/parent"
   }
