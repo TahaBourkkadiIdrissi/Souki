@@ -13,6 +13,12 @@ from interfaces.parrainage_service_interface import IParrainageService
 # d'appel dont le cout de revient gros reste inferieur a 3 DH. Configurable.
 REFERRAL_CREDIT_DH = 3.0
 
+# Plafond souple anti-farming par IP : au-dela de REFERRAL_IP_CAP parrainages
+# enregistres depuis la meme IP sur REFERRAL_IP_WINDOW_DAYS jours, on n'enregistre
+# plus. Volontairement souple : des colocataires/voisins partagent la meme IP.
+REFERRAL_IP_CAP = 5
+REFERRAL_IP_WINDOW_DAYS = 30
+
 # Code de parrainage : 6 caracteres alphanumeriques sans caracteres ambigus
 # (pas de 0/O ni 1/I/L) pour faciliter le partage oral et par SMS.
 REFERRAL_CODE_LENGTH = 6

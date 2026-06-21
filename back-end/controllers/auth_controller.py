@@ -15,6 +15,7 @@ from dto.user_dto import (
     UserRegister,
 )
 from services.auth_service import AuthService
+from services.client_ip import extract_client_ip
 from services.user_session_service import UserSessionService
 
 auth_router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -26,8 +27,8 @@ def _register_session_for_token(token: str, request: Request):
 
 
 @auth_router.post("/register", response_model=RegisterResponse)
-def register(data: UserRegister):
-    return AuthService().register(data)
+def register(data: UserRegister, request: Request):
+    return AuthService().register(data, client_ip=extract_client_ip(request))
 
 
 @auth_router.post("/login")
