@@ -141,12 +141,57 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* Effets globaux "soulageants" pour l'interactivité */
+  button, a, [role="button"] {
+    @apply transition-all duration-300 ease-out;
+  }
+  
+  @media (hover: hover) {
+    button:not(:disabled):hover, 
+    a:hover, 
+    [role="button"]:hover {
+      @apply opacity-90;
+      transform: translateY(-1px);
+    }
+  }
+
+  button:not(:disabled):active, 
+  a:active, 
+  [role="button"]:active {
+    transform: scale(0.96) translateY(1px);
+    @apply opacity-80;
+  }
 }
 
 /* Custom animations */
 @keyframes pulse-cta {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.02); }
+}
+
+@keyframes falling-leaf {
+  0% {
+    transform: translate(0, -20px) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.6;
+  }
+  50% {
+    transform: translate(25px, 60px) rotate(45deg);
+  }
+  90% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translate(-20px, 140px) rotate(90deg);
+    opacity: 0;
+  }
+}
+
+.animate-falling-leaf {
+  animation: falling-leaf 8s linear infinite;
 }
 
 @keyframes fade-in {
@@ -619,6 +664,275 @@
   }
 }
 
+/* ─── Farmer Avatar Animations ─── */
+
+@keyframes farmer-breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  40% { transform: translateY(-1.5px) scale(1.004, 0.997); }
+  70% { transform: translateY(1px) scale(0.997, 1.006); }
+}
+
+@keyframes farmer-wave {
+  0%, 100% { transform: translate(0, 0) rotate(-4deg); }
+  10% { transform: translate(-3px, 2px) rotate(-20deg); }
+  22% { transform: translate(2px, -4px) rotate(16deg); }
+  36% { transform: translate(-2px, -2px) rotate(-26deg); }
+  50% { transform: translate(2px, -3px) rotate(14deg); }
+  64% { transform: translate(0, 0) rotate(-10deg); }
+}
+
+@keyframes farmer-wave-hand {
+  0%, 100% { transform: rotate(0deg); }
+  14% { transform: rotate(24deg); }
+  28% { transform: rotate(-28deg); }
+  42% { transform: rotate(22deg); }
+  56% { transform: rotate(-16deg); }
+  70% { transform: rotate(6deg); }
+}
+
+@keyframes farmer-finger-wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  30% { transform: rotate(10deg); }
+  65% { transform: rotate(-6deg); }
+}
+
+@keyframes farmer-point-bob {
+  0%, 100% { transform: translateX(0) translateY(0); }
+  30% { transform: translateX(4px) translateY(-2px); }
+  60% { transform: translateX(-2px) translateY(1px); }
+}
+
+@keyframes farmer-explain-body {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-1px) rotate(0.5deg); }
+  50% { transform: translateY(1px) rotate(-0.3deg); }
+  75% { transform: translateY(-0.5px) rotate(0.2deg); }
+}
+
+@keyframes farmer-celebrate-bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  20% { transform: translateY(3px) scale(1.02, 0.97); }
+  45% { transform: translateY(-10px) scale(0.98, 1.04); }
+  70% { transform: translateY(1px) scale(1.01, 0.99); }
+}
+
+@keyframes farmer-celebrate-left {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-8deg); }
+  50% { transform: rotate(4deg); }
+  75% { transform: rotate(-4deg); }
+}
+
+@keyframes farmer-celebrate-right {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(8deg); }
+  50% { transform: rotate(-4deg); }
+  75% { transform: rotate(4deg); }
+}
+
+@keyframes farmer-sparkle-pulse {
+  0%, 100% { opacity: 0.2; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.12); }
+}
+
+@keyframes farmer-shadow-pulse {
+  0%, 100% { transform: scaleX(1); opacity: 0.12; }
+  45% { transform: scaleX(0.82); opacity: 0.08; }
+  72% { transform: scaleX(1.06); opacity: 0.14; }
+}
+
+@keyframes farmer-hat-leaf {
+  0%, 100% { transform: rotate(0deg); }
+  35% { transform: rotate(3deg); }
+  65% { transform: rotate(-4deg); }
+}
+
+@keyframes farmer-welcome-body {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+  14% { transform: translateY(2px) rotate(-1.5deg) scale(1.02, 0.98); }
+  32% { transform: translateY(-5px) rotate(1deg) scale(0.98, 1.03); }
+  56% { transform: translateY(-2px) rotate(0.4deg) scale(1); }
+}
+
+/* Base farmer avatar styles */
+.farmer-avatar {
+  display: inline-block;
+  user-select: none;
+}
+
+.farmer-avatar-body {
+  animation: farmer-breathe 3.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+.farmer-avatar-hat-leaf {
+  animation: farmer-hat-leaf 4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: left center;
+}
+
+.farmer-avatar-shadow {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.farmer-avatar-left-arm {
+  transform-box: fill-box;
+  transform-origin: 90% 15%;
+}
+
+.farmer-avatar-right-arm {
+  transform-box: fill-box;
+  transform-origin: 10% 15%;
+}
+
+.farmer-avatar-left-hand,
+.farmer-avatar-right-hand,
+.farmer-avatar-wave-hand,
+.farmer-avatar-point-hand,
+.farmer-avatar-wave-finger {
+  transform-box: fill-box;
+}
+
+.farmer-avatar-left-hand {
+  transform-origin: 65% 25%;
+}
+
+.farmer-avatar-right-hand {
+  transform-origin: 35% 25%;
+}
+
+.farmer-avatar-wave-arm {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: 15% 90%;
+}
+
+.farmer-avatar-wave-hand {
+  transform-origin: 25% 80%;
+}
+
+.farmer-avatar-wave-finger {
+  transform-origin: 50% 100%;
+}
+
+.farmer-avatar-point-arm {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: 8% 50%;
+}
+
+.farmer-avatar-point-hand {
+  transform-origin: 30% 50%;
+}
+
+.farmer-avatar-celebrate-left,
+.farmer-avatar-celebrate-right {
+  opacity: 0;
+  transform-box: fill-box;
+}
+
+.farmer-avatar-celebrate-left {
+  transform-origin: 85% 90%;
+}
+
+.farmer-avatar-celebrate-right {
+  transform-origin: 15% 90%;
+}
+
+.farmer-avatar-sparkles {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Welcome expression */
+.farmer-avatar--welcome .farmer-avatar-right-arm {
+  opacity: 0;
+}
+
+.farmer-avatar--welcome .farmer-avatar-body {
+  animation: farmer-welcome-body 2.8s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
+
+.farmer-avatar--welcome .farmer-avatar-wave-arm {
+  animation: farmer-wave 2.6s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  opacity: 1;
+}
+
+.farmer-avatar--welcome .farmer-avatar-wave-hand {
+  animation: farmer-wave-hand 2.6s ease-in-out infinite;
+}
+
+.farmer-avatar--welcome .farmer-avatar-wave-finger {
+  animation: farmer-finger-wiggle 2.6s ease-in-out infinite;
+}
+
+.farmer-avatar--welcome .farmer-avatar-wave-finger-2 {
+  animation-delay: 80ms;
+}
+
+.farmer-avatar--welcome .farmer-avatar-wave-finger-3 {
+  animation-delay: 150ms;
+}
+
+.farmer-avatar--welcome .farmer-avatar-shadow {
+  animation: farmer-shadow-pulse 2.6s ease-in-out infinite;
+}
+
+/* Explain expression */
+.farmer-avatar--explain .farmer-avatar-right-arm {
+  opacity: 0;
+}
+
+.farmer-avatar--explain .farmer-avatar-point-arm {
+  opacity: 1;
+  animation: farmer-point-bob 2.8s ease-in-out infinite;
+}
+
+.farmer-avatar--explain .farmer-avatar-body {
+  animation: farmer-explain-body 3.2s ease-in-out infinite;
+}
+
+/* Celebrate expression */
+.farmer-avatar--celebrate .farmer-avatar-left-arm,
+.farmer-avatar--celebrate .farmer-avatar-right-arm {
+  opacity: 0;
+}
+
+.farmer-avatar--celebrate .farmer-avatar-celebrate-left {
+  opacity: 1;
+  animation: farmer-celebrate-left 1.4s ease-in-out infinite;
+}
+
+.farmer-avatar--celebrate .farmer-avatar-celebrate-right {
+  opacity: 1;
+  animation: farmer-celebrate-right 1.4s ease-in-out infinite;
+  animation-delay: 100ms;
+}
+
+.farmer-avatar--celebrate .farmer-avatar-body {
+  animation: farmer-celebrate-bounce 1.6s ease-in-out infinite;
+}
+
+.farmer-avatar--celebrate .farmer-avatar-sparkles {
+  opacity: 1;
+  animation: farmer-sparkle-pulse 1.8s ease-in-out infinite;
+}
+
+.farmer-avatar--celebrate .farmer-avatar-shadow {
+  animation: farmer-shadow-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .farmer-avatar *,
+  .farmer-avatar {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 .delivery-sheet-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(26, 115, 232, 0.45) transparent;
@@ -651,12 +965,12 @@
 }
 
 .glass-ios26 {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.6)) !important;
-  backdrop-filter: blur(40px) saturate(210%) !important;
-  -webkit-backdrop-filter: blur(40px) saturate(210%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.35) !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
-  background-color: rgba(255, 255, 255, 0.6) !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.1)) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+  background-color: transparent !important;
 }
 
 .dark .glass-ios26 {
@@ -748,6 +1062,63 @@
   transform: translateY(-4px) scale(1.02);
 }
 
+/* Floating orb animation */
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-8px) scale(1.08); }
+}
+
+.animate-float-slow {
+  animation: floatSlow 4s ease-in-out infinite;
+}
+
+/* Gradient shift animation */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-gradient-shift {
+  background-size: 200% 200%;
+  animation: gradientShift 6s ease infinite;
+}
+
+/* Fade-in-up for cards */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in-up-delay-1 { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards; opacity: 0; }
+.animate-fade-in-up-delay-2 { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards; opacity: 0; }
+.animate-fade-in-up-delay-3 { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards; opacity: 0; }
+
+/* Shake animation for errors */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  15%, 45%, 75% { transform: translateX(-6px); }
+  30%, 60%, 90% { transform: translateX(6px); }
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out;
+}
+
+/* Slow zoom for hero images */
+@keyframes slowZoom {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
+}
+
+.animate-slow-zoom {
+  animation: slowZoom 20s ease-in-out infinite alternate;
+}
+
 /* Staggered animations */
 .stagger-1 { animation-delay: 0.1s; }
 .stagger-2 { animation-delay: 0.2s; }
@@ -760,6 +1131,10 @@
   .animate-scale-up,
   .animate-fade-in-left,
   .animate-fade-in-right,
+  .animate-float-slow,
+  .animate-gradient-shift,
+  .animate-shake,
+  .animate-slow-zoom,
   .hover-scale {
     animation: none !important;
     transition: none !important;
@@ -791,4 +1166,145 @@
   .mobile-native-surface {
     padding-bottom: calc(env(safe-area-inset-bottom) + 5.75rem);
   }
+}
+
+/* ═══════════════════════════════════════════════════
+   Scroll-reveal animations (Glovo-inspired)
+   ═══════════════════════════════════════════════════ */
+
+/* Smooth scroll globally */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Base state: elements start hidden / offset */
+[data-reveal] {
+  opacity: 0;
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+/* Reveal direction variants */
+[data-reveal="up"] {
+  transform: translateY(48px);
+}
+
+[data-reveal="scale"] {
+  transform: scale(0.92);
+}
+
+[data-reveal="fade"] {
+  transform: translateY(16px);
+}
+
+[data-reveal="left"] {
+  transform: translateX(-48px);
+}
+
+[data-reveal="right"] {
+  transform: translateX(48px);
+}
+
+/* When element enters viewport (class added by useScrollReveal) */
+[data-reveal].revealed {
+  opacity: 1;
+  transform: translateY(0) translateX(0) scale(1);
+}
+
+/* Stagger delay variants */
+[data-reveal][data-delay="1"] {
+  transition-delay: 0.08s;
+}
+
+[data-reveal][data-delay="2"] {
+  transition-delay: 0.16s;
+}
+
+[data-reveal][data-delay="3"] {
+  transition-delay: 0.24s;
+}
+
+[data-reveal][data-delay="4"] {
+  transition-delay: 0.32s;
+}
+
+/* Parallax wrapper for background images */
+.parallax-bg {
+  position: relative;
+  overflow: hidden;
+}
+
+.parallax-bg > .parallax-inner {
+  position: absolute;
+  inset: -20% 0;
+  transition: transform 0.1s linear;
+  will-change: transform;
+}
+
+/* Glovo-style card hover lift */
+.glovo-card {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glovo-card:hover {
+  transform: translateY(-6px) scale(1.015);
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.12);
+}
+
+/* Gentle floating animation for hero elements */
+@keyframes gentleFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-gentle-float {
+  animation: gentleFloat 5s ease-in-out infinite;
+}
+
+/* Subtle pulse glow for CTA buttons */
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(30, 138, 60, 0.4); }
+  50% { box-shadow: 0 0 0 12px rgba(30, 138, 60, 0); }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2.5s ease-in-out infinite;
+}
+
+/* Catalogue bento grid */
+.catalogue-bento-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(11rem, auto);
+  gap: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .catalogue-bento-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-rows: minmax(12.5rem, auto);
+    gap: 1.25rem;
+  }
+}
+
+.catalogue-bento-grid .bento-cell {
+  min-height: 0;
+}
+
+.catalogue-bento-grid .bento-cell > article {
+  height: 100%;
+}
+
+@keyframes avatar-celebrate-pop {
+  0% { transform: translateY(0) scale(1); }
+  25% { transform: translateY(-14px) scale(1.06); }
+  50% { transform: translateY(-6px) scale(1.03); }
+  75% { transform: translateY(-10px) scale(1.04); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+.animate-avatar-celebrate {
+  animation: avatar-celebrate-pop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
 }

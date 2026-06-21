@@ -26,6 +26,7 @@ export class ApiError extends Error {
 
 export interface TourneeItem {
   commande_id: number
+  ordre_passage?: number | null
   client_phone: string | null
   client_label: string
   street: string | null
@@ -54,7 +55,27 @@ export interface TourneeResponse {
   available_after: string
   sort_strategy: string
   tournee_started: boolean
+  tournee_id: number | null
+  pickup: {
+    fournisseur_id: number | null
+    shop_name: string | null
+    address: string | null
+    ville: string | null
+    phone: string | null
+    latitude: number | null
+    longitude: number | null
+  } | null
+  ramassee: boolean
+  ramasse_at: string | null
   items: TourneeItem[]
+}
+
+export interface RamassageResponse {
+  status: string
+  tournee_id: number
+  ramasse_at: string
+  commandes_ramassees: number
+  idempotent: boolean
 }
 
 export interface AdminDispatchAddress {
@@ -108,6 +129,15 @@ export interface AdminDispatchTournee {
   distance_totale_km: number | null
   created_at: string | null
   livreur: AdminDispatchLivreur
+  pickup?: {
+    fournisseur_id: number | null
+    shop_name: string | null
+    address: string | null
+    ville: string | null
+    phone: string | null
+    latitude: number | null
+    longitude: number | null
+  }
   commandes: AdminDispatchCommande[]
 }
 
@@ -721,6 +751,37 @@ export async function demarrerLivreurTournee(token: string) {
   })
 }
 
+export interface AdminCommandeException {
+  id: number
+  statut: string | null
+  raisons: string[]
+  date_commande: string | null
+  client_nom: string
+  client_phone: string | null
+  ville: string | null
+  montant_total: number
+  fournisseur_id: number | null
+  fournisseur_nom: string | null
+  tournee_id: number | null
+  livreur_id: number | null
+}
+
+export interface AdminCommandeExceptionsPage {
+  status: string
+  items: AdminCommandeException[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
+export async function confirmerRamassageLivreur(token: string, tourneeId: number) {
+  return apiCall<RamassageResponse>(`/api/livreur/tournees/${tourneeId}/ramassage`, {
+    method: "POST",
+    token,
+  })
+}
+
 export async function jitAgreger(token: string) {
   return apiCall<ResultatAgregationJIT>("/api/jit/agreguer", {
     method: "POST",
@@ -828,6 +889,65 @@ export async function reassignAdminDispatchCommande(
       body: { nouvelle_tournee_id: nouvelleTourneeId },
     }
   )
+}
+
+export async function getAdminCommandeExceptions(
+  token: string,
+  params: {
+    raison?: string
+    search?: string
+    date_from?: string
+    date_to?: string
+    page?: number
+    page_size?: number
+  } = {},
+) {
+  const query = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== "") query.set(key, String(value))
+  })
+  return apiCall<AdminCommandeExceptionsPage>(
+    `/api/admin/commandes/exceptions${query.size ? `?${query}` : ""}`,
+    { token, cache: "no-store" },
+  )
+}
+
+export async function rattacherAdminCommandeFournisseur(
+  token: string,
+  commandeId: number,
+  fournisseurId: number,
+) {
+  return apiCall(`/api/admin/commandes/${commandeId}/rattacher-fournisseur`, {
+    method: "POST",
+    token,
+    body: { fournisseur_id: fournisseurId },
+  })
+}
+
+export async function replanifierAdminCommande(token: string, commandeId: number) {
+  return apiCall(`/api/admin/commandes/${commandeId}/replanifier`, {
+    method: "POST",
+    token,
+  })
+}
+
+export async function annulerAdminCommande(token: string, commandeId: number) {
+  return apiCall(`/api/admin/commandes/${commandeId}/annuler`, {
+    method: "POST",
+    token,
+  })
+}
+
+export async function reassignerAdminCommandeException(
+  token: string,
+  commandeId: number,
+  nouvelleTourneeId: number,
+) {
+  return apiCall(`/api/admin/commandes/${commandeId}/reassigner`, {
+    method: "POST",
+    token,
+    body: { nouvelle_tournee_id: nouvelleTourneeId },
+  })
 }
 
 export async function replanifierAdminAnomalie(token: string, anomalieId: number) {
@@ -1069,4 +1189,43 @@ export async function getBlacklistMonthlyReport(
     `/admin/blacklist/report/monthly?year=${year}&month=${month}`,
     { token }
   )
+}
+
+export async function fetchUserFavorites(token: string): Promise<CatalogueProductDTO[]> {
+  try {
+    const orders = await apiCall<CommandeHistoriqueDTO[]>("/api/commandes/historique", { token })
+    const productCounts: Record<string, { product: ProduitCommandeJourDTO; count: number }> = {}
+
+    for (const order of orders) {
+      if (order.produits) {
+        for (const ligne of order.produits) {
+          const key = ligne.product_id?.toString() || ligne.nom_fr
+          if (!productCounts[key]) {
+            productCounts[key] = { product: ligne, count: 0 }
+          }
+          productCounts[key].count++
+        }
+      }
+    }
+
+    // Return top 8 most ordered products mapped to CatalogueProductDTO shape
+    return Object.values(productCounts)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8)
+      .map(item => ({
+        id: item.product.product_id ?? 0,
+        nom_fr: item.product.nom_fr,
+        nom_darija: "",
+        prix_kg: item.product.sous_total ? item.product.sous_total / (item.product.quantite_kg || 1) : 0,
+        prix_affiche: item.product.sous_total ? item.product.sous_total / (item.product.quantite_kg || 1) : null,
+        prix_khddar_estime: null,
+        is_active: true,
+        image_url: item.product.image ?? null,
+        niveau: 1 as ProduitNiveau,
+        unite: "kg",
+        stock: 100,
+      }))
+  } catch {
+    return []
+  }
 }

@@ -10,7 +10,7 @@ export function Navbar() {
 
   return (
     <>
-      <nav className="sticky top-0 z-50 hidden glass-ios26 border-b border-gray-100/30 transition-all md:block">
+      <nav className="sticky top-0 z-50 hidden bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100/50 transition-all md:block">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-20 items-center justify-between">
             <Link href="/" className="flex items-center gap-3">
@@ -78,12 +78,6 @@ export function Navbar() {
           </div>
         </div>
       </nav>
-
-      {!isLoading && isAuthenticated && user && (
-        <div className="fixed right-3 top-3 z-40 md:hidden">
-          <ProfileDropdown user={user} />
-        </div>
-      )}
 
       <MobileBottomNav />
     </>

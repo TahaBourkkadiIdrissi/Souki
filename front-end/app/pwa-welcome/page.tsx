@@ -1,83 +1,59 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import Image from "next/image"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
-  ArrowRight,
-  Bot,
-  Clock3,
-  Leaf,
-  LogIn,
-  PackageCheck,
+  Check,
+  Mic,
   Plus,
-  ShieldCheck,
   ShoppingBasket,
   Truck,
+  Leaf,
+  TreeDeciduous,
+  TreePine,
+  Apple,
+  Carrot,
+  Cherry,
+  Grape,
 } from "lucide-react"
 
-import { RecolteAvatar } from "@/components/avatar/recolte-avatar"
+import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
 import type { CatalogueProduct } from "@/lib/catalogue"
 import {
   fetchCatalogueProducts,
+  getCataloguePresentation,
   loadStoredCart,
+  resolveCatalogueImage,
   saveStoredCart,
   upsertCartItem,
 } from "@/lib/catalogue"
+import { fetchUserFavorites } from "@/lib/api"
+import type { CatalogueProductDTO } from "@/lib/api"
 import { isPwaStandalone } from "@/lib/pwa"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/hooks/useAuth"
+import { shouldShowOnboarding } from "@/lib/onboarding"
 
 type SuggestionLevel = {
   id: 1 | 2 | 3
   title: string
-  subtitle: string
   products: CatalogueProduct[]
 }
 
 const CATALOGUE_REFRESH_INTERVAL_MS = 5 * 60 * 1000
 
-const trustItems = [
-  { icon: Leaf, label: "Marche frais" },
-  { icon: ShieldCheck, label: "Prix clairs" },
-  { icon: Truck, label: "Demain matin" },
-  { icon: Bot, label: "Panier IA" },
-]
-
-const levelMeta = {
-  1: {
-    title: "Essentiels",
-    subtitle: "La base du panier familial.",
-    badge: "Essentiel",
-    badgeClassName: "bg-green-market text-white",
-    softClassName: "bg-green-50 text-green-market",
-    accentClassName: "text-green-market",
-  },
-  2: {
-    title: "Populaires",
-    subtitle: "Les choix qui partent vite.",
-    badge: "Populaire",
-    badgeClassName: "bg-orange-cta text-white",
-    softClassName: "bg-orange-50 text-orange-700",
-    accentClassName: "text-orange-cta",
-  },
-  3: {
-    title: "A decouvrir",
-    subtitle: "Pour varier les repas.",
-    badge: "Decouverte",
-    badgeClassName: "bg-indigo-600 text-white",
-    softClassName: "bg-indigo-50 text-indigo-700",
-    accentClassName: "text-indigo-700",
-  },
-} as const
-
 export default function PwaWelcomePage() {
   const router = useRouter()
+  const { user, token, isAuthenticated } = useAuth()
   const [isReady, setIsReady] = useState(false)
   const [products, setProducts] = useState<CatalogueProduct[]>([])
+  const [favorites, setFavorites] = useState<CatalogueProduct[]>([])
   const [isFetching, setIsFetching] = useState(true)
-  const [error, setError] = useState("")
   const [addedProductId, setAddedProductId] = useState<number | null>(null)
+  const [scrollY, setScrollY] = useState(0)
+  const heroRef = useRef<HTMLDivElement>(null)
 
+  // PWA standalone check
   useEffect(() => {
     const canPreviewInDevelopment =
       process.env.NODE_ENV !== "production" && new URLSearchParams(window.location.search).get("preview") === "pwa"
@@ -90,39 +66,41 @@ export default function PwaWelcomePage() {
     setIsReady(true)
   }, [router])
 
+  // Onboarding guard: redirect authenticated first-time users to onboarding
   useEffect(() => {
-    if (!isReady) {
-      return
+    if (isReady && isAuthenticated && shouldShowOnboarding()) {
+      router.replace("/onboarding")
     }
+  }, [isReady, isAuthenticated, router])
+
+  // Parallax scroll listener
+  useEffect(() => {
+    const handleScroll = () => setScrollY(window.scrollY)
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
+  // Load catalogue
+  useEffect(() => {
+    if (!isReady) return
 
     let isMounted = true
 
     const loadCatalogue = async (showLoader = false) => {
       try {
-        if (showLoader) {
-          setIsFetching(true)
-        }
+        if (showLoader) setIsFetching(true)
         const catalogue = await fetchCatalogueProducts()
-        if (!isMounted) {
-          return
-        }
-        setProducts(catalogue.filter((product) => product.stock > 0))
-        setError("")
+        if (!isMounted) return
+        setProducts(catalogue.filter((p) => p.stock > 0))
       } catch {
-        if (isMounted) {
-          setError("Catalogue indisponible pour le moment.")
-        }
+        // silently fail
       } finally {
-        if (isMounted && showLoader) {
-          setIsFetching(false)
-        }
+        if (isMounted && showLoader) setIsFetching(false)
       }
     }
 
     void loadCatalogue(true)
-    const interval = window.setInterval(() => {
-      void loadCatalogue()
-    }, CATALOGUE_REFRESH_INTERVAL_MS)
+    const interval = window.setInterval(() => { void loadCatalogue() }, CATALOGUE_REFRESH_INTERVAL_MS)
 
     return () => {
       isMounted = false
@@ -130,31 +108,53 @@ export default function PwaWelcomePage() {
     }
   }, [isReady])
 
+  // Load favorites from order history
+  useEffect(() => {
+    if (!isReady || !token) return
+
+    let isMounted = true
+
+    const loadFavorites = async () => {
+      const favDTOs = await fetchUserFavorites(token)
+      if (!isMounted) return
+      const mapped: CatalogueProduct[] = favDTOs.map((dto: CatalogueProductDTO) => {
+        const presentation = getCataloguePresentation(dto.nom_fr)
+        return {
+          id: dto.id,
+          name: dto.nom_fr,
+          alias: dto.nom_darija,
+          price: dto.prix_affiche ?? dto.prix_kg,
+          prix_khddar_estime: dto.prix_khddar_estime,
+          niveau: dto.niveau,
+          unit: dto.unite,
+          displayUnit: presentation.displayUnit || dto.unite,
+          image: resolveCatalogueImage(dto.nom_fr, dto.image_url),
+          category: presentation.category,
+          quantityStep: presentation.quantityStep || (dto.unite === "kg" ? 0.5 : 1),
+          stock: dto.stock,
+        }
+      })
+      setFavorites(mapped)
+    }
+
+    void loadFavorites()
+    return () => { isMounted = false }
+  }, [isReady, token])
+
+  // Category suggestions
   const levels = useMemo<SuggestionLevel[]>(() => {
     const byLevel = (level: 1 | 2 | 3) =>
       products
-        .filter((product) => product.niveau === level)
-        .sort((a, b) => {
-          const stockScore = Math.min(Number(b.stock || 0), 100) - Math.min(Number(a.stock || 0), 100)
-          if (stockScore !== 0) {
-            return stockScore
-          }
-          return a.price - b.price
-        })
-        .slice(0, 8)
+        .filter((p) => p.niveau === level)
+        .sort((a, b) => b.stock - a.stock || a.price - b.price)
+        .slice(0, 10)
 
-    return ([1, 2, 3] as const).map((level) => ({
-      id: level,
-      title: levelMeta[level].title,
-      subtitle: levelMeta[level].subtitle,
-      products: byLevel(level),
-    }))
+    return [
+      { id: 1 as const, title: "Essentiels", products: byLevel(1) },
+      { id: 2 as const, title: "Populaires", products: byLevel(2) },
+      { id: 3 as const, title: "À découvrir", products: byLevel(3) },
+    ]
   }, [products])
-
-  const featuredProducts = useMemo(() => products.slice(0, 3), [products])
-  const featuredCount = products.length
-  const lowestPrice = products.length ? Math.min(...products.map((product) => product.price)) : 0
-  const totalStock = products.reduce((total, product) => total + Number(product.stock || 0), 0)
 
   const handleQuickAdd = (product: CatalogueProduct) => {
     const cart = loadStoredCart()
@@ -164,339 +164,263 @@ export default function PwaWelcomePage() {
     navigator.vibrate?.(20)
   }
 
+  const userName = useMemo(() => {
+    if (!user) return null
+    if (user.email) {
+      const name = user.email.split("@")[0]
+      return name.charAt(0).toUpperCase() + name.slice(1)
+    }
+    if (user.phone) return user.phone
+    return null
+  }, [user])
+
   if (!isReady) {
     return (
-      <main className="min-h-dvh bg-bg-section" aria-label="Chargement de SOUKI">
+      <main className="min-h-dvh bg-[#F5F5F0]" aria-label="Chargement">
         <div className="flex min-h-dvh items-center justify-center">
-          <div className="h-10 w-10 animate-pulse rounded-2xl bg-green-market" />
+          <div className="h-10 w-10 animate-pulse rounded-2xl bg-[#1E8A3C]" />
         </div>
       </main>
     )
   }
 
   return (
-    <main className="min-h-dvh bg-bg-section text-text-body">
-      <section className="mx-auto flex min-h-dvh w-full max-w-md flex-col">
-        <header className="sticky top-0 z-20 border-b border-green-100 bg-bg-section px-4 pb-3 pt-3 backdrop-blur">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-sm">
-                <Image
-                  src="/logo3.png"
-                  alt="SOUKI"
-                  width={84}
-                  height={48}
-                  className="h-full w-full object-cover"
-                  style={{ objectPosition: "left center" }}
-                  priority
-                />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-lg font-black leading-none tracking-tight">SOUKI</p>
-                <p className="mt-1 truncate text-xs font-bold uppercase text-text-muted">
-                  Fresh Market Fes
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => router.push("/catalogue")}
-              className="flex h-10 shrink-0 items-center gap-2 rounded-full bg-white px-3 text-xs font-black text-green-market shadow-sm"
-            >
-              <ShoppingBasket className="h-4 w-4" />
-              Catalogue
-            </button>
+    <main className="min-h-dvh bg-[#F2F6F3] text-[#3D3D3D] font-sans">
+      <section className="mx-auto flex min-h-dvh w-full max-w-md flex-col pb-24 md:pb-0">
+        
+        {/* Cinematic Nature Header - Agressif & Thématique */}
+        <div className="relative bg-gradient-to-br from-[#113B1E] via-[#1A4F2C] to-[#2DA050] pb-6 rounded-b-[32px] shadow-lg mb-4 overflow-hidden">
+          
+          {/* SVG Background Elements - Arbres et Aliments */}
+          <div className="absolute inset-0 pointer-events-none opacity-20">
+            {/* Arbres à gauche */}
+            <TreeDeciduous className="absolute -left-6 bottom-4 w-32 h-32 text-[#8EDD8B]" strokeWidth={1} />
+            <TreePine className="absolute -left-2 top-0 w-24 h-24 text-[#A7D7B5]" strokeWidth={1} />
+            
+            {/* Arbres à droite */}
+            <TreeDeciduous className="absolute -right-8 top-10 w-40 h-40 text-[#8EDD8B]" strokeWidth={1} />
+            <TreePine className="absolute -right-4 bottom-0 w-28 h-28 text-[#A7D7B5]" strokeWidth={1} />
+
+            {/* Fruits et Légumes flottants / doodles */}
+            <Apple className="absolute left-[15%] top-[40%] w-8 h-8 text-white rotate-12" strokeWidth={1.5} />
+            <Carrot className="absolute left-[40%] top-[15%] w-10 h-10 text-white -rotate-45" strokeWidth={1.5} />
+            <Cherry className="absolute right-[30%] top-[30%] w-8 h-8 text-white rotate-12" strokeWidth={1.5} />
+            <Grape className="absolute right-[20%] top-[60%] w-10 h-10 text-white -rotate-12" strokeWidth={1.5} />
           </div>
-        </header>
 
-        <div className="flex-1 px-4 pb-4">
-          <section className="pt-4">
-            <HeroScene
-              featuredCount={featuredCount}
-              lowestPrice={lowestPrice}
-              totalStock={totalStock}
-            />
-          </section>
-
-          <section className="mt-3 grid grid-cols-4 gap-2">
-            {trustItems.map((item) => (
-              <div key={item.label} className="flex min-h-20 flex-col items-center justify-center rounded-2xl bg-white px-1.5 text-center shadow-sm">
-                <item.icon className="h-5 w-5 text-green-market" />
-                <p className="mt-2 text-xs font-black leading-3 text-text-body">{item.label}</p>
-              </div>
+          {/* Falling Leaves Animation (Vraies feuilles) */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+            {[...Array(8)].map((_, i) => (
+              <Leaf 
+                key={i}
+                className={`absolute text-[#A7D7B5] animate-falling-leaf`}
+                style={{
+                  left: `${10 + i * 12}%`,
+                  top: '-15%',
+                  animationDelay: `${i * 1.2}s`,
+                  animationDuration: `${5 + (i % 4) * 2}s`,
+                  width: `${14 + (i % 3) * 6}px`,
+                  height: `${14 + (i % 3) * 6}px`,
+                  opacity: 0.6 + (i % 3) * 0.2
+                }}
+                strokeWidth={1.5}
+                fill="currentColor"
+              />
             ))}
-          </section>
+          </div>
 
-          {featuredProducts.length > 0 && (
-            <section className="mt-4 rounded-3xl bg-white p-3 shadow-sm">
-              <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <h2 className="text-base font-black leading-tight">Disponibles maintenant</h2>
-                  <p className="text-xs font-semibold text-text-muted">Selection selon le stock catalogue</p>
+          <header className="relative z-10 px-5 pt-6 pb-2">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col animate-slide-in-down">
+                <span className="text-xs font-bold text-[#A7D7B5] uppercase tracking-wider">Livraison à</span>
+                <div className="flex items-center gap-1">
+                  <h1 className="text-xl font-black text-white truncate max-w-[200px] drop-shadow-sm">
+                    Fès, Maroc
+                  </h1>
+                  <svg className="w-4 h-4 text-white drop-shadow-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                 </div>
-                <Clock3 className="h-5 w-5 text-orange-cta" />
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                {featuredProducts.map((product) => (
-                  <MiniProduct key={product.id} product={product} />
-                ))}
-              </div>
-            </section>
-          )}
-
-          <section className="mt-5">
-            <div className="mb-3 flex items-end justify-between gap-4">
-              <div className="min-w-0">
-                <h2 className="text-xl font-black tracking-tight">Suggestions</h2>
-                <p className="mt-1 text-xs font-semibold text-text-muted">Essentiels, populaires et decouvertes du catalogue.</p>
-              </div>
-              <span className="shrink-0 rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-market">
-                Live
-              </span>
+              {isAuthenticated && userName && (
+                <button
+                  onClick={() => router.push("/parametres")}
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-[#EAF8EC] text-sm font-black text-[#1A4F2C] shadow-lg ring-2 ring-transparent transition-transform active:scale-90 animate-bounce-in"
+                  aria-label="Profil et paramètres"
+                >
+                  {userName.charAt(0).toUpperCase()}
+                </button>
+              )}
             </div>
-
-            {isFetching ? (
-              <div className="grid grid-cols-2 gap-3">
-                {Array.from({ length: 4 }).map((_, index) => (
-                  <div key={index} className="h-40 animate-pulse rounded-2xl bg-white" />
-                ))}
-              </div>
-            ) : error ? (
-              <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm font-bold leading-6 text-orange-800">
-                {error}
-              </div>
-            ) : (
-              <div className="space-y-5">
-                {levels.map((level) => (
-                  <SuggestionSection
-                    key={level.id}
-                    level={level}
-                    addedProductId={addedProductId}
-                    onQuickAdd={handleQuickAdd}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
+            <div className="mt-6 flex items-center justify-between">
+               <div className="animate-slide-in-up">
+                 <h2 className="text-2xl font-black text-white leading-tight drop-shadow-md">
+                   Bonjour {userName ? userName : "!"} 👋
+                 </h2>
+                 <p className="text-sm font-medium text-[#D3EEDB] mt-1 drop-shadow-sm">Vos courses fraîches en un clic.</p>
+               </div>
+               <div className="mr-2">
+                 <FarmerAvatar size="md" expression="welcome" label="Souki farmer guide" className="animate-gentle-float drop-shadow-xl ring-4 ring-white/20 rounded-full bg-[#EAF8EC]" />
+               </div>
+            </div>
+          </header>
         </div>
 
-        <footer className="sticky bottom-0 z-20 mt-auto border-t border-green-100 bg-bg-section px-4 pb-3 pt-3 backdrop-blur">
-          <div className="flex gap-2">
+        {/* AI Feature Buttons - Glovo style cards */}
+        <div className="px-4 -mt-8 relative z-10 animate-slide-in-up">
+          <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={() => router.push("/catalogue")}
-              className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-green-market px-4 text-sm font-black text-white shadow-lg transition active:scale-95"
+              onClick={() => router.push("/catalogue?ai=smart")}
+              className="flex flex-col items-center justify-center gap-2 rounded-3xl bg-white p-5 shadow-sm shadow-gray-200/50 transition active:scale-[0.95] active:shadow-inner"
             >
-              Explorer
-              <ArrowRight className="h-5 w-5" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#1E8A3C]/10 mb-1">
+                <ShoppingBasket className="h-7 w-7 text-[#1E8A3C]" />
+              </div>
+              <div className="text-center">
+                <p className="text-[15px] font-black text-[#3D3D3D] leading-tight">Panier<br/>Intelligent</p>
+              </div>
             </button>
 
             <button
               type="button"
-              aria-label="Se connecter"
-              onClick={() => router.push("/login/client")}
-              className="flex h-12 w-12 items-center justify-center rounded-2xl border border-green-200 bg-white text-green-market shadow-sm transition active:scale-95"
+              onClick={() => router.push("/catalogue?ai=voice")}
+              className="flex flex-col items-center justify-center gap-2 rounded-3xl bg-white p-5 shadow-sm shadow-gray-200/50 transition active:scale-[0.95] active:shadow-inner"
             >
-              <LogIn className="h-5 w-5" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F07C00]/10 mb-1">
+                <Mic className="h-7 w-7 text-[#F07C00]" />
+              </div>
+              <div className="text-center">
+                <p className="text-[15px] font-black text-[#3D3D3D] leading-tight">Commande<br/>Vocale</p>
+              </div>
             </button>
           </div>
-        </footer>
+
+          {/* Helper speech bubble */}
+          <div className="mt-4 flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm shadow-gray-200/50 border border-gray-100 animate-fade-in" style={{ animationDelay: "0.2s" }}>
+            <FarmerAvatar size="sm" expression="explain" />
+            <p className="flex-1 text-[13px] font-semibold text-[#3D3D3D] leading-tight">
+              Appuyez pour laisser notre IA composer votre marché du jour !
+            </p>
+          </div>
+        </div>
+
+        {/* Favorites Section */}
+        {(favorites.length > 0 || (!isFetching && products.length > 0)) && (
+          <div className="mt-6 px-4">
+            <h3 className="text-[17px] font-black text-[#3D3D3D] mb-1">
+              {favorites.length > 0
+                ? `${userName || "Vos"}, vos produits préférés`
+                : "Découvrez nos produits"}
+            </h3>
+            <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 scrollbar-none">
+              {(favorites.length > 0 ? favorites : products.slice(0, 8)).map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  isAdded={addedProductId === product.id}
+                  onQuickAdd={handleQuickAdd}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Category Suggestions */}
+        {!isFetching && levels.some((l) => l.products.length > 0) && (
+          <div className="mt-6 px-4">
+            <h3 className="text-[17px] font-black text-[#3D3D3D] mb-1">Nos sélections pour vous</h3>
+
+            <div className="mt-4 space-y-5">
+              {levels.map((level) => {
+                if (level.products.length === 0) return null
+                return (
+                  <div key={level.id}>
+                    <p className="mb-2 text-[14px] font-bold text-[#8A8A8A] uppercase tracking-wide">{level.title}</p>
+                    <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 scrollbar-none">
+                      {level.products.map((product) => (
+                        <ProductCard
+                          key={product.id}
+                          product={product}
+                          isAdded={addedProductId === product.id}
+                          onQuickAdd={handleQuickAdd}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Loading skeleton */}
+        {isFetching && (
+          <div className="mt-6 px-4">
+            <div className="flex gap-3 overflow-hidden">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-44 w-36 shrink-0 animate-pulse rounded-2xl bg-white" />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Promotional Banner */}
+        <div className="mt-6 px-4">
+          <div className="flex items-center gap-4 rounded-3xl bg-[#FFF9EB] p-4 border border-[#FFC244]/30 shadow-sm">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#FFC244]/20">
+              <Truck className="h-6 w-6 text-[#F07C00]" />
+            </div>
+            <div>
+              <p className="text-[15px] font-black text-[#3D3D3D]">Livraison gratuite dès 80 DH</p>
+              <p className="mt-0.5 text-[13px] font-medium text-[#3D3D3D]/70">Demain matin, frais et local</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom spacing for nav shell */}
+        <div className="h-6" />
       </section>
     </main>
   )
 }
 
-function HeroStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="px-3 py-3 text-center">
-      <p className="text-xs font-black uppercase text-current opacity-50">{label}</p>
-      <p className="mt-1 text-sm font-black text-current">{value}</p>
-    </div>
-  )
-}
-
-function HeroScene({
-  featuredCount,
-  lowestPrice,
-  totalStock,
-}: {
-  featuredCount: number
-  lowestPrice: number
-  totalStock: number
-}) {
-  return (
-    <div className="pwa-hero-scene relative overflow-hidden rounded-3xl text-white shadow-lg">
-      <div className="pwa-word pwa-word-top">SOUKI</div>
-      <div className="pwa-word pwa-word-bottom">FRESH MARKET</div>
-
-      <div className="pwa-tree pwa-tree-left" />
-      <div className="pwa-tree pwa-tree-right" />
-      <div className="pwa-leaf pwa-leaf-one" />
-      <div className="pwa-leaf pwa-leaf-two" />
-      <div className="pwa-leaf pwa-leaf-three" />
-      <div className="pwa-leaf pwa-leaf-four" />
-
-      <div className="relative z-10 px-5 pt-5 text-center">
-        <p className="inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-black uppercase text-green-100">
-          PWA SOUKI
-        </p>
-        <h1 className="mx-auto mt-3 max-w-xs text-3xl font-black leading-tight tracking-tight">
-          Votre marche frais dans la poche.
-        </h1>
-        <p className="mx-auto mt-2 max-w-xs text-sm font-semibold leading-6 text-white/80">
-          Produits du jour, prix transparents et panier intelligent selon le stock reel.
-        </p>
-      </div>
-
-      <div className="relative z-10 flex justify-center pt-1">
-        <RecolteAvatar
-          size="xl"
-          expression="welcome"
-          className="pwa-hero-avatar"
-          label="Recolte accueille les utilisateurs de l'application SOUKI"
-        />
-      </div>
-
-      <div className="relative z-20 mx-4 -mt-2 mb-4 grid grid-cols-3 overflow-hidden rounded-3xl bg-white/92 text-text-body shadow-lg">
-        <HeroStat label="Actifs" value={featuredCount ? `${featuredCount}` : "..."} />
-        <HeroStat label="Stock" value={totalStock ? formatStock(totalStock) : "..."} />
-        <HeroStat label="Des" value={lowestPrice ? `${lowestPrice.toFixed(0)} DH` : "..."} />
-      </div>
-    </div>
-  )
-}
-
-function MiniProduct({ product }: { product: CatalogueProduct }) {
-  return (
-    <article className="min-w-0">
-      <div className="relative aspect-square overflow-hidden rounded-2xl bg-bg-card">
-        <img src={product.image} alt={product.name} className="h-full w-full object-cover" loading="lazy" />
-        <StockPill stock={product.stock} compact />
-      </div>
-      <p className="mt-2 truncate text-xs font-black text-text-body">{product.name}</p>
-      <p className="truncate text-xs font-bold text-green-market">{product.price.toFixed(2)} DH</p>
-    </article>
-  )
-}
-
-function SuggestionSection({
-  level,
-  addedProductId,
-  onQuickAdd,
-}: {
-  level: SuggestionLevel
-  addedProductId: number | null
-  onQuickAdd: (product: CatalogueProduct) => void
-}) {
-  const tone = levelMeta[level.id]
-
-  if (level.products.length === 0) {
-    return null
-  }
-
-  return (
-    <section>
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-black ${tone.badgeClassName}`}>
-            {level.id}
-          </span>
-          <div className="min-w-0">
-            <h3 className="truncate text-base font-black text-text-body">{level.title}</h3>
-            <p className="truncate text-xs font-semibold text-text-muted">{level.subtitle}</p>
-          </div>
-        </div>
-        <span className={`shrink-0 text-xs font-black ${tone.accentClassName}`}>{level.products.length}</span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        {level.products.slice(0, 4).map((product) => (
-          <ProductTile
-            key={product.id}
-            product={product}
-            badge={tone.badge}
-            tone={tone}
-            isAdded={addedProductId === product.id}
-            onQuickAdd={onQuickAdd}
-          />
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function ProductTile({
+function ProductCard({
   product,
-  badge,
-  tone,
   isAdded,
   onQuickAdd,
 }: {
   product: CatalogueProduct
-  badge: string
-  tone: (typeof levelMeta)[1]
   isAdded: boolean
   onQuickAdd: (product: CatalogueProduct) => void
 }) {
   return (
-    <article className="min-w-0 rounded-2xl bg-white p-2 shadow-sm">
-      <div className="relative aspect-square overflow-hidden rounded-xl bg-bg-card">
-        <img src={product.image} alt={product.name} className="h-full w-full object-cover" loading="lazy" />
-        <span className={`absolute left-2 top-2 max-w-28 truncate rounded-full px-2 py-1 text-xs font-black uppercase ${tone.badgeClassName}`}>
-          {badge}
-        </span>
-        <StockPill stock={product.stock} />
+    <article className="w-[140px] shrink-0 snap-start rounded-3xl bg-white p-2 shadow-sm shadow-gray-200/50 border border-gray-100 transition hover:shadow-md">
+      <div className="relative aspect-square overflow-hidden rounded-2xl bg-[#F9F9F9]">
+        <img
+          src={product.image}
+          alt={product.name}
+          className="h-full w-full object-cover mix-blend-multiply"
+          loading="lazy"
+        />
         <button
           type="button"
           aria-label={`Ajouter ${product.name}`}
           onClick={() => onQuickAdd(product)}
           className={cn(
-            "absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-white text-green-market shadow-md transition active:scale-90",
-            isAdded && "bg-green-market text-white"
+            "absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full shadow-sm transition-all active:scale-90",
+            isAdded
+              ? "bg-[#1E8A3C] text-white scale-110"
+              : "bg-white text-[#1E8A3C] hover:bg-[#F0FAF1]"
           )}
         >
-          {isAdded ? <PackageCheck className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+          {isAdded ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
         </button>
       </div>
-      <div className="px-1 pt-2">
-        <h4 className="truncate text-sm font-black text-text-body">{product.name}</h4>
-        <div className="mt-1 flex items-center justify-between gap-2">
-          <p className="truncate text-xs font-black text-green-market">{product.price.toFixed(2)} DH</p>
-          <p className="shrink-0 text-xs font-black text-text-muted">/{product.displayUnit}</p>
-        </div>
-        <div className="mt-2 flex items-center gap-1">
-          <span className={`min-w-0 truncate rounded-full px-2 py-1 text-xs font-black ${tone.softClassName}`}>
-            Disponible
-          </span>
-          <span className="shrink-0 rounded-full bg-bg-section px-2 py-1 text-xs font-black text-text-muted">
-            N{product.niveau}
-          </span>
-        </div>
+      <div className="mt-2.5 px-1 pb-1">
+        <p className="truncate text-[14px] font-bold text-[#3D3D3D]">{product.name}</p>
+        <p className="mt-0.5 text-[13px] font-black text-[#1E8A3C]">
+          {product.price.toFixed(2)} DH <span className="text-[10px] font-medium text-gray-400">/ {product.displayUnit}</span>
+        </p>
       </div>
     </article>
   )
-}
-
-function StockPill({ stock, compact = false }: { stock: number; compact?: boolean }) {
-  return (
-    <span
-      className={cn(
-        "absolute right-2 top-2 rounded-full bg-white px-2 py-1 font-black text-green-market shadow-md",
-        compact ? "text-xs" : "text-sm"
-      )}
-    >
-      Stock {formatStock(stock)}
-    </span>
-  )
-}
-
-function formatStock(stock: number) {
-  const normalized = Number(stock || 0)
-  if (normalized >= 1000) {
-    return `${(normalized / 1000).toFixed(1)}k`
-  }
-  if (Number.isInteger(normalized)) {
-    return normalized.toFixed(0)
-  }
-  return normalized.toFixed(1)
 }

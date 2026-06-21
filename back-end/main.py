@@ -1,4 +1,6 @@
+import logging
 import os
+import sys
 import time
 from collections.abc import Callable, Iterable
 from contextlib import asynccontextmanager
@@ -11,9 +13,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
+# Configure logging to ensure immediate output (bypasses buffering)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+    stream=sys.stdout,
+)
+
 import entities
 from config import Base, engine
 from controllers.admin_controller import admin_router, api_admin_router
+from controllers.admin_exception_controller import router_admin_exceptions
 from controllers.auth_controller import auth_router
 from controllers.catalogue_controller import router_catalogue
 from controllers.claim_controller import claim_router
@@ -22,20 +32,24 @@ from controllers.client_blacklist_controller import client_blacklist_router
 from controllers.commande_controller import router_voice
 from controllers.dispatch_controller import anomalies_router, dispatch_router
 from controllers.fournisseur_controller import router_admin_supplier, router_supplier
+from controllers.supplier_products_controller import router_supplier_products
 from controllers.jit_controller import router_jit
 from controllers.livreur_controller import router_livreur
 from controllers.panier_controller import router_panier
 from controllers.produit_pricing_controller import router as pricing_router
 from controllers.profile_controller import profile_router
 from controllers.settings_controller import settings_router
+from controllers.zone_controller import router_admin_zones
 from services.catalogue_bootstrap_service import CatalogueBootstrapService
 from services.delivery_schema_sync_service import DeliverySchemaSyncService
 from services.dispatch_schema_sync_service import DispatchSchemaSyncService
 from services.jit_schema_sync_service import JITSchemaSyncService
+from services.logistics_schema_sync_service import LogisticsSchemaSyncService
 from services.ml_panier_service import ml_panier_service
 from services.rbac_bootstrap_service import RBACBootstrapService
 from services.scheduler_service import start_scheduler, stop_scheduler
 from services.supplier_schema_sync_service import SupplierSchemaSyncService
+from services.fournisseur_produit_schema_sync_service import FournisseurProduitSchemaSyncService
 from services.supabase_storage_service import avatar_storage_service
 from services.wallet_schema_sync_service import WalletSchemaSyncService
 
@@ -56,9 +70,12 @@ API_ROUTERS: tuple[APIRouter, ...] = (
     router_jit,
     router_livreur,
     router_supplier,
+    router_supplier_products,
     admin_router,
     api_admin_router,
     router_admin_supplier,
+    router_admin_zones,
+    router_admin_exceptions,
 )
 
 
@@ -92,6 +109,8 @@ def sync_database_schema() -> None:
             AppTask("delivery schema sync", DeliverySchemaSyncService.sync),
             AppTask("dispatch schema sync", DispatchSchemaSyncService.sync),
             AppTask("supplier schema sync", SupplierSchemaSyncService.sync),
+            AppTask("logistics schema sync", LogisticsSchemaSyncService.sync),
+            AppTask("fournisseur produits schema sync", FournisseurProduitSchemaSyncService.sync),
             AppTask("jit schema sync", JITSchemaSyncService.sync),
             AppTask("avatar column sync", avatar_storage_service.ensure_avatar_column),
         ),

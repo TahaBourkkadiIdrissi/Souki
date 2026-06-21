@@ -8,6 +8,7 @@ from dto.livreur_dto import (
     DeliveryEventResponseDTO,
     DemarrerTourneeResponseDTO,
     LivraisonDecisionRequestDTO,
+    RamassageResponseDTO,
     TourneeRefusResponseDTO,
     TourneeResponseDTO,
 )
@@ -32,6 +33,16 @@ def demarrer_tournee(
 ):
     with service:
         return service.demarrer_tournee(principal.user_id)
+
+
+@router_livreur.post("/tournees/{tournee_id}/ramassage", response_model=RamassageResponseDTO)
+def confirmer_ramassage(
+    tournee_id: int,
+    principal=Depends(require_permission("livreur.dashboard.access", "deliveries.start_tour")),
+    service: ILivreurService = Depends(get_livreur_service),
+):
+    with service:
+        return service.confirmer_ramassage(principal.user_id, tournee_id)
 
 
 @router_livreur.post("/livraisons/{commande_id}/events", response_model=DeliveryEventResponseDTO)

@@ -12,6 +12,7 @@ class ZoneJITDaoBD(IZoneJITDao):
 
     def _to_dto(self, zone: ZoneJIT) -> ZoneJITDTO:
         created = zone.created_at
+        fournisseur = zone.fournisseur
         return ZoneJITDTO(
             id=int(zone.id),  # type: ignore
             nom_ville=str(zone.nom_ville),  # type: ignore
@@ -19,6 +20,8 @@ class ZoneJITDaoBD(IZoneJITDao):
             lng_centre=float(zone.lng_centre),  # type: ignore
             rayon_km=float(zone.rayon_km),  # type: ignore
             fournisseur_id=int(zone.fournisseur_id) if zone.fournisseur_id else None,  # type: ignore
+            fournisseur_nom=str(fournisseur.shop_name) if fournisseur else None,
+            fournisseur_statut=str(fournisseur.statut) if fournisseur else None,
             actif=bool(zone.actif),  # type: ignore
             created_at=created.isoformat() if created else None,
         )
@@ -59,16 +62,7 @@ class ZoneJITDaoBD(IZoneJITDao):
             )
             session.add(zone)
             session.flush()
-            return ZoneJITDTO(
-                id=int(zone.id),  # type: ignore
-                nom_ville=str(zone.nom_ville),  # type: ignore
-                lat_centre=float(zone.lat_centre),  # type: ignore
-                lng_centre=float(zone.lng_centre),  # type: ignore
-                rayon_km=float(zone.rayon_km),  # type: ignore
-                fournisseur_id=int(zone.fournisseur_id) if zone.fournisseur_id else None,  # type: ignore
-                actif=bool(zone.actif),  # type: ignore
-                created_at=None,
-            )
+            return self._to_dto(zone)
         except Exception as e:
             print(f"Erreur create_zone: {e}")
             return None
@@ -101,4 +95,16 @@ class ZoneJITDaoBD(IZoneJITDao):
             return self._to_dto(zone)
         except Exception as e:
             print(f"Erreur toggle_actif: {e}")
+            return None
+
+    def deactivate_zone(self, session: Session, zone_id: int) -> Optional[ZoneJITDTO]:
+        try:
+            zone = session.query(ZoneJIT).filter(ZoneJIT.id == zone_id).first()
+            if not zone:
+                return None
+            zone.actif = False  # type: ignore
+            session.flush()
+            return self._to_dto(zone)
+        except Exception as e:
+            print(f"Erreur deactivate_zone: {e}")
             return None

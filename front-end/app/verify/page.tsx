@@ -15,6 +15,7 @@ import {
 
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { API_BASE_URL } from "@/lib/api"
+import { shouldShowOnboarding } from "@/lib/onboarding"
 
 const RESEND_DELAY_SECONDS = 60
 
@@ -86,7 +87,8 @@ function OTPVerificationForm({
       }
 
       setMessage(data.message || "Code validé avec succès.")
-      window.setTimeout(() => router.push(data.default_dashboard || "/"), 500)
+      const destination = shouldShowOnboarding() ? "/onboarding" : data.default_dashboard || "/"
+      window.setTimeout(() => router.push(destination), 500)
     } catch (err: any) {
       setError(err.message || "La vérification a échoué.")
     } finally {

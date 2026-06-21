@@ -29,6 +29,7 @@ import {
   requestBlacklistLift,
   type BlacklistStatusDTO,
 } from "@/lib/api"
+import { isValidMoroccanPhone, normalizeMoroccanPhone, PHONE_ERROR_MSG } from "@/lib/phoneValidator"
 import { cn } from "@/lib/utils"
 import {
   DELIVERY_FEE,
@@ -460,6 +461,7 @@ function CheckoutContent() {
 
   const isWalletInsufficient = selectedPayment === "wallet" && walletBalance < total
   const isPhoneMissing = phoneNumber.trim().length === 0
+  const isPhoneInvalid = phoneNumber.trim().length > 0 && !isValidMoroccanPhone(phoneNumber)
   const isAddressMissing = address.trim().length === 0
   const isCityMissing = city.trim().length === 0
   const canSubmitOrder =
@@ -467,6 +469,7 @@ function CheckoutContent() {
     cart.length > 0 &&
     !isWalletInsufficient &&
     !isPhoneMissing &&
+    !isPhoneInvalid &&
     !isAddressMissing &&
     !isCityMissing &&
     !(isCodBlocked && selectedPayment === "cod") &&
@@ -528,7 +531,7 @@ function CheckoutContent() {
         })),
         creneau_livraison: selectedTimeSlot,
         mode_paiement: selectedPayment,
-        contact_phone: phoneNumber.trim(),
+        contact_phone: phoneNumber.trim() ? normalizeMoroccanPhone(phoneNumber) : null,
         delivery_address: address.trim(),
         delivery_city: city.trim(),
         delivery_instructions: instructions.trim() || null,
@@ -887,6 +890,11 @@ function CheckoutContent() {
                   {isPhoneMissing && (
                     <p className="mt-2 text-xs font-semibold text-red-500">
                       Ajoutez un numéro pour que SOUKI confirme la livraison.
+                    </p>
+                  )}
+                  {isPhoneInvalid && (
+                    <p className="mt-2 text-xs font-semibold text-red-500">
+                      {PHONE_ERROR_MSG}
                     </p>
                   )}
                 </div>

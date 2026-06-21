@@ -3,6 +3,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, EmailStr, Field, validator
 
+from dto.phone_validator import validate_moroccan_phone
+
 
 class UserRegister(BaseModel):
     email: Optional[EmailStr] = None
@@ -19,11 +21,7 @@ class UserRegister(BaseModel):
 
     @validator("phone")
     def validate_phone(cls, v):
-        if v:
-            pattern = r"^\+212[67]\d{8}$"
-            if not re.match(pattern, v):
-                raise ValueError("Le numéro doit être au format +212XXXXXXXXX (9 chiffres commençant par 6 ou 7)")
-        return v
+        return validate_moroccan_phone(v)
 
     @validator("password")
     def validate_password(cls, v):

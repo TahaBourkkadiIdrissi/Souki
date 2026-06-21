@@ -20,6 +20,7 @@ interface ProductCardProps {
   stock?: number
   disabled?: boolean
   disabledLabel?: string
+  featured?: boolean
   onView?: (id: number | string) => void
   onAddToCart?: (id: number | string, quantity: number) => void
 }
@@ -38,6 +39,7 @@ export function ProductCard({
   stock,
   disabled = false,
   disabledLabel = "Indisponible",
+  featured = false,
   onView,
   onAddToCart,
 }: ProductCardProps) {
@@ -98,7 +100,12 @@ export function ProductCard({
           : "hover:-translate-y-1 hover:shadow-[0_22px_55px_-20px_rgba(30,138,60,0.28)]"
       )}
     >
-      <div className="relative h-28 w-full overflow-hidden bg-[#F4FAF3] sm:h-44 2xl:h-48">
+      <div
+        className={cn(
+          "relative w-full overflow-hidden bg-[#F4FAF3]",
+          featured ? "h-40 sm:h-52 md:h-56 2xl:h-64" : "h-28 sm:h-44 2xl:h-48"
+        )}
+      >
         <img
           src={resolvedImage}
           alt={name}

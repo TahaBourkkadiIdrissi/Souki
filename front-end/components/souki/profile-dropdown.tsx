@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import {
   ChevronDown,
@@ -11,7 +11,10 @@ import {
   Settings,
   Shield,
   Sparkles,
+  Store,
+  TrendingUp,
   User as UserIcon,
+  Wallet,
 } from "lucide-react"
 
 import { User } from "@/contexts/auth-context"
@@ -22,10 +25,24 @@ import { cn } from "@/lib/utils"
 export function ProfileDropdown({ user }: { user: User }) {
   const [isOpen, setIsOpen] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [photoVersion, setPhotoVersion] = useState(
+    () => Number(typeof window !== "undefined" ? localStorage.getItem("souki_photo_version") || "0" : "0")
+  )
   const dropdownRef = useRef<HTMLDivElement>(null)
   const { logout } = useAuth()
   const { getProfile } = useProfile()
   const router = useRouter()
+
+  // Listen for cross-component photo update events
+  const handlePhotoUpdated = useCallback((e: Event) => {
+    const detail = (e as CustomEvent).detail
+    if (detail?.version) setPhotoVersion(detail.version)
+  }, [])
+
+  useEffect(() => {
+    window.addEventListener("souki:photo-updated", handlePhotoUpdated)
+    return () => window.removeEventListener("souki:photo-updated", handlePhotoUpdated)
+  }, [handlePhotoUpdated])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -57,7 +74,7 @@ export function ProfileDropdown({ user }: { user: User }) {
     return () => {
       isMounted = false
     }
-  }, [getProfile, user.id])
+  }, [getProfile, user.id, photoVersion])
 
   const navigateTo = (href: string) => {
     router.push(href)
@@ -79,6 +96,15 @@ export function ProfileDropdown({ user }: { user: User }) {
   const canAccessAdmin = user.permissions.includes("admin.panel.access")
   const canAccessLivreur = user.permissions.includes("livreur.dashboard.access")
   const canAccessParent = user.permissions.includes("parent.dashboard.access")
+  const effectiveRoles = new Set(
+    [user.role, user.legacy_role, ...(user.roles ?? [])]
+      .filter(Boolean)
+      .map((r) => String(r).toUpperCase()),
+  )
+  const canAccessSupplier = effectiveRoles.has("FOURNISSEUR")
+  const canBecomeSupplier =
+    !canAccessSupplier &&
+    (effectiveRoles.has("CLIENT") || user.permissions.includes("supplier.request.create"))
   const dashboardTarget =
     canAccessAdmin ? "/admin" : canAccessLivreur ? "/livreur" : canAccessParent ? "/parent" : null
   const dashboardLabel =
@@ -158,6 +184,36 @@ export function ProfileDropdown({ user }: { user: User }) {
               </button>
             )}
 
+            {canAccessSupplier && (
+              <button
+                onClick={() => navigateTo("/supplier")}
+                className="group flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all hover:bg-[#FFF7EE]"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FFF0DC] text-[#F07C00] transition-transform group-hover:scale-105">
+                  <Store size={18} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-black text-[#264129]">Espace fournisseur</span>
+                  <span className="block text-xs font-medium text-[#7B8B7D]">Gérer vos produits et commandes</span>
+                </span>
+              </button>
+            )}
+
+            {canBecomeSupplier && (
+              <button
+                onClick={() => navigateTo("/devenir-fournisseur")}
+                className="group flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all hover:bg-[#F0FAF1]"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EAF8EC] text-[#1E8A3C] transition-transform group-hover:scale-105">
+                  <TrendingUp size={18} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-black text-[#264129]">Devenir fournisseur</span>
+                  <span className="block text-xs font-medium text-[#7B8B7D]">Vendez vos produits sur Souki</span>
+                </span>
+              </button>
+            )}
+
             <button
               onClick={() => navigateTo("/parametres/compte")}
               className="group flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all hover:bg-[#F0FAF1]"
@@ -169,6 +225,21 @@ export function ProfileDropdown({ user }: { user: User }) {
                 <span className="block text-sm font-black text-[#264129]">Mon profil</span>
                 <span className="block text-xs font-medium text-[#7B8B7D]">
                   Photo, adresse et informations personnelles
+                </span>
+              </span>
+            </button>
+
+            <button
+              onClick={() => navigateTo("/wallet")}
+              className="group flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all hover:bg-[#F0FAF1]"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#1E8A3C] to-[#4CB84A] text-white shadow-inner transition-transform group-hover:scale-105">
+                <Wallet size={18} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-black text-[#264129]">Mon Wallet</span>
+                <span className="block text-xs font-medium text-[#7B8B7D]">
+                  Gérer votre solde et transactions
                 </span>
               </span>
             </button>
@@ -215,12 +286,15 @@ export function ProfileDropdown({ user }: { user: User }) {
 
             <button
               onClick={handleLogout}
-              className="group flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all hover:bg-red-50"
+              className="group flex min-h-12 w-full items-center gap-3 rounded-2xl border border-red-100 bg-red-50/70 px-3 py-2.5 text-left transition-all hover:bg-red-100"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-500 transition-transform group-hover:scale-105">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-red-600 transition-transform group-hover:scale-105">
                 <LogOut size={17} />
               </span>
-              <span className="text-sm font-black text-red-600">Se déconnecter</span>
+              <span className="min-w-0">
+                <span className="block text-sm font-black text-red-700">Se déconnecter</span>
+                <span className="block text-xs font-semibold text-red-500">Fermer la session sur cet appareil</span>
+              </span>
             </button>
           </div>
         </div>

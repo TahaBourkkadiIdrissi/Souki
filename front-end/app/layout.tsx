@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { MobilePullToRefresh } from "@/components/souki/mobile-pull-to-refresh"
 import { PwaInstallPrompt } from "@/components/souki/pwa-install-prompt"
 import { RouteGuard } from "@/components/routing/route-guard"
+import { PwaNavShell } from "@/components/souki/pwa-nav-shell"
 
 const inter = Inter({ 
   subsets: ["latin"],
@@ -70,13 +71,14 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="SOUKI" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />
       </head>
-      <body className={`${inter.variable} ${poppins.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} ${poppins.variable} font-sans antialiased overflow-x-hidden`}>
         <AuthProvider>
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
             <MobilePullToRefresh />
             <Suspense fallback={null}>
               <RouteGuard>{children}</RouteGuard>
             </Suspense>
+            <PwaNavShell />
             <PwaInstallPrompt />
           </ThemeProvider>
         </AuthProvider>

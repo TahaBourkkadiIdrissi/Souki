@@ -26,6 +26,7 @@ from entities.zone_jit_entity import ZoneJIT
 from entities.jit_log_entity import JITLog
 from entities.cod_confirmation_log_entity import CODConfirmationLog
 from entities.produit_b2b_entity import ProduitB2B
+from entities.fournisseur_produit_entity import FournisseurProduit
 from entities.role_entity import Role
 from entities.permission_entity import Permission
 from entities.user_role_entity import UserRole
@@ -63,6 +64,7 @@ __all__ = [
     "JITLog",
     "CODConfirmationLog",
     "ProduitB2B",
+    "FournisseurProduit",
     "Role",
     "Permission",
     "UserRole",
