@@ -110,3 +110,8 @@ def get_wallet(principal=Depends(require_auth)):
 @settings_router.post("/wallet/activate")
 def activate_wallet(data: WalletActivationDTO, principal=Depends(require_auth)):
     return _service.activate_wallet(principal.user_id, data)
+
+
+@settings_router.post("/parrainage/generate")
+def generate_parrainage_code(principal=Depends(require_auth)):
+    return _service.generate_parrainage_code(principal.user_id)

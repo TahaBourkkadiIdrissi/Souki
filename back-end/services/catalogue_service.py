@@ -78,7 +78,7 @@ class CatalogueService(ICatalogueService):
             prix_affiche=(
                 float(produit.prix_affiche)
                 if produit.prix_affiche is not None
-                else None
+                else float(produit.prix_kg)
             ),
             prix_khddar_estime=prix_khddar_estime,
             is_active=bool(produit.is_active) if produit.is_active is not None else True,
@@ -93,12 +93,10 @@ class CatalogueService(ICatalogueService):
         session = self._ensure_session()
         try:
             products = self.product_dao.get_all(session)
-            # Un produit sans prix calcule (prix_affiche None) n'est pas vendable :
-            # on le masque du catalogue client (il reste visible/editable cote admin).
+            # On ne masque plus les produits sans prix_affiche, ils utiliseront prix_kg
             return [
                 self._to_product_response(p)
                 for p in products
-                if p.prix_affiche is not None
             ]
         finally:
             if auto_session:

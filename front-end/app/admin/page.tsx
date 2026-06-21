@@ -489,19 +489,18 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
-      <header className="sticky top-0 z-50 glass-ios26 border-b border-[#E5E7EB]">
+      <header className="sticky top-0 z-50 bg-white border-b border-[#E5E7EB]">
         <div className="flex h-14 items-center justify-between px-4 lg:px-6">
           <div className="flex items-center gap-4">
             <button type="button" onClick={() => setSidebarOpen(true)} className="rounded-lg p-2 text-[#1F2937] hover:bg-gray-100 lg:hidden">
               <Menu className="h-5 w-5" />
             </button>
             <Link href="/admin" className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-100 bg-[#F0FDF4] text-[#1E8A3C]">
-                <Leaf className="h-5 w-5" />
+              <div className="flex items-center justify-center rounded-xl bg-white p-1">
+                <img src="/logo3.png" alt="SOUKI" className="h-8 w-auto object-contain" />
               </div>
               <div className="hidden sm:block">
-                <span className="text-lg font-bold text-[#1E8A3C]">SOUKI</span>
-                <span className="ml-1 text-sm text-[#6B7280]">Admin</span>
+                <span className="ml-1 text-sm font-bold text-[#6B7280]">Admin</span>
               </div>
             </Link>
           </div>
@@ -522,7 +521,7 @@ export default function AdminDashboard() {
       <div className="flex">
         <aside
           className={cn(
-            "fixed left-0 top-0 z-40 flex h-screen w-20 flex-col bg-[#1E8A3C] transition-transform lg:sticky lg:top-14 lg:h-[calc(100vh-56px)] lg:translate-x-0",
+            "fixed left-0 top-0 z-40 flex h-screen w-64 flex-col bg-[#1E8A3C] transition-transform lg:sticky lg:top-14 lg:h-[calc(100vh-56px)] lg:translate-x-0",
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           )}
         >
@@ -538,18 +537,20 @@ export default function AdminDashboard() {
                 title={item.label}
                 aria-label={item.label}
                 className={cn(
-                  "flex h-11 w-11 items-center justify-center rounded-xl font-medium transition-colors",
+                  "flex h-11 w-full items-center gap-3 rounded-xl px-3 font-medium transition-colors",
                   item.active ? "bg-white/20 text-white" : "text-white/75 hover:bg-white/10 hover:text-white"
                 )}
               >
-                <item.icon className="h-5 w-5" />
+                <item.icon className="h-5 w-5 shrink-0" />
+                <span className="truncate text-sm">{item.label}</span>
               </Link>
             ))}
           </nav>
 
           <div className="border-t border-white/20 p-3">
-            <button type="button" title="Deconnexion" aria-label="Deconnexion" onClick={handleAdminLogout} className="flex h-11 w-11 items-center justify-center rounded-xl text-white/75 transition-colors hover:bg-white/10 hover:text-white">
-              <LogOut className="h-5 w-5" />
+            <button type="button" title="Deconnexion" aria-label="Deconnexion" onClick={handleAdminLogout} className="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-white/75 transition-colors hover:bg-white/10 hover:text-white">
+              <LogOut className="h-5 w-5 shrink-0" />
+              <span className="text-sm font-medium">Déconnexion</span>
             </button>
           </div>
         </aside>
@@ -557,7 +558,7 @@ export default function AdminDashboard() {
         {sidebarOpen ? <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} /> : null}
 
         <main className="min-w-0 flex-1">
-          <div className="sticky top-14 z-30 glass-ios26 border-b border-[#E5E7EB] px-4 py-3 lg:px-6">
+          <div className="sticky top-14 z-30 bg-white border-b border-[#E5E7EB] px-4 py-3 lg:px-6">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">

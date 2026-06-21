@@ -1271,3 +1271,10 @@ export async function fetchUserFavorites(token: string): Promise<CatalogueProduc
     return []
   }
 }
+
+export async function generateParrainageCode(token: string): Promise<{ code_parrainage: string }> {
+  return apiCall<{ code_parrainage: string }>("/api/user/parrainage/generate", {
+    method: "POST",
+    token,
+  })
+}

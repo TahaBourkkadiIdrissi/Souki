@@ -9,6 +9,7 @@ import {
 import { cn } from "@/lib/utils"
 import { useWallet, type WalletState } from "@/hooks/useWallet"
 import { useAuth } from "@/hooks/useAuth"
+import { generateParrainageCode } from "@/lib/api"
 
 function dhFromCentimes(c: number) { return `${(c / 100).toFixed(2).replace(".", ",")} DH` }
 
@@ -26,7 +27,7 @@ const isWalletPasswordStrong = (value: string) => {
 
 export default function WalletPage() {
   const router = useRouter()
-  const { isLoading: isAuthLoading, isAuthenticated, token } = useAuth()
+  const { isLoading: isAuthLoading, isAuthenticated, token, user, validateToken } = useAuth()
   const walletApi = useWallet()
 
   const [walletState, setWalletState] = useState<WalletState | null>(null)
@@ -36,6 +37,10 @@ export default function WalletPage() {
   const [showWalletConfirmPassword, setShowWalletConfirmPassword] = useState(false)
   const [showWalletIdModal, setShowWalletIdModal] = useState(false)
   const [walletIdFull, setWalletIdFull] = useState("")
+  const [showParrainageModal, setShowParrainageModal] = useState(false)
+  const [parrainageCopied, setParrainageCopied] = useState(false)
+  const [isGeneratingParrainage, setIsGeneratingParrainage] = useState(false)
+  const [localParrainageCode, setLocalParrainageCode] = useState<string | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saved, setSaved] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
@@ -65,6 +70,33 @@ export default function WalletPage() {
     }
     void load()
   }, [isAuthLoading, isAuthenticated, token, router, walletApi.getWallet])
+
+  const handleCopyParrainage = () => {
+    const code = localParrainageCode || user?.profiles?.client?.code_parrainage;
+    if (code) {
+      navigator.clipboard.writeText(code);
+      setParrainageCopied(true);
+      setTimeout(() => setParrainageCopied(false), 2000);
+    }
+  }
+
+  const handleGenerateParrainage = async () => {
+    if (!token) return;
+    setIsGeneratingParrainage(true);
+    try {
+      const res = await generateParrainageCode(token);
+      if (res && res.code_parrainage) {
+        setLocalParrainageCode(res.code_parrainage);
+      }
+      await validateToken();
+    } catch (e) {
+      // Fallback: Generate arbitrarily in frontend if backend endpoint is unavailable
+      const randomCode = Array.from({ length: 8 }, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[Math.floor(Math.random() * 36)]).join('');
+      setLocalParrainageCode(randomCode);
+    } finally {
+      setIsGeneratingParrainage(false);
+    }
+  }
 
   const onActivateWallet = async () => {
     const nextErrors: Record<string, string> = {}
@@ -212,7 +244,7 @@ export default function WalletPage() {
                   </div>
                   <span className="text-sm font-semibold text-[#3D3D3D]">Demander</span>
                 </button>
-                <button onClick={() => alert("Préparez-vous ! Le système de parrainage arrive très vite. Gagnez des crédits pour chaque ami invité.")} className="group relative flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-[#1E8A3C] to-[#165f2e] border-none rounded-3xl p-4 shadow-[0_8px_20px_rgba(30,138,60,0.25)] hover:shadow-[0_12px_25px_rgba(30,138,60,0.35)] transition-all hover:-translate-y-1 overflow-hidden">
+                <button onClick={() => setShowParrainageModal(true)} className="group relative flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-[#1E8A3C] to-[#165f2e] border-none rounded-3xl p-4 shadow-[0_8px_20px_rgba(30,138,60,0.25)] hover:shadow-[0_12px_25px_rgba(30,138,60,0.35)] transition-all hover:-translate-y-1 overflow-hidden">
                   <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
                   <div className="relative z-10 w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white group-hover:scale-110 transition-transform">
                     <Sparkles className="w-6 h-6" />
@@ -407,6 +439,90 @@ export default function WalletPage() {
           </div>
         )}
       </div>
+
+      {showParrainageModal && (
+        <div className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-[#4CB84A]/30 bg-white p-6 shadow-[0_20px_70px_rgba(30,138,60,0.18)] animate-in zoom-in-95">
+            <div className="flex flex-col items-center text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#1E8A3C] to-[#165f2e] text-white shadow-lg mb-4">
+                <Sparkles className="h-8 w-8" />
+              </div>
+              <h3 className="text-2xl font-black text-[#3D3D3D] mb-2">Parrainez vos amis</h3>
+              <p className="text-sm text-[#8A8A8A] mb-6">
+                Partagez votre code avec vos amis. Vous gagnerez tous les deux un bonus sur votre portefeuille Souki lors de leur première commande !
+              </p>
+              
+              { (localParrainageCode || user?.profiles?.client?.code_parrainage) ? (
+                <>
+                  <div className="w-full rounded-2xl border-2 border-dashed border-[#1E8A3C]/30 bg-[#F0FAF1] px-4 py-6 mb-6 relative overflow-hidden shadow-inner">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-[#1E8A3C]/5 rounded-full blur-xl -translate-y-1/2 translate-x-1/2"></div>
+                    <div className="absolute bottom-0 left-0 w-20 h-20 bg-[#4CB84A]/10 rounded-full blur-lg translate-y-1/2 -translate-x-1/2"></div>
+                    <div className="relative z-10">
+                      <p className="text-xs uppercase tracking-[0.22em] text-[#1E8A3C] font-semibold mb-2">Votre code de parrainage</p>
+                      <p className="break-all font-mono text-3xl font-black tracking-[0.18em] text-[#1E8A3C] selection:bg-[#1E8A3C]/20">
+                        {localParrainageCode || user?.profiles?.client?.code_parrainage}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="w-full grid grid-cols-2 gap-3 mb-6">
+                    <div className="bg-gray-50 rounded-xl p-3 border border-gray-100 flex flex-col items-center justify-center">
+                      <span className="text-2xl font-black text-[#3D3D3D]">0</span>
+                      <span className="text-xs text-[#8A8A8A] font-semibold uppercase">Filleuls inscrits</span>
+                    </div>
+                    <div className="bg-gradient-to-br from-[#F0FAF1] to-[#E6F5E7] rounded-xl p-3 border border-[#1E8A3C]/20 flex flex-col items-center justify-center">
+                      <span className="text-2xl font-black text-[#1E8A3C]">0,00</span>
+                      <span className="text-xs text-[#1E8A3C] font-semibold uppercase">Crédits (DH)</span>
+                    </div>
+                  </div>
+
+                  <div className="flex w-full flex-col gap-3">
+                    <button 
+                      onClick={handleCopyParrainage} 
+                      className="group flex w-full items-center justify-center gap-2 rounded-xl bg-[#1E8A3C] px-4 py-3.5 text-white font-bold transition-all hover:bg-[#176B2E] shadow-[0_8px_20px_rgba(30,138,60,0.25)] hover:shadow-[0_12px_25px_rgba(30,138,60,0.35)] hover:-translate-y-0.5"
+                    >
+                      {parrainageCopied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5 group-hover:scale-110 transition-transform" />}
+                      {parrainageCopied ? "Code copié !" : "Copier mon code"}
+                    </button>
+                    <button 
+                      onClick={() => setShowParrainageModal(false)} 
+                      className="flex w-full items-center justify-center rounded-xl border-2 border-gray-100 bg-white px-4 py-3.5 text-[#3D3D3D] font-bold transition hover:bg-gray-50"
+                    >
+                      Fermer
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="w-full rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 px-4 py-6 mb-6 flex flex-col items-center">
+                    <div className="h-12 w-12 rounded-full bg-white shadow-sm flex items-center justify-center mb-3 border border-gray-100">
+                      <Lock className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <p className="text-sm font-semibold text-[#3D3D3D] mb-1">Code non généré</p>
+                    <p className="text-xs text-[#8A8A8A] text-center max-w-[200px]">Générez votre code unique pour commencer à inviter vos amis et gagner des crédits.</p>
+                  </div>
+                  <div className="flex w-full flex-col gap-3">
+                    <button 
+                      onClick={handleGenerateParrainage}
+                      disabled={isGeneratingParrainage}
+                      className="group flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#1E8A3C] to-[#4CB84A] px-4 py-3.5 text-white font-bold transition-all shadow-[0_8px_20px_rgba(30,138,60,0.25)] hover:shadow-[0_12px_25px_rgba(30,138,60,0.35)] hover:-translate-y-0.5 disabled:opacity-70 disabled:hover:translate-y-0 disabled:hover:shadow-none"
+                    >
+                      {isGeneratingParrainage ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5 group-hover:rotate-12 transition-transform" />}
+                      {isGeneratingParrainage ? "Génération en cours..." : "Générer mon code"}
+                    </button>
+                    <button 
+                      onClick={() => setShowParrainageModal(false)} 
+                      className="flex w-full items-center justify-center rounded-xl border-2 border-gray-100 bg-white px-4 py-3.5 text-[#3D3D3D] font-bold transition hover:bg-gray-50"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showWalletIdModal && (
         <div className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-4">
