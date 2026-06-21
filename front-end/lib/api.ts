@@ -640,6 +640,13 @@ export interface DashboardDTO {
   ca_wallet: number
   ca_cmi: number
   panier_moyen: number
+  panier_moyen_precedent: number
+  marge_brute: number
+  marge_brute_precedent: number
+  taux_marge: number
+  parrainages_en_attente: number
+  filleuls_convertis: number
+  credit_parrainage_distribue: number
   total_clients_actifs: number
   nouveaux_clients: number
   nouveaux_clients_precedent: number
@@ -1038,6 +1045,41 @@ export async function getAdminDashboard(
     token,
     signal,
   })
+}
+
+export interface ParrainageAdminItemDTO {
+  id: number
+  parrain_id: number
+  parrain_contact: string | null
+  code_utilise: string
+  filleul_id: number
+  filleul_contact: string | null
+  statut: string
+  credit_total: number
+  created_at: string | null
+  converted_at: string | null
+}
+
+export interface ParrainageTopParrainDTO {
+  parrain_id: number
+  parrain_contact: string | null
+  filleuls_convertis: number
+  credit_genere: number
+}
+
+export interface ParrainageAdminOverviewDTO {
+  total: number
+  en_attente: number
+  convertis: number
+  rejetes: number
+  taux_conversion: number
+  credit_distribue: number
+  top_parrains: ParrainageTopParrainDTO[]
+  recent: ParrainageAdminItemDTO[]
+}
+
+export async function getAdminParrainages(token: string, signal?: AbortSignal) {
+  return apiCall<ParrainageAdminOverviewDTO>("/admin/parrainages", { token, signal })
 }
 
 export async function getAdminClients(
