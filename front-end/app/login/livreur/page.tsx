@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { Suspense, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import { API_BASE_URL } from "@/lib/api"
+import { isValidMoroccanPhone, normalizeMoroccanPhone, PHONE_ERROR_MSG } from "@/lib/phoneValidator"
 import { GoogleLoginButton } from "@/components/auth/google-login-button"
 import { PasswordStrength } from "@/components/souki/password-strength"
 import { 
@@ -25,7 +26,7 @@ type AuthMode = "login" | "signup"
 type UserRole = "client" | "parent" | "livreur"
 
 const cities = ["Fès", "Meknès", "Casablanca", "Rabat"]
-export default function LivreurLoginPage() {
+function LivreurLoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { login, googleLogin } = useAuth()
@@ -74,7 +75,7 @@ export default function LivreurLoginPage() {
       
       // Pour un livreur, le téléphone est souvent crucial, on le rend obligatoire
       if (!phone) errors.phone = "Le numéro de téléphone est requis pour les livreurs.";
-      else if (!/^\d{9,10}$/.test(phone)) errors.phone = "Format de téléphone invalide.";
+      else if (!isValidMoroccanPhone(phone)) errors.phone = PHONE_ERROR_MSG;
       
       if (!selectedCity) errors.selectedCity = "Veuillez sélectionner votre ville d'opération.";
       
@@ -103,10 +104,8 @@ export default function LivreurLoginPage() {
       let currentError = "";
 
       if (field === "phone") {
-        const localRegex = /^(0|)[67]\d{8}$/;
-        const intlRegex = /^\+212[67]\d{8}$/;
-        if (value && !localRegex.test(value) && !intlRegex.test(value)) {
-          currentError = "Format invalide (ex: 06XXXXXXXX ou +2126XXXXXXXX)";
+        if (value && !isValidMoroccanPhone(value)) {
+          currentError = PHONE_ERROR_MSG;
         }
       }
 
@@ -156,16 +155,7 @@ export default function LivreurLoginPage() {
 
     try {
       if (mode === "signup") {
-        let formattedPhone = phone.trim();
-        if (formattedPhone) {
-          if (formattedPhone.startsWith("+212")) {
-             // Déjà formaté
-          } else if (formattedPhone.startsWith("0")) {
-            formattedPhone = `+212${formattedPhone.substring(1)}`;
-          } else {
-            formattedPhone = `+212${formattedPhone}`;
-          }
-        }
+        const formattedPhone = phone.trim() ? normalizeMoroccanPhone(phone) : "";
 
         const response = await fetch(`${API_BASE_URL}/auth/register`, {
           method: "POST",
@@ -664,5 +654,19 @@ export default function LivreurLoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LivreurLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-[#1E8A3C]" />
+        </div>
+      }
+    >
+      <LivreurLoginContent />
+    </Suspense>
   )
 }

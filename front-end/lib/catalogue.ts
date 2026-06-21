@@ -1,24 +1,21 @@
+import type { CatalogueProductDTO, CommandeHistoriqueDTO } from "@/lib/api"
 import { apiCall } from "@/lib/api"
 
 export type CatalogueCategory = "legumes" | "fruits" | "herbes"
 
-export interface ApiCatalogueProduct {
-  id: number
-  nom_fr: string
-  nom_darija: string
-  prix_kg: number
-  unite: string
-  stock: number
-}
+export type ApiCatalogueProduct = CatalogueProductDTO
 
 export interface CatalogueProduct {
   id: number
   name: string
   alias: string
   price: number
+  prix_khddar_estime?: number | null
+  niveau?: CatalogueProductDTO["niveau"]
   unit: string
   displayUnit: string
   image: string
+  fallbackImage?: string
   category: CatalogueCategory
   quantityStep: number
   stock: number
@@ -33,8 +30,51 @@ export interface BasketSelection {
   quantity: number
 }
 
+export type SmartBasketProfile =
+  | "aromates_herbes"
+  | "cuisine_couscous"
+  | "cuisine_tajine"
+  | "equilibre"
+  | "fruits_dominant"
+  | "legumes_base"
+  | "legumes_verts"
+  | "racines_tubercules"
+  | "salade_fraicheur"
+  | "soupe_hiver"
+
+export interface SmartBasketRequest {
+  budget: number
+  personnes: number
+  duree: number
+  profil: SmartBasketProfile
+}
+
+export interface SmartBasketLine {
+  product_id: number
+  nom_produit: string
+  quantite_kg: number
+  prix_unitaire: number
+  sous_total: number
+  unite: string
+  image?: string
+}
+
+export interface SmartBasketResponse {
+  status: string
+  source: string
+  panier_id?: number | null
+  criteres: Record<string, unknown>
+  lignes_panier: SmartBasketLine[]
+  total_dh: number
+  nombre_articles: number
+  model_warning?: string | null
+}
+
 export const CART_STORAGE_KEY = "souki-cart"
-export const DELIVERY_FEE = 10
+export const FREE_DELIVERY_THRESHOLD = 300
+export const DELIVERY_FEE = 15
+export const POTATO_IMAGE_URL =
+  "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=800&h=600&fit=crop"
 
 const productPresentation: Record<
   string,
@@ -42,7 +82,7 @@ const productPresentation: Record<
 > = {
   "Pommes de terre": {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=800&h=600&fit=crop",
+    image: POTATO_IMAGE_URL,
   },
   "Oignons rouge": {
     category: "legumes",
@@ -196,6 +236,24 @@ const normalizedPresentationEntries = new Map(
   Object.entries(productPresentation).map(([key, value]) => [normalizeProductName(key), value])
 )
 
+const excludedCatalogueNames = new Set(
+  [
+    "Tomate test",
+    "Taha",
+    "Hamza",
+    "Test Supabase Lag",
+    "Panier Essentiel",
+    "Panier Essentiel V2",
+    "Panier Essentiel V3",
+    "Panier Epicerie",
+    "Panier Épicerie",
+    "Panier Ã‰picerie",
+    "Panier Ãƒâ€°picerie",
+    "Panier Fruits Bio",
+    "Panier Test",
+  ].map(normalizeProductName)
+)
+
 export function getCataloguePresentation(name: string) {
   const directMatch = productPresentation[name]
   if (directMatch) {
@@ -221,19 +279,38 @@ export function getCataloguePresentation(name: string) {
   )
 }
 
+export function resolveCatalogueImage(name: string, imageUrl?: string | null) {
+  const presentation = getCataloguePresentation(name)
+  if (normalizeProductName(name) === "pommes de terre") {
+    return presentation.image
+  }
+  return imageUrl || presentation.image
+}
+
 export async function fetchCatalogueProducts(): Promise<CatalogueProduct[]> {
   const data = (await apiCall("/api/catalogue")) as ApiCatalogueProduct[]
-  return data.map((product) => {
+  return data
+    .filter(
+      // Defense en profondeur : le backend masque deja les produits sans prix,
+      // on garantit ici que price est un number (jamais le prix_kg brut en secours).
+      (product): product is ApiCatalogueProduct & { prix_affiche: number } =>
+        !excludedCatalogueNames.has(normalizeProductName(product.nom_fr)) &&
+        product.prix_affiche !== null,
+    )
+    .map((product) => {
     const presentation = getCataloguePresentation(product.nom_fr)
 
     return {
       id: product.id,
       name: product.nom_fr,
       alias: product.nom_darija,
-      price: product.prix_kg,
+      price: product.prix_affiche,
+      prix_khddar_estime: product.prix_khddar_estime,
+      niveau: product.niveau,
       unit: product.unite,
       displayUnit: presentation.displayUnit || product.unite,
-      image: presentation.image,
+      image: resolveCatalogueImage(product.nom_fr, product.image_url),
+      fallbackImage: presentation.image,
       category: presentation.category,
       quantityStep: presentation.quantityStep || (product.unite === "kg" ? 0.5 : 1),
       stock: product.stock,
@@ -315,31 +392,21 @@ export function buildSmartBasket(
     "1 mois": 2.4,
   }
 
-  const preferredNames = [
-    "Tomates",
-    "Pommes de terre",
-    "Oignons rouge",
-    "Carottes",
-    "Courgettes",
-    "Concombres",
-    "Poivrons",
-    "Haricots verts",
-    "Laitue",
-    "Oranges",
-    "Citrons",
-    "Menthe fraiche",
+  const levelOne = products.filter((product) => product.niveau === 1)
+  const levelTwo = products.filter((product) => product.niveau === 2)
+  const levelThree = products.filter((product) => product.niveau === 3)
+  const preferredProducts = [
+    ...levelOne.slice(0, 4),
+    ...levelTwo.slice(0, 5),
+    ...levelThree.slice(0, 4),
+    ...products.filter((product) => ![1, 2, 3].includes(Number(product.niveau))),
   ]
 
   const factor = durationFactor[duration] || 1
   const baseSelections: BasketSelection[] = []
   let total = 0
 
-  for (const name of preferredNames) {
-    const product = products.find((item) => item.name === name)
-    if (!product) {
-      continue
-    }
-
+  for (const product of preferredProducts) {
     const quantity =
       product.unit === "kg"
         ? Math.max(0.5, Math.round(factor * 2) / 2)
@@ -413,6 +480,7 @@ export async function submitManualBasket(cart: CartItem[]): Promise<ManualBasket
   const items = cart.map((item) => ({
     product_id: typeof item.id === "string" ? parseInt(item.id) : item.id,
     quantity: typeof item.quantity === "string" ? parseFloat(item.quantity) : item.quantity,
+    prix_unitaire: item.price,
   }))
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
@@ -430,6 +498,17 @@ export async function submitManualBasket(cart: CartItem[]): Promise<ManualBasket
   }) as Promise<ManualBasketResponse>
 }
 
+export async function generateSmartPanier(
+  payload: SmartBasketRequest,
+  token: string
+): Promise<SmartBasketResponse> {
+  return apiCall("/api/paniers/generer", {
+    method: "POST",
+    token,
+    body: payload,
+  }) as Promise<SmartBasketResponse>
+}
+
 export async function fetchPanierDetails(panierId: number): Promise<PanierDetailsResponse> {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
   return apiCall(`/api/paniers/${panierId}`, {
@@ -442,4 +521,51 @@ export async function fetchCommandeCheckout(commandeId: number): Promise<Command
   return apiCall(`/api/commandes/${commandeId}`, {
     ...(token ? { token } : {}),
   }) as Promise<CommandeCheckoutResponse>
+}
+
+export async function fetchOrderHistory(): Promise<CommandeHistoriqueDTO[]> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+  return apiCall("/api/commandes/historique", {
+    ...(token ? { token } : {}),
+  }) as Promise<CommandeHistoriqueDTO[]>
+}
+
+export async function deleteOrderFromHistory(commandeId: number): Promise<{ success: boolean; message?: string }> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+  return apiCall(`/api/commandes/historique/${commandeId}`, {
+    method: "DELETE",
+    ...(token ? { token } : {}),
+  }) as Promise<{ success: boolean; message?: string }>
+}
+
+export type ClaimReason =
+  | "abime"
+  | "poids_incorrect"
+  | "erreur_produit"
+  | "produit_manquant"
+  | "qualite"
+  | "autre"
+
+export interface ClaimCreatePayload {
+  commande_id: number
+  items: Array<{
+    ligne_panier_id: number
+    quantity_claimed: number
+    reason: ClaimReason
+  }>
+}
+
+export interface ClaimResponse {
+  status: string
+  amount_refunded: string | number
+  new_wallet_balance: string | number
+}
+
+export async function submitClaim(payload: ClaimCreatePayload): Promise<ClaimResponse> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+  return apiCall("/api/v1/claims", {
+    method: "POST",
+    ...(token ? { token } : {}),
+    body: payload,
+  }) as Promise<ClaimResponse>
 }

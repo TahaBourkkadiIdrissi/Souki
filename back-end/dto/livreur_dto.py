@@ -15,6 +15,7 @@ class DeliveryTargetStatus(str, Enum):
 
 class TourneeItemDTO(BaseModel):
     commande_id: int
+    ordre_passage: Optional[int] = None
     client_phone: Optional[str] = None
     client_label: str
     street: Optional[str] = None
@@ -35,13 +36,35 @@ class TourneeItemDTO(BaseModel):
     lng: Optional[float] = None
 
 
+class PickupDTO(BaseModel):
+    fournisseur_id: Optional[int] = None
+    shop_name: Optional[str] = None
+    address: Optional[str] = None
+    ville: Optional[str] = None
+    phone: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+
 class TourneeResponseDTO(BaseModel):
     status: str = "success"
     date_jour: date
     available_after: str = "07:00"
     sort_strategy: str
     tournee_started: bool = False
+    tournee_id: Optional[int] = None
+    pickup: Optional[PickupDTO] = None
+    ramassee: bool = False
+    ramasse_at: Optional[datetime] = None
     items: List[TourneeItemDTO] = Field(default_factory=list)
+
+
+class RamassageResponseDTO(BaseModel):
+    status: str = "success"
+    tournee_id: int
+    ramasse_at: datetime
+    commandes_ramassees: int = Field(default=0, ge=0)
+    idempotent: bool = False
 
 
 class DemarrerTourneeResponseDTO(BaseModel):
@@ -54,6 +77,12 @@ class DemarrerTourneeResponseDTO(BaseModel):
 
 class DeliveryEventRequestDTO(BaseModel):
     target_status: DeliveryTargetStatus
+    client_event_id: UUID
+    device_timestamp: datetime
+    expected_version: Optional[int] = Field(default=None, ge=1)
+
+
+class LivraisonDecisionRequestDTO(BaseModel):
     client_event_id: UUID
     device_timestamp: datetime
     expected_version: Optional[int] = Field(default=None, ge=1)
@@ -72,6 +101,17 @@ class DeliveryEventResponseDTO(BaseModel):
     absent_at: Optional[datetime] = None
     device_timestamp: datetime
     server_timestamp: datetime
+    idempotent: bool = False
+    message: str
+
+
+class TourneeRefusResponseDTO(BaseModel):
+    status: str = "success"
+    client_event_id: UUID
+    commandes_refusees: int = Field(default=0, ge=0)
+    commande_ids: List[int] = Field(default_factory=list)
+    dispatch_reassign_triggered: bool = False
+    dispatch_status: Optional[str] = None
     idempotent: bool = False
     message: str
 

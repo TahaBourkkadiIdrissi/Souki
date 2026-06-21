@@ -1,13 +1,18 @@
+import base64
 import json
 from typing import Optional, List
 from config import LocalSession
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from interfaces.commande_service_interface import ICommandeVocaleService
 from interfaces.product_dao_interface import IProductDao
 from interfaces.commande_dao_interface import ICommandeVocaleDao
 from services.catalogue_service import CatalogueService
-from dto.commande_dto import VoiceBasketResponseDTO, CommandeCheckoutDTO, LigneCheckoutDTO, CommandeJourDTO
+from dto.commande_dto import VoiceBasketResponseDTO, CommandeCheckoutDTO, LigneCheckoutDTO, CommandeHistoriqueDTO, CommandeJourDTO, FicheClientDTO
 from api.algorithms import call_gemini, build_audio_parts, build_text_parts
+
+
+MIN_AUDIO_SIZE_BYTES = 5000
 
 
 class CommandeVocaleService(ICommandeVocaleService):
@@ -44,14 +49,43 @@ class CommandeVocaleService(ICommandeVocaleService):
         )
 
     def traiter_audio(self, user_id: int, audio_b64: str, mime_type: str) -> VoiceBasketResponseDTO:
+        self._validate_audio_payload(audio_b64)
         parts = build_audio_parts(audio_b64, mime_type)
         gemini_result = call_gemini(parts)
+        self._validate_gemini_audio_result(gemini_result)
         return self._traiter_commande(
             user_id,
             texte_transcrit=gemini_result.get("transcription", ""),
             json_brut_gemini=json.dumps(gemini_result),
             langue=gemini_result.get("langue_detectee", "inconnu")
         )
+
+    def _validate_audio_payload(self, audio_b64: str) -> None:
+        try:
+            audio_bytes = base64.b64decode(audio_b64, validate=True)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail="Audio invalide.") from exc
+
+        if len(audio_bytes) < MIN_AUDIO_SIZE_BYTES:
+            raise HTTPException(
+                status_code=400,
+                detail="Aucune voix detectee. Appuyez et parlez.",
+            )
+
+    def _validate_gemini_audio_result(self, gemini_result: dict) -> None:
+        if gemini_result.get("error"):
+            raise HTTPException(
+                status_code=502,
+                detail="Assistant vocal indisponible. Reessayez dans quelques instants.",
+            )
+
+        transcription = str(gemini_result.get("transcription") or "").strip()
+        items = gemini_result.get("items") or []
+        if not transcription and not items:
+            raise HTTPException(
+                status_code=400,
+                detail="Aucune voix detectee. Appuyez et parlez.",
+            )
 
     # ── Méthode privée ────────────────────────────────────────────────────────
     def _traiter_commande(
@@ -113,3 +147,12 @@ class CommandeVocaleService(ICommandeVocaleService):
 
     def get_commandes_du_jour(self, session: Session) -> List[CommandeJourDTO]:
         return self.commande_dao.get_commandes_du_jour(session)
+
+    def get_historique_client(self, client_id: int) -> List[CommandeHistoriqueDTO]:
+        return self.commande_dao.get_historique_client(self.session, client_id)  # type: ignore
+
+    def delete_historique_commande(self, client_id: int, commande_id: int) -> bool:
+        return self.commande_dao.hide_commande_from_client_history(self.session, client_id, commande_id)  # type: ignore
+
+    def get_fiche_client(self, session: Session, client_id: int) -> Optional[FicheClientDTO]:
+        return self.commande_dao.get_fiche_client(session, client_id)

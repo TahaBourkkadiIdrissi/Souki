@@ -21,6 +21,21 @@ class ICheckoutDao(ABC):
         pass
 
     @abstractmethod
+    def update_user_phone(self, session: Session, user_id: int, phone: str) -> None:
+        pass
+
+    @abstractmethod
+    def upsert_user_delivery_address(
+        self,
+        session: Session,
+        user_id: int,
+        street: str,
+        city: str,
+        details: Optional[str],
+    ) -> None:
+        pass
+
+    @abstractmethod
     def create_panier(
         self,
         session: Session,

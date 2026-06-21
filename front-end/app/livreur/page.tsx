@@ -20,6 +20,7 @@ import {
   SignalHigh,
   Truck,
   WifiOff,
+  XCircle,
 } from "lucide-react"
 import type { LineLayerSpecification } from "mapbox-gl"
 import MapView, { Layer, Marker, NavigationControl, Source, type MapRef } from "react-map-gl/mapbox"
@@ -29,10 +30,12 @@ import { useAuth } from "@/hooks/useAuth"
 import {
   ApiError,
   CodValidationResponse,
+  confirmerRamassageLivreur,
   DeliveryEventRequest,
   DeliveryEventResponse,
   envoyerEvenementLivraison,
   getLivreurTournee,
+  refuserTourneeLivreur,
   TourneeItem,
   TourneeResponse,
   validerPaiementCodLivreur,
@@ -72,6 +75,7 @@ const ROUTE_REFRESH_DISTANCE_METERS = 40
 const ROUTE_REFRESH_INTERVAL_MS = 15000
 const ROUTE_OVERVIEW_PADDING = { top: 140, bottom: 190, left: 28, right: 28 }
 const DRIVE_MODE_PADDING = { top: 100, bottom: 190, left: 20, right: 20 }
+const ASSIGNMENT_REFUSED_STATUS = "REFUS_LIVREUR"
 const STARTED_DELIVERY_STATUS = "EN_ROUTE"
 const ROUTE_CASING_LAYER: Omit<LineLayerSpecification, "source"> = {
   id: "tournee-route-casing",
@@ -208,6 +212,10 @@ function normalizeTourneeItem(item: TourneeItem): TourneeItem {
 function normalizeTourneeResponse(response: TourneeResponse): TourneeResponse {
   return {
     ...response,
+    tournee_id: response.tournee_id ?? null,
+    pickup: response.pickup ?? null,
+    ramassee: Boolean(response.ramassee),
+    ramasse_at: response.ramasse_at ?? null,
     items: Array.isArray(response.items) ? response.items.map(normalizeTourneeItem) : [],
   }
 }
@@ -384,7 +392,12 @@ function normalizeDeliveryStatus(status: string): DeliveryStatus {
     return "absent"
   }
 
-  if (normalizedStatus === "REFUS" || normalizedStatus === "REFUSE" || normalizedStatus === "REFUSED") {
+  if (
+    normalizedStatus === "REFUS" ||
+    normalizedStatus === "REFUSE" ||
+    normalizedStatus === "REFUSED" ||
+    normalizedStatus === ASSIGNMENT_REFUSED_STATUS
+  ) {
     return "refused"
   }
 
@@ -439,13 +452,13 @@ function mapTourneeItemToDeliveryView(item: TourneeItem, index: number): Deliver
     id: String(item.commande_id),
     stepNumber: index + 1,
     orderNumber: String(item.commande_id),
-    timeSlot: item.creneau_livraison || "Non precise",
+    timeSlot: item.creneau_livraison || "Non précisé",
     address: item.full_address,
     street: item.street,
     neighborhood: item.neighborhood,
     details: item.details,
     clientName: item.client_label,
-    clientPhone: item.client_phone || "Telephone indisponible",
+    clientPhone: item.client_phone || "Téléphone indisponible",
     callHref: buildCallHref(item.client_phone),
     packageCount: item.colis_count,
     amount: Number(item.montant_total || 0),
@@ -475,6 +488,10 @@ function isActiveDelivery(item: DeliveryViewItem) {
   return item.status === "pending" || item.status === "enroute"
 }
 
+function isPendingAssignmentDelivery(item: DeliveryViewItem) {
+  return normalizeBackendStatus(item.rawStatus) === "EN_ATTENTE_LIVREUR"
+}
+
 function formatPaymentMethodLabel(paymentMethod: PaymentMethod) {
   if (paymentMethod === "wallet") {
     return "Wallet"
@@ -484,7 +501,7 @@ function formatPaymentMethodLabel(paymentMethod: PaymentMethod) {
     return "CMI"
   }
 
-  return "Especes"
+  return "Espèces"
 }
 
 function formatAmount(amount: number) {
@@ -498,7 +515,7 @@ function buildPreciseAddress(delivery: DeliveryViewItem) {
   }
 
   const firstAddressSegment = delivery.address.split(",")[0]?.trim()
-  return firstAddressSegment || "Adresse non precise"
+  return firstAddressSegment || "Adresse non précisée"
 }
 
 function buildPackageSummary(delivery: DeliveryViewItem) {
@@ -692,8 +709,10 @@ export default function LivreurPage() {
   const [isOffline, setIsOffline] = useState(false)
   const [isTourneeLoading, setIsTourneeLoading] = useState(true)
   const [isStartingTournee, setIsStartingTournee] = useState(false)
+  const [isConfirmingPickup, setIsConfirmingPickup] = useState(false)
   const [isValidatingCodPayment, setIsValidatingCodPayment] = useState(false)
   const [isLoadingRefus, setIsLoadingRefus] = useState(false)
+  const [isRefusingTournee, setIsRefusingTournee] = useState(false)
   const [beforeSeven, setBeforeSeven] = useState(false)
   const [tourneeStarted, setTourneeStarted] = useState(false)
   const [loadSource, setLoadSource] = useState<"api" | "cache" | null>(null)
@@ -710,6 +729,44 @@ export default function LivreurPage() {
   const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null)
   const [isRouteLoading, setIsRouteLoading] = useState(false)
   const [routeError, setRouteError] = useState<string | null>(null)
+
+  const handleConfirmPickup = async () => {
+    if (!token || !tourneeData?.tournee_id || tourneeData.ramassee) {
+      return
+    }
+    setIsConfirmingPickup(true)
+    setNotice(null)
+    try {
+      const response = await confirmerRamassageLivreur(token, tourneeData.tournee_id)
+      const nextTournee = {
+        ...tourneeData,
+        ramassee: true,
+        ramasse_at: response.ramasse_at,
+        items: tourneeData.items.map((item) =>
+          normalizeBackendStatus(item.statut) === "EN_ATTENTE_LIVREUR"
+            ? {
+                ...item,
+                statut: "A_LIVRER",
+                status_version: Number(item.status_version || 1) + 1,
+              }
+            : item
+        ),
+      }
+      applyTourneeData(nextTournee, "api")
+      writeCachedTournee(nextTournee)
+      setNotice({
+        tone: "success",
+        message: `${response.commandes_ramassees} commande(s) ramassée(s). Les livraisons sont débloquées.`,
+      })
+    } catch (error) {
+      setNotice({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Impossible de confirmer le ramassage.",
+      })
+    } finally {
+      setIsConfirmingPickup(false)
+    }
+  }
 
   const applyTourneeData = useEffectEvent((response: TourneeResponse, source: "api" | "cache") => {
     const normalizedResponse = normalizeTourneeResponse(response)
@@ -835,8 +892,12 @@ export default function LivreurPage() {
 
   const applyServerDeliveryEvent = useEffectEvent((response: DeliveryEventResponse) => {
     const nextStatus = normalizeDeliveryStatus(response.new_status)
+    const shouldMarkTourneeStarted =
+      nextStatus === "enroute" || nextStatus === "delivered" || nextStatus === "absent" || nextStatus === "refused"
 
-    setTourneeStarted(true)
+    if (shouldMarkTourneeStarted) {
+      setTourneeStarted(true)
+    }
     setDeliveryList((previousList) =>
       previousList.map((item) =>
         item.id === String(response.commande_id)
@@ -860,7 +921,7 @@ export default function LivreurPage() {
 
       const nextTournee = {
         ...previousTournee,
-        tournee_started: true,
+        tournee_started: previousTournee.tournee_started || shouldMarkTourneeStarted,
         items: previousTournee.items.map((item) =>
           item.commande_id === response.commande_id
             ? {
@@ -872,6 +933,76 @@ export default function LivreurPage() {
                 absent_at: response.absent_at ?? item.absent_at ?? null,
               }
             : item
+        ),
+      }
+
+      writeCachedTournee(nextTournee)
+      return nextTournee
+    })
+  })
+
+  const clearLocalTournee = useEffectEvent(() => {
+    setDeliveryList([])
+    deliveryListRef.current = []
+    setTourneeStarted(false)
+    setActiveNavigationDeliveryId(null)
+    setIsNavigating(false)
+    setRouteGeoJson(EMPTY_ROUTE_GEOJSON)
+    setRouteSummary(null)
+    setRouteError(null)
+    setIsRouteLoading(false)
+    setSheetMode("peek")
+    lastDirectionsRequestRef.current = null
+
+    setTourneeData((previousTournee) => {
+      if (!previousTournee) {
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem(CACHE_KEY)
+        }
+        return previousTournee
+      }
+
+      const nextTournee = {
+        ...previousTournee,
+        tournee_started: false,
+        items: [],
+      }
+
+      writeCachedTournee(nextTournee)
+      return nextTournee
+    })
+  })
+
+  const removePendingAssignmentsFromLocalTournee = useEffectEvent(() => {
+    const pendingIds = new Set(
+      deliveryListRef.current.filter(isPendingAssignmentDelivery).map((item) => item.id)
+    )
+    if (pendingIds.size === 0) {
+      return
+    }
+
+    setDeliveryList((previousList) => previousList.filter((item) => !pendingIds.has(item.id)))
+
+    if (activeNavigationDeliveryId && pendingIds.has(activeNavigationDeliveryId)) {
+      setActiveNavigationDeliveryId(null)
+      setIsNavigating(false)
+      setRouteGeoJson(EMPTY_ROUTE_GEOJSON)
+      setRouteSummary(null)
+      setRouteError(null)
+      setIsRouteLoading(false)
+      setSheetMode("peek")
+      lastDirectionsRequestRef.current = null
+    }
+
+    setTourneeData((previousTournee) => {
+      if (!previousTournee) {
+        return previousTournee
+      }
+
+      const nextTournee = {
+        ...previousTournee,
+        items: previousTournee.items.filter(
+          (item) => normalizeBackendStatus(item.statut) !== "EN_ATTENTE_LIVREUR"
         ),
       }
 
@@ -1263,7 +1394,7 @@ export default function LivreurPage() {
       setDeliveryList([])
       setLoadSource(null)
       setBeforeSeven(false)
-      setNotice({ tone: "error", message: "Connectez-vous pour consulter votre tournee." })
+      setNotice({ tone: "error", message: "Connectez-vous pour consulter votre tournée." })
       return
     }
 
@@ -1276,12 +1407,12 @@ export default function LivreurPage() {
       setNotice(null)
 
       if (!window.navigator.onLine) {
-        const hasCache = loadCachedTournee("Mode hors ligne. Affichage de la derniere tournee enregistree.")
+        const hasCache = loadCachedTournee("Mode hors ligne. Affichage de la dernière tournée enregistrée.")
         if (!hasCache) {
           setTourneeData(null)
           setDeliveryList([])
           setLoadSource(null)
-          setNotice({ tone: "error", message: "Mode hors ligne et aucune tournee n'est disponible en cache." })
+          setNotice({ tone: "error", message: "Mode hors ligne et aucune tournée n'est disponible en cache." })
         }
         setIsTourneeLoading(false)
         window.clearTimeout(timeoutId)
@@ -1312,8 +1443,8 @@ export default function LivreurPage() {
         } else {
           const isTimeout = error instanceof DOMException && error.name === "AbortError"
           const cacheMessage = isTimeout
-            ? "Le chargement a expire. Affichage de la derniere tournee enregistree."
-            : "Serveur indisponible. Affichage de la derniere tournee enregistree."
+            ? "Le chargement a expiré. Affichage de la dernière tournée enregistrée."
+            : "Serveur indisponible. Affichage de la dernière tournée enregistrée."
           const hasCache = loadCachedTournee(cacheMessage)
 
           if (!hasCache) {
@@ -1323,10 +1454,10 @@ export default function LivreurPage() {
             setNotice({
               tone: "error",
               message: isTimeout
-                ? "Le chargement a expire et aucune tournee n'est disponible en cache."
+                ? "Le chargement a expiré et aucune tournée n'est disponible en cache."
                 : error instanceof Error
                   ? error.message
-                  : "Impossible de charger la tournee.",
+                  : "Impossible de charger la tournée.",
             })
           }
         }
@@ -1416,7 +1547,7 @@ export default function LivreurPage() {
     if (!isMapboxConfigured) {
       setRouteGeoJson(EMPTY_ROUTE_GEOJSON)
       setRouteSummary(null)
-      setRouteError("Le token Mapbox est requis pour calculer un itineraire.")
+      setRouteError("Le token Mapbox est requis pour calculer un itinéraire.")
       setIsRouteLoading(false)
       lastDirectionsRequestRef.current = null
       return
@@ -1425,7 +1556,7 @@ export default function LivreurPage() {
     if (isOffline) {
       setRouteGeoJson(createLineFeatureCollection([routeOriginCoordinates, destinationCoordinates], "fallback"))
       setRouteSummary(null)
-      setRouteError("Trace simplifiee active. L'itineraire detaille Mapbox est indisponible hors ligne.")
+      setRouteError("Trace simplifiée active. L'itinéraire détaillé Mapbox est indisponible hors ligne.")
       setIsRouteLoading(false)
       return
     }
@@ -1473,7 +1604,7 @@ export default function LivreurPage() {
         const payload = (await response.json()) as MapboxDirectionsResponse
         const bestRoute = payload.routes?.[0]
         if (!bestRoute || !Array.isArray(bestRoute.geometry?.coordinates)) {
-          throw new Error("Aucun itineraire exploitable n'a ete retourne par Mapbox.")
+          throw new Error("Aucun itinéraire exploitable n'a été retourné par Mapbox.")
         }
 
         if (isCancelled) {
@@ -1501,7 +1632,7 @@ export default function LivreurPage() {
         setRouteError(
           error instanceof Error
             ? `${error.message} La carte affiche un trace simplifie entre le livreur et la destination.`
-            : "Impossible de calculer l'itineraire detaille."
+            : "Impossible de calculer l'itinéraire détaillé."
         )
       } finally {
         if (!isCancelled) {
@@ -1701,6 +1832,7 @@ export default function LivreurPage() {
   const progressRatio = totalCount === 0 ? 0 : completedCount / totalCount
   const currentRouteDistanceLabel = routeSummary ? formatDistanceLabel(routeSummary.distanceMeters) : "Trace en attente"
   const currentRouteDurationLabel = routeSummary ? formatDurationFromSeconds(routeSummary.durationSeconds) : remainingTime
+  const pendingAssignmentCount = deliveryList.filter(isPendingAssignmentDelivery).length
   const futureMarkers = currentDelivery ? futureDeliveries.filter(hasCoordinates) : mappableDeliveries
   const sheetHeightValue = sheetMode === "expanded" ? "min(58dvh, 34rem)" : "max(20dvh, 12rem)"
   const isSheetExpanded = sheetMode === "expanded"
@@ -1709,12 +1841,57 @@ export default function LivreurPage() {
   const topOverlayOffset = isHeaderCollapsed ? "3.75rem" : "8.75rem"
   const showMap =
     isMapboxConfigured && !isTourneeLoading && !beforeSeven && Boolean(token) && mappableDeliveries.length > 0
-  const showBottomSheet = !isTourneeLoading && !beforeSeven && Boolean(token) && deliveryList.length > 0
+  const showBottomSheet =
+    !isTourneeLoading &&
+    !beforeSeven &&
+    Boolean(token) &&
+    Boolean(tourneeData?.ramassee) &&
+    deliveryList.length > 0
   const isCodDeliveryPendingValidation = Boolean(
     currentDelivery && currentDelivery.paymentMethod === "cod" && !currentDelivery.paymentValidated
   )
+  const canRejectEntireTournee = Boolean(token) && pendingAssignmentCount > 0
+
+  const buildTourneeRefusPayload = () => ({
+    client_event_id:
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `tournee-refus-${Date.now()}`,
+    device_timestamp: new Date().toISOString(),
+  })
+
+  const handleRejectEntireTournee = async () => {
+    if (!token || !canRejectEntireTournee || isRefusingTournee) {
+      return
+    }
+
+    const confirmed =
+      typeof window === "undefined" ||
+      window.confirm("Êtes-vous sûr de vouloir refuser toutes les commandes de cette tournée ?")
+    if (!confirmed) {
+      return
+    }
+
+    setIsRefusingTournee(true)
+    try {
+      const response = await refuserTourneeLivreur(token, buildTourneeRefusPayload())
+      removePendingAssignmentsFromLocalTournee()
+      setNotice({ tone: "success", message: response.message })
+    } catch (error) {
+      setNotice({
+        tone: "error",
+        message: error instanceof ApiError ? error.message : "Impossible de refuser toute la tournée.",
+      })
+    } finally {
+      setIsRefusingTournee(false)
+    }
+  }
 
   const handleStartDriveMode = async () => {
+    if (!tourneeData?.ramassee) {
+      setNotice({ tone: "info", message: "Ramassez d'abord chez le fournisseur." })
+      return
+    }
     if (!nextDelivery) {
       return
     }
@@ -1724,7 +1901,7 @@ export default function LivreurPage() {
       const hasStarted = await submitDeliveryStatusChange({
         delivery: nextDelivery,
         targetStatus: "enroute",
-        offlineMessage: "Demarrage enregistre hors ligne. Synchronisation des le retour du reseau.",
+        offlineMessage: "Démarrage enregistré hors ligne. Synchronisation dès le retour du réseau.",
       })
       setIsStartingTournee(false)
       if (!hasStarted) {
@@ -1750,7 +1927,7 @@ export default function LivreurPage() {
       const hasStarted = await submitDeliveryStatusChange({
         delivery: deliveryToComplete,
         targetStatus: "enroute",
-        offlineMessage: "Demarrage enregistre hors ligne. Synchronisation des le retour du reseau.",
+        offlineMessage: "Démarrage enregistré hors ligne. Synchronisation dès le retour du réseau.",
       })
 
       if (!hasStarted) {
@@ -1772,7 +1949,7 @@ export default function LivreurPage() {
     const hasCompleted = await submitDeliveryStatusChange({
       delivery: readyDelivery,
       targetStatus: "delivered",
-      offlineMessage: "Livraison enregistree hors ligne. Synchronisation des le retour du reseau.",
+      offlineMessage: "Livraison enregistrée hors ligne. Synchronisation dès le retour du réseau.",
     })
     setIsStartingTournee(false)
     if (hasCompleted) {
@@ -1793,12 +1970,12 @@ export default function LivreurPage() {
     }
 
     if (deliveryToValidate.paymentValidated) {
-      setNotice({ tone: "success", message: "Encaissement COD deja confirme." })
+      setNotice({ tone: "success", message: "Encaissement COD déjà confirmé." })
       return
     }
 
     if (typeof window !== "undefined" && !window.navigator.onLine) {
-      setNotice({ tone: "error", message: "La validation COD exige une connexion reseau active." })
+      setNotice({ tone: "error", message: "La validation COD exige une connexion réseau active." })
       return
     }
 
@@ -1827,7 +2004,7 @@ export default function LivreurPage() {
     const hasMarkedAbsent = await submitDeliveryStatusChange({
       delivery: deliveryToMarkAbsent,
       targetStatus: "absent",
-      offlineMessage: "Absence enregistree hors ligne. Alerte envoyee des le retour du reseau.",
+      offlineMessage: "Absence enregistrée hors ligne. Alerte envoyée dès le retour du réseau.",
     })
     setIsStartingTournee(false)
     if (hasMarkedAbsent) {
@@ -1860,7 +2037,7 @@ export default function LivreurPage() {
       const hasMarkedRefused = await submitDeliveryStatusChange({
         delivery: liveDelivery,
         targetStatus: "refused",
-        offlineMessage: "Refus client enregistre hors ligne. La mise en liste noire sera synchronisee au retour du reseau.",
+        offlineMessage: "Refus client enregistré hors ligne. La mise en liste noire sera synchronisée au retour du réseau.",
         clientEventIdOverride: freshEventId,
       })
 
@@ -1964,7 +2141,7 @@ export default function LivreurPage() {
             ? "Pret a demarrer"
             : nextDelivery
               ? "En livraison"
-              : "Tournee terminee"
+              : "Tournée terminée"
   const floatingStatusClass = isNavigating
     ? "bg-[#EAF2FF] text-[#1A73E8]"
     : beforeSeven
@@ -1980,8 +2157,8 @@ export default function LivreurPage() {
       return (
         <CenterStateCard
           icon={Truck}
-          title="Chargement de votre tournee"
-          description="Nous recuperons la tournee du jour, les etapes et les coordonnees GPS."
+          title="Chargement de votre tournée"
+          description="Nous récupérons la tournée du jour, les étapes et les coordonnées GPS."
           action={<Spinner className="mx-auto size-6 text-[#1E8A3C]" />}
         />
       )
@@ -1991,8 +2168,8 @@ export default function LivreurPage() {
       return (
         <CenterStateCard
           icon={Clock3}
-          title="La tournee arrive bientot"
-          description="Votre tournee s'affichera ici a partir de 7h00."
+          title="La tournée arrive bientôt"
+          description="Votre tournée s'affichera ici à partir de 7h00."
         />
       )
     }
@@ -2002,7 +2179,7 @@ export default function LivreurPage() {
         <CenterStateCard
           icon={Truck}
           title="Session livreur requise"
-          description="Connectez-vous pour consulter votre tournee et piloter vos prochaines livraisons."
+          description="Connectez-vous pour consulter votre tournée et piloter vos prochaines livraisons."
           action={
             <Link
               href="/login/livreur"
@@ -2020,7 +2197,7 @@ export default function LivreurPage() {
         <CenterStateCard
           icon={MapIcon}
           title="Aucune livraison assignee"
-          description="Revenez un peu plus tard pour verifier votre tournee du jour."
+          description="Revenez un peu plus tard pour vérifier votre tournée du jour."
         />
       )
     }
@@ -2193,6 +2370,7 @@ export default function LivreurPage() {
                       style={{ width: `${progressRatio * 100}%` }}
                     />
                   </div>
+
                 </div>
 
                 <div className="flex shrink-0 flex-col items-end gap-2">
@@ -2229,8 +2407,68 @@ export default function LivreurPage() {
         <div className="mx-auto max-w-4xl space-y-2">
           {loadSource === "cache" && !beforeSeven && (
             <div className="rounded-2xl bg-[#FFF3E0]/95 px-4 py-3 text-sm text-[#8A5A00] shadow-sm backdrop-blur">
-              Mode hors ligne actif. La derniere tournee sauvegardee est affichee.
+              Mode hors ligne actif. La dernière tournée sauvegardée est affichée.
             </div>
+          )}
+
+          {tourneeData?.pickup && tourneeData.tournee_id && (
+            <section className="pointer-events-auto rounded-2xl border border-[#BFE2C4] bg-white/95 p-4 shadow-lg backdrop-blur">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EAF8EC]">
+                  <Package className="h-5 w-5 text-[#1E8A3C]" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-black uppercase tracking-[0.15em] text-[#1E8A3C]">Ramassage</p>
+                  <h2 className="mt-1 truncate font-black text-[#17301E]">
+                    {tourneeData.pickup.shop_name || "Fournisseur"}
+                  </h2>
+                  <p className="mt-1 text-sm text-[#5B6B60]">
+                    {[tourneeData.pickup.address, tourneeData.pickup.ville].filter(Boolean).join(", ") ||
+                      "Adresse non renseignée"}
+                  </p>
+                  {tourneeData.pickup.phone && (
+                    <a href={`tel:${tourneeData.pickup.phone}`} className="mt-1 inline-flex items-center gap-1 text-sm font-bold text-[#285C9A]">
+                      <Phone className="h-4 w-4" />
+                      {tourneeData.pickup.phone}
+                    </a>
+                  )}
+                </div>
+              </div>
+              {!tourneeData.ramassee ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleConfirmPickup}
+                    disabled={isConfirmingPickup}
+                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#1E8A3C] px-4 py-3 font-black text-white disabled:opacity-60"
+                  >
+                    {isConfirmingPickup ? <Spinner className="size-5" /> : <CheckCircle2 className="h-5 w-5" />}
+                    {isConfirmingPickup ? "Confirmation..." : "J'ai ramassé les commandes"}
+                  </button>
+                  <p className="mt-2 text-center text-xs font-bold text-[#8A5A00]">
+                    Ramassez d'abord chez le fournisseur pour débloquer les livraisons.
+                  </p>
+                </>
+              ) : (
+                <div className="mt-3 rounded-xl bg-[#F0FAF1] px-4 py-2 text-center text-sm font-bold text-[#1E8A3C]">
+                  Ramassage confirmé · livraisons débloquées
+                </div>
+              )}
+            </section>
+          )}
+
+          {canRejectEntireTournee && (
+            <button
+              type="button"
+              onClick={handleRejectEntireTournee}
+              disabled={isRefusingTournee}
+              className="pointer-events-auto relative z-10 my-4 flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 font-semibold text-white shadow-md transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-65"
+            >
+              {isRefusingTournee ? <Spinner className="size-5" /> : <XCircle className="h-5 w-5" />}
+              <span className="truncate">
+                {isRefusingTournee ? "Refus en cours..." : `Refuser ${pendingAssignmentCount} nouvelle(s) course(s)`}
+              </span>
+            </button>
           )}
 
           {notice && !beforeSeven && (
@@ -2285,7 +2523,7 @@ export default function LivreurPage() {
                     <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#1E8A3C] text-white">
                       <CheckCircle2 className="h-7 w-7" />
                     </div>
-                    <h3 className="mt-3 text-xl font-bold text-[#17301E]">Tournee terminee</h3>
+                    <h3 className="mt-3 text-xl font-bold text-[#17301E]">Tournée terminée</h3>
                     <div className="mt-3 grid grid-cols-2 gap-3 text-left">
                       <div className="rounded-2xl bg-white px-4 py-3">
                         <p className="text-xs font-medium uppercase tracking-[0.16em] text-[#8A8A8A]">Livrees</p>
@@ -2305,7 +2543,7 @@ export default function LivreurPage() {
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="inline-flex rounded-full bg-[#F0FAF1] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#1E8A3C]">
-                            {isNavigating ? "En travail" : "Pret pour la course"}
+                            {isNavigating ? "En travail" : "Prêt pour la course"}
                           </span>
                           <span className="inline-flex rounded-full bg-[#EEF5FF] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#285C9A]">
                             {currentRouteDistanceLabel}
@@ -2359,7 +2597,7 @@ export default function LivreurPage() {
                         <div className="rounded-2xl bg-[#F7F9F7] px-4 py-3">
                           <div className="flex items-center gap-2 text-[#6B7280]">
                             <MapPin className="h-4 w-4" />
-                            <span className="text-xs font-medium uppercase tracking-[0.16em]">Adresse complete</span>
+                            <span className="text-xs font-medium uppercase tracking-[0.16em]">Adresse complète</span>
                           </div>
                           <p className="mt-2 text-sm font-semibold text-[#17301E]">{currentDelivery.address}</p>
                         </div>
@@ -2379,7 +2617,7 @@ export default function LivreurPage() {
                                   : "bg-[#FFF3E0] text-[#8A5A00]"
                               )}
                             >
-                              {currentDelivery.paymentValidated ? "COD valide" : "COD a encaisser"}
+                              {currentDelivery.paymentValidated ? "COD validé" : "COD à encaisser"}
                             </span>
                           )}
                         </div>
@@ -2409,13 +2647,13 @@ export default function LivreurPage() {
 
                         {activeMissingCoordinatesCount > 0 && (
                           <div className="rounded-2xl bg-[#FFF3E0] px-4 py-3 text-sm text-[#8A5A00]">
-                            {activeMissingCoordinatesCount} livraison(s) restante(s) n'ont pas de coordonnees GPS exploitables.
+                            {activeMissingCoordinatesCount} livraison(s) restante(s) n'ont pas de coordonnées GPS exploitables.
                           </div>
                         )}
 
                         {!nextDeliveryWithCoordinates && (
                           <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">
-                            La prochaine livraison n'a pas de coordonnees GPS. Le guidage embarque est indisponible.
+                            La prochaine livraison n'a pas de coordonnées GPS. Le guidage embarqué est indisponible.
                           </div>
                         )}
 
@@ -2423,7 +2661,7 @@ export default function LivreurPage() {
                           <div className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-2">
                               <Truck className="h-4 w-4 text-[#1E8A3C]" />
-                              <span>{remainingCount} etape(s) restante(s)</span>
+                              <span>{remainingCount} étape(s) restante(s)</span>
                             </div>
                             <span>{routeSummary ? currentRouteDurationLabel : `ETA ${remainingTime}`}</span>
                           </div>
@@ -2455,68 +2693,68 @@ export default function LivreurPage() {
                       isSheetExpanded ? "pt-3" : "mt-auto pt-3"
                     )}
                   >
-                    <a
-                      href={currentDelivery.callHref ?? undefined}
-                      aria-disabled={!currentDelivery.callHref}
-                      className={cn(
-                        "flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#F3F4F6] px-3 text-sm font-semibold text-[#17301E] transition-transform active:scale-[0.99]",
-                        !currentDelivery.callHref && "pointer-events-none bg-gray-200 text-gray-500"
-                      )}
-                    >
-                      <Phone className="h-5 w-5" />
-                    </a>
-
-                    {isNavigating && (
-                      <button
-                        type="button"
-                        onClick={handleMarkCurrentDeliveryAbsent}
-                        disabled={isStartingTournee || isValidatingCodPayment || !currentDelivery}
-                        title="Client introuvable"
-                        className="flex h-12 items-center justify-center rounded-2xl bg-amber-500 px-3 text-xs font-semibold text-white shadow-[0_14px_30px_rgba(245,158,11,0.24)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Absent
-                      </button>
-                    )}
-
-                    {isNavigating && (
-                      <button
-                        type="button"
-                        onClick={handleMarkCurrentDeliveryRefused}
-                        disabled={isLoadingRefus || isStartingTournee || isValidatingCodPayment || !currentDelivery}
-                        title="Client refuse la commande"
+                      <a
+                        href={currentDelivery.callHref ?? undefined}
+                        aria-disabled={!currentDelivery.callHref}
                         className={cn(
-                          "flex h-12 items-center justify-center rounded-2xl bg-red-600 px-3 text-xs font-semibold text-white shadow-[0_14px_30px_rgba(220,38,38,0.24)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60",
-                          isLoadingRefus && "opacity-50"
+                          "flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#F3F4F6] px-3 text-sm font-semibold text-[#17301E] transition-transform active:scale-[0.99]",
+                          !currentDelivery.callHref && "pointer-events-none bg-gray-200 text-gray-500"
                         )}
                       >
-                        {isLoadingRefus ? "Traitement..." : "Refus client"}
-                      </button>
-                    )}
+                        <Phone className="h-5 w-5" />
+                      </a>
 
-                    <button
-                      type="button"
-                      onClick={isNavigating ? handleCompleteCurrentDelivery : handleStartDriveMode}
+                      {isNavigating && (
+                        <button
+                          type="button"
+                          onClick={handleMarkCurrentDeliveryAbsent}
+                          disabled={isStartingTournee || isValidatingCodPayment || !currentDelivery}
+                          title="Client introuvable"
+                          className="flex h-12 items-center justify-center rounded-2xl bg-amber-500 px-3 text-xs font-semibold text-white shadow-[0_14px_30px_rgba(245,158,11,0.24)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Absent
+                        </button>
+                      )}
+
+                      {isNavigating && (
+                        <button
+                          type="button"
+                          onClick={handleMarkCurrentDeliveryRefused}
+                          disabled={isLoadingRefus || isStartingTournee || isValidatingCodPayment || !currentDelivery}
+                          title="Client refuse la commande"
+                          className={cn(
+                            "flex h-12 items-center justify-center rounded-2xl bg-red-600 px-3 text-xs font-semibold text-white shadow-[0_14px_30px_rgba(220,38,38,0.24)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60",
+                            isLoadingRefus && "opacity-50"
+                          )}
+                        >
+                          {isLoadingRefus ? "Traitement..." : "Refus client"}
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={isNavigating ? handleCompleteCurrentDelivery : handleStartDriveMode}
                         disabled={
                           isStartingTournee ||
                           isValidatingCodPayment ||
                           !currentDelivery ||
                           (isNavigating && isCodDeliveryPendingValidation)
                         }
-                      className={cn(
-                        "flex h-12 w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60",
-                        isNavigating ? "bg-[#1E8A3C]" : "bg-[#17301E]"
-                      )}
-                    >
-                      {isStartingTournee ? (
-                        <Spinner className="size-5" />
-                      ) : isNavigating ? (
-                        <CheckCircle2 className="h-5 w-5" />
-                      ) : (
-                        <Navigation className="h-5 w-5" />
-                      )}
-                      <span className="truncate">{isNavigating ? "Marquer comme livre" : "Demarrer la course"}</span>
-                    </button>
-                  </div>
+                        className={cn(
+                          "flex h-12 w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60",
+                          isNavigating ? "bg-[#1E8A3C]" : "bg-[#17301E]"
+                        )}
+                      >
+                        {isStartingTournee ? (
+                          <Spinner className="size-5" />
+                        ) : isNavigating ? (
+                          <CheckCircle2 className="h-5 w-5" />
+                        ) : (
+                          <Navigation className="h-5 w-5" />
+                        )}
+                        <span className="truncate">{isNavigating ? "Marquer comme livre" : "Demarrer la course"}</span>
+                      </button>
+                    </div>
 
                   {isNavigating && isCodDeliveryPendingValidation && (
                     <p className="mt-2 text-xs font-medium text-[#8A5A00]">

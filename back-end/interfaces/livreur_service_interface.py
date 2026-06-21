@@ -5,6 +5,9 @@ from dto.livreur_dto import (
     DeliveryEventRequestDTO,
     DeliveryEventResponseDTO,
     DemarrerTourneeResponseDTO,
+    LivraisonDecisionRequestDTO,
+    RamassageResponseDTO,
+    TourneeRefusResponseDTO,
     TourneeResponseDTO,
 )
 
@@ -28,12 +31,24 @@ class ILivreurService(ABC):
         pass
 
     @abstractmethod
+    def confirmer_ramassage(self, livreur_id: int, tournee_id: int) -> RamassageResponseDTO:
+        pass
+
+    @abstractmethod
     def apply_delivery_event(
         self,
         livreur_id: int,
         commande_id: int,
         payload: DeliveryEventRequestDTO,
     ) -> DeliveryEventResponseDTO:
+        pass
+
+    @abstractmethod
+    def refuser_tournee(
+        self,
+        livreur_id: int,
+        payload: LivraisonDecisionRequestDTO,
+    ) -> TourneeRefusResponseDTO:
         pass
 
     @abstractmethod

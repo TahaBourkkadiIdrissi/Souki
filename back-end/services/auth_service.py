@@ -1,3 +1,4 @@
+import logging
 import random
 from datetime import datetime, timedelta
 from typing import Optional
@@ -7,8 +8,12 @@ from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 
 from config import GOOGLE_CLIENT_ID, LocalSession
+from dao.client_blacklist_dao import ClientBlacklistDaoBD
+from dao.parrainage_dao import ParrainageDaoBD
 from dao.user_dao import UserDao
 from entities.client_entity import Client
+from entities.client_blacklist_log_entity import ClientBlacklistLog
+from entities.fournisseur_entity import Fournisseur
 from entities.livreur_entity import Livreur
 from entities.parent_entity import Parent
 from entities.user_entity import User
@@ -16,6 +21,11 @@ from entities.verification_code_entity import VerificationCode
 from rbac_config import LOGIN_TARGET_PERMISSIONS
 from services.authorization_service import AuthorizationPrincipal, AuthorizationService
 from services.email_delivery_service import EmailDeliveryService
+from services.parrainage_service import (
+    REFERRAL_IP_CAP,
+    REFERRAL_IP_WINDOW_DAYS,
+    ParrainageService,
+)
 from security import create_access_token, hash_password, verify_password
 
 OTP_EXPIRATION_MINUTES = 15
@@ -23,12 +33,17 @@ OTP_RESEND_LIMIT = 3
 OTP_RESEND_WINDOW_HOURS = 1
 OTP_MAX_ATTEMPTS = 5
 
+logger = logging.getLogger("souki.otp")
+
 _dao = UserDao()
+_blacklist_dao = ClientBlacklistDaoBD()
+_parrainage_dao = ParrainageDaoBD()
+_parrainage_service = ParrainageService(_parrainage_dao)
 _email_service = EmailDeliveryService()
 
 
 class AuthService:
-    def register(self, data):
+    def register(self, data, client_ip: Optional[str] = None):
         db = LocalSession()
         try:
             if data.email:
@@ -41,7 +56,12 @@ class AuthService:
                         detail="Un compte non verifie existe deja pour cet email. Utilisez le renvoi du code OTP."
                     )
 
+            phone_blacklisted = False
             if data.phone:
+                # Un numero blackliste peut se reinscrire, mais le compte restera restreint
+                # au COD (cf. plus bas). Il pourra demander une levee que l'admin tranchera.
+                phone_blacklisted = self._is_phone_currently_blacklisted(db, data.phone)
+
                 existing_phone = _dao.find_by_identifier(db, data.phone)
                 if existing_phone and existing_phone.is_verified:
                     raise HTTPException(status_code=400, detail="Ce numero de telephone est deja utilise.")
@@ -69,6 +89,24 @@ class AuthService:
                 raise HTTPException(status_code=500, detail="Erreur interne lors de la creation du compte.")
 
             self._ensure_role_profile(db, user)
+            if phone_blacklisted:
+                db.flush()
+                if user.client_profile is not None:
+                    user.client_profile.is_blacklisted = True
+                    # Trace BLACKLISTED pour le nouveau client : il apparait dans la liste
+                    # admin et le rapport, et reste coherent avec le flag (flag + log ensemble).
+                    _blacklist_dao.create_log(
+                        session=db,
+                        client_id=int(user.id),
+                        action="BLACKLISTED",
+                        source="REINSCRIPTION",
+                        phone_snapshot=user.phone,
+                        reason="Reinscription d'un numero deja blackliste",
+                    )
+
+            self._handle_referral_signup(
+                db, user, getattr(data, "code_parrainage", None), client_ip
+            )
             self._ensure_rbac_role_assignment(db, user, role)
             db.commit()
 
@@ -113,7 +151,7 @@ class AuthService:
                 self._assert_target_access(principal, target_role)
                 self._ensure_profile_for_role(db, user, target_role)
                 db.commit()
-                return self._issue_access_token(user, principal)
+                return self._issue_access_token(user, principal, selected_role=target_role)
 
             return None
         finally:
@@ -257,9 +295,10 @@ class AuthService:
             try:
                 user = _dao.find_by_email(db, email)
                 if not user:
+                    initial_role = "CLIENT" if normalized_role == "FOURNISSEUR" else normalized_role
                     user = User(
                         email=email,
-                        role=normalized_role,
+                        role=initial_role,
                         password=None,
                         is_verified=True,
                         is_email_verified=True,
@@ -268,7 +307,7 @@ class AuthService:
                     )
                     db.add(user)
                     db.flush()
-                    self._ensure_rbac_role_assignment(db, user, normalized_role)
+                    self._ensure_rbac_role_assignment(db, user, initial_role)
                 else:
                     user.is_verified = True
                     user.is_email_verified = True
@@ -281,7 +320,7 @@ class AuthService:
                 self._assert_target_access(principal, normalized_role)
                 self._ensure_profile_for_role(db, user, normalized_role)
                 db.commit()
-                return self._issue_access_token(user, principal)
+                return self._issue_access_token(user, principal, selected_role=normalized_role)
             finally:
                 db.close()
         except ValueError:
@@ -294,7 +333,7 @@ class AuthService:
             if not user:
                 return None
             principal = self._build_principal(db, user)
-            return self._export_current_user(principal)
+            return self._export_current_user(principal, db)
         finally:
             db.close()
 
@@ -342,6 +381,15 @@ class AuthService:
             .first()
         )
 
+    def _is_phone_currently_blacklisted(self, db, phone: str) -> bool:
+        latest_log = (
+            db.query(ClientBlacklistLog)
+            .filter(ClientBlacklistLog.phone_snapshot == phone)
+            .order_by(ClientBlacklistLog.created_at.desc(), ClientBlacklistLog.id.desc())
+            .first()
+        )
+        return bool(latest_log and latest_log.action == "BLACKLISTED")
+
     def _resolve_channel(self, user: User) -> str:
         if user.email:
             return "email"
@@ -368,25 +416,25 @@ class AuthService:
 
     def _send_otp(self, user: User, channel: str, code: str):
         destination = user.email if channel == "email" else user.phone
-        print("")
-        print("=" * 64)
-        print("SOUKI OTP DEBUG")
-        print(f"Canal       : {channel}")
-        print(f"Destination : {destination}")
-        print(f"Code OTP    : {code}")
-        print("=" * 64)
-        print("")
+        
+        # CRITICAL: Use logging with ERROR level to ensure immediate output
+        logger.error("\n" + "=" * 64)
+        logger.error("SOUKI OTP CODE - TEST LOCAL")
+        logger.error(f"Canal       : {channel}")
+        logger.error(f"Destination : {destination}")
+        logger.error(f"Code OTP    : {code}")
+        logger.error("=" * 64 + "\n")
 
         if channel == "email":
             try:
                 _email_service.send_otp_email(destination, code)
-                print(f"[SMTP] Email OTP envoye avec succes vers {destination}")
+                logger.info(f"[SMTP] Email OTP envoye avec succes vers {destination}")
             except Exception as exc:
-                print(f"[SMTP] Envoi email impossible: {exc}")
-                print("[SMTP] Le code reste visible ci-dessus pour les tests locaux.")
+                logger.warning(f"[SMTP] Envoi email impossible: {exc}")
+                logger.warning("[SMTP] Le code reste visible ci-dessus pour les tests locaux.")
             return
 
-        print(f"[OTP:{channel}] Envoi reel non configure pour ce canal, utilisez le code affiche dans le terminal.")
+        logger.warning(f"[OTP:{channel}] Envoi reel non configure pour ce canal, utilisez le code affiche dans le terminal.")
 
     def _has_google_provider(self, provider: Optional[str]) -> bool:
         return bool(provider and "google" in provider.split(","))
@@ -399,7 +447,61 @@ class AuthService:
     def _ensure_client_profile(self, db, user: User):
         if user.client_profile:
             return
-        db.add(Client(user_id=user.id))
+        # Chaque client recoit son code de parrainage unique des la creation du profil.
+        code_parrainage = _parrainage_service.generate_unique_code(db)
+        db.add(Client(user_id=user.id, code_parrainage=code_parrainage))
+
+    def _handle_referral_signup(self, db, user: User, code_parrainage, client_ip):
+        """Enregistre un parrainage EN_ATTENTE si le filleul a saisi un code valide.
+
+        Non bloquant : un code invalide ou une erreur ne doit jamais empecher
+        l'inscription. Le credit n'arrive qu'a la 1ere commande livree (Lot 2).
+        """
+        if (user.role or "").upper() != "CLIENT":
+            return
+        code = (code_parrainage or "").strip().upper()
+        if not code:
+            return
+
+        # On persiste d'abord l'utilisateur et son profil client, puis on isole le
+        # parrainage dans un savepoint pour qu'un echec n'annule pas l'inscription.
+        db.flush()
+        try:
+            with db.begin_nested():
+                parrain_client = _parrainage_dao.get_client_by_code(db, code)
+                if parrain_client is None:
+                    return  # code inconnu : inscription OK, parrainage ignore
+
+                parrain_id = int(parrain_client.user_id)
+                if parrain_id == int(user.id):
+                    return  # auto-parrainage direct
+
+                # Blocage dur : meme numero de telephone => meme personne deguisee.
+                parrain_user = parrain_client.user
+                if (
+                    parrain_user
+                    and user.phone
+                    and parrain_user.phone
+                    and parrain_user.phone.strip() == user.phone.strip()
+                ):
+                    return
+
+                # Plafond souple par IP (anti-farming), ne bloque pas une vraie coloc.
+                if client_ip:
+                    since = datetime.utcnow() - timedelta(days=REFERRAL_IP_WINDOW_DAYS)
+                    if _parrainage_dao.count_recent_by_ip(db, client_ip, since) >= REFERRAL_IP_CAP:
+                        return
+
+                _parrainage_dao.create_parrainage(
+                    db,
+                    parrain_id=parrain_id,
+                    filleul_id=int(user.id),
+                    code_utilise=code,
+                    ip_inscription=client_ip,
+                    phone_filleul_snapshot=user.phone,
+                )
+        except Exception as exc:
+            logger.warning("Parrainage ignore pour le code %s: %s", code, exc)
 
     def _ensure_parent_profile(self, db, user: User):
         if user.parent_profile:
@@ -447,18 +549,34 @@ class AuthService:
             detail=f"Acces refuse. Ce compte appartient au profil {profile_label}, vous ne pouvez pas vous connecter sur l'espace {target_role}."
         )
 
-    def _issue_access_token(self, user: User, principal: AuthorizationPrincipal) -> str:
+    def _issue_access_token(
+        self,
+        user: User,
+        principal: AuthorizationPrincipal,
+        selected_role: Optional[str] = None,
+    ) -> str:
+        token_role = selected_role if selected_role and principal.has_role(selected_role) else principal.primary_role
         return create_access_token(
             {
                 "sub": str(user.id),
-                "role": principal.primary_role,
+                "email": user.email,
+                "role": token_role,
+                "roles": sorted(principal.roles),
                 "legacy_role": principal.legacy_role,
                 "default_dashboard": principal.default_dashboard,
             }
         )
 
-    def _export_current_user(self, principal: AuthorizationPrincipal) -> dict:
+    def _export_current_user(self, principal: AuthorizationPrincipal, db=None) -> dict:
+        profiles = self._load_profiles(db, principal.user_id) if db is not None else {}
+        user_payload = {
+            "id": principal.user_id,
+            "email": principal.email,
+            "phone": principal.phone,
+            "name": principal.email or principal.phone,
+        }
         return {
+            "user": user_payload,
             "id": principal.user_id,
             "email": principal.email,
             "phone": principal.phone,
@@ -469,4 +587,43 @@ class AuthService:
             "is_verified": principal.is_verified,
             "is_active": principal.is_active,
             "default_dashboard": principal.default_dashboard,
+            "profiles": profiles,
         }
+
+    def export_current_principal(self, principal: AuthorizationPrincipal) -> dict:
+        db = LocalSession()
+        try:
+            return self._export_current_user(principal, db)
+        finally:
+            db.close()
+
+    def _load_profiles(self, db, user_id: int) -> dict:
+        profiles = {}
+        client = db.query(Client).filter(Client.user_id == user_id).first()
+        if client:
+            profiles["client"] = {
+                "code_parrainage": client.code_parrainage,
+                "is_blacklisted": bool(client.is_blacklisted),
+            }
+
+        livreur = db.query(Livreur).filter(Livreur.user_id == user_id).first()
+        if livreur:
+            profiles["livreur"] = {
+                "vehicule": livreur.vehicule,
+                "disponible": bool(livreur.disponible),
+                "note_moyenne": livreur.note_moyenne,
+            }
+
+        parent = db.query(Parent).filter(Parent.user_id == user_id).first()
+        if parent:
+            profiles["parent"] = {"user_id": parent.user_id}
+
+        fournisseur = db.query(Fournisseur).filter(Fournisseur.user_id == user_id).first()
+        if fournisseur:
+            profiles["fournisseur"] = {
+                "shop_name": fournisseur.shop_name,
+                "shop_slug": fournisseur.shop_slug,
+                "statut": fournisseur.statut,
+            }
+
+        return profiles

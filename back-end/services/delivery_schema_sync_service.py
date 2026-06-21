@@ -8,11 +8,15 @@ ALLOWED_COMMANDE_STATUSES = (
     "EN_ATTENTE",
     "CONFIRMEE",
     "VERROUILLEE",
+    "EN_ATTENTE_LIVREUR",
     "A_LIVRER",
     "EN_ROUTE",
     "LIVRE",
     "ABSENT",
     "REFUS",
+    "REFUS_LIVREUR",
+    "ANNULEE",
+    "RETOUR_DEPOT",
 )
 
 
@@ -36,11 +40,15 @@ class DeliverySchemaSyncService:
                         WHEN upper(btrim(statut)) IN ('EN_ATTENTE', 'EN ATTENTE') THEN 'EN_ATTENTE'
                         WHEN upper(btrim(statut)) IN ('CONFIRMEE', 'CONFIRMÉE', 'CONFIRMÃ‰E') THEN 'CONFIRMEE'
                         WHEN upper(btrim(statut)) IN ('VERROUILLEE', 'VERROUILLÉE', 'VERROUILLÃ‰E') THEN 'VERROUILLEE'
+                        WHEN upper(btrim(statut)) IN ('EN_ATTENTE_LIVREUR', 'EN ATTENTE LIVREUR') THEN 'EN_ATTENTE_LIVREUR'
                         WHEN upper(btrim(statut)) IN ('A_LIVRER', 'A LIVRER') THEN 'A_LIVRER'
                         WHEN upper(btrim(statut)) IN ('EN_ROUTE', 'EN ROUTE', 'EN_COURS_DE_LIVRAISON') THEN 'EN_ROUTE'
                         WHEN upper(btrim(statut)) IN ('LIVRE', 'LIVREE', 'LIVRÉE', 'LIVRÃ‰E', 'DELIVERED') THEN 'LIVRE'
                         WHEN upper(btrim(statut)) = 'ABSENT' THEN 'ABSENT'
-                        WHEN upper(btrim(statut)) IN ('REFUS', 'REFUSE', 'REFUSÉ', 'REFUSÃ‰') THEN 'REFUS'
+                        WHEN upper(btrim(statut)) IN ('REFUS', 'REFUSE', 'REFUSÉ', 'REFUSÉE', 'REFUSÃ‰', 'REFUSÃ‰E', 'REFUSED') THEN 'REFUS'
+                        WHEN upper(btrim(statut)) IN ('ANNULE', 'ANNULEE', 'ANNULÉ', 'ANNULÉE', 'ANNULÃ‰', 'ANNULÃ‰E', 'CANCELLED', 'CANCELED') THEN 'ANNULEE'
+                        WHEN upper(btrim(statut)) IN ('REFUS_LIVREUR', 'REFUS LIVREUR') THEN 'REFUS_LIVREUR'
+                        WHEN upper(btrim(statut)) IN ('RETOUR_DEPOT', 'RETOUR DEPOT') THEN 'RETOUR_DEPOT'
                         ELSE upper(replace(btrim(statut), ' ', '_'))
                     END
                     """
@@ -54,11 +62,24 @@ class DeliverySchemaSyncService:
                     ADD COLUMN IF NOT EXISTS enroute_at TIMESTAMPTZ NULL,
                     ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ NULL,
                     ADD COLUMN IF NOT EXISTS absent_at TIMESTAMPTZ NULL,
+                    ADD COLUMN IF NOT EXISTS retour_depot_at TIMESTAMPTZ NULL,
                     ADD COLUMN IF NOT EXISTS payment_validated BOOLEAN DEFAULT false,
+                    ADD COLUMN IF NOT EXISTS client_history_deleted BOOLEAN DEFAULT false,
                     ADD COLUMN IF NOT EXISTS status_version INTEGER
                     """
                 )
             )
+            connection.execute(
+                text(
+                    """
+                    UPDATE t_commandes
+                    SET client_history_deleted = false
+                    WHERE client_history_deleted IS NULL
+                    """
+                )
+            )
+            connection.execute(text("ALTER TABLE t_commandes ALTER COLUMN client_history_deleted SET DEFAULT false"))
+            connection.execute(text("ALTER TABLE t_commandes ALTER COLUMN client_history_deleted SET NOT NULL"))
             connection.execute(
                 text(
                     """
@@ -90,6 +111,38 @@ class DeliverySchemaSyncService:
             )
             connection.execute(text("ALTER TABLE t_commandes ALTER COLUMN status_version SET DEFAULT 1"))
             connection.execute(text("ALTER TABLE t_commandes ALTER COLUMN status_version SET NOT NULL"))
+            connection.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS t_anomalies_logistiques (
+                        id            SERIAL PRIMARY KEY,
+                        commande_id   INTEGER NOT NULL REFERENCES t_commandes(id),
+                        type_anomalie VARCHAR NOT NULL,
+                        detected_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+                        resolved_at   TIMESTAMPTZ NULL,
+                        resolved_by   INTEGER NULL REFERENCES t_users(id),
+                        resolution    VARCHAR NULL CHECK (resolution IN ('REPLANIFIE', 'ANNULE_PERTE') OR resolution IS NULL)
+                    )
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_anomalies_commande_id
+                    ON t_anomalies_logistiques(commande_id)
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_anomalies_non_resolues
+                    ON t_anomalies_logistiques(resolved_at)
+                    WHERE resolved_at IS NULL
+                    """
+                )
+            )
 
             invalid_statuses = [
                 row[0]
@@ -123,9 +176,21 @@ class DeliverySchemaSyncService:
             connection.execute(
                 text(
                     f"""
-                    ALTER TABLE t_commandes
-                    ADD CONSTRAINT ck_t_commandes_statut_allowed
-                    CHECK (statut IN ({allowed_statuses_sql}))
+                    DO $$
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1
+                            FROM pg_constraint
+                            WHERE conname = 'ck_t_commandes_statut_allowed'
+                        ) THEN
+                            ALTER TABLE t_commandes
+                            DROP CONSTRAINT ck_t_commandes_statut_allowed;
+                        END IF;
+
+                        ALTER TABLE t_commandes
+                            ADD CONSTRAINT ck_t_commandes_statut_allowed
+                            CHECK (statut IN ({allowed_statuses_sql}));
+                    END $$;
                     """
                 )
             )

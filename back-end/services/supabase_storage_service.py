@@ -1,7 +1,11 @@
+import io
 import json
 import os
+import unicodedata
+import uuid
 from urllib import error, parse, request
 
+from PIL import Image, UnidentifiedImageError
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -9,12 +13,17 @@ from config import engine
 
 
 AVATAR_BUCKET = "avatars"
+PRODUCT_BUCKET = "products"
 MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024
 ALLOWED_AVATAR_MIME_TYPES = {
     "image/jpeg": "jpg",
     "image/png": "png",
     "image/webp": "webp",
 }
+MAX_PRODUCT_IMAGE_SIZE_BYTES = 2 * 1024 * 1024
+ALLOWED_PRODUCT_IMAGE_MIME_TYPES = ALLOWED_AVATAR_MIME_TYPES
+ALLOWED_PRODUCT_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP"}
+PRODUCT_IMAGE_UPLOAD_CONTENT_TYPE = "image/jpeg"
 
 
 class SupabaseStorageError(Exception):
@@ -274,6 +283,103 @@ class SupabaseStorageService:
     def public_avatar_url(self, user_id: int, extension: str) -> str:
         object_path = parse.quote(f"{user_id}/profile.{extension}", safe="/.")
         return f"{self._resolve_supabase_url()}/storage/v1/object/public/{self.bucket}/{object_path}"
+
+    def upload_product_image(
+        self,
+        content: bytes,
+        filename: str,
+        content_type: str = "image/jpeg",
+        product_id: int | None = None,
+    ) -> str:
+        if len(content) > MAX_PRODUCT_IMAGE_SIZE_BYTES:
+            raise SupabaseStorageError("Image trop grande. Maximum 2 Mo.")
+
+        normalized_content_type = (content_type or "").split(";", 1)[0].strip().lower()
+        if normalized_content_type not in ALLOWED_PRODUCT_IMAGE_MIME_TYPES:
+            raise SupabaseStorageError("Choisissez une image JPG, PNG ou WEBP.")
+
+        try:
+            image = Image.open(io.BytesIO(content))
+            image.verify()
+        except (UnidentifiedImageError, OSError, ValueError) as exc:
+            raise SupabaseStorageError(
+                "Fichier invalide. Image JPEG, PNG ou WEBP uniquement."
+            ) from exc
+
+        try:
+            image = Image.open(io.BytesIO(content))
+            if image.format not in ALLOWED_PRODUCT_IMAGE_FORMATS:
+                raise SupabaseStorageError(
+                    "Format non autorise. Formats acceptes : JPEG, PNG, WEBP."
+                )
+
+            output = io.BytesIO()
+            image_clean = image.convert("RGB")
+            image_clean.save(output, format="JPEG", quality=85, optimize=True)
+            clean_content = output.getvalue()
+        except SupabaseStorageError:
+            raise
+        except (OSError, ValueError) as exc:
+            raise SupabaseStorageError(
+                "Fichier invalide. Image JPEG, PNG ou WEBP uniquement."
+            ) from exc
+
+        if len(clean_content) > MAX_PRODUCT_IMAGE_SIZE_BYTES:
+            raise SupabaseStorageError("Image trop grande apres optimisation. Maximum 2 Mo.")
+
+        supabase_url = self._resolve_supabase_url()
+        service_role_key = self._service_role_key()
+        _ = filename
+        safe_filename = f"{uuid.uuid4().hex}.jpg"
+        object_path = (
+            f"products/{product_id}/{safe_filename}"
+            if product_id is not None
+            else f"products/{safe_filename}"
+        )
+        encoded_object_path = parse.quote(object_path, safe="/.")
+
+        upload_request = request.Request(
+            url=f"{supabase_url}/storage/v1/object/{PRODUCT_BUCKET}/{encoded_object_path}",
+            data=clean_content,
+            headers={
+                "Authorization": f"Bearer {service_role_key}",
+                "apikey": service_role_key,
+                "Content-Type": PRODUCT_IMAGE_UPLOAD_CONTENT_TYPE,
+                "x-upsert": "true",
+                "cache-control": "3600",
+            },
+            method="POST",
+        )
+
+        try:
+            with request.urlopen(upload_request, timeout=60) as response:
+                response.read()
+        except error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="ignore")
+            raise SupabaseStorageError(self._normalize_storage_error(detail)) from exc
+        except error.URLError as exc:
+            raise SupabaseStorageError("Impossible de joindre Supabase Storage pour le moment.") from exc
+
+        return self.public_product_url(object_path)
+
+    def public_product_url(self, object_path: str) -> str:
+        encoded_object_path = parse.quote(object_path, safe="/.")
+        return f"{self._resolve_supabase_url()}/storage/v1/object/public/{PRODUCT_BUCKET}/{encoded_object_path}"
+
+    @staticmethod
+    def _safe_product_filename(filename: str, extension: str) -> str:
+        base_name = os.path.basename(filename or "product").rsplit(".", 1)[0]
+        normalized_base = (
+            unicodedata.normalize("NFKD", base_name)
+            .encode("ascii", "ignore")
+            .decode("ascii")
+        )
+        safe_base = "".join(
+            char if char.isascii() and (char.isalnum() or char in ("-", "_")) else "-"
+            for char in normalized_base
+        )
+        safe_base = safe_base.strip("-_") or "product"
+        return f"{safe_base}.{extension}"
 
 
 avatar_storage_service = SupabaseStorageService()

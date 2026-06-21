@@ -1,7 +1,9 @@
 import re
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, EmailStr, Field, validator
+
+from dto.phone_validator import validate_moroccan_phone
 
 
 class UserRegister(BaseModel):
@@ -9,6 +11,13 @@ class UserRegister(BaseModel):
     phone: Optional[str] = None
     password: str
     role: str = "CLIENT"
+    code_parrainage: Optional[str] = None
+
+    @validator("code_parrainage")
+    def normalize_code_parrainage(cls, v):
+        if not v:
+            return None
+        return v.strip().upper()[:10]
 
     @validator("role")
     def validate_role(cls, v):
@@ -19,11 +28,7 @@ class UserRegister(BaseModel):
 
     @validator("phone")
     def validate_phone(cls, v):
-        if v:
-            pattern = r"^\+212[67]\d{8}$"
-            if not re.match(pattern, v):
-                raise ValueError("Le numéro doit être au format +212XXXXXXXXX (9 chiffres commençant par 6 ou 7)")
-        return v
+        return validate_moroccan_phone(v)
 
     @validator("password")
     def validate_password(cls, v):
@@ -60,7 +65,7 @@ class GoogleLoginRequest(BaseModel):
     @validator("role")
     def validate_role(cls, v):
         role = v.upper()
-        if role not in {"CLIENT", "PARENT", "LIVREUR"}:
+        if role not in {"CLIENT", "PARENT", "LIVREUR", "FOURNISSEUR"}:
             raise ValueError("Role invalide")
         return role
 
@@ -124,6 +129,7 @@ class OTPVerificationResponse(BaseModel):
 
 
 class CurrentUserResponse(BaseModel):
+    user: Optional[Dict[str, Any]] = None
     id: int
     email: Optional[str]
     phone: Optional[str]
@@ -134,3 +140,4 @@ class CurrentUserResponse(BaseModel):
     is_verified: bool
     is_active: bool = True
     default_dashboard: str = "/"
+    profiles: Dict[str, Any] = Field(default_factory=dict)

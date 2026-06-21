@@ -1,15 +1,35 @@
 from datetime import date, datetime, time
-from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload
-from typing import Optional, List
+from zoneinfo import ZoneInfo
+from sqlalchemy import func, update as sqlalchemy_update
+from sqlalchemy.orm import Session, joinedload, selectinload, with_loader_criteria
+from typing import Any, Iterable, Optional, List
 from interfaces.commande_dao_interface import ICommandeVocaleDao
-from dto.commande_dto import CommandeJourDTO, ProduitCommandeJourDTO
+from dto.commande_dto import (
+    AbonnementClientDTO,
+    AdresseClientDTO,
+    CommandeHistoriqueDTO,
+    CommandeJourDTO,
+    CommandeVocaleClientDTO,
+    FicheClientDTO,
+    NotificationPrefsDTO,
+    PaiementDTO,
+    ProduitCommandeJourDTO,
+    SessionClientDTO,
+)
+from entities.abonnement_entity import Abonnement
+from entities.address_entity import Address
 from entities.commande_entity import Commande
 from entities.commande_vocale_entity import CommandeVocale, LigneCommandeVocale
 from entities.client_entity import Client
 from entities.ligne_panier_entity import LignePanier
 from entities.panier_entity import Panier
 from entities.product_entity import Product
+from entities.user_entity import User
+from entities.user_notification_preferences_entity import UserNotificationPreferences
+from entities.user_session_entity import UserSession
+
+
+DISPATCHABLE_COMMANDE_STATUSES = ("VERROUILLEE",)
 
 
 class CommandeVocaleDaoBD(ICommandeVocaleDao):
@@ -24,15 +44,8 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
             langue_detectee=langue
         )
         session.add(cmd)
-        session.flush()
-        try:
-            session.commit()
-            session.refresh(cmd)
-            return cmd
-        except Exception as e:
-            session.rollback()
-            print(f"Erreur create commande: {e}")
-            return None
+        session.flush()  # assigne l'id sans committer ; le commit est gere par le service (__exit__)
+        return cmd
 
     def create_ligne(
         self, session: Session, commande_id: int, product_id: int,
@@ -49,13 +62,8 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
             message_ajustement=message
         )
         session.add(ligne)
-        try:
-            session.commit()
-            return True
-        except Exception as e:
-            session.rollback()
-            print(f"Erreur create ligne: {e}")
-            return False
+        session.flush()
+        return True
         
     def get_details_for_checkout(self, session: Session, commande_id: int) -> Optional[dict]:
         cmd = session.query(CommandeVocale).filter(CommandeVocale.id == commande_id).first()
@@ -80,9 +88,7 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
         }
 
     def get_commandes_du_jour(self, session: Session) -> List[CommandeJourDTO]:
-        today = date.today()
-        start_of_day = datetime.combine(today, time.min)
-        end_of_day = datetime.combine(today, time.max)
+        start_of_day, end_of_day = self._today_bounds()
 
         commandes = (
             session.query(Commande)
@@ -127,18 +133,23 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                     volume_total_kg += quantite_kg
                     produits.append(
                         ProduitCommandeJourDTO(
+                            ligne_panier_id=int(ligne.id) if ligne.id is not None else None,
+                            product_id=int(ligne.produit_id) if ligne.produit_id is not None else None,
                             nom_fr=str(produit.nom_fr) if produit else "Produit supprime",
                             quantite_kg=quantite_kg,
+                            sous_total=float(ligne.sous_total) if ligne.sous_total is not None else None,
                         )
                     )
 
             commandes_dto.append(
                 CommandeJourDTO(
                     id=int(commande.id),  # type: ignore
+                    client_id=int(commande.client_id) if commande.client_id else None,  # type: ignore
                     date_commande=commande.date_commande,  # type: ignore
                     statut=str(commande.statut) if commande.statut else None,
                     client_nom=client_nom,
                     client_phone=client_phone,
+                    is_blacklisted=bool(commande.client.is_blacklisted) if commande.client and commande.client.is_blacklisted is not None else None,
                     produits=produits,
                     volume_total_kg=round(volume_total_kg, 2),
                     montant_total=float(commande.montant_total or 0.0),
@@ -148,3 +159,527 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
             )
 
         return commandes_dto
+
+    def get_historique_client(self, session: Session, client_id: int) -> List[CommandeHistoriqueDTO]:
+        commandes = (
+            session.query(Commande)
+            .options(
+                joinedload(Commande.panier)
+                .joinedload(Panier.lignes)
+                .joinedload(LignePanier.produit),
+                joinedload(Commande.paiement),
+            )
+            .filter(Commande.client_id == client_id)
+            .filter(func.upper(func.coalesce(Commande.statut, "")) != "BROUILLON")
+            .filter(func.coalesce(Commande.client_history_deleted, False).is_(False))
+            .order_by(Commande.date_commande.desc(), Commande.id.desc())
+            .all()
+        )
+
+        return [self._build_commande_historique_dto(commande) for commande in commandes]
+
+    def hide_commande_from_client_history(self, session: Session, client_id: int, commande_id: int) -> bool:
+        commande = (
+            session.query(Commande)
+            .filter(Commande.id == commande_id, Commande.client_id == client_id)
+            .first()
+        )
+        if commande is None:
+            return False
+        commande.client_history_deleted = True
+        session.flush()
+        return True
+
+    def get_fiche_client(self, session: Session, client_id: int) -> Optional[FicheClientDTO]:
+        client = (
+            session.query(Client)
+            .join(User, User.id == Client.user_id)
+            .options(joinedload(Client.user))
+            .filter(Client.user_id == client_id)
+            .first()
+        )
+        if not client:
+            return None
+
+        user = client.user
+        commandes_dto = []
+        commandes = (
+            session.query(Commande)
+            .options(
+                joinedload(Commande.panier)
+                .joinedload(Panier.lignes)
+                .joinedload(LignePanier.produit),
+                joinedload(Commande.paiement),
+            )
+            .filter(Commande.client_id == client_id)
+            .filter(func.upper(func.coalesce(Commande.statut, "")) != "BROUILLON")
+            .order_by(Commande.date_commande.desc(), Commande.id.desc())
+            .all()
+        )
+
+        for commande in commandes:
+            produits = []
+            if commande.panier:
+                for ligne in commande.panier.lignes:
+                    produit = ligne.produit
+                    produits.append(
+                        ProduitCommandeJourDTO(
+                            ligne_panier_id=int(ligne.id) if ligne.id is not None else None,
+                            product_id=int(ligne.produit_id) if ligne.produit_id is not None else None,
+                            nom_fr=str(produit.nom_fr) if produit else "Produit supprime",
+                            quantite_kg=float(ligne.quantite_kg or 0.0),
+                            sous_total=float(ligne.sous_total) if ligne.sous_total is not None else None,
+                        )
+                    )
+
+            paiement = commande.paiement
+            paiement_dto = None
+            if paiement:
+                paiement_dto = PaiementDTO(
+                    methode=str(paiement.methode) if paiement.methode else None,
+                    montant=float(paiement.montant) if paiement.montant is not None else None,
+                    valide=bool(paiement.valide) if paiement.valide is not None else None,
+                    frais_cmi=float(paiement.frais_cmi) if paiement.frais_cmi is not None else None,
+                    montant_net=float(paiement.montant_net) if paiement.montant_net is not None else None,
+                )
+
+            payment_validated = bool(commande.payment_validated or (paiement and paiement.valide))
+            mode_paiement = str(commande.mode_paiement) if commande.mode_paiement else None
+            montant_total = float(commande.montant_total or 0.0)
+            montant_a_encaisser = montant_total if self._is_cod_mode(mode_paiement) and not payment_validated else 0.0
+
+            commandes_dto.append(
+                CommandeHistoriqueDTO(
+                    id=int(commande.id),  # type: ignore
+                    date_commande=commande.date_commande,  # type: ignore
+                    statut=str(commande.statut) if commande.statut else None,
+                    montant_total=montant_total,
+                    mode_paiement=mode_paiement,
+                    payment_validated=payment_validated,
+                    montant_a_encaisser=montant_a_encaisser,
+                    creneau_livraison=str(commande.creneau_livraison) if commande.creneau_livraison else None,
+                    enroute_at=commande.enroute_at,  # type: ignore
+                    delivered_at=commande.delivered_at,  # type: ignore
+                    absent_at=commande.absent_at,  # type: ignore
+                    produits=produits,
+                    paiement=paiement_dto,
+                )
+            )
+
+        commandes_vocales_dto = []
+        try:
+            commandes_vocales = (
+                session.query(CommandeVocale)
+                .filter(CommandeVocale.user_id == client_id)
+                .order_by(CommandeVocale.created_at.desc(), CommandeVocale.id.desc())
+                .all()
+            )
+            commandes_vocales_dto = [
+                CommandeVocaleClientDTO(
+                    id=int(commande_vocale.id),  # type: ignore
+                    created_at=commande_vocale.created_at,  # type: ignore
+                    langue_detectee=str(commande_vocale.langue_detectee) if commande_vocale.langue_detectee else None,
+                    transcription_brute=str(commande_vocale.transcription_brute) if commande_vocale.transcription_brute else None,
+                )
+                for commande_vocale in commandes_vocales
+            ]
+        except Exception:
+            commandes_vocales_dto = []
+
+        sessions_dto = []
+        try:
+            sessions = (
+                session.query(UserSession)
+                .filter(UserSession.user_id == client_id)
+                .order_by(UserSession.last_active.desc(), UserSession.created_at.desc())
+                .all()
+            )
+            sessions_dto = [
+                SessionClientDTO(
+                    device_name=str(user_session.device_name) if user_session.device_name else None,
+                    browser=str(user_session.browser) if user_session.browser else None,
+                    location=str(user_session.location) if user_session.location else None,
+                    ip=str(user_session.ip) if user_session.ip else None,
+                    last_active=user_session.last_active,  # type: ignore
+                    created_at=user_session.created_at,  # type: ignore
+                    is_active=bool(user_session.is_active) if user_session.is_active is not None else None,
+                )
+                for user_session in sessions
+            ]
+        except Exception:
+            sessions_dto = []
+
+        notifications_dto = None
+        try:
+            notifications = (
+                session.query(UserNotificationPreferences)
+                .filter(UserNotificationPreferences.user_id == client_id)
+                .first()
+            )
+            if notifications:
+                notifications_dto = NotificationPrefsDTO(
+                    email=bool(notifications.email) if notifications.email is not None else None,
+                    push=bool(notifications.push) if notifications.push is not None else None,
+                    sms=bool(notifications.sms) if notifications.sms is not None else None,
+                    order_updates=bool(notifications.order_updates) if notifications.order_updates is not None else None,
+                    promotions=bool(notifications.promotions) if notifications.promotions is not None else None,
+                    newsletter=bool(notifications.newsletter) if notifications.newsletter is not None else None,
+                )
+        except Exception:
+            notifications_dto = None
+
+        abonnement_dto = None
+        try:
+            abonnement = (
+                session.query(Abonnement)
+                .filter(Abonnement.enfant_id == client_id)
+                .order_by(Abonnement.actif.desc(), Abonnement.id.desc())
+                .first()
+            )
+            if abonnement:
+                abonnement_dto = AbonnementClientDTO(
+                    poids_garanti=float(abonnement.poids_garanti) if abonnement.poids_garanti is not None else None,
+                    frequence=str(abonnement.frequence) if abonnement.frequence else None,
+                    montant_mensuel=float(abonnement.montant_mensuel) if abonnement.montant_mensuel is not None else None,
+                    actif=bool(abonnement.actif) if abonnement.actif is not None else None,
+                )
+        except Exception:
+            abonnement_dto = None
+
+        adresses_dto = []
+        try:
+            adresses = (
+                session.query(Address)
+                .join(User, User.id == Address.user_id)
+                .filter(User.id == client_id)
+                .order_by(Address.is_default.desc(), Address.id.desc())
+                .all()
+            )
+            adresses_dto = [
+                AdresseClientDTO(
+                    neighborhood=str(adresse.neighborhood) if adresse.neighborhood else None,
+                    street=str(adresse.street) if adresse.street else None,
+                    details=str(adresse.details) if adresse.details else None,
+                    ville=str(adresse.ville) if adresse.ville else None,
+                    is_default=bool(adresse.is_default) if adresse.is_default is not None else None,
+                )
+                for adresse in adresses
+            ]
+        except Exception:
+            adresses_dto = []
+
+        return FicheClientDTO(
+            id=int(client.user_id),  # type: ignore
+            email=str(user.email) if user and user.email else None,
+            phone=str(user.phone) if user and user.phone else None,
+            created_at=user.created_at if user else None,  # type: ignore
+            last_login_at=user.last_login_at if user else None,  # type: ignore
+            is_active=bool(user.is_active) if user and user.is_active is not None else None,
+            is_blacklisted=bool(client.is_blacklisted) if client.is_blacklisted is not None else None,
+            auth_provider=str(user.auth_provider) if user and user.auth_provider else None,
+            is_email_verified=bool(user.is_email_verified) if user and user.is_email_verified is not None else None,
+            is_phone_verified=bool(user.is_phone_verified) if user and user.is_phone_verified is not None else None,
+            adresses=adresses_dto,
+            commandes=commandes_dto,
+            commandes_vocales=commandes_vocales_dto,
+            sessions=sessions_dto,
+            notifications=notifications_dto,
+            abonnement=abonnement_dto,
+        )
+
+    def get_commande_for_claim(
+        self,
+        session: Session,
+        *,
+        user_id: int,
+        commande_id: int,
+        for_update: bool = False,
+    ) -> Optional[Commande]:
+        query = (
+            session.query(Commande)
+            .options(
+                joinedload(Commande.panier)
+                .joinedload(Panier.lignes)
+                .joinedload(LignePanier.produit),
+            )
+            .filter(Commande.id == commande_id, Commande.client_id == user_id)
+        )
+        if for_update:
+            query = query.with_for_update(of=Commande)
+        return query.first()
+
+    def get_commandes_non_assignees(
+        self,
+        session: Session,
+        commande_ids: Optional[Iterable[int]] = None,
+        statuts: Optional[Iterable[str]] = None,
+    ) -> List[Commande]:
+        status_source = statuts if statuts is not None else DISPATCHABLE_COMMANDE_STATUSES
+        allowed_statuses = tuple(
+            str(statut).strip().upper()
+            for statut in status_source
+            if str(statut).strip()
+        )
+        if not allowed_statuses:
+            return []
+
+        query = (
+            session.query(Commande)
+            .options(
+                joinedload(Commande.client)
+                .joinedload(Client.user)
+                .selectinload(User.addresses),
+                selectinload(Commande.panier)
+                .selectinload(Panier.lignes)
+                .joinedload(LignePanier.produit),
+                with_loader_criteria(Address, Address.is_default.is_(True), include_aliases=True),
+            )
+            .filter(
+                func.upper(func.trim(func.coalesce(Commande.statut, ""))).in_(allowed_statuses),
+                Commande.tournee_id.is_(None),
+            )
+        )
+
+        if commande_ids is not None:
+            normalized_ids = [int(commande_id) for commande_id in commande_ids]
+            if not normalized_ids:
+                return []
+            query = query.filter(Commande.id.in_(normalized_ids))
+
+        return query.order_by(Commande.date_commande.asc(), Commande.id.asc()).all()
+
+    def bulk_update_commandes_tournee(self, session: Session, updates: List[dict[str, Any]]) -> None:
+        for update_data in updates:
+            commande_id = update_data.get("commande_id", update_data.get("id"))
+            if commande_id is None:
+                raise ValueError("commande_id est obligatoire pour assigner une tournee.")
+
+            values = {
+                "tournee_id": update_data["tournee_id"],
+                "ordre_passage": update_data["ordre_passage"],
+            }
+            if "livreur_id" in update_data:
+                values["livreur_id"] = update_data["livreur_id"]
+
+            session.execute(
+                sqlalchemy_update(Commande)
+                .where(Commande.id == int(commande_id))
+                .values(**values)
+                .execution_options(synchronize_session=False)
+            )
+        session.flush()
+
+    def get_commande_for_reassign(
+        self,
+        session: Session,
+        commande_id: int,
+        for_update: bool = False,
+    ) -> Optional[Commande]:
+        query = session.query(Commande).filter(Commande.id == commande_id)
+        if for_update:
+            query = query.with_for_update(of=Commande)
+        return query.first()
+
+    def reassign_commande_to_tournee(
+        self,
+        session: Session,
+        *,
+        commande: Commande,
+        tournee_id: int,
+        livreur_id: int,
+        ordre_passage: int,
+    ) -> None:
+        commande.tournee_id = tournee_id
+        commande.livreur_id = livreur_id
+        commande.ordre_passage = ordre_passage
+        commande.status_version = int(commande.status_version or 1) + 1
+        session.flush()
+
+    def _build_commande_historique_dto(self, commande: Commande) -> CommandeHistoriqueDTO:
+        produits = []
+        if commande.panier:
+            for ligne in commande.panier.lignes:
+                produit = ligne.produit
+                produits.append(
+                    ProduitCommandeJourDTO(
+                        ligne_panier_id=int(ligne.id) if ligne.id is not None else None,
+                        product_id=int(ligne.produit_id) if ligne.produit_id is not None else None,
+                        nom_fr=str(produit.nom_fr) if produit else "Produit supprime",
+                        quantite_kg=float(ligne.quantite_kg or 0.0),
+                        sous_total=float(ligne.sous_total) if ligne.sous_total is not None else None,
+                    )
+                )
+
+        paiement = commande.paiement
+        paiement_dto = None
+        if paiement:
+            paiement_dto = PaiementDTO(
+                methode=str(paiement.methode) if paiement.methode else None,
+                montant=float(paiement.montant) if paiement.montant is not None else None,
+                valide=bool(paiement.valide) if paiement.valide is not None else None,
+                frais_cmi=float(paiement.frais_cmi) if paiement.frais_cmi is not None else None,
+                montant_net=float(paiement.montant_net) if paiement.montant_net is not None else None,
+            )
+
+        payment_validated = bool(commande.payment_validated or (paiement and paiement.valide))
+        mode_paiement = str(commande.mode_paiement) if commande.mode_paiement else None
+        montant_total = float(commande.montant_total or 0.0)
+        montant_a_encaisser = montant_total if self._is_cod_mode(mode_paiement) and not payment_validated else 0.0
+
+        return CommandeHistoriqueDTO(
+            id=int(commande.id),  # type: ignore
+            date_commande=commande.date_commande,  # type: ignore
+            statut=str(commande.statut) if commande.statut else None,
+            montant_total=montant_total,
+            mode_paiement=mode_paiement,
+            payment_validated=payment_validated,
+            montant_a_encaisser=montant_a_encaisser,
+            creneau_livraison=str(commande.creneau_livraison) if commande.creneau_livraison else None,
+            enroute_at=commande.enroute_at,  # type: ignore
+            delivered_at=commande.delivered_at,  # type: ignore
+            absent_at=commande.absent_at,  # type: ignore
+            produits=produits,
+            paiement=paiement_dto,
+        )
+
+    def get_commandes_cod_verrouillees(self, session: Session) -> List[dict[str, Any]]:
+        start_of_day, end_of_day = self._today_bounds()
+
+        commandes = (
+            session.query(Commande)
+            .join(Client, Client.user_id == Commande.client_id)
+            .options(joinedload(Commande.client).joinedload(Client.user))
+            .filter(
+                Commande.date_commande >= start_of_day,
+                Commande.date_commande <= end_of_day,
+                func.upper(func.coalesce(Commande.statut, "")) == "VERROUILLEE",
+            )
+            .order_by(Commande.creneau_livraison.asc(), Commande.id.asc())
+            .all()
+        )
+
+        rows: List[dict[str, Any]] = []
+        for commande in commandes:
+            mode_paiement = str(commande.mode_paiement) if commande.mode_paiement else None
+            if not self._is_cod_mode(mode_paiement):
+                continue
+
+            user = commande.client.user if commande.client else None
+            rows.append(
+                {
+                    "id": int(commande.id),  # type: ignore
+                    "client_id": int(commande.client_id) if commande.client_id else None,
+                    "nom_client": self._build_client_label(commande),
+                    "telephone": str(user.phone) if user and user.phone else None,
+                    "adresse": self._get_client_address(session, int(commande.client_id)) if commande.client_id else None,
+                    "is_blacklisted": bool(commande.client.is_blacklisted)
+                    if commande.client and commande.client.is_blacklisted is not None
+                    else None,
+                    "montant": float(commande.montant_total or 0.0),
+                    "creneau_livraison": str(commande.creneau_livraison) if commande.creneau_livraison else None,
+                }
+            )
+
+        return rows
+
+    def get_commande_for_cod_update(self, session: Session, commande_id: int) -> Optional[Commande]:
+        return (
+            session.query(Commande)
+            .filter(Commande.id == commande_id)
+            .with_for_update(of=Commande)
+            .first()
+        )
+
+    def annuler_commande_cod(self, session: Session, commande: Commande) -> None:
+        commande.livreur_id = None
+        commande.tournee_id = None
+        commande.ordre_passage = None
+        session.flush()
+
+    def _build_commande_historique_dto(self, commande: Commande) -> CommandeHistoriqueDTO:
+        produits = []
+        if commande.panier:
+            for ligne in commande.panier.lignes:
+                produit = ligne.produit
+                produits.append(
+                    ProduitCommandeJourDTO(
+                        ligne_panier_id=int(ligne.id) if ligne.id is not None else None,
+                        product_id=int(ligne.produit_id) if ligne.produit_id is not None else None,
+                        nom_fr=str(produit.nom_fr) if produit else "Produit supprime",
+                        quantite_kg=float(ligne.quantite_kg or 0.0),
+                        sous_total=float(ligne.sous_total) if ligne.sous_total is not None else None,
+                    )
+                )
+
+        paiement = commande.paiement
+        paiement_dto = None
+        if paiement:
+            paiement_dto = PaiementDTO(
+                methode=str(paiement.methode) if paiement.methode else None,
+                montant=float(paiement.montant) if paiement.montant is not None else None,
+                valide=bool(paiement.valide) if paiement.valide is not None else None,
+                frais_cmi=float(paiement.frais_cmi) if paiement.frais_cmi is not None else None,
+                montant_net=float(paiement.montant_net) if paiement.montant_net is not None else None,
+            )
+
+        payment_validated = bool(commande.payment_validated or (paiement and paiement.valide))
+        mode_paiement = str(commande.mode_paiement) if commande.mode_paiement else None
+        montant_total = float(commande.montant_total or 0.0)
+        montant_a_encaisser = montant_total if self._is_cod_mode(mode_paiement) and not payment_validated else 0.0
+
+        return CommandeHistoriqueDTO(
+            id=int(commande.id),  # type: ignore
+            date_commande=commande.date_commande,  # type: ignore
+            statut=str(commande.statut) if commande.statut else None,
+            montant_total=montant_total,
+            mode_paiement=mode_paiement,
+            payment_validated=payment_validated,
+            montant_a_encaisser=montant_a_encaisser,
+            creneau_livraison=str(commande.creneau_livraison) if commande.creneau_livraison else None,
+            enroute_at=commande.enroute_at,  # type: ignore
+            delivered_at=commande.delivered_at,  # type: ignore
+            absent_at=commande.absent_at,  # type: ignore
+            produits=produits,
+            paiement=paiement_dto,
+        )
+
+    def _is_cod_mode(self, mode_paiement: Optional[str]) -> bool:
+        normalized_mode = (mode_paiement or "").strip().casefold()
+        return normalized_mode in {"cod", "cash", "especes", "especes_livraison", "cash_on_delivery"}
+
+    def _today_bounds(self) -> tuple[datetime, datetime]:
+        # Heure du Maroc (Africa/Casablanca), pas l'heure locale du serveur, pour que la
+        # fenetre "aujourd'hui" corresponde au fuseau metier (meme calcul que date_utils).
+        today = datetime.now(ZoneInfo("Africa/Casablanca")).date()
+        return datetime.combine(today, time.min), datetime.combine(today, time.max)
+
+    def _build_client_label(self, commande: Commande) -> str:
+        user = commande.client.user if commande.client else None
+        if user and user.email:
+            return str(user.email)
+        if user and user.phone:
+            return str(user.phone)
+        if commande.client_id:
+            return f"Client #{commande.client_id}"
+        return "Client inconnu"
+
+    def _get_client_address(self, session: Session, client_id: int) -> Optional[str]:
+        adresse = (
+            session.query(Address)
+            .filter(Address.user_id == client_id)
+            .order_by(Address.is_default.desc(), Address.id.desc())
+            .first()
+        )
+        if not adresse:
+            return None
+
+        parts = [
+            str(part).strip()
+            for part in [adresse.street, adresse.neighborhood, adresse.ville]
+            if part and str(part).strip()
+        ]
+        full_address = ", ".join(parts)
+        details = str(adresse.details).strip() if adresse.details else ""
+        if details:
+            return f"{full_address} ({details})" if full_address else details
+        return full_address or None

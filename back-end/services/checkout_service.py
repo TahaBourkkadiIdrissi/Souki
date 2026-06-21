@@ -1,14 +1,37 @@
+from datetime import datetime, time
 from typing import Optional
+from zoneinfo import ZoneInfo
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from config import LocalSession
 from dto.checkout_dto import CheckoutRequestDTO, CheckoutResponseDTO
+from decimal import Decimal
 from interfaces.checkout_dao_interface import ICheckoutDao
 from interfaces.checkout_service_interface import ICheckoutService
+from entities.souki_wallet_entity import SoukiWallet
+from entities.transaction_wallet_entity import TransactionWallet
+
+PANIER_MINIMUM_DH = 50.0
+SEUIL_LIVRAISON_GRATUITE = 300.0
+FRAIS_LIVRAISON = 15.0
+DELIVERY_FEE = FRAIS_LIVRAISON
+MOROCCO_TIMEZONE = ZoneInfo("Africa/Casablanca")
+ORDER_CUTOFF_START = time(20, 0)
+ORDER_CUTOFF_END = time(8, 0)
+ORDER_CUTOFF_MESSAGE = (
+    "Les commandes restent enregistrees en attente pour la livraison du lendemain."
+)
+ORDER_CUTOFF_ENABLED = False
 
 
-DELIVERY_FEE = 10.0
+def is_order_cutoff_active(now: Optional[datetime] = None) -> bool:
+    current_datetime = now or datetime.now(MOROCCO_TIMEZONE)
+    if current_datetime.tzinfo is None:
+        current_datetime = current_datetime.replace(tzinfo=MOROCCO_TIMEZONE)
+    current_time = current_datetime.astimezone(MOROCCO_TIMEZONE).time()
+    return current_time >= ORDER_CUTOFF_START or current_time < ORDER_CUTOFF_END
 
 
 class CheckoutService(ICheckoutService):
@@ -42,6 +65,9 @@ class CheckoutService(ICheckoutService):
     def create_checkout(
         self, user_id: int, payload: CheckoutRequestDTO
     ) -> CheckoutResponseDTO:
+        if ORDER_CUTOFF_ENABLED and is_order_cutoff_active():
+            raise HTTPException(status_code=403, detail=ORDER_CUTOFF_MESSAGE)
+
         if not payload.items:
             raise ValueError("Votre panier est vide.")
 
@@ -50,8 +76,35 @@ class CheckoutService(ICheckoutService):
 
         try:
             client = self.checkout_dao.get_or_create_client(session, user_id)
-            if bool(client.is_blacklisted):
-                raise ValueError("Ce compte ne peut pas valider de commande pour le moment.")
+            if bool(client.is_blacklisted) and self._is_cod_mode(payload.mode_paiement):
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        "Votre compte ne peut pas passer de commandes COD. "
+                        "Veuillez utiliser Wallet ou CMI."
+                    ),
+                )
+
+            contact_phone = (payload.contact_phone or "").strip()
+            delivery_address = (payload.delivery_address or "").strip()
+            delivery_city = (payload.delivery_city or "").strip()
+            delivery_instructions = (payload.delivery_instructions or "").strip() or None
+
+            if not contact_phone:
+                raise ValueError("Le numero de telephone est obligatoire pour valider la commande.")
+            if not delivery_address:
+                raise ValueError("L'adresse de livraison est obligatoire pour valider la commande.")
+            if not delivery_city:
+                raise ValueError("La ville de livraison est obligatoire pour valider la commande.")
+
+            self.checkout_dao.update_user_phone(session, user_id, contact_phone)
+            self.checkout_dao.upsert_user_delivery_address(
+                session=session,
+                user_id=user_id,
+                street=delivery_address,
+                city=delivery_city,
+                details=delivery_instructions,
+            )
 
             product_ids = [item.product_id for item in payload.items]
             products = self.checkout_dao.get_products_by_ids(session, product_ids)
@@ -77,13 +130,53 @@ class CheckoutService(ICheckoutService):
                         f"Stock insuffisant pour {product.nom_fr}. Disponible: {available_stock} {product.unite}."
                     )
 
-                line_total = round(float(product.prix_kg) * requested_quantity, 2) # type: ignore
+                prix_affiche = getattr(product, "prix_affiche", None)
+                unit_price = (
+                    float(prix_affiche)
+                    if prix_affiche is not None
+                    else float(product.prix_kg) # type: ignore
+                )
+                line_total = round(unit_price * requested_quantity, 2)
                 sous_total += line_total
                 total_legumes += requested_quantity
                 total_articles += 1
                 product.stock = available_stock - requested_quantity # type: ignore
 
-            montant_total = round(sous_total + DELIVERY_FEE, 2)
+            total_produits = round(sous_total, 2)
+
+            is_b2b = False
+            if (
+                total_produits >= SEUIL_LIVRAISON_GRATUITE
+                or getattr(client, 'abonnement_actif', False)
+                or is_b2b
+            ):
+                frais_livraison = 0.0
+            else:
+                frais_livraison = FRAIS_LIVRAISON
+
+            montant_total = round(total_produits + frais_livraison, 2)
+
+            is_wallet_payment = (payload.mode_paiement or "").strip().casefold() == "wallet"
+            if is_wallet_payment:
+                wallet = session.query(SoukiWallet).filter(SoukiWallet.user_id == user_id).with_for_update().first()
+                if not wallet:
+                    raise HTTPException(status_code=400, detail="Portefeuille Souki introuvable ou non activé.")
+                
+                montant_decimal = Decimal(str(montant_total))
+                if wallet.balance < montant_decimal:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Solde insuffisant dans votre portefeuille. Solde actuel: {wallet.balance} DH, requis: {montant_total} DH."
+                    )
+                
+                wallet.balance -= montant_decimal
+                transaction = TransactionWallet(
+                    wallet_id=wallet.id,
+                    type="DEBIT_COMMANDE",
+                    montant=float(-montant_decimal)
+                )
+                session.add(transaction)
+
             panier = self.checkout_dao.create_panier(
                 session=session,
                 user_id=user_id,
@@ -94,7 +187,13 @@ class CheckoutService(ICheckoutService):
 
             for item in payload.items:
                 product = products_by_id[item.product_id]
-                line_total = round(float(product.prix_kg) * float(item.quantity), 2) # type: ignore
+                prix_affiche = getattr(product, "prix_affiche", None)
+                unit_price = (
+                    float(prix_affiche)
+                    if prix_affiche is not None
+                    else float(product.prix_kg) # type: ignore
+                )
+                line_total = round(unit_price * float(item.quantity), 2)
                 self.checkout_dao.create_ligne_panier(
                     session=session,
                     panier_id=int(panier.id), # type: ignore
@@ -121,8 +220,8 @@ class CheckoutService(ICheckoutService):
                 commande_id=int(commande.id), # type: ignore
                 panier_id=int(panier.id), # type: ignore
                 total_articles=total_articles,
-                sous_total=round(sous_total, 2),
-                frais_livraison=DELIVERY_FEE,
+                sous_total=total_produits,
+                frais_livraison=frais_livraison,
                 montant_total=montant_total,
                 message="Commande enregistree avec succes.",
             )
@@ -132,3 +231,7 @@ class CheckoutService(ICheckoutService):
         finally:
             if auto_session:
                 self._close_owned_session()
+
+    def _is_cod_mode(self, mode_paiement: Optional[str]) -> bool:
+        normalized_mode = (mode_paiement or "").strip().casefold()
+        return normalized_mode in {"cod", "cash", "especes", "especes_livraison", "cash_on_delivery"}

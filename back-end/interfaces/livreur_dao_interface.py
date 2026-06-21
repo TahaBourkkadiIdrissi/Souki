@@ -1,9 +1,12 @@
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Iterable, Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
+
+from entities.commande_entity import Commande
+from entities.livreur_entity import Livreur
 
 
 class ILivreurDao(ABC):
@@ -14,7 +17,12 @@ class ILivreurDao(ABC):
         session: Session,
         livreur_id: int,
         visible_statuses: Iterable[str],
+        target_date: date,
     ) -> list[dict[str, Any]]:
+        pass
+
+    @abstractmethod
+    def get_available_livreurs(self, session: Session) -> list[Livreur]:
         pass
 
     @abstractmethod
@@ -27,12 +35,30 @@ class ILivreurDao(ABC):
         pass
 
     @abstractmethod
+    def get_commandes_for_tournee_refus(
+        self,
+        session: Session,
+        livreur_id: int,
+        statuses: Iterable[str],
+    ) -> list[Commande]:
+        pass
+
+    @abstractmethod
     def get_commande_delivery_context(
         self,
         session: Session,
         livreur_id: int,
         commande_id: int,
     ) -> Optional[dict[str, Any]]:
+        pass
+
+    @abstractmethod
+    def get_commande_by_id(
+        self,
+        session: Session,
+        commande_id: int,
+        for_update: bool = False,
+    ) -> Optional[Commande]:
         pass
 
     @abstractmethod

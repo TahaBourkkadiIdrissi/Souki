@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { Suspense, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { REGEXP_ONLY_DIGITS } from "input-otp"
@@ -15,6 +15,7 @@ import {
 
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { API_BASE_URL } from "@/lib/api"
+import { shouldShowOnboarding } from "@/lib/onboarding"
 
 const RESEND_DELAY_SECONDS = 60
 
@@ -42,7 +43,7 @@ function OTPVerificationForm({
   }, [countdown])
 
   const channelLabel = useMemo(
-    () => (channel === "phone" ? "par telephone" : "par email"),
+    () => (channel === "phone" ? "par téléphone" : "par email"),
     [channel]
   )
 
@@ -51,7 +52,7 @@ function OTPVerificationForm({
 
   const handleVerify = async () => {
     if (normalizedOtp.length !== 6) {
-      setError("Saisissez le code OTP a 6 chiffres.")
+      setError("Saisissez le code OTP à 6 chiffres.")
       return
     }
 
@@ -73,7 +74,7 @@ function OTPVerificationForm({
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.detail || "La verification a echoue.")
+        throw new Error(data.detail || "La vérification a échoué.")
       }
 
       if (data.access_token) {
@@ -85,10 +86,11 @@ function OTPVerificationForm({
         )
       }
 
-      setMessage(data.message || "Code valide avec succes.")
-      window.setTimeout(() => router.push(data.default_dashboard || "/"), 500)
+      setMessage(data.message || "Code validé avec succès.")
+      const destination = shouldShowOnboarding() ? "/onboarding" : data.default_dashboard || "/"
+      window.setTimeout(() => router.push(destination), 500)
     } catch (err: any) {
-      setError(err.message || "La verification a echoue.")
+      setError(err.message || "La vérification a échoué.")
     } finally {
       setLoading(false)
     }
@@ -115,7 +117,7 @@ function OTPVerificationForm({
         throw new Error(data.detail || "Impossible de renvoyer le code.")
       }
 
-      setMessage(data.message || "Un nouveau code a ete envoye.")
+      setMessage(data.message || "Un nouveau code a été envoyé.")
       setCountdown(data.resend_available_in_seconds || RESEND_DELAY_SECONDS)
       setOtp("")
     } catch (err: any) {
@@ -133,11 +135,11 @@ function OTPVerificationForm({
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#6E8B73]">
-            Verification du compte
+            Vérification du compte
           </p>
-          <h2 className="mt-1 text-2xl font-bold text-[#233127]">Code OTP a 6 chiffres</h2>
+          <h2 className="mt-1 text-2xl font-bold text-[#233127]">Code OTP à 6 chiffres</h2>
           <p className="mt-2 text-sm leading-6 text-[#66756B]">
-            Entrez le code envoye {channelLabel}
+            Entrez le code envoyé {channelLabel}
             {target ? ` sur ${target}` : ""}.
           </p>
         </div>
@@ -152,7 +154,7 @@ function OTPVerificationForm({
             {channel === "phone" ? "Validation par SMS / WhatsApp" : "Validation par email"}
           </p>
           <p className="text-xs text-[#7B8B80]">
-            Le compte restera inactif tant que le code n&apos;est pas confirme.
+            Le compte restera inactif tant que le code n&apos;est pas confirmé.
           </p>
         </div>
       </div>
@@ -202,12 +204,12 @@ function OTPVerificationForm({
           className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1E8A3C] py-3.5 text-base font-semibold text-white transition-colors hover:bg-[#176C2E] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShieldCheck className="h-5 w-5" />}
-          Verifier le code
+          Vérifier le code
         </button>
 
         <div className="flex flex-col items-center justify-between gap-3 rounded-2xl border border-dashed border-[#D9E6DB] px-4 py-4 text-sm text-[#617065] sm:flex-row">
           <p>
-            Vous n&apos;avez rien recu ?
+            Vous n&apos;avez rien reçu ?
             {countdown > 0
               ? ` Renvoyez un nouveau code dans ${countdown}s.`
               : " Vous pouvez demander un nouveau code maintenant."}
@@ -227,7 +229,7 @@ function OTPVerificationForm({
   )
 }
 
-export default function VerifyPage() {
+function VerifyContent() {
   const searchParams = useSearchParams()
   const userId = Number(searchParams.get("userId") || "0")
   const channel = searchParams.get("channel") || "email"
@@ -260,10 +262,10 @@ export default function VerifyPage() {
             <ShieldCheck className="h-8 w-8 text-white" />
           </div>
           <h1 className="text-4xl xl:text-5xl font-bold text-white mb-6 leading-tight text-balance">
-            Derniere etape avant l&apos;activation.
+            Dernière étape avant l&apos;activation.
           </h1>
           <p className="text-xl text-white/85 max-w-md leading-8">
-            Verifiez votre moyen de contact pour activer votre compte SOUKI et finaliser la creation de votre acces.
+            Vérifiez votre moyen de contact pour activer votre compte SOUKI et finaliser la création de votre accès.
           </p>
         </div>
 
@@ -287,20 +289,34 @@ export default function VerifyPage() {
             <OTPVerificationForm userId={userId} channel={channel} target={target} />
           ) : (
             <div className="rounded-[28px] border border-red-200 bg-white p-8 shadow-lg">
-              <h2 className="text-2xl font-bold text-[#2E3A31]">Lien de verification invalide</h2>
+              <h2 className="text-2xl font-bold text-[#2E3A31]">Lien de vérification invalide</h2>
               <p className="mt-3 text-sm leading-6 text-[#617065]">
-                Les informations de verification sont incompletes. Revenez a l&apos;ecran d&apos;inscription pour demander un nouveau code OTP.
+                Les informations de vérification sont incomplètes. Revenez à l&apos;écran d&apos;inscription pour demander un nouveau code OTP.
               </p>
               <Link
                 href="/login"
                 className="mt-6 inline-flex rounded-2xl bg-[#1E8A3C] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#176C2E]"
               >
-                Retour a la connexion
+                Retour à la connexion
               </Link>
             </div>
           )}
         </div>
       </div>
     </div>
+  )
+}
+
+export default function VerifyPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-[#1E8A3C]" />
+        </div>
+      }
+    >
+      <VerifyContent />
+    </Suspense>
   )
 }

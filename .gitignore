@@ -111,6 +111,7 @@ dist
 back-end/.venv/
 back-end/sql/*
 !back-end/sql/2026-04-25_add_avatar_storage.sql
+!back-end/sql/migration_produit_pricing.sql
 
 # vitepress build output
 **/.vitepress/dist
@@ -153,3 +154,15 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 .venv
+
+regles.txt
+*.md
+*.mmd
+
+# Expo mobile
+mobile/node_modules
+mobile/.expo
+mobile/dist
+mobile/web-build
+mobile/.env
+mobile/*.log
