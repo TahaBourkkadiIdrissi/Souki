@@ -7,9 +7,11 @@ from sqlalchemy.orm import Session
 
 from config import LocalSession
 from dto.checkout_dto import CheckoutRequestDTO, CheckoutResponseDTO
+from decimal import Decimal
 from interfaces.checkout_dao_interface import ICheckoutDao
 from interfaces.checkout_service_interface import ICheckoutService
-
+from entities.souki_wallet_entity import SoukiWallet
+from entities.transaction_wallet_entity import TransactionWallet
 
 PANIER_MINIMUM_DH = 50.0
 SEUIL_LIVRAISON_GRATUITE = 80.0
@@ -158,6 +160,28 @@ class CheckoutService(ICheckoutService):
                 frais_livraison = FRAIS_LIVRAISON
 
             montant_total = round(total_produits + frais_livraison, 2)
+
+            is_wallet_payment = (payload.mode_paiement or "").strip().casefold() == "wallet"
+            if is_wallet_payment:
+                wallet = session.query(SoukiWallet).filter(SoukiWallet.user_id == user_id).with_for_update().first()
+                if not wallet:
+                    raise HTTPException(status_code=400, detail="Portefeuille Souki introuvable ou non activé.")
+                
+                montant_decimal = Decimal(str(montant_total))
+                if wallet.balance < montant_decimal:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Solde insuffisant dans votre portefeuille. Solde actuel: {wallet.balance} DH, requis: {montant_total} DH."
+                    )
+                
+                wallet.balance -= montant_decimal
+                transaction = TransactionWallet(
+                    wallet_id=wallet.id,
+                    type="DEBIT_COMMANDE",
+                    montant=float(-montant_decimal)
+                )
+                session.add(transaction)
+
             panier = self.checkout_dao.create_panier(
                 session=session,
                 user_id=user_id,

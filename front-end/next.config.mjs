@@ -41,6 +41,10 @@ const nextConfig = {
         source: "/backend/:path*",
         destination: `${backendTarget}/:path*`,
       },
+      {
+        source: "/fournisseur/:path*",
+        destination: "/supplier/:path*",
+      },
     ];
   },
   async headers() {

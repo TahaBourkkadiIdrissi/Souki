@@ -1,9 +1,8 @@
 const CACHE_PREFIX = "souki-pwa"
-const CACHE_VERSION = "v1"
+const CACHE_VERSION = "v2"
 const RUNTIME_CACHE = `${CACHE_PREFIX}-${CACHE_VERSION}`
 
 const STATIC_ASSETS = [
-  "/",
   "/manifest.webmanifest",
   "/logo3.png",
   "/pwa-icon-192.png",
@@ -55,42 +54,26 @@ self.addEventListener("fetch", (event) => {
     return
   }
 
-  if (request.mode === "navigate") {
-    event.respondWith(networkFirst(request))
-    return
-  }
-
   if (
     url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/avatar/") ||
     url.pathname.match(/\.(?:png|jpg|jpeg|svg|webp|ico|css|js|woff2?)$/)
   ) {
-    event.respondWith(cacheFirst(request))
+    event.respondWith(networkFirst(request))
   }
 })
 
 async function networkFirst(request) {
   const cache = await caches.open(RUNTIME_CACHE)
-
   try {
-    const fresh = await fetch(request)
-    cache.put(request, fresh.clone())
-    return fresh
-  } catch {
+    const response = await fetch(request)
+    if (response.ok) {
+      cache.put(request, response.clone())
+    }
+    return response
+  } catch (err) {
     const cached = await cache.match(request)
-    return cached || cache.match("/")
+    if (cached) return cached
+    throw err
   }
-}
-
-async function cacheFirst(request) {
-  const cache = await caches.open(RUNTIME_CACHE)
-  const cached = await cache.match(request)
-
-  if (cached) {
-    return cached
-  }
-
-  const fresh = await fetch(request)
-  cache.put(request, fresh.clone())
-  return fresh
 }
