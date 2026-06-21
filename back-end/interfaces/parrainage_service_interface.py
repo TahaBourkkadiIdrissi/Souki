@@ -3,6 +3,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
+from dto.parrainage_admin_dto import ParrainageAdminOverviewDTO
 from entities.parrainage_entity import Parrainage
 
 
@@ -45,4 +46,8 @@ class IParrainageService(ABC):
 
     @abstractmethod
     def convert_on_delivery(self, session: Session, *, filleul_id: int) -> Optional[Parrainage]:
+        pass
+
+    @abstractmethod
+    def get_admin_overview(self, session: Session) -> ParrainageAdminOverviewDTO:
         pass

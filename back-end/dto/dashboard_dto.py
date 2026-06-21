@@ -46,6 +46,15 @@ class DashboardDTO(BaseModel):
     ca_wallet: float = 0.0
     ca_cmi: float = 0.0
     panier_moyen: float = 0.0
+    panier_moyen_precedent: float = 0.0
+
+    marge_brute: float = 0.0
+    marge_brute_precedent: float = 0.0
+    taux_marge: float = 0.0
+
+    parrainages_en_attente: int = 0
+    filleuls_convertis: int = 0
+    credit_parrainage_distribue: float = 0.0
 
     total_clients_actifs: int = 0
     nouveaux_clients: int = 0

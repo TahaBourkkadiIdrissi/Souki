@@ -52,3 +52,19 @@ class IParrainageDao(ABC):
     @abstractmethod
     def count_recent_by_ip(self, session: Session, ip: str, since: datetime) -> int:
         pass
+
+    @abstractmethod
+    def count_by_statut(self, session: Session) -> dict:
+        pass
+
+    @abstractmethod
+    def total_credit_distribue(self, session: Session) -> float:
+        pass
+
+    @abstractmethod
+    def top_parrains(self, session: Session, limit: int = 5) -> list:
+        pass
+
+    @abstractmethod
+    def list_recent_with_contacts(self, session: Session, limit: int = 100) -> list:
+        pass

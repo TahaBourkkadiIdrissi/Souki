@@ -6,6 +6,11 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from config import LocalSession
+from dto.parrainage_admin_dto import (
+    ParrainageAdminItemDTO,
+    ParrainageAdminOverviewDTO,
+    ParrainageTopParrainDTO,
+)
 from entities.parrainage_entity import (
     PARRAINAGE_CONVERTI,
     PARRAINAGE_EN_ATTENTE,
@@ -174,3 +179,69 @@ class ParrainageService(IParrainageService):
         except Exception as exc:
             print(f"[PARRAINAGE] Conversion ignoree pour filleul {filleul_id}: {exc}")
             return None
+
+    def get_admin_overview(self, session: Session) -> ParrainageAdminOverviewDTO:
+        counts = self.parrainage_dao.count_by_statut(session)
+        en_attente = counts.get(PARRAINAGE_EN_ATTENTE, 0)
+        convertis = counts.get(PARRAINAGE_CONVERTI, 0)
+        rejetes = counts.get(PARRAINAGE_REJETE, 0)
+        total = sum(counts.values())
+        taux = round((convertis / total) * 100, 2) if total else 0.0
+
+        top_parrains = [
+            ParrainageTopParrainDTO(
+                parrain_id=int(row[0]),
+                parrain_contact=self._mask_contact(row[1], row[2]),
+                filleuls_convertis=int(row[3] or 0),
+                credit_genere=round(float(row[4] or 0.0), 2),
+            )
+            for row in self.parrainage_dao.top_parrains(session, limit=5)
+        ]
+
+        recent = []
+        for row in self.parrainage_dao.list_recent_with_contacts(session, limit=100):
+            parrainage = row[0]
+            credit_total = round(
+                float(parrainage.credit_parrain or 0.0) + float(parrainage.credit_filleul or 0.0),
+                2,
+            )
+            recent.append(
+                ParrainageAdminItemDTO(
+                    id=int(parrainage.id),
+                    parrain_id=int(parrainage.parrain_id),
+                    parrain_contact=self._mask_contact(row[1], row[2]),
+                    code_utilise=parrainage.code_utilise,
+                    filleul_id=int(parrainage.filleul_id),
+                    filleul_contact=self._mask_contact(row[3], row[4]),
+                    statut=parrainage.statut,
+                    credit_total=credit_total,
+                    created_at=parrainage.created_at,
+                    converted_at=parrainage.converted_at,
+                )
+            )
+
+        return ParrainageAdminOverviewDTO(
+            total=total,
+            en_attente=en_attente,
+            convertis=convertis,
+            rejetes=rejetes,
+            taux_conversion=taux,
+            credit_distribue=round(self.parrainage_dao.total_credit_distribue(session), 2),
+            top_parrains=top_parrains,
+            recent=recent,
+        )
+
+    @staticmethod
+    def _mask_contact(phone: Optional[str], email: Optional[str]) -> Optional[str]:
+        if phone:
+            value = phone.strip()
+            if len(value) <= 4:
+                return "*" * len(value)
+            return f"{value[:4]}{'*' * max(1, len(value) - 6)}{value[-2:]}"
+        if email:
+            local, _, domain = email.partition("@")
+            if not domain:
+                return "***"
+            masked = f"{local[:2]}{'*' * max(1, len(local) - 2)}" if local else "*"
+            return f"{masked}@{domain}"
+        return None

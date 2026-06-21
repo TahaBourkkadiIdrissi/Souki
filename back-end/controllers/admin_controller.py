@@ -8,8 +8,15 @@ from jose import JWTError, jwt
 from auth_dependencies import require_permission
 from config import ALGORITHM, LocalSession, SECRET_KEY
 from dao.livreur_dao import LivreurDaoBD
-from dependencies import get_blacklist_service, get_client_admin_service, get_dashboard_service
+from dependencies import (
+    get_blacklist_service,
+    get_client_admin_service,
+    get_dashboard_service,
+    get_parrainage_service,
+)
 from dto.client_admin_dto import AdminClientsPageDTO
+from dto.parrainage_admin_dto import ParrainageAdminOverviewDTO
+from interfaces.parrainage_service_interface import IParrainageService
 from dto.client_blacklist_dto import (
     BlacklistReportDTO,
     ClientBlacklistDTO,
@@ -90,6 +97,19 @@ def get_admin_dashboard_context(
     session = LocalSession()
     try:
         return service.get_dashboard(session, periode, date_custom)
+    finally:
+        session.close()
+
+
+@admin_router.get("/parrainages", response_model=ParrainageAdminOverviewDTO)
+def get_admin_parrainages(
+    principal=Depends(require_permission("admin.panel.access")),
+    service: IParrainageService = Depends(get_parrainage_service),
+):
+    _ = principal
+    session = LocalSession()
+    try:
+        return service.get_admin_overview(session)
     finally:
         session.close()
 

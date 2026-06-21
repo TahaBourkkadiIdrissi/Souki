@@ -2,10 +2,11 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from entities.client_entity import Client
 from entities.parrainage_entity import PARRAINAGE_CONVERTI, PARRAINAGE_EN_ATTENTE, Parrainage
+from entities.user_entity import User
 from interfaces.parrainage_dao_interface import IParrainageDao
 
 
@@ -88,4 +89,64 @@ class ParrainageDaoBD(IParrainageDao):
             )
             .scalar()
             or 0
+        )
+
+    def count_by_statut(self, session: Session) -> dict:
+        rows = (
+            session.query(Parrainage.statut, func.count(Parrainage.id))
+            .group_by(Parrainage.statut)
+            .all()
+        )
+        return {str(statut): int(count) for statut, count in rows}
+
+    def total_credit_distribue(self, session: Session) -> float:
+        return float(
+            session.query(
+                func.coalesce(
+                    func.sum(
+                        func.coalesce(Parrainage.credit_parrain, 0.0)
+                        + func.coalesce(Parrainage.credit_filleul, 0.0)
+                    ),
+                    0.0,
+                )
+            )
+            .filter(Parrainage.statut == PARRAINAGE_CONVERTI)
+            .scalar()
+            or 0.0
+        )
+
+    def top_parrains(self, session: Session, limit: int = 5) -> list:
+        parrain_user = aliased(User)
+        return (
+            session.query(
+                Parrainage.parrain_id,
+                parrain_user.phone,
+                parrain_user.email,
+                func.count(Parrainage.id),
+                func.coalesce(func.sum(func.coalesce(Parrainage.credit_parrain, 0.0)), 0.0),
+            )
+            .outerjoin(parrain_user, parrain_user.id == Parrainage.parrain_id)
+            .filter(Parrainage.statut == PARRAINAGE_CONVERTI)
+            .group_by(Parrainage.parrain_id, parrain_user.phone, parrain_user.email)
+            .order_by(func.count(Parrainage.id).desc())
+            .limit(limit)
+            .all()
+        )
+
+    def list_recent_with_contacts(self, session: Session, limit: int = 100) -> list:
+        parrain_user = aliased(User)
+        filleul_user = aliased(User)
+        return (
+            session.query(
+                Parrainage,
+                parrain_user.phone,
+                parrain_user.email,
+                filleul_user.phone,
+                filleul_user.email,
+            )
+            .outerjoin(parrain_user, parrain_user.id == Parrainage.parrain_id)
+            .outerjoin(filleul_user, filleul_user.id == Parrainage.filleul_id)
+            .order_by(Parrainage.created_at.desc())
+            .limit(limit)
+            .all()
         )
