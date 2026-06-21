@@ -19,6 +19,13 @@ class ParrainageDaoBD(IParrainageDao):
             .first()
         )
 
+    def get_client_by_id(self, session: Session, user_id: int) -> Optional[Client]:
+        return (
+            session.query(Client)
+            .filter(Client.user_id == user_id)
+            .first()
+        )
+
     def code_exists(self, session: Session, code: str) -> bool:
         return (
             session.query(Client.user_id)

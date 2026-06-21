@@ -247,12 +247,6 @@ def get_parrainage_dao() -> IParrainageDao:
     return ParrainageDaoBD()
 
 
-def get_parrainage_service(
-    parrainage_dao: IParrainageDao = Depends(get_parrainage_dao)
-) -> IParrainageService:
-    return ParrainageService(parrainage_dao)
-
-
 def get_ml_panier_service(
     panier_dao: IPanierDao = Depends(get_panier_dao),
 ) -> MLPanierService:
@@ -264,6 +258,13 @@ def get_souki_wallet_service(
     souki_wallet_dao: ISoukiWalletDao = Depends(get_souki_wallet_dao)
 ) -> ISoukiWalletService:
     return SoukiWalletService(souki_wallet_dao)
+
+
+def get_parrainage_service(
+    parrainage_dao: IParrainageDao = Depends(get_parrainage_dao),
+    souki_wallet_service: ISoukiWalletService = Depends(get_souki_wallet_service),
+) -> IParrainageService:
+    return ParrainageService(parrainage_dao, souki_wallet_service)
 
 
 def get_claim_service(

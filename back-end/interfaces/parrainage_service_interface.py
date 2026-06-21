@@ -42,3 +42,7 @@ class IParrainageService(ABC):
         for_update: bool = False,
     ) -> Optional[Parrainage]:
         pass
+
+    @abstractmethod
+    def convert_on_delivery(self, session: Session, *, filleul_id: int) -> Optional[Parrainage]:
+        pass

@@ -15,6 +15,10 @@ class IParrainageDao(ABC):
         pass
 
     @abstractmethod
+    def get_client_by_id(self, session: Session, user_id: int) -> Optional[Client]:
+        pass
+
+    @abstractmethod
     def code_exists(self, session: Session, code: str) -> bool:
         pass
 
