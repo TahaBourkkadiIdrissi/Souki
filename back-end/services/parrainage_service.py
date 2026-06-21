@@ -36,8 +36,9 @@ REFERRAL_IP_WINDOW_DAYS = 30
 REFERRAL_PARRAIN_CAP = 50
 
 # Types de transactions wallet pour la tracabilite dans l'historique.
-REFERRAL_TX_TYPE_PARRAIN = "CREDIT_PARRAINAGE_PARRAIN"
-REFERRAL_TX_TYPE_FILLEUL = "CREDIT_PARRAINAGE_FILLEUL"
+# Limite a 20 caracteres : contrainte de la colonne t_transactions_wallet.type.
+REFERRAL_TX_TYPE_PARRAIN = "PARRAINAGE_PARRAIN"
+REFERRAL_TX_TYPE_FILLEUL = "PARRAINAGE_FILLEUL"
 
 # Code de parrainage : 6 caracteres alphanumeriques sans caracteres ambigus
 # (pas de 0/O ni 1/I/L) pour faciliter le partage oral et par SMS.
