@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   ArrowLeft, User, Bell, Shield, CreditCard, MapPin, Phone, Mail, Camera, Save, Trash2, LogOut,
-  Moon, Sun, Globe, Smartphone, Lock, Eye, EyeOff, Check, ChevronRight, Wallet, Loader2, Copy, ShieldCheck, Sparkles, AlertTriangle
+  Moon, Sun, Globe, Smartphone, Lock, Eye, EyeOff, Check, ChevronRight, Wallet, Loader2, Copy, ShieldCheck, Sparkles, AlertTriangle, Gift, Share2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -87,7 +87,7 @@ const isWalletPasswordStrong = (value: string) => {
 export default function ParametresPage() {
   const router = useRouter()
   const pathname = usePathname()
-  const { logout, isLoading: isAuthLoading, isAuthenticated, token } = useAuth()
+  const { user, logout, isLoading: isAuthLoading, isAuthenticated, token } = useAuth()
   const profileApi = useProfile()
   const notifApi = useNotifications()
   const securityApi = useSecurity()
@@ -126,6 +126,40 @@ export default function ParametresPage() {
   const [isSendingLiftRequest, setIsSendingLiftRequest] = useState(false)
 
   const showSaved = () => { setSaved(true); setTimeout(() => setSaved(false), 2000) }
+
+  const [copiedReferral, setCopiedReferral] = useState(false)
+  const referralCode = user?.profiles?.client?.code_parrainage || ""
+  const referralLink =
+    typeof window !== "undefined" && referralCode
+      ? `${window.location.origin}/login/client?ref=${referralCode}`
+      : ""
+
+  const copyReferralCode = async () => {
+    if (!referralCode) return
+    try {
+      await navigator.clipboard.writeText(referralCode)
+      setCopiedReferral(true)
+      setTimeout(() => setCopiedReferral(false), 2000)
+    } catch {
+      /* presse-papiers indisponible */
+    }
+  }
+
+  const shareReferral = async () => {
+    if (!referralCode) return
+    const message = `Rejoins-moi sur SOUKI avec mon code de parrainage ${referralCode} et reçois un produit offert sur ta 1ère commande livrée !`
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({ title: "SOUKI Fresh Market", text: message, url: referralLink })
+      } else {
+        await navigator.clipboard.writeText(`${message} ${referralLink}`)
+        setCopiedReferral(true)
+        setTimeout(() => setCopiedReferral(false), 2000)
+      }
+    } catch {
+      /* partage annule par l'utilisateur */
+    }
+  }
 
   useEffect(() => {
     setActiveSection(getSectionFromPath(pathname))
@@ -430,6 +464,44 @@ export default function ParametresPage() {
               <SectionCard title="Informations personnelles" onSave={onSavePersonal} saving={profileApi.loading}><div className="grid gap-5 md:grid-cols-2"><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Prénom</label><input value={personal.prenom} onChange={(e) => setPersonal((p) => ({ ...p, prenom: e.target.value }))} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors text-[#3D3D3D]" /></div><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Nom</label><input value={personal.nom} onChange={(e) => setPersonal((p) => ({ ...p, nom: e.target.value }))} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors text-[#3D3D3D]" /></div><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Email</label><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8A8A]" /><input value={personal.email} onChange={(e) => setPersonal((p) => ({ ...p, email: e.target.value }))} type="email" className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors text-[#3D3D3D]" /></div>{errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}{errors.email_info && <p className="text-xs text-[#1E8A3C] mt-1">{errors.email_info}</p>}</div><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Téléphone</label><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8A8A]" /><input value={personal.telephone} onChange={(e) => setPersonal((p) => ({ ...p, telephone: e.target.value }))} type="tel" className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors text-[#3D3D3D]" /></div>{errors.telephone && <p className="text-xs text-red-500 mt-1">{errors.telephone}</p>}</div></div></SectionCard>
               <SectionCard title="Adresse de livraison" onSave={onSaveAddress} saving={profileApi.loading}><div className="grid gap-5"><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Adresse</label><div className="relative"><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8A8A]" /><input value={address.adresse} onChange={(e) => setAddress((p) => ({ ...p, adresse: e.target.value }))} className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors text-[#3D3D3D]" /></div></div><div className="grid grid-cols-2 gap-4"><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Ville</label><select value={address.ville} onChange={(e) => setAddress((p) => ({ ...p, ville: e.target.value }))} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors text-[#3D3D3D] appearance-none bg-white">{moroccanCities.map((city) => <option key={city} value={city}>{city}</option>)}</select></div><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Code postal</label><input value={address.code_postal} onChange={(e) => setAddress((p) => ({ ...p, code_postal: e.target.value }))} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors text-[#3D3D3D]" /></div></div>{errors.address && <p className="text-xs text-red-500 mt-1">{errors.address}</p>}</div></SectionCard>
               <SectionCard title="Préférences d'affichage" onSave={showSaved}><div className="space-y-1"><div className="flex items-center justify-between py-4 border-b border-gray-50"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center">{darkMode ? <Moon className="w-4 h-4 text-[#3D3D3D]" /> : <Sun className="w-4 h-4 text-[#F07C00]" />}</div><div><p className="font-medium text-[#3D3D3D] text-sm">Mode sombre</p><p className="text-xs text-[#8A8A8A]">Non fonctionnel pour le moment</p></div></div><Toggle checked={darkMode} onCheckedChange={setDarkMode} /></div><div className="flex items-center justify-between py-4"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center"><Globe className="w-4 h-4 text-[#3D3D3D]" /></div><div><p className="font-medium text-[#3D3D3D] text-sm">Langue</p><p className="text-xs text-[#8A8A8A]">Non fonctionnel pour le moment</p></div></div><select className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-[#3D3D3D] focus:outline-none focus:border-[#4CB84A] bg-white"><option value="fr">Français</option><option value="ar">Arabe</option><option value="en">English</option></select></div></div></SectionCard>
+              {referralCode && (
+                <div className="rounded-[28px] border border-[#1E8A3C]/10 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.3),_transparent_38%),linear-gradient(135deg,#165f2e_0%,#1E8A3C_52%,#79d65e_100%)] p-6 text-white shadow-[0_18px_60px_rgba(30,138,60,0.22)]">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/18 backdrop-blur-sm">
+                      <Gift className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/70">Parrainage</p>
+                      <h3 className="text-xl font-bold tracking-tight">Invite tes proches, gagnez chacun un cadeau</h3>
+                    </div>
+                  </div>
+                  <p className="mt-4 max-w-xl text-sm leading-6 text-white/80">
+                    Partage ton code avec tes colocataires ou voisins. À leur 1ère commande livrée, vous recevez chacun un crédit sur votre portefeuille Souki.
+                  </p>
+                  <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-stretch">
+                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur-sm sm:flex-1">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.24em] text-white/65">Ton code</p>
+                        <p className="mt-1 font-mono text-2xl font-bold tracking-[0.3em] text-white">{referralCode}</p>
+                      </div>
+                      <button
+                        onClick={copyReferralCode}
+                        className="inline-flex items-center gap-2 rounded-xl bg-white/18 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/28"
+                      >
+                        {copiedReferral ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        {copiedReferral ? "Copié" : "Copier"}
+                      </button>
+                    </div>
+                    <button
+                      onClick={shareReferral}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[#1E8A3C] shadow-sm transition hover:bg-white/90"
+                    >
+                      <Share2 className="h-4 w-4" />
+                      Partager
+                    </button>
+                  </div>
+                </div>
+              )}
             </>}
             {activeSection === "notifications" && <SectionCard title="Notifications" onSave={onSaveNotifications} saving={notifApi.loading}><div className="space-y-1">{notifRows.map((row) => <div key={row.key} className="flex items-center justify-between py-4 border-b border-gray-50 last:border-0"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl bg-[#F0FAF1] flex items-center justify-center"><row.icon className="w-4 h-4 text-[#1E8A3C]" /></div><div><p className="font-medium text-[#3D3D3D] text-sm">{row.label}</p><p className="text-xs text-[#8A8A8A]">{row.desc}</p></div></div><Toggle checked={notifications[row.key]} onCheckedChange={(v) => setNotifications((p) => ({ ...p, [row.key]: v }))} /></div>)}</div></SectionCard>}
             {activeSection === "securite" && <>

@@ -21,7 +21,8 @@ import {
   ChevronDown,
   Check,
   Loader2,
-  AlertCircle 
+  AlertCircle,
+  Gift
 } from "lucide-react"
 
 type AuthMode = "login" | "signup"
@@ -33,7 +34,8 @@ function ClientLoginContent() {
   const searchParams = useSearchParams()
   const { login, googleLogin } = useAuth()
   const redirectTarget = searchParams.get("redirect") || "/"
-  const [mode, setMode] = useState<AuthMode>("login")
+  const refParam = (searchParams.get("ref") || "").toUpperCase()
+  const [mode, setMode] = useState<AuthMode>(refParam ? "signup" : "login")
   
   // UI States
   const [showPassword, setShowPassword] = useState(false)
@@ -51,6 +53,7 @@ function ClientLoginContent() {
   const [loginId, setLoginId] = useState(""); 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [referralCode, setReferralCode] = useState(refParam);
   
   // Loading & Error States
   const [error, setError] = useState("");
@@ -140,7 +143,8 @@ function ClientLoginContent() {
             email: loginId,
             phone: formattedPhone || undefined,
             password: password,
-            role: selectedRole.toUpperCase()
+            role: selectedRole.toUpperCase(),
+            code_parrainage: referralCode.trim() || undefined
           }),
         });
 
@@ -557,6 +561,29 @@ function ClientLoginContent() {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Code de parrainage (optionnel) */}
+              <div>
+                <label className="block text-sm font-medium text-[#3D3D3D] mb-2">
+                  Code de parrainage <span className="text-[#8A8A8A] font-normal">(optionnel)</span>
+                </label>
+                <div className="relative">
+                  <Gift className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
+                  <input
+                    type="text"
+                    placeholder="Ex : K7M2P9"
+                    value={referralCode}
+                    onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                    maxLength={10}
+                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors font-mono tracking-[0.2em] uppercase placeholder:font-sans placeholder:tracking-normal placeholder:normal-case"
+                  />
+                </div>
+                {referralCode && (
+                  <p className="flex items-center gap-1.5 mt-1.5 ml-1 text-xs font-medium text-[#1E8A3C]">
+                    <Gift className="w-3.5 h-3.5" /> Tu recevras un produit offert sur ta 1ère commande livrée.
+                  </p>
+                )}
               </div>
 
               <div className="flex items-start gap-2 pt-2">
