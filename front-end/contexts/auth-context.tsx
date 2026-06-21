@@ -127,6 +127,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     tok: string
   ): Promise<{ user: User | null; networkError: boolean }> => {
     try {
+      const controller = new AbortController()
+      const timeoutId = window.setTimeout(() => controller.abort(), NETWORK_TIMEOUT_MS)
       const response = await fetchWithTimeout(`${API_BASE_URL}/auth/me`, {
         method: "GET",
         headers: {

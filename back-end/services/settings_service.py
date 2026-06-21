@@ -19,6 +19,9 @@ from entities.transaction_wallet_entity import TransactionWallet
 from entities.user_entity import User
 from entities.user_notification_preferences_entity import UserNotificationPreferences
 from entities.user_session_entity import UserSession
+from entities.client_entity import Client
+from dao.parrainage_dao import ParrainageDaoBD
+from services.parrainage_service import ParrainageService
 from security import verify_password
 from services.supabase_storage_service import avatar_storage_service
 
@@ -390,5 +393,25 @@ class SettingsService:
                 status_code=500,
                 detail="Impossible de generer un code portefeuille unique pour le moment.",
             )
+        finally:
+            db.close()
+
+    def generate_parrainage_code(self, user_id: int):
+        db = LocalSession()
+        try:
+            client = db.query(Client).filter(Client.user_id == user_id).first()
+            if not client:
+                raise HTTPException(status_code=404, detail="Profil client introuvable")
+            
+            if client.code_parrainage:
+                return {"code_parrainage": client.code_parrainage}
+                
+            parrainage_dao = ParrainageDaoBD()
+            parrainage_service = ParrainageService(parrainage_dao=parrainage_dao)
+            new_code = parrainage_service.generate_unique_code(db)
+            
+            client.code_parrainage = new_code
+            db.commit()
+            return {"code_parrainage": new_code}
         finally:
             db.close()
