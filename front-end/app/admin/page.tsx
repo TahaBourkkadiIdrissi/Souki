@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   ArrowRight,
   BarChart3,
-  Bell,
   CalendarDays,
   CheckCircle2,
   CircleDollarSign,
@@ -24,6 +23,8 @@ import {
   Truck,
   Users,
   Wallet,
+  Gift,
+  Percent,
   X,
 } from "lucide-react"
 import {
@@ -33,6 +34,9 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
+  Legend,
+  Line,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -65,6 +69,7 @@ const adminNavItems = [
   { icon: BarChart3, label: "Analytics", href: "/admin/analytics" },
   { icon: Users, label: "Abonnements Parentaux", href: "/admin/subscriptions" },
   { icon: Wallet, label: "Transactions Wallet", href: "/admin/wallet" },
+  { icon: Gift, label: "Parrainage", href: "/admin/parrainage" },
   { icon: Settings, label: "Paramètres système", href: "/admin/settings" },
 ]
 
@@ -82,6 +87,7 @@ const adminNavPermissions: Record<string, string> = {
   "/admin/analytics": "stats.read",
   "/admin/subscriptions": "parent.dashboard.access",
   "/admin/wallet": "wallets.read",
+  "/admin/parrainage": "admin.panel.access",
   "/admin/settings": "users.manage_roles",
 }
 
@@ -184,7 +190,7 @@ function SkeletonBlock({ className }: { className?: string }) {
 
 function graphTitle(periode: DashboardPeriod, customDate: string) {
   if (periode === "today") {
-    return "CA du jour (DH)"
+    return "Activite du jour - heure par heure"
   }
   if (periode === "7d") {
     return "CA 7 derniers jours (DH)"
@@ -195,7 +201,38 @@ function graphTitle(periode: DashboardPeriod, customDate: string) {
   if (periode === "month") {
     return "CA ce mois (DH)"
   }
-  return `CA autour du ${customDate} (DH)`
+  return `CA — 30 jours autour du ${customDate} (DH)`
+}
+
+function parseInputDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number)
+  if (!year || !month || !day) {
+    return null
+  }
+  return new Date(year, month - 1, day)
+}
+
+function formatGraphDate(value: Date) {
+  return value.toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  })
+}
+
+function graphSubtitle(periode: DashboardPeriod, customDate: string) {
+  if (periode !== "custom") {
+    return null
+  }
+
+  const endDate = parseInputDate(customDate)
+  if (!endDate) {
+    return null
+  }
+
+  const startDate = new Date(endDate)
+  startDate.setDate(startDate.getDate() - 29)
+  return `Fenêtre : ${formatGraphDate(startDate)} → ${formatGraphDate(endDate)}`
 }
 
 function JitExecutionBadge({ executed }: { executed: boolean }) {
@@ -390,74 +427,65 @@ export default function AdminDashboard() {
   }
 
   const metrics = dashboard
-    ? (() => {
-        const kpi4 = periode === "today"
-          ? {
-              label: "En route",
-              value: formatNumber(dashboard.commandes_en_route),
-              helper: "Commandes en livraison",
-              icon: Truck,
-              colorClass: "bg-blue-50 text-blue-600",
-            }
-          : {
-              label: "Panier moyen",
-              value: formatMoney(dashboard.panier_moyen),
-              helper: "Sans variation",
-              icon: ShoppingCart,
-              colorClass: "bg-teal-50 text-teal-600",
-            }
-
-        return [
-          {
-            label: "CA Total",
-            value: formatMoney(dashboard.ca_total),
-            helper: "Livrées uniquement",
-            icon: CircleDollarSign,
-            colorClass: "bg-[#F0FDF4] text-[#1E8A3C]",
-            variationValue: variation(dashboard.ca_total, dashboard.ca_total_precedent),
-            highlight: true,
-          },
-          {
-            label: "Commandes",
-            value: formatNumber(dashboard.total_commandes),
-            helper: `${formatNumber(dashboard.commandes_en_route)} en route`,
-            icon: Package,
-            colorClass: "bg-blue-50 text-blue-600",
-            variationValue: variation(dashboard.total_commandes, dashboard.total_commandes_precedent),
-            footer: periode === "today" ? <JitExecutionBadge executed={dashboard.jit_execute_aujourdhui} /> : undefined,
-          },
-          {
-            label: "Livrées",
-            value: `${formatNumber(dashboard.commandes_livrees)} (${dashboard.taux_livraison.toFixed(1)}%)`,
-            helper: `${formatNumber(dashboard.commandes_absentes)} absentes`,
-            icon: CheckCircle2,
-            colorClass: "bg-[#F0FDF4] text-[#1E8A3C]",
-            variationValue: variation(dashboard.commandes_livrees, dashboard.commandes_livrees_precedent),
-          },
-          kpi4,
-          {
-            label: "Nouveaux clients",
-            value: formatNumber(dashboard.nouveaux_clients),
-            helper: "Période sélectionnée",
-            icon: Users,
-            colorClass: "bg-[#F0FDF4] text-[#1E8A3C]",
-            variationValue: variation(dashboard.nouveaux_clients, dashboard.nouveaux_clients_precedent),
-          },
-          {
-            label: "Taux absence",
-            value: `${dashboard.taux_absence.toFixed(1)}%`,
-            helper: `${formatNumber(dashboard.commandes_absentes)} absentes`,
-            icon: AlertTriangle,
-            colorClass: dashboard.taux_absence > 10 ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600",
-          },
-        ]
-      })()
+    ? [
+        {
+          label: "CA Total",
+          value: formatMoney(dashboard.ca_total),
+          helper: "Livrées uniquement",
+          icon: CircleDollarSign,
+          colorClass: "bg-[#F0FDF4] text-[#1E8A3C]",
+          variationValue: variation(dashboard.ca_total, dashboard.ca_total_precedent),
+          highlight: true,
+        },
+        {
+          label: "Marge brute",
+          value: formatMoney(dashboard.marge_brute),
+          helper: `${dashboard.taux_marge.toFixed(1)}% de marge`,
+          icon: Percent,
+          colorClass: "bg-emerald-50 text-emerald-700",
+          variationValue: variation(dashboard.marge_brute, dashboard.marge_brute_precedent),
+        },
+        {
+          label: "Commandes",
+          value: formatNumber(dashboard.total_commandes),
+          helper: `${formatNumber(dashboard.commandes_en_route)} en route`,
+          icon: Package,
+          colorClass: "bg-blue-50 text-blue-600",
+          variationValue: variation(dashboard.total_commandes, dashboard.total_commandes_precedent),
+          footer: periode === "today" ? <JitExecutionBadge executed={dashboard.jit_execute_aujourdhui} /> : undefined,
+        },
+        {
+          label: "Livrées",
+          value: `${formatNumber(dashboard.commandes_livrees)} (${dashboard.taux_livraison.toFixed(1)}%)`,
+          helper: `${formatNumber(dashboard.commandes_absentes)} absentes`,
+          icon: CheckCircle2,
+          colorClass: "bg-[#F0FDF4] text-[#1E8A3C]",
+          variationValue: variation(dashboard.commandes_livrees, dashboard.commandes_livrees_precedent),
+        },
+        {
+          label: "Panier moyen",
+          value: formatMoney(dashboard.panier_moyen),
+          helper: "Par commande livrée",
+          icon: ShoppingCart,
+          colorClass: "bg-teal-50 text-teal-600",
+          variationValue: variation(dashboard.panier_moyen, dashboard.panier_moyen_precedent),
+        },
+        {
+          label: "Nouveaux clients",
+          value: formatNumber(dashboard.nouveaux_clients),
+          helper: "Période sélectionnée",
+          icon: Users,
+          colorClass: "bg-[#F0FDF4] text-[#1E8A3C]",
+          variationValue: variation(dashboard.nouveaux_clients, dashboard.nouveaux_clients_precedent),
+        },
+      ]
     : []
 
   const netBlacklist = (dashboard?.nouveaux_blacklistes ?? 0) - (dashboard?.blacklists_leves ?? 0)
   const panierPhysique = dashboard && dashboard.dernier_jit_nb_commandes > 0
     ? dashboard.dernier_jit_volume / dashboard.dernier_jit_nb_commandes
     : 0
+  const courbeCaSubtitle = graphSubtitle(periode, customDate)
 
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
@@ -484,10 +512,6 @@ export default function AdminDashboard() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button type="button" className="relative rounded-xl p-2 text-[#1F2937] hover:bg-gray-100">
-              <Bell className="h-5 w-5" />
-              <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
-            </button>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1E8A3C] font-bold text-white">
               A
             </div>
@@ -627,15 +651,30 @@ export default function AdminDashboard() {
                       <span className="text-sm font-bold text-[#1E8A3C]">{formatPreciseMoney(dashboard.ca_total)}</span>
                     </div>
                     <div className="h-[270px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={dashboard.courbe_ca} margin={{ left: 0, right: 12, top: 8, bottom: 0 }}>
-                          <CartesianGrid stroke="#E5E7EB" strokeDasharray="3 3" vertical={false} />
-                          <XAxis dataKey="date" tick={{ fill: "#6B7280", fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={18} />
-                          <YAxis tick={{ fill: "#6B7280", fontSize: 11 }} tickFormatter={(value) => `${value} DH`} tickLine={false} axisLine={false} width={58} />
-                          <Tooltip content={<AreaTooltip />} />
-                          <Area type="monotone" dataKey="ca" stroke="#1E8A3C" strokeWidth={2} fill="#1E8A3C26" name="CA" />
-                        </AreaChart>
-                      </ResponsiveContainer>
+                      {periode === "today" ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart data={dashboard.courbe_ca} margin={{ left: 0, right: 12, top: 8, bottom: 0 }}>
+                            <CartesianGrid stroke="#E5E7EB" strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="date" tick={{ fill: "#6B7280", fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={10} />
+                            <YAxis yAxisId="left" tick={{ fill: "#6B7280", fontSize: 11 }} tickLine={false} axisLine={false} width={38} />
+                            <YAxis yAxisId="right" orientation="right" tick={{ fill: "#6B7280", fontSize: 11 }} tickFormatter={(value) => `${value} DH`} tickLine={false} axisLine={false} width={58} />
+                            <Tooltip content={<AreaTooltip />} />
+                            <Legend wrapperStyle={{ fontSize: 12 }} />
+                            <Bar yAxisId="left" dataKey="nb_commandes" name="Commandes" fill="#1E8A3C" opacity={0.8} radius={[4, 4, 0, 0]} />
+                            <Line yAxisId="right" type="monotone" dataKey="ca" name="CA (DH)" stroke="#F59E0B" strokeWidth={2} dot={{ fill: "#F59E0B", r: 3 }} />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={dashboard.courbe_ca} margin={{ left: 0, right: 12, top: 8, bottom: 0 }}>
+                            <CartesianGrid stroke="#E5E7EB" strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="date" tick={{ fill: "#6B7280", fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={18} />
+                            <YAxis tick={{ fill: "#6B7280", fontSize: 11 }} tickFormatter={(value) => `${value} DH`} tickLine={false} axisLine={false} width={58} />
+                            <Tooltip content={<AreaTooltip />} />
+                            <Area type="monotone" dataKey="ca" stroke="#1E8A3C" strokeWidth={2} fill="#1E8A3C26" name="CA" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      )}
                     </div>
                   </div>
 
@@ -700,6 +739,58 @@ export default function AdminDashboard() {
                   <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
                     <div className="flex items-start justify-between gap-3">
                       <div>
+                        <h2 className="text-base font-bold text-[#1F2937]">Clients actifs</h2>
+                        <p className="mt-1 text-xs text-[#6B7280]">Base clients totale</p>
+                      </div>
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#F0FDF4] text-[#1E8A3C]">
+                        <Users className="h-4 w-4" />
+                      </div>
+                    </div>
+                    <p className="mt-3 text-3xl font-bold text-[#1F2937]">{formatNumber(dashboard.total_clients_actifs)}</p>
+                    <p className="mt-1 text-sm font-semibold text-[#1E8A3C]">+{formatNumber(dashboard.nouveaux_clients)} nouveaux sur la période</p>
+                    <Link href="/admin/clients" className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#1E8A3C] hover:text-[#166d30]">
+                      Voir les clients
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+
+                  <div className="rounded-xl border border-emerald-200 bg-[#F0FDF4] p-4 shadow-sm xl:col-span-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1E8A3C] text-white">
+                          <Gift className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <h2 className="text-base font-bold text-[#1F2937]">Parrainage viral</h2>
+                          <p className="text-xs text-[#6B7280]">Croissance — coût d'acquisition ≈ 0 DH</p>
+                        </div>
+                      </div>
+                      <Link href="/admin/parrainage" className="inline-flex items-center gap-1 text-sm font-bold text-[#1E8A3C] hover:text-[#166d30]">
+                        Détails
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
+                    </div>
+                    <div className="mt-3 grid grid-cols-3 gap-3">
+                      <div className="rounded-lg bg-white px-3 py-2">
+                        <p className="text-xs font-semibold uppercase text-[#6B7280]">Filleuls convertis</p>
+                        <p className="mt-1 text-2xl font-bold text-[#1E8A3C]">{formatNumber(dashboard.filleuls_convertis)}</p>
+                      </div>
+                      <div className="rounded-lg bg-white px-3 py-2">
+                        <p className="text-xs font-semibold uppercase text-[#6B7280]">En attente</p>
+                        <p className="mt-1 text-2xl font-bold text-[#1F2937]">{formatNumber(dashboard.parrainages_en_attente)}</p>
+                      </div>
+                      <div className="rounded-lg bg-white px-3 py-2">
+                        <p className="text-xs font-semibold uppercase text-[#6B7280]">Crédit distribué</p>
+                        <p className="mt-1 text-2xl font-bold text-[#1F2937]">{formatMoney(dashboard.credit_parrainage_distribue)}</p>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="grid gap-4 xl:grid-cols-3">
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
                         <h2 className="text-base font-bold text-[#1F2937]">JIT</h2>
                         <p className="mt-1 text-sm text-[#6B7280]">Tournees actives : {formatNumber(dashboard.tournees_actives)}</p>
                       </div>
@@ -749,6 +840,7 @@ export default function AdminDashboard() {
                     <h2 className="text-base font-bold text-[#1F2937]">Blacklist periode</h2>
                     <p className="mt-3 text-3xl font-bold text-[#1F2937]">{formatNumber(dashboard.clients_blacklistes)}</p>
                     <p className="text-xs font-semibold uppercase text-[#6B7280]">Blacklistes actifs</p>
+                    <p className="mt-1 text-xs text-gray-400">Basé sur le statut compte</p>
                     <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                       <p className="rounded-lg bg-red-50 px-3 py-2 font-bold text-red-700">Nouveaux : +{formatNumber(dashboard.nouveaux_blacklistes)}</p>
                       <p className="rounded-lg bg-[#F0FDF4] px-3 py-2 font-bold text-[#1E8A3C]">Leves : -{formatNumber(dashboard.blacklists_leves)}</p>

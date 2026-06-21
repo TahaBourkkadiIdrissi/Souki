@@ -49,6 +49,7 @@ class DashboardService(IDashboardService):
             today=today,
             curve_start_datetime=courbe_debut,
             curve_end_datetime=courbe_fin,
+            is_today=normalized_period == "today",
         )
 
     def _period_bounds(

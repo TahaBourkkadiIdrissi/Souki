@@ -21,7 +21,9 @@ class Product(Base):
     niveau            = Column(Integer,    default=2)
     volatilite        = Column(String(20), default='STABLE')
     prix_gros_saisi   = Column(Float,      nullable=True)
+    prix_khddar_reel  = Column(Float,      nullable=True)
     prix_affiche      = Column(Float,      nullable=True)
+    prix_vente_manuel = Column(Float,      nullable=True)
     fournisseur_id    = Column(Integer, ForeignKey("t_fournisseurs.user_id"), nullable=True, index=True)
 
     lignes_commande_vocale  = relationship("LigneCommandeVocale", back_populates="produit")

@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
@@ -64,6 +64,16 @@ const CATALOGUE_REFRESH_INTERVAL_MS = 5 * 60 * 1000
 const CLAIM_WINDOW_MS = 24 * 60 * 60 * 1000
 const SEUIL = FREE_DELIVERY_THRESHOLD
 const FRAIS = DELIVERY_FEE
+const DEFAULT_CATALOGUE_IMAGE = getCataloguePresentation("").image
+
+const applyImageFallback = (
+  event: SyntheticEvent<HTMLImageElement>,
+  fallbackImage?: string
+) => {
+  const resolvedFallback = fallbackImage || DEFAULT_CATALOGUE_IMAGE
+  event.currentTarget.onerror = null
+  event.currentTarget.src = resolvedFallback
+}
 
 const categories = [
   { id: "tous", label: "Tous" },
@@ -431,6 +441,7 @@ function CatalogueContent() {
       unit: product.unite,
       displayUnit: presentation.displayUnit || product.unite,
       image: resolveCatalogueImage(product.nom_fr, product.image_url),
+      fallbackImage: presentation.image,
       category: presentation.category,
       quantityStep: presentation.quantityStep || (product.unite === "kg" ? 0.5 : 1),
       stock: product.stock,
@@ -1427,6 +1438,7 @@ function CatalogueContent() {
                             <img
                               src={resolveOrderProductImage(product)}
                               alt={product.nom_fr}
+                              onError={(event) => applyImageFallback(event, getCataloguePresentation(product.nom_fr).image)}
                               className="h-12 w-12 shrink-0 rounded-xl object-cover"
                             />
                             <div className="min-w-0 flex-1">
@@ -1787,6 +1799,7 @@ function CatalogueContent() {
                               <img
                                 src={suggestion.image}
                                 alt={suggestion.name}
+                                onError={(event) => applyImageFallback(event, suggestion.fallbackImage)}
                                 className="h-full w-full object-cover"
                               />
                               <span className={cn(
@@ -1854,6 +1867,7 @@ function CatalogueContent() {
                     <img
                       src={item.image}
                       alt={item.name}
+                      onError={(event) => applyImageFallback(event, item.fallbackImage)}
                       className="h-14 w-14 shrink-0 rounded-xl object-cover 2xl:h-16 2xl:w-16 2xl:rounded-2xl"
                     />
                     <div className="min-w-0 flex-1">

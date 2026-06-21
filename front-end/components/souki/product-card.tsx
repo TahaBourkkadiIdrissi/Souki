@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Minus, Plus, ShoppingCart } from "lucide-react"
 
 import { formatQuantity } from "@/lib/catalogue"
@@ -10,6 +10,7 @@ interface ProductCardProps {
   id: number | string
   name: string
   image: string
+  fallbackImage?: string
   price: number
   prixKhddarEstime?: number | null
   niveau?: 1 | 2 | 3
@@ -28,6 +29,7 @@ export function ProductCard({
   id,
   name,
   image,
+  fallbackImage,
   price,
   prixKhddarEstime,
   niveau,
@@ -43,7 +45,12 @@ export function ProductCard({
 }: ProductCardProps) {
   const [quantity, setQuantity] = useState(quantityStep)
   const [isAdded, setIsAdded] = useState(false)
+  const [resolvedImage, setResolvedImage] = useState(image)
   const resolvedDisplayUnit = displayUnit || unit
+
+  useEffect(() => {
+    setResolvedImage(image)
+  }, [image])
 
   const isOutOfStock = typeof stock === "number" && stock <= 0
   const isUnavailable = isOutOfStock || disabled
@@ -100,8 +107,13 @@ export function ProductCard({
         )}
       >
         <img
-          src={image}
+          src={resolvedImage}
           alt={name}
+          onError={() => {
+            if (fallbackImage && resolvedImage !== fallbackImage) {
+              setResolvedImage(fallbackImage)
+            }
+          }}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
         {isOutOfStock && (

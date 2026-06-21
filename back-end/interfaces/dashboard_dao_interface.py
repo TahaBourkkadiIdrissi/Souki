@@ -22,5 +22,6 @@ class IDashboardDao(ABC):
         today: date,
         curve_start_datetime: datetime,
         curve_end_datetime: datetime,
+        is_today: bool = False,
     ) -> DashboardDTO:
         pass

@@ -11,6 +11,7 @@ from dao.fournisseur_dao import FournisseurDaoBD
 from dao.fournisseur_produit_dao import FournisseurProduitDaoBD
 from dao.notification_outbox_dao import NotificationOutboxDaoBD
 from dao.panier_dao import PanierDaoBD
+from dao.parrainage_dao import ParrainageDaoBD
 from dao.livreur_dao import LivreurDaoBD
 from dao.product_dao import ProductDaoBD
 from dao.produit_pricing_dao import ProduitPricingDaoBD
@@ -42,6 +43,8 @@ from interfaces.notification_outbox_dao_interface import INotificationOutboxDao
 from interfaces.notification_outbox_service_interface import INotificationOutboxService
 from interfaces.panier_dao_interface import IPanierDao
 from interfaces.panier_service_interface import IPanierService
+from interfaces.parrainage_dao_interface import IParrainageDao
+from interfaces.parrainage_service_interface import IParrainageService
 from interfaces.product_dao_interface import IProductDao
 from interfaces.produit_pricing_dao_interface import IProduitPricingDao
 from interfaces.produit_pricing_service_interface import IProduitPricingService
@@ -63,6 +66,7 @@ from services.livreur_service import LivreurService
 from services.ml_panier_service import MLPanierService, ml_panier_service
 from services.notification_outbox_service import NotificationOutboxService
 from services.panier_service import PanierService
+from services.parrainage_service import ParrainageService
 from services.produit_pricing_service import ProduitPricingServiceBD
 from services.souki_wallet_service import SoukiWalletService
 
@@ -239,6 +243,10 @@ def get_panier_service(
     return PanierService(panier_dao)
 
 
+def get_parrainage_dao() -> IParrainageDao:
+    return ParrainageDaoBD()
+
+
 def get_ml_panier_service(
     panier_dao: IPanierDao = Depends(get_panier_dao),
 ) -> MLPanierService:
@@ -250,6 +258,13 @@ def get_souki_wallet_service(
     souki_wallet_dao: ISoukiWalletDao = Depends(get_souki_wallet_dao)
 ) -> ISoukiWalletService:
     return SoukiWalletService(souki_wallet_dao)
+
+
+def get_parrainage_service(
+    parrainage_dao: IParrainageDao = Depends(get_parrainage_dao),
+    souki_wallet_service: ISoukiWalletService = Depends(get_souki_wallet_service),
+) -> IParrainageService:
+    return ParrainageService(parrainage_dao, souki_wallet_service)
 
 
 def get_claim_service(

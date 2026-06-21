@@ -8,6 +8,8 @@ from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 
 from config import GOOGLE_CLIENT_ID, LocalSession
+from dao.client_blacklist_dao import ClientBlacklistDaoBD
+from dao.parrainage_dao import ParrainageDaoBD
 from dao.user_dao import UserDao
 from entities.client_entity import Client
 from entities.client_blacklist_log_entity import ClientBlacklistLog
@@ -19,6 +21,11 @@ from entities.verification_code_entity import VerificationCode
 from rbac_config import LOGIN_TARGET_PERMISSIONS
 from services.authorization_service import AuthorizationPrincipal, AuthorizationService
 from services.email_delivery_service import EmailDeliveryService
+from services.parrainage_service import (
+    REFERRAL_IP_CAP,
+    REFERRAL_IP_WINDOW_DAYS,
+    ParrainageService,
+)
 from security import create_access_token, hash_password, verify_password
 
 OTP_EXPIRATION_MINUTES = 15
@@ -29,11 +36,14 @@ OTP_MAX_ATTEMPTS = 5
 logger = logging.getLogger("souki.otp")
 
 _dao = UserDao()
+_blacklist_dao = ClientBlacklistDaoBD()
+_parrainage_dao = ParrainageDaoBD()
+_parrainage_service = ParrainageService(_parrainage_dao)
 _email_service = EmailDeliveryService()
 
 
 class AuthService:
-    def register(self, data):
+    def register(self, data, client_ip: Optional[str] = None):
         db = LocalSession()
         try:
             if data.email:
@@ -46,9 +56,11 @@ class AuthService:
                         detail="Un compte non verifie existe deja pour cet email. Utilisez le renvoi du code OTP."
                     )
 
+            phone_blacklisted = False
             if data.phone:
-                if self._is_phone_currently_blacklisted(db, data.phone):
-                    raise HTTPException(status_code=400, detail="Ce numero n'est pas autorise.")
+                # Un numero blackliste peut se reinscrire, mais le compte restera restreint
+                # au COD (cf. plus bas). Il pourra demander une levee que l'admin tranchera.
+                phone_blacklisted = self._is_phone_currently_blacklisted(db, data.phone)
 
                 existing_phone = _dao.find_by_identifier(db, data.phone)
                 if existing_phone and existing_phone.is_verified:
@@ -77,6 +89,24 @@ class AuthService:
                 raise HTTPException(status_code=500, detail="Erreur interne lors de la creation du compte.")
 
             self._ensure_role_profile(db, user)
+            if phone_blacklisted:
+                db.flush()
+                if user.client_profile is not None:
+                    user.client_profile.is_blacklisted = True
+                    # Trace BLACKLISTED pour le nouveau client : il apparait dans la liste
+                    # admin et le rapport, et reste coherent avec le flag (flag + log ensemble).
+                    _blacklist_dao.create_log(
+                        session=db,
+                        client_id=int(user.id),
+                        action="BLACKLISTED",
+                        source="REINSCRIPTION",
+                        phone_snapshot=user.phone,
+                        reason="Reinscription d'un numero deja blackliste",
+                    )
+
+            self._handle_referral_signup(
+                db, user, getattr(data, "code_parrainage", None), client_ip
+            )
             self._ensure_rbac_role_assignment(db, user, role)
             db.commit()
 
@@ -417,7 +447,61 @@ class AuthService:
     def _ensure_client_profile(self, db, user: User):
         if user.client_profile:
             return
-        db.add(Client(user_id=user.id))
+        # Chaque client recoit son code de parrainage unique des la creation du profil.
+        code_parrainage = _parrainage_service.generate_unique_code(db)
+        db.add(Client(user_id=user.id, code_parrainage=code_parrainage))
+
+    def _handle_referral_signup(self, db, user: User, code_parrainage, client_ip):
+        """Enregistre un parrainage EN_ATTENTE si le filleul a saisi un code valide.
+
+        Non bloquant : un code invalide ou une erreur ne doit jamais empecher
+        l'inscription. Le credit n'arrive qu'a la 1ere commande livree (Lot 2).
+        """
+        if (user.role or "").upper() != "CLIENT":
+            return
+        code = (code_parrainage or "").strip().upper()
+        if not code:
+            return
+
+        # On persiste d'abord l'utilisateur et son profil client, puis on isole le
+        # parrainage dans un savepoint pour qu'un echec n'annule pas l'inscription.
+        db.flush()
+        try:
+            with db.begin_nested():
+                parrain_client = _parrainage_dao.get_client_by_code(db, code)
+                if parrain_client is None:
+                    return  # code inconnu : inscription OK, parrainage ignore
+
+                parrain_id = int(parrain_client.user_id)
+                if parrain_id == int(user.id):
+                    return  # auto-parrainage direct
+
+                # Blocage dur : meme numero de telephone => meme personne deguisee.
+                parrain_user = parrain_client.user
+                if (
+                    parrain_user
+                    and user.phone
+                    and parrain_user.phone
+                    and parrain_user.phone.strip() == user.phone.strip()
+                ):
+                    return
+
+                # Plafond souple par IP (anti-farming), ne bloque pas une vraie coloc.
+                if client_ip:
+                    since = datetime.utcnow() - timedelta(days=REFERRAL_IP_WINDOW_DAYS)
+                    if _parrainage_dao.count_recent_by_ip(db, client_ip, since) >= REFERRAL_IP_CAP:
+                        return
+
+                _parrainage_dao.create_parrainage(
+                    db,
+                    parrain_id=parrain_id,
+                    filleul_id=int(user.id),
+                    code_utilise=code,
+                    ip_inscription=client_ip,
+                    phone_filleul_snapshot=user.phone,
+                )
+        except Exception as exc:
+            logger.warning("Parrainage ignore pour le code %s: %s", code, exc)
 
     def _ensure_parent_profile(self, db, user: User):
         if user.parent_profile:

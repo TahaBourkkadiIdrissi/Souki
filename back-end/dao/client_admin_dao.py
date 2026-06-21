@@ -38,6 +38,8 @@ class ClientAdminDaoBD(IClientAdminDao):
             .filter(
                 User.created_at >= start_datetime,
                 User.created_at <= end_datetime,
+                User.is_active.is_(True),
+                Client.is_blacklisted.is_(False),
                 func.upper(func.coalesce(User.role, "")) == "CLIENT",
             )
             .scalar()

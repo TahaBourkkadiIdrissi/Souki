@@ -14,6 +14,10 @@ export interface User {
   is_verified: boolean
   is_active: boolean
   default_dashboard: string
+  profiles?: {
+    client?: { code_parrainage?: string | null; is_blacklisted?: boolean }
+    [key: string]: any
+  }
 }
 
 interface AuthContextType {

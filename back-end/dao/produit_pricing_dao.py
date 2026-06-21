@@ -93,12 +93,15 @@ class ProduitPricingDaoBD(IProduitPricingDao):
             nom_darija=data.nom_darija,
             prix_kg=data.prix_kg,
             unite=data.unite,
-            stock=900.0,
+            stock=999.0,
             is_active=True,
             niveau=data.niveau or 2,
             marge_cible=data.marge_cible or 0.25,
             coussin_securite=data.coussin_securite or 0.10,
             volatilite=data.volatilite or "STABLE",
+            prix_gros_saisi=data.prix_gros_saisi,
+            prix_khddar_reel=data.prix_khddar_reel,
+            prix_vente_manuel=data.prix_vente_manuel,
         )
         session.add(product)
         session.flush()
@@ -134,9 +137,13 @@ class ProduitPricingDaoBD(IProduitPricingDao):
         niveau = int(produit.niveau or 2)
         coefficient = self._get_coefficient_khddar(produit)
         prix_gros = float(produit.prix_gros_saisi or produit.prix_kg)
-        prix_khddar_estime = round(prix_gros * coefficient, 2)
+        prix_khddar_estime = (
+            float(produit.prix_khddar_reel)
+            if produit.prix_khddar_reel is not None
+            else round(prix_gros * coefficient, 2)
+        )
 
-        if produit.prix_gros_saisi is None:
+        if produit.prix_gros_saisi is None and produit.prix_vente_manuel is None:
             alerte = "PRIX_GROS_MANQUANT"
         elif produit.prix_affiche and float(produit.prix_affiche) > prix_khddar_estime:
             alerte = "PRIX_DEPASSE_KHDDAR"
@@ -168,9 +175,19 @@ class ProduitPricingDaoBD(IProduitPricingDao):
                 if produit.prix_gros_saisi is not None
                 else None
             ),
+            prix_khddar_reel=(
+                float(produit.prix_khddar_reel)
+                if produit.prix_khddar_reel is not None
+                else None
+            ),
             prix_affiche=(
                 float(produit.prix_affiche)
                 if produit.prix_affiche is not None
+                else None
+            ),
+            prix_vente_manuel=(
+                float(produit.prix_vente_manuel)
+                if produit.prix_vente_manuel is not None
                 else None
             ),
             prix_khddar_estime=prix_khddar_estime,

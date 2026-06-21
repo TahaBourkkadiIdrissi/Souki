@@ -30,6 +30,7 @@ typing_extensions==4.15.0
 uvicorn==0.44.0
 supabase
 python-multipart
+Pillow>=10.0.0
 phonenumbers==8.13.55
 transformers>=5.7.0
 protobuf>=7.35.1

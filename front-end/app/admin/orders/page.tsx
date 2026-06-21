@@ -1691,6 +1691,10 @@ export default function AdminOrdersPage() {
           <DashboardStatCard icon={PhoneCall} label="COD confirmés" value={`${codCalledClientsCount} / ${codGroups.length}`} tone="slate" helper={`${codOrders.length} commande(s) COD`} />
         </section>
 
+        <p className={cn("text-xs text-gray-400", activeSection !== "overview" && "hidden")}>
+          Calculé sur les commandes chargées
+        </p>
+
         <section className={cn("grid gap-4 md:grid-cols-2", activeSection !== "overview" && "hidden")}>
           <button
             type="button"
@@ -2436,7 +2440,7 @@ export default function AdminOrdersPage() {
                                 type="button"
                                 onClick={() => void handleToggleCodClientSheet(group.clientId)}
                                 disabled={!group.clientId}
-                                className="px-4 py-2 border border-gray-300 bg-white rounded-lg font-medium text-gray-900 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-1.5 text-xs font-semibold text-[#1E8A3C] shadow-sm transition-all duration-150 hover:border-[#1E8A3C] hover:bg-[#1E8A3C] hover:text-white hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
                               >
                                 <User className="w-4 h-4 text-gray-500" />
                                 {isClientSheetOpen ? "Masquer fiche" : "Voir fiche"}
@@ -2445,7 +2449,7 @@ export default function AdminOrdersPage() {
                                 type="button"
                                 onClick={() => void handleCodGroupConfirmation(group, "CONFIRMEE_PAR_APPEL")}
                                 disabled={isGroupUpdating || codActionId !== null || isCodCancellationSubmitting || allConfirmed}
-                                className="px-4 py-2 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-[#BBF7D0] bg-[#1E8A3C] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[#166d30] hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
                               >
                                 {isGroupUpdating ? <Spinner className="size-4" /> : <CheckCircle2 className="w-4 h-4" />}
                                 Tout confirmer
@@ -2454,7 +2458,7 @@ export default function AdminOrdersPage() {
                                 type="button"
                                 onClick={() => void handleCodGroupConfirmation(group, "ANNULEE")}
                                 disabled={isGroupUpdating || codActionId !== null || isCodCancellationSubmitting || allConfirmed}
-                                className="px-4 py-2 rounded-lg font-medium bg-red-500 text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 shadow-sm transition-all duration-150 hover:border-red-500 hover:bg-red-500 hover:text-white hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
                               >
                                 {isGroupUpdating ? <Spinner className="size-4" /> : <XCircle className="w-4 h-4" />}
                                 Tout annuler
@@ -2504,7 +2508,7 @@ export default function AdminOrdersPage() {
                                                 type="button"
                                                 onClick={() => void handleCodConfirmation(order.id, "CONFIRMEE_PAR_APPEL")}
                                                 disabled={isUpdating || isCodCancellationSubmitting || isConfirmed}
-                                                className="px-4 py-2 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                                                className="inline-flex items-center gap-1.5 rounded-md border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1.5 text-xs font-medium transition-all duration-150 hover:border-[#1E8A3C] hover:bg-[#1E8A3C] hover:text-white"
                                               >
                                                 {isUpdating ? <Spinner className="size-4" /> : <CheckCircle2 className="w-4 h-4" />}
                                                 Confirmer
@@ -2513,7 +2517,7 @@ export default function AdminOrdersPage() {
                                                 type="button"
                                                 onClick={() => void handleCodConfirmation(order.id, "ANNULEE")}
                                                 disabled={isUpdating || isCodCancellationSubmitting || isConfirmed}
-                                                className="px-4 py-2 rounded-lg font-medium bg-red-500 text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                                                className="inline-flex items-center gap-1.5 rounded-md border border-red-100 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-600 transition-all duration-150 hover:border-red-500 hover:bg-red-500 hover:text-white"
                                               >
                                                 {isUpdating ? <Spinner className="size-4" /> : <XCircle className="w-4 h-4" />}
                                                 Annuler

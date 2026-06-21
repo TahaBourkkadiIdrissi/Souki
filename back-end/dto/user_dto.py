@@ -11,6 +11,13 @@ class UserRegister(BaseModel):
     phone: Optional[str] = None
     password: str
     role: str = "CLIENT"
+    code_parrainage: Optional[str] = None
+
+    @validator("code_parrainage")
+    def normalize_code_parrainage(cls, v):
+        if not v:
+            return None
+        return v.strip().upper()[:10]
 
     @validator("role")
     def validate_role(cls, v):

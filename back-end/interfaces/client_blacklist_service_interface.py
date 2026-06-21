@@ -3,7 +3,12 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from dto.client_blacklist_dto import ClientBlacklistDTO, BlacklistReportDTO
+from dto.client_blacklist_dto import (
+    BlacklistReportDTO,
+    BlacklistStatusDTO,
+    ClientBlacklistDTO,
+    PendingLiftRequestDTO,
+)
 
 
 class IClientBlacklistService(ABC):
@@ -46,6 +51,47 @@ class IClientBlacklistService(ABC):
     def get_blacklisted_clients(
         self, session: Session
     ) -> List[ClientBlacklistDTO]:
+        pass
+
+    @abstractmethod
+    def request_lift(
+        self,
+        session: Session,
+        client_id: int,
+        motif: str,
+    ) -> None:
+        pass
+
+    @abstractmethod
+    def reject_lift(
+        self,
+        session: Session,
+        client_id: int,
+        admin_id: int,
+        motif: str,
+    ) -> None:
+        pass
+
+    @abstractmethod
+    def get_blacklist_status(
+        self,
+        session: Session,
+        client_id: int,
+    ) -> BlacklistStatusDTO:
+        pass
+
+    @abstractmethod
+    def get_pending_lift_requests(
+        self, session: Session
+    ) -> List[PendingLiftRequestDTO]:
+        pass
+
+    @abstractmethod
+    def mark_lift_notification_seen(
+        self,
+        session: Session,
+        client_id: int,
+    ) -> None:
         pass
 
     @abstractmethod

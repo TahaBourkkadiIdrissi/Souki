@@ -1,7 +1,7 @@
 from datetime import datetime, time
 from typing import List, Optional
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased
 
 from dto.client_blacklist_dto import (
@@ -11,9 +11,11 @@ from dto.client_blacklist_dto import (
     BlacklistParQuartierDTO,
     BlacklistReportDTO,
     ClientBlacklistDTO,
+    PendingLiftRequestDTO,
 )
 from entities.address_entity import Address
 from entities.client_blacklist_log_entity import ClientBlacklistLog
+from entities.client_blacklist_notification_read_entity import ClientBlacklistNotificationRead
 from entities.client_entity import Client
 from entities.commande_entity import Commande
 from entities.livreur_entity import Livreur
@@ -120,6 +122,138 @@ class ClientBlacklistDaoBD(IClientBlacklistDao):
             for row in rows
         ]
 
+    def create_lift_request(
+        self,
+        session: Session,
+        client_id: int,
+        motif: str,
+    ) -> ClientBlacklistLog:
+        log = ClientBlacklistLog(
+            client_id=client_id,
+            action="LIFT_REQUESTED",
+            reason=motif,
+            source="CLIENT",
+        )
+        session.add(log)
+        session.flush()
+        return log
+
+    def get_lift_requests_pending(
+        self, session: Session
+    ) -> List[PendingLiftRequestDTO]:
+        latest_request_subquery = (
+            session.query(
+                ClientBlacklistLog.client_id.label("client_id"),
+                func.max(ClientBlacklistLog.id).label("request_id"),
+            )
+            .filter(ClientBlacklistLog.action == "LIFT_REQUESTED")
+            .group_by(ClientBlacklistLog.client_id)
+            .subquery()
+        )
+
+        resolved_after_select = (
+            select(ClientBlacklistLog.client_id)
+            .join(
+                latest_request_subquery,
+                latest_request_subquery.c.client_id == ClientBlacklistLog.client_id,
+            )
+            .filter(ClientBlacklistLog.action.in_(["LIFTED", "LIFT_REJECTED"]))
+            .filter(ClientBlacklistLog.id > latest_request_subquery.c.request_id)
+        )
+
+        rows = (
+            session.query(
+                ClientBlacklistLog.id.label("log_id"),
+                ClientBlacklistLog.client_id.label("client_id"),
+                User.email.label("client_email"),
+                User.phone.label("phone"),
+                ClientBlacklistLog.reason.label("motif"),
+                ClientBlacklistLog.created_at.label("created_at"),
+            )
+            .select_from(ClientBlacklistLog)
+            .join(
+                latest_request_subquery,
+                latest_request_subquery.c.request_id == ClientBlacklistLog.id,
+            )
+            .join(Client, Client.user_id == ClientBlacklistLog.client_id)
+            .join(User, User.id == Client.user_id)
+            .filter(Client.is_blacklisted.is_(True))
+            .filter(ClientBlacklistLog.client_id.notin_(resolved_after_select))
+            .order_by(ClientBlacklistLog.created_at.desc(), ClientBlacklistLog.id.desc())
+            .all()
+        )
+
+        return [
+            PendingLiftRequestDTO(
+                log_id=int(row.log_id),
+                client_id=int(row.client_id),
+                client_label=row.client_email or row.phone,
+                phone=row.phone,
+                motif=row.motif,
+                created_at=row.created_at,
+            )
+            for row in rows
+        ]
+
+    def create_lift_rejection(
+        self,
+        session: Session,
+        client_id: int,
+        admin_id: int,
+        motif: str,
+    ) -> None:
+        log = ClientBlacklistLog(
+            client_id=client_id,
+            action="LIFT_REJECTED",
+            reason=motif,
+            admin_id=admin_id,
+            source="ADMIN",
+        )
+        session.add(log)
+        session.flush()
+
+    def get_last_blacklist_action(
+        self,
+        session: Session,
+        client_id: int,
+    ) -> Optional[ClientBlacklistLog]:
+        return (
+            session.query(ClientBlacklistLog)
+            .filter(ClientBlacklistLog.client_id == client_id)
+            .order_by(ClientBlacklistLog.created_at.desc(), ClientBlacklistLog.id.desc())
+            .first()
+        )
+
+    def is_lift_notification_seen(
+        self,
+        session: Session,
+        client_id: int,
+        blacklist_log_id: int,
+    ) -> bool:
+        return (
+            session.query(ClientBlacklistNotificationRead.id)
+            .filter(ClientBlacklistNotificationRead.client_id == client_id)
+            .filter(ClientBlacklistNotificationRead.blacklist_log_id == blacklist_log_id)
+            .first()
+            is not None
+        )
+
+    def mark_lift_notification_seen(
+        self,
+        session: Session,
+        client_id: int,
+        blacklist_log_id: int,
+    ) -> None:
+        if self.is_lift_notification_seen(session, client_id, blacklist_log_id):
+            return
+
+        read = ClientBlacklistNotificationRead(
+            client_id=client_id,
+            blacklist_log_id=blacklist_log_id,
+        )
+        session.add(read)
+        session.flush()
+
     def get_monthly_report(
         self, session: Session, year: int, month: int
     ) -> BlacklistReportDTO:
@@ -155,7 +289,8 @@ class ClientBlacklistDaoBD(IClientBlacklistDao):
                 func.coalesce(func.sum(Commande.montant_total), 0).label("montant_perdu"),
             )
             .select_from(ClientBlacklistLog)
-            .join(User, User.id == ClientBlacklistLog.client_id)
+            .join(Client, Client.user_id == ClientBlacklistLog.client_id)
+            .join(User, User.id == Client.user_id)
             .outerjoin(Commande, Commande.id == ClientBlacklistLog.commande_id)
             .filter(*base_filters)
             .group_by(ClientBlacklistLog.client_id, User.email, User.phone)
@@ -231,7 +366,8 @@ class ClientBlacklistDaoBD(IClientBlacklistDao):
                 Address.neighborhood.label("quartier"),
             )
             .select_from(ClientBlacklistLog)
-            .join(User, User.id == ClientBlacklistLog.client_id)
+            .join(Client, Client.user_id == ClientBlacklistLog.client_id)
+            .join(User, User.id == Client.user_id)
             .outerjoin(Commande, Commande.id == ClientBlacklistLog.commande_id)
             .outerjoin(Livreur, Livreur.user_id == ClientBlacklistLog.livreur_id)
             .outerjoin(livreur_user, livreur_user.id == Livreur.user_id)

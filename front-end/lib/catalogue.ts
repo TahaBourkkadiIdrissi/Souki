@@ -15,6 +15,7 @@ export interface CatalogueProduct {
   unit: string
   displayUnit: string
   image: string
+  fallbackImage?: string
   category: CatalogueCategory
   quantityStep: number
   stock: number
@@ -70,8 +71,8 @@ export interface SmartBasketResponse {
 }
 
 export const CART_STORAGE_KEY = "souki-cart"
-export const FREE_DELIVERY_THRESHOLD = 80
-export const DELIVERY_FEE = 10
+export const FREE_DELIVERY_THRESHOLD = 300
+export const DELIVERY_FEE = 15
 export const POTATO_IMAGE_URL =
   "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=800&h=600&fit=crop"
 
@@ -288,19 +289,28 @@ export function resolveCatalogueImage(name: string, imageUrl?: string | null) {
 
 export async function fetchCatalogueProducts(): Promise<CatalogueProduct[]> {
   const data = (await apiCall("/api/catalogue")) as ApiCatalogueProduct[]
-  return data.filter((product) => !excludedCatalogueNames.has(normalizeProductName(product.nom_fr))).map((product) => {
+  return data
+    .filter(
+      // Defense en profondeur : le backend masque deja les produits sans prix,
+      // on garantit ici que price est un number (jamais le prix_kg brut en secours).
+      (product): product is ApiCatalogueProduct & { prix_affiche: number } =>
+        !excludedCatalogueNames.has(normalizeProductName(product.nom_fr)) &&
+        product.prix_affiche !== null,
+    )
+    .map((product) => {
     const presentation = getCataloguePresentation(product.nom_fr)
 
     return {
       id: product.id,
       name: product.nom_fr,
       alias: product.nom_darija,
-      price: product.prix_affiche ?? product.prix_kg,
+      price: product.prix_affiche,
       prix_khddar_estime: product.prix_khddar_estime,
       niveau: product.niveau,
       unit: product.unite,
       displayUnit: presentation.displayUnit || product.unite,
       image: resolveCatalogueImage(product.nom_fr, product.image_url),
+      fallbackImage: presentation.image,
       category: presentation.category,
       quantityStep: presentation.quantityStep || (product.unite === "kg" ? 0.5 : 1),
       stock: product.stock,
