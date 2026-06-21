@@ -505,7 +505,23 @@ function CatalogueContent() {
 
   useEffect(() => {
     saveStoredCart(cart)
+    window.dispatchEvent(new Event("souki:cart-updated"))
   }, [cart])
+
+  useEffect(() => {
+    const isParamSet = searchParams.get("open_cart") === "1"
+    const isSessionSet = typeof window !== "undefined" && sessionStorage.getItem("souki_open_cart") === "true"
+
+    if (isParamSet || isSessionSet) {
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("souki_open_cart")
+      }
+      setShowCart(true)
+      if (isParamSet) {
+        router.replace("/catalogue")
+      }
+    }
+  }, [router, searchParams])
 
   useEffect(() => {
     if (isLoading || !isAuthenticated || cart.length === 0) {

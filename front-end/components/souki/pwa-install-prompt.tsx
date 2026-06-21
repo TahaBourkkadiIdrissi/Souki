@@ -31,8 +31,6 @@ export function PwaInstallPrompt() {
       return
     }
 
-    let hasReloadedForControllerChange = false
-
     navigator.serviceWorker
       .register("/sw.js", { scope: "/" })
       .then((registration) => {
@@ -50,26 +48,15 @@ export function PwaInstallPrompt() {
       })
       .catch(() => undefined)
 
-    const reloadOnControllerChange = () => {
-      if (hasReloadedForControllerChange) {
-        return
-      }
-
-      hasReloadedForControllerChange = true
-      window.location.reload()
-    }
-
     const updateWhenVisible = () => {
       if (document.visibilityState === "visible") {
         navigator.serviceWorker.getRegistration().then((registration) => registration?.update())
       }
     }
 
-    navigator.serviceWorker.addEventListener("controllerchange", reloadOnControllerChange)
     document.addEventListener("visibilitychange", updateWhenVisible)
 
     return () => {
-      navigator.serviceWorker.removeEventListener("controllerchange", reloadOnControllerChange)
       document.removeEventListener("visibilitychange", updateWhenVisible)
     }
   }, [])

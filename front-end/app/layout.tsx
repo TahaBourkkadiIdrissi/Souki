@@ -71,7 +71,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="SOUKI" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />
       </head>
-      <body className={`${inter.variable} ${poppins.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} ${poppins.variable} font-sans antialiased overflow-x-hidden`}>
         <AuthProvider>
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
             <MobilePullToRefresh />

@@ -158,14 +158,14 @@ export default function HomePage() {
         <div className="relative z-10 mx-auto max-w-5xl px-4 py-24 text-center sm:px-6 lg:px-8">
           <div className="space-y-10">
             {/* Badge with animation */}
-            <div className="inline-flex items-center gap-3 px-5 py-2.5 glass-ios26 rounded-2xl mx-auto animate-scale-up">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 px-4 sm:px-5 py-2 sm:py-2.5 glass-ios26 rounded-2xl mx-auto animate-scale-up w-fit max-w-full">
               <FarmerAvatar
                 size="sm"
                 expression="welcome"
-                className="block animate-gentle-float"
+                className="block animate-gentle-float shrink-0"
                 label="Souki farmer guide welcomes families"
               />
-              <span className="text-sm font-semibold text-white tracking-wide">+250 familles à Fès commandent déjà avec SOUKI</span>
+              <span className="text-xs sm:text-sm font-semibold text-white tracking-wide text-center">+250 familles à Fès commandent déjà avec SOUKI</span>
             </div>
             
             {/* Hero Title */}
@@ -192,13 +192,13 @@ export default function HomePage() {
               </button>
 
               {/* Secondary Info */}
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#F5C400]/30 bg-black/30 px-5 py-2 text-sm font-bold text-white/90 backdrop-blur">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#F5C400]/30 bg-black/30 px-5 py-2 text-xs sm:text-sm font-bold text-white/90 backdrop-blur">
                 <Clock className="h-4 w-4 text-[#F5C400]" />
                 Commande avant 20h, livraison dès 8h demain
               </div>
 
               {/* AI Features */}
-              <div className="grid w-full max-w-2xl grid-cols-2 gap-3 px-2 sm:gap-4 sm:px-4">
+              <div className="grid w-full max-w-2xl grid-cols-1 sm:grid-cols-2 gap-3 px-2 sm:gap-4 sm:px-4">
                 <button 
                   onClick={handleOpenVoiceModal}
                   className="glass-ios26 group flex min-h-[148px] flex-col items-start justify-between rounded-3xl p-4 text-left text-white transition-all hover:bg-white/20 active:scale-95 sm:min-h-[164px] sm:p-5"
@@ -454,11 +454,11 @@ export default function HomePage() {
               <span className="text-sm font-bold text-white tracking-widest uppercase">Nouveau</span>
             </div>
             
-            <h2 data-reveal="up" className="text-5xl md:text-6xl lg:text-7xl font-black text-white leading-tight tracking-tight text-balance transition-all drop-shadow-2xl">
+            <h2 data-reveal="up" className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-white leading-tight tracking-tight text-balance transition-all drop-shadow-2xl">
               Abonnement Premium <br className="hidden md:block" /> — L'essentiel pour vos proches
             </h2>
             
-            <p className="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto font-medium leading-relaxed drop-shadow-lg">
+            <p className="text-base sm:text-xl md:text-2xl text-white/90 max-w-3xl mx-auto font-medium leading-relaxed drop-shadow-lg">
               Une souscription mensuelle simplifiée pour garantir des paniers de légumes <span className="text-[#4CB84A] font-bold">frais et premium</span> livrés directement chaque semaine.
             </p>
 
@@ -478,14 +478,14 @@ export default function HomePage() {
               ))}
             </div>
 
-            <div className="flex flex-col items-center gap-6 pt-6 animate-fade-in stagger-3">
+            <div className="flex flex-col items-center gap-6 pt-6 w-full max-w-sm sm:max-w-none mx-auto animate-fade-in stagger-3">
               <button 
                 onClick={() => requireAuth(() => router.push("/abonnements"))}
-                className="group relative inline-flex items-center justify-center gap-4 px-12 py-5 bg-[#F07C00] text-white rounded-2xl font-black text-2xl hover:bg-[#D66B00] transition-all hover:scale-105 shadow-[0_20px_50px_-10px_rgba(240,124,0,0.5)] overflow-hidden"
+                className="group relative inline-flex items-center justify-center gap-4 px-6 py-4 sm:px-12 sm:py-5 bg-[#F07C00] text-white rounded-2xl font-black text-lg sm:text-2xl hover:bg-[#D66B00] transition-all hover:scale-105 shadow-[0_20px_50px_-10px_rgba(240,124,0,0.5)] overflow-hidden w-full sm:w-auto"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
                 Découvrir l'abonnement
-                <ArrowRight className="w-8 h-8 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="w-6 h-6 sm:w-8 sm:h-8 group-hover:translate-x-1 transition-transform" />
               </button>
               <div className="flex items-center gap-2 text-white/70 text-sm font-medium">
                 <Shield className="w-4 h-4" />

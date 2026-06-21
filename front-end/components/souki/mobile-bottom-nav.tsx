@@ -12,6 +12,7 @@ import {
   ShoppingCart,
   Store,
   User,
+  Wallet,
   X,
 } from "lucide-react"
 
@@ -39,6 +40,7 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
 
   const secondaryItems = [
     { label: "Historique", href: "/historique", icon: PackageCheck },
+    { label: "Mon Wallet", href: "/wallet", icon: Wallet },
     { label: "Mon profil", href: "/parametres/compte", icon: User },
     { label: "Paramètres", href: "/parametres/notifications", icon: Settings },
   ]
@@ -56,7 +58,7 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
   return (
     <>
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 glass-ios26 border-t border-[#DDEBDD] px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-2 md:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#DDEBDD] px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-2 md:hidden shadow-[0_-4px_24px_rgba(0,0,0,0.04)]"
         aria-label="Navigation mobile principale"
       >
         <div className={cn("mx-auto grid max-w-md gap-1", gridCols)}>
@@ -93,7 +95,12 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
 
           <button
             type="button"
-            onClick={onCartClick ?? (() => router.push("/catalogue"))}
+            onClick={onCartClick ?? (() => {
+              if (typeof window !== "undefined") {
+                sessionStorage.setItem("souki_open_cart", "true")
+              }
+              router.push("/catalogue")
+            })}
             className={cn(
               "relative flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl px-2 text-[11px] font-bold transition-colors",
               pathname === "/checkout" ? "bg-[#FFF7EE] text-[#F07C00]" : "text-[#607061] hover:bg-[#F7FCF7]"
@@ -121,7 +128,7 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
 
       {drawerOpen && (
         <div className="fixed inset-0 z-[70] bg-[#122018]/45 backdrop-blur-sm md:hidden">
-          <div className="absolute bottom-0 left-0 right-0 rounded-t-[28px] glass-ios26 p-4 pb-[max(env(safe-area-inset-bottom),1rem)]">
+          <div className="absolute bottom-0 left-0 right-0 rounded-t-[28px] bg-white/95 backdrop-blur-md p-4 pb-[max(env(safe-area-inset-bottom),1rem)] shadow-[0_-8px_32px_rgba(0,0,0,0.1)]">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <p className="text-sm font-black text-[#264129]">SOUKI</p>
