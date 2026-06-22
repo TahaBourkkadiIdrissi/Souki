@@ -55,6 +55,9 @@ export const viewport: Viewport = {
   themeColor: '#1E8A3C',
   width: 'device-width',
   initialScale: 1,
+  // Indispensable pour que env(safe-area-inset-*) renvoie de vraies valeurs
+  // en mode standalone iOS (sinon = 0, et tout le travail safe-area est neutralise).
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({
