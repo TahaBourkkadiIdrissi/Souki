@@ -55,6 +55,9 @@ export const viewport: Viewport = {
   themeColor: '#1E8A3C',
   width: 'device-width',
   initialScale: 1,
+  // Indispensable pour que env(safe-area-inset-*) renvoie de vraies valeurs
+  // en mode standalone iOS (sinon = 0, et tout le travail safe-area est neutralise).
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({
@@ -71,7 +74,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="SOUKI" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />
       </head>
-      <body className={`${inter.variable} ${poppins.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} ${poppins.variable} font-sans antialiased overflow-x-hidden`}>
         <AuthProvider>
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
             <MobilePullToRefresh />

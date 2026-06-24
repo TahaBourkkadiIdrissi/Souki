@@ -12,8 +12,12 @@ from dto.dashboard_dto import (
 from entities.cod_confirmation_log_entity import CODConfirmationLog
 from entities.commande_entity import Commande
 from entities.jit_log_entity import JITLog
+from entities.ligne_panier_entity import LignePanier
 from entities.livreur_entity import Livreur
 from entities.paiement_entity import Paiement
+from entities.panier_entity import Panier
+from entities.parrainage_entity import PARRAINAGE_CONVERTI, PARRAINAGE_EN_ATTENTE, Parrainage
+from entities.product_entity import Product
 from entities.tournee_entity import Tournee
 from interfaces.client_admin_dao_interface import IClientAdminDao
 from interfaces.client_blacklist_dao_interface import IClientBlacklistDao
@@ -43,6 +47,7 @@ class DashboardDaoBD(IDashboardDao):
         today: date,
         curve_start_datetime: datetime,
         curve_end_datetime: datetime,
+        is_today: bool = False,
     ) -> DashboardDTO:
         total_commandes = self._get_order_count(session, date_debut, date_fin)
         total_commandes_precedent = self._get_order_count(
@@ -75,6 +80,18 @@ class DashboardDaoBD(IDashboardDao):
         )
         last_jit = self._get_last_jit(session)
         cod_total = cod_counts.get("CONFIRMEE_PAR_APPEL", 0) + cod_counts.get("ANNULEE", 0)
+        # Source : is_blacklisted=True sur t_clients
+        # Peut differer de /admin/blacklist si client blackliste sans log
+        # Comportement voulu : source de verite = champ is_blacklisted
+        clients_blacklistes = self.client_admin_dao.count_blacklisted_clients(session)
+
+        marge_brute, taux_marge = self._get_gross_margin(session, date_debut, date_fin)
+        marge_brute_precedent, _ = self._get_gross_margin(session, prec_debut, prec_fin)
+        parrainages_en_attente, filleuls_convertis, credit_parrainage = self._get_parrainage_kpis(
+            session,
+            date_debut,
+            date_fin,
+        )
 
         return DashboardDTO(
             periode=periode,
@@ -97,10 +114,19 @@ class DashboardDaoBD(IDashboardDao):
             ca_wallet=payment_ca.get("WALLET", 0.0),
             ca_cmi=payment_ca.get("CMI", 0.0),
             panier_moyen=round(ca_total / commandes_livrees, 2) if commandes_livrees else 0.0,
+            panier_moyen_precedent=round(ca_total_precedent / commandes_livrees_precedent, 2)
+            if commandes_livrees_precedent
+            else 0.0,
+            marge_brute=marge_brute,
+            marge_brute_precedent=marge_brute_precedent,
+            taux_marge=taux_marge,
+            parrainages_en_attente=parrainages_en_attente,
+            filleuls_convertis=filleuls_convertis,
+            credit_parrainage_distribue=credit_parrainage,
             total_clients_actifs=self.client_admin_dao.count_active_clients(session),
             nouveaux_clients=self.client_admin_dao.count_new_clients(session, date_debut, date_fin),
             nouveaux_clients_precedent=self.client_admin_dao.count_new_clients(session, prec_debut, prec_fin),
-            clients_blacklistes=self.client_admin_dao.count_blacklisted_clients(session),
+            clients_blacklistes=clients_blacklistes,
             dernier_jit_statut=last_jit.statut if last_jit else None,
             dernier_jit_volume=float(last_jit.volume_total or 0.0) if last_jit else 0.0,
             dernier_jit_nb_commandes=int(last_jit.nombre_commandes or 0) if last_jit else 0,
@@ -115,7 +141,12 @@ class DashboardDaoBD(IDashboardDao):
             else 0.0,
             nouveaux_blacklistes=blacklist_counts.get("BLACKLISTED", 0),
             blacklists_leves=blacklist_counts.get("LIFTED", 0),
-            courbe_ca=self._get_revenue_curve(session, curve_start_datetime, curve_end_datetime),
+            courbe_ca=self._get_revenue_curve(
+                session,
+                curve_start_datetime,
+                curve_end_datetime,
+                is_today=is_today,
+            ),
             repartition_statuts=self._get_status_repartition(status_counts, total_commandes),
             repartition_paiements=self._get_payment_repartition(session, date_debut, date_fin),
         )
@@ -216,6 +247,76 @@ class DashboardDaoBD(IDashboardDao):
         )
         return {str(row.mode): float(row.montant or 0.0) for row in rows}
 
+    def _get_gross_margin(
+        self, session: Session, start_datetime: datetime, end_datetime: datetime
+    ) -> tuple[float, float]:
+        row = (
+            session.query(
+                func.coalesce(func.sum(LignePanier.sous_total), 0.0),
+                func.coalesce(
+                    func.sum(
+                        LignePanier.quantite_kg * func.coalesce(Product.prix_gros_saisi, 0.0)
+                    ),
+                    0.0,
+                ),
+            )
+            .select_from(Commande)
+            .join(Panier, Panier.id == Commande.panier_id)
+            .join(LignePanier, LignePanier.panier_id == Panier.id)
+            .join(Product, Product.id == LignePanier.produit_id)
+            .filter(
+                Commande.date_commande >= start_datetime,
+                Commande.date_commande <= end_datetime,
+                self._non_draft_filter(),
+                self._status_filter("LIVRE"),
+            )
+            .first()
+        )
+        revenue = float(row[0] or 0.0) if row else 0.0
+        cost = float(row[1] or 0.0) if row else 0.0
+        margin = round(revenue - cost, 2)
+        rate = round((margin / revenue) * 100, 2) if revenue else 0.0
+        return margin, rate
+
+    def _get_parrainage_kpis(
+        self, session: Session, start_datetime: datetime, end_datetime: datetime
+    ) -> tuple[int, int, float]:
+        en_attente = int(
+            session.query(func.count(Parrainage.id))
+            .filter(Parrainage.statut == PARRAINAGE_EN_ATTENTE)
+            .scalar()
+            or 0
+        )
+        convertis = int(
+            session.query(func.count(Parrainage.id))
+            .filter(
+                Parrainage.statut == PARRAINAGE_CONVERTI,
+                Parrainage.converted_at >= start_datetime,
+                Parrainage.converted_at <= end_datetime,
+            )
+            .scalar()
+            or 0
+        )
+        credit = float(
+            session.query(
+                func.coalesce(
+                    func.sum(
+                        func.coalesce(Parrainage.credit_parrain, 0.0)
+                        + func.coalesce(Parrainage.credit_filleul, 0.0)
+                    ),
+                    0.0,
+                )
+            )
+            .filter(
+                Parrainage.statut == PARRAINAGE_CONVERTI,
+                Parrainage.converted_at >= start_datetime,
+                Parrainage.converted_at <= end_datetime,
+            )
+            .scalar()
+            or 0.0
+        )
+        return en_attente, convertis, round(credit, 2)
+
     def _get_last_jit(self, session: Session) -> JITLog | None:
         return session.query(JITLog).order_by(JITLog.date_execution.desc(), JITLog.id.desc()).first()
 
@@ -269,8 +370,46 @@ class DashboardDaoBD(IDashboardDao):
         return {str(row.statut): int(row.count or 0) for row in rows}
 
     def _get_revenue_curve(
-        self, session: Session, start_datetime: datetime, end_datetime: datetime
+        self,
+        session: Session,
+        start_datetime: datetime,
+        end_datetime: datetime,
+        is_today: bool = False,
     ) -> list[DashboardPointDTO]:
+        if is_today:
+            hour_expr = func.date_part("hour", Commande.date_commande)
+            rows = (
+                session.query(
+                    hour_expr.label("heure"),
+                    func.coalesce(func.sum(Commande.montant_total), 0).label("ca"),
+                    func.count(Commande.id).label("nb_commandes"),
+                )
+                .filter(
+                    Commande.date_commande >= start_datetime,
+                    Commande.date_commande <= end_datetime,
+                    self._non_draft_filter(),
+                    self._status_filter("LIVRE"),
+                )
+                .group_by(hour_expr)
+                .order_by(hour_expr.asc())
+                .all()
+            )
+            rows_by_hour = {
+                int(row.heure): {
+                    "ca": float(row.ca or 0.0),
+                    "nb_commandes": int(row.nb_commandes or 0),
+                }
+                for row in rows
+            }
+            return [
+                DashboardPointDTO(
+                    date=f"{hour:02d}h00",
+                    ca=rows_by_hour.get(hour, {}).get("ca", 0.0),
+                    nb_commandes=rows_by_hour.get(hour, {}).get("nb_commandes", 0),
+                )
+                for hour in range(9, 21)
+            ]
+
         date_expr = func.date(Commande.date_commande)
         rows = (
             session.query(

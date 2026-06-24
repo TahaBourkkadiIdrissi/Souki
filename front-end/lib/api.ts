@@ -512,7 +512,9 @@ export interface ProduitPricingDTO {
   niveau: ProduitNiveau
   volatilite: ProduitVolatilite
   prix_gros_saisi: number | null
+  prix_khddar_reel: number | null
   prix_affiche: number | null
+  prix_vente_manuel: number | null
   prix_khddar_estime: number | null
   alerte: ProduitAlerte
 }
@@ -529,6 +531,8 @@ export interface ProduitPricingUpdateDTO {
   niveau?: ProduitNiveau
   volatilite?: ProduitVolatilite
   prix_gros_saisi?: number | null
+  prix_khddar_reel?: number | null
+  prix_vente_manuel?: number | null
 }
 
 export interface ProductCreateDTO {
@@ -540,6 +544,9 @@ export interface ProductCreateDTO {
   marge_cible: number
   coussin_securite: number
   volatilite: ProduitVolatilite
+  prix_gros_saisi?: number | null
+  prix_khddar_reel?: number | null
+  prix_vente_manuel?: number | null
 }
 
 export interface ProductImageDTO {
@@ -655,6 +662,13 @@ export interface DashboardDTO {
   ca_wallet: number
   ca_cmi: number
   panier_moyen: number
+  panier_moyen_precedent: number
+  marge_brute: number
+  marge_brute_precedent: number
+  taux_marge: number
+  parrainages_en_attente: number
+  filleuls_convertis: number
+  credit_parrainage_distribue: number
   total_clients_actifs: number
   nouveaux_clients: number
   nouveaux_clients_precedent: number
@@ -678,6 +692,31 @@ export interface DashboardDTO {
 
 export interface LiftBlacklistDTO {
   reason?: string
+}
+
+export interface BlacklistStatusDTO {
+  is_blacklisted: boolean
+  last_action: string | null
+  last_reason: string | null
+  last_date: string | null
+  lift_notification_seen: boolean
+}
+
+export interface LiftRequestDTO {
+  motif: string
+}
+
+export interface LiftRejectDTO {
+  motif: string
+}
+
+export interface PendingLiftRequestDTO {
+  log_id: number
+  client_id: number
+  client_label: string | null
+  phone: string | null
+  motif: string | null
+  created_at: string
 }
 
 export async function apiCall<T = any>(endpoint: string, options: ApiOptions = {}): Promise<T> {
@@ -1016,6 +1055,29 @@ export async function getBlacklistedClients(token: string) {
   return apiCall<ClientBlacklistDTO[]>("/admin/blacklist", { token })
 }
 
+export async function getBlacklistStatus(token: string) {
+  return apiCall<BlacklistStatusDTO>("/api/client/blacklist/status", { token })
+}
+
+export async function requestBlacklistLift(token: string, motif: string) {
+  return apiCall<{ message: string }>("/api/client/blacklist/lift-request", {
+    method: "POST",
+    token,
+    body: { motif } satisfies LiftRequestDTO,
+  })
+}
+
+export async function markBlacklistLiftNotificationSeen(token: string): Promise<void> {
+  await apiCall<{ ok: boolean }>("/api/client/blacklist/lift-notification-seen", {
+    method: "PATCH",
+    token,
+  })
+}
+
+export async function getPendingLiftRequests(token: string) {
+  return apiCall<PendingLiftRequestDTO[]>("/admin/blacklist/lift-requests", { token })
+}
+
 export async function getAdminDashboard(
   token: string,
   periode: DashboardPeriod = "today",
@@ -1030,6 +1092,41 @@ export async function getAdminDashboard(
     token,
     signal,
   })
+}
+
+export interface ParrainageAdminItemDTO {
+  id: number
+  parrain_id: number
+  parrain_contact: string | null
+  code_utilise: string
+  filleul_id: number
+  filleul_contact: string | null
+  statut: string
+  credit_total: number
+  created_at: string | null
+  converted_at: string | null
+}
+
+export interface ParrainageTopParrainDTO {
+  parrain_id: number
+  parrain_contact: string | null
+  filleuls_convertis: number
+  credit_genere: number
+}
+
+export interface ParrainageAdminOverviewDTO {
+  total: number
+  en_attente: number
+  convertis: number
+  rejetes: number
+  taux_conversion: number
+  credit_distribue: number
+  top_parrains: ParrainageTopParrainDTO[]
+  recent: ParrainageAdminItemDTO[]
+}
+
+export async function getAdminParrainages(token: string, signal?: AbortSignal) {
+  return apiCall<ParrainageAdminOverviewDTO>("/admin/parrainages", { token, signal })
 }
 
 export async function getAdminClients(
@@ -1160,6 +1257,18 @@ export async function liftBlacklist(
   })
 }
 
+export async function rejectLiftRequest(
+  token: string,
+  clientId: number,
+  motif: string
+) {
+  return apiCall(`/admin/blacklist/${clientId}/lift-reject`, {
+    method: "POST",
+    token,
+    body: { motif } satisfies LiftRejectDTO,
+  })
+}
+
 export async function getBlacklistMonthlyReport(
   token: string,
   year: number,
@@ -1208,4 +1317,11 @@ export async function fetchUserFavorites(token: string): Promise<CatalogueProduc
   } catch {
     return []
   }
+}
+
+export async function generateParrainageCode(token: string): Promise<{ code_parrainage: string }> {
+  return apiCall<{ code_parrainage: string }>("/api/user/parrainage/generate", {
+    method: "POST",
+    token,
+  })
 }

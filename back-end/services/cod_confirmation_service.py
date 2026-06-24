@@ -126,6 +126,9 @@ class CODConfirmationService(ICODConfirmationService):
         admin_id: int,
     ) -> BatchConfirmationCODResponseDTO:
         session = self._ensure_session()
+        if len(payload.commande_ids) > 100:
+            raise HTTPException(status_code=400, detail="Maximum 100 commandes par batch.")
+
         normalized_statut = (payload.statut or "").strip().upper()
 
         if normalized_statut not in {CONFIRMEE_PAR_APPEL, ANNULEE}:
@@ -138,12 +141,15 @@ class CODConfirmationService(ICODConfirmationService):
         try:
             for commande_id in commande_ids:
                 try:
-                    self._apply_confirmation_cod(
-                        session=session,
-                        commande_id=commande_id,
-                        normalized_statut=normalized_statut,
-                        admin_id=admin_id,
-                    )
+                    # Savepoint par item : un item en echec ne rollback que lui-meme,
+                    # sans laisser de changement partiel ni polluer les items traites.
+                    with session.begin_nested():
+                        self._apply_confirmation_cod(
+                            session=session,
+                            commande_id=commande_id,
+                            normalized_statut=normalized_statut,
+                            admin_id=admin_id,
+                        )
                     success.append(commande_id)
                 except HTTPException:
                     failed.append(commande_id)
@@ -181,7 +187,9 @@ class CODConfirmationService(ICODConfirmationService):
             raise HTTPException(status_code=409, detail="Cette commande n'est pas en paiement a la livraison.")
 
         current_status = str(commande.statut or "").strip().upper()
-        if current_status not in {"VERROUILLEE", "ANNULEE"}:
+        if current_status == "ANNULEE":
+            raise HTTPException(status_code=409, detail="Cette commande COD est deja annulee.")
+        if current_status != "VERROUILLEE":
             raise HTTPException(
                 status_code=409,
                 detail="Seules les commandes COD verrouillees par le JIT peuvent etre traitees ici.",
@@ -193,9 +201,6 @@ class CODConfirmationService(ICODConfirmationService):
                 status_code=409,
                 detail="Cette commande a deja ete traitee par un autre operateur.",
             )
-
-        if current_status == "ANNULEE":
-            raise HTTPException(status_code=409, detail="Cette commande COD est deja annulee.")
 
         if normalized_statut == ANNULEE:
             try:

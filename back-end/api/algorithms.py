@@ -2,6 +2,8 @@ import re
 import json
 import base64
 import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+
 import google.genai as genai
 from api.keys import GEMINI_API_KEY
 
@@ -11,6 +13,7 @@ MODELS = [
     "models/gemini-2.0-flash",
     "models/gemini-2.0-flash-lite",
 ]
+GEMINI_TIMEOUT_SECONDS = 30
 
 # ── Prompt système SOUKI ──────────────────────────────────────────────────────
 SYSTEM_PROMPT = """Tu es l'assistant vocal SOUKI pour un marché au Maroc. Extrais les produits. Réponds UNIQUEMENT avec un JSON valide, sans markdown.
@@ -25,6 +28,23 @@ Règles de quantités OBLIGATOIRES (la quantité doit TOUJOURS être un nombre d
 - Convertis TOUTES les quantités en kilogrammes (kg). Exemples : 500g = 0.5, 250g = 0.25, 1kg = 1.0.
 - Si le client demande des unités entières (ex: "3 citrons") mais que le produit se vend au kg, mets la quantité estimée en kg (ex: 0.5)."""
 
+def _generate_content_with_timeout(client, model_name: str, prompt_parts: list):
+    executor = ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(
+        client.models.generate_content,
+        model=model_name,
+        contents=prompt_parts,
+    )
+    try:
+        return future.result(timeout=GEMINI_TIMEOUT_SECONDS)
+    except FutureTimeoutError:
+        future.cancel()
+        executor.shutdown(wait=False, cancel_futures=True)
+        raise
+    finally:
+        if future.done():
+            executor.shutdown(wait=False)
+
 
 def call_gemini(prompt_parts: list) -> dict:
     """
@@ -36,10 +56,7 @@ def call_gemini(prompt_parts: list) -> dict:
     for model_name in MODELS:
         for attempt in range(3):  #  retry 3 fois
             try:
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=prompt_parts
-                )
+                response = _generate_content_with_timeout(client, model_name, prompt_parts)
 
                 raw = response.text.strip()  # type: ignore
 
@@ -50,6 +67,15 @@ def call_gemini(prompt_parts: list) -> dict:
 
                 return json.loads(raw)
 
+            except FutureTimeoutError:
+                print(f"[Gemini ERROR] {model_name} (attempt {attempt+1}): timeout")
+                return {
+                    "transcription": "",
+                    "langue_detectee": "unknown",
+                    "items": [],
+                    "produits_non_disponibles": [],
+                    "error": "Gemini timeout"
+                }
             except Exception as e:
                 error_str = str(e)
                 print(f"[Gemini ERROR] {model_name} (attempt {attempt+1}): {error_str}")

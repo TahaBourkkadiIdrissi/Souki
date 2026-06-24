@@ -147,6 +147,15 @@ export const ROUTES: RouteConfig[] = [
     loginPath: "/login/client",
   },
   {
+    path: "/fournisseur",
+    label: "Espace fournisseur",
+    match: "prefix",
+    authRequired: true,
+    allowedRoles: ["FOURNISSEUR"],
+    requiredPermissions: ["supplier.dashboard.view"],
+    loginPath: "/login/client",
+  },
+  {
     path: "/admin",
     label: "Back-office",
     match: "prefix",

@@ -1,15 +1,16 @@
 "use client"
 
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { ChevronDown, ClipboardList, LayoutDashboard, Package, ShoppingCart, Store } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { ChevronDown, ClipboardList, LayoutDashboard, LogOut, Package, ShoppingCart, Store } from "lucide-react"
 
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 
 import { Badge } from "@/components/ui/badge"
@@ -67,15 +68,23 @@ function SupplierIdentityBadge({ status }: { status?: string | null }) {
 }
 
 function isActiveRoute(pathname: string, href: string) {
-  return href === "/supplier" ? pathname === href : pathname.startsWith(href)
+  const normPath = pathname.replace("/fournisseur", "/supplier")
+  return href === "/supplier" ? normPath === href : normPath.startsWith(href)
 }
 
 export function SupplierShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const { token } = useAuth()
+  const router = useRouter()
+  const { token, logout } = useAuth()
   const [identity, setIdentity] = useState<SupplierIdentity | null>(null)
   const [identityLoading, setIdentityLoading] = useState(true)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
+
+  const resolveHref = (href: string) => {
+    const base = pathname.startsWith("/fournisseur") ? "/fournisseur" : "/supplier"
+    return href.replace("/supplier", base)
+  }
 
   const activeItem = supplierNav.find((item) => isActiveRoute(pathname, item.href)) || supplierNav[0]
 
@@ -97,6 +106,15 @@ export function SupplierShell({ children }: { children: ReactNode }) {
   }, [token, pathname])
 
   const shopInitial = identity?.shop_name?.trim().charAt(0).toUpperCase() || "S"
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    try {
+      await logout()
+      router.replace("/login?logged_out=1")
+    } finally {
+      setLoggingOut(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-muted/55 text-foreground dark:bg-background">
@@ -163,7 +181,7 @@ export function SupplierShell({ children }: { children: ReactNode }) {
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={resolveHref(item.href)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "group flex min-h-12 items-center gap-3 rounded-2xl px-3.5 text-sm font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
@@ -186,17 +204,28 @@ export function SupplierShell({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        <div className="m-4 rounded-2xl bg-[#173F27] p-4 text-white">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#8EDD8B]">Souki partenaire</p>
-          <p className="mt-2 text-xs leading-5 text-white/70">
-            Produits, préparation et commandes réunis dans votre espace métier.
-          </p>
+        <div className="m-4 space-y-3">
+          <div className="rounded-2xl bg-[#173F27] p-4 text-white">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#8EDD8B]">Souki partenaire</p>
+            <p className="mt-2 text-xs leading-5 text-white/70">
+              Produits, préparation et commandes réunis dans votre espace métier.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 text-sm font-black text-red-700 transition-colors hover:bg-red-100 disabled:opacity-60"
+          >
+            <LogOut className="h-4 w-4" />
+            {loggingOut ? "Déconnexion..." : "Se déconnecter"}
+          </button>
         </div>
       </aside>
 
       <div className="lg:pl-72">
         <header className="sticky top-0 z-30 border-b border-[#DDEBDD] bg-background/95 backdrop-blur-xl lg:hidden dark:border-border">
-          <div className="flex h-[4.5rem] items-center gap-3 px-4 pr-16">
+          <div className="flex h-[4.5rem] items-center gap-3 px-4">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary text-sm font-black text-primary-foreground">
               {identity?.logo_url ? (
                 <img src={identity.logo_url} alt="" className="h-full w-full object-cover" />
@@ -204,7 +233,7 @@ export function SupplierShell({ children }: { children: ReactNode }) {
                 shopInitial
               )}
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               {identityLoading ? (
                 <div className="space-y-1.5">
                   <Skeleton className="h-4 w-32" />
@@ -219,6 +248,15 @@ export function SupplierShell({ children }: { children: ReactNode }) {
                 </>
               )}
             </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-red-700 transition-colors hover:bg-red-100 disabled:opacity-60"
+              aria-label="Se déconnecter"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
 
           <div className="px-3 pb-2.5">
@@ -255,7 +293,7 @@ export function SupplierShell({ children }: { children: ReactNode }) {
                   return (
                     <DropdownMenuItem key={item.href} asChild>
                       <Link
-                        href={item.href}
+                        href={resolveHref(item.href)}
                         aria-current={active ? "page" : undefined}
                         className={cn(
                           "flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-bold transition-colors focus-visible:outline-none",
@@ -279,6 +317,20 @@ export function SupplierShell({ children }: { children: ReactNode }) {
                     </DropdownMenuItem>
                   )
                 })}
+                <DropdownMenuSeparator className="my-1.5 bg-[#EAF8EC] dark:bg-muted" />
+                <DropdownMenuItem asChild>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    disabled={loggingOut}
+                    className="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-bold text-red-600 transition-colors hover:bg-red-50 focus-visible:outline-none disabled:opacity-60 dark:hover:bg-red-950/20"
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-950/40">
+                      <LogOut className="h-4 w-4" />
+                    </span>
+                    Se déconnecter
+                  </button>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

@@ -61,6 +61,8 @@ interface AIModalsProps {
   orderLockMessage?: string
 }
 
+const AUDIO_TIMEOUT_MS = 15000
+const MIN_AUDIO_BYTES = 5000
 const personOptions = [1, 2, 3, 4, 5, 6, 7, 8]
 const durationOptions = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 const profileOptions: Array<{ id: SmartBasketProfile; label: string; helper: string }> = [
@@ -102,6 +104,14 @@ export function AIModals({
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
+  const timeoutRef = useRef<number | null>(null)
+
+  const clearRecordingTimers = () => {
+    if (timeoutRef.current) {
+      window.clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+  }
 
   useEffect(() => {
     if (!isOpen) {
@@ -116,6 +126,7 @@ export function AIModals({
   }, [result])
 
   const resetState = () => {
+    clearRecordingTimers()
     setIsListening(false)
     setIsSending(false)
     setResult(null)
@@ -182,6 +193,7 @@ export function AIModals({
   }
 
   const stopListening = () => {
+    clearRecordingTimers()
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop()
     }
@@ -223,11 +235,17 @@ export function AIModals({
       }
 
       mediaRecorder.onstop = async () => {
+        clearRecordingTimers()
         stream.getTracks().forEach((track) => track.stop())
         setIsSending(true)
 
         try {
           const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" })
+          if (audioBlob.size < MIN_AUDIO_BYTES) {
+            setError("Aucune voix detectee. Appuyez et parlez.")
+            return
+          }
+
           const formData = new FormData()
           formData.append("audio", audioBlob, "enregistrement.webm")
 
@@ -260,7 +278,14 @@ export function AIModals({
       mediaRecorderRef.current = mediaRecorder
       mediaRecorder.start()
       setIsListening(true)
+      timeoutRef.current = window.setTimeout(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+          mediaRecorderRef.current.stop()
+          setIsListening(false)
+        }
+      }, AUDIO_TIMEOUT_MS)
     } catch {
+      clearRecordingTimers()
       setError("Microphone non autorise. Veuillez autoriser l'acces dans votre navigateur.")
     }
   }

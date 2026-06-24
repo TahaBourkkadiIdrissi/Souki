@@ -4,7 +4,12 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from dto.client_blacklist_dto import ClientBlacklistDTO, BlacklistReportDTO
+from dto.client_blacklist_dto import (
+    ClientBlacklistDTO,
+    BlacklistReportDTO,
+    PendingLiftRequestDTO,
+)
+from entities.client_blacklist_log_entity import ClientBlacklistLog
 
 
 class IClientBlacklistDao(ABC):
@@ -32,6 +37,57 @@ class IClientBlacklistDao(ABC):
     def get_blacklisted_clients(
         self, session: Session
     ) -> List[ClientBlacklistDTO]:
+        pass
+
+    @abstractmethod
+    def create_lift_request(
+        self,
+        session: Session,
+        client_id: int,
+        motif: str,
+    ) -> ClientBlacklistLog:
+        pass
+
+    @abstractmethod
+    def get_lift_requests_pending(
+        self, session: Session
+    ) -> List[PendingLiftRequestDTO]:
+        pass
+
+    @abstractmethod
+    def create_lift_rejection(
+        self,
+        session: Session,
+        client_id: int,
+        admin_id: int,
+        motif: str,
+    ) -> None:
+        pass
+
+    @abstractmethod
+    def get_last_blacklist_action(
+        self,
+        session: Session,
+        client_id: int,
+    ) -> Optional[ClientBlacklistLog]:
+        pass
+
+    @abstractmethod
+    def is_lift_notification_seen(
+        self,
+        session: Session,
+        client_id: int,
+        blacklist_log_id: int,
+    ) -> bool:
+        pass
+
+    @abstractmethod
+    def mark_lift_notification_seen(
+        self,
+        session: Session,
+        client_id: int,
+        blacklist_log_id: int,
+    ) -> None:
         pass
 
     @abstractmethod

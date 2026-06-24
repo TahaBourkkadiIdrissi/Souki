@@ -4,6 +4,8 @@ from entities.product_entity import Product
 from entities.commande_vocale_entity import CommandeVocale, LigneCommandeVocale
 from entities.client_entity import Client
 from entities.client_blacklist_log_entity import ClientBlacklistLog
+from entities.client_blacklist_notification_read_entity import ClientBlacklistNotificationRead
+from entities.parrainage_entity import Parrainage
 from entities.parent_entity import Parent
 from entities.livreur_entity import Livreur
 from entities.fournisseur_entity import Fournisseur
@@ -41,6 +43,8 @@ __all__ = [
     "LigneCommandeVocale",
     "Client",
     "ClientBlacklistLog",
+    "ClientBlacklistNotificationRead",
+    "Parrainage",
     "Parent",
     "Livreur",
     "Fournisseur",

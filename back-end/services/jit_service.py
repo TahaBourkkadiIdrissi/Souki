@@ -2,6 +2,7 @@ import math
 from datetime import date, datetime, time
 from typing import Dict, List, Optional
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -15,6 +16,7 @@ from interfaces.jit_dao_interface import IJITDao
 from interfaces.jit_service_interface import IJITService
 from interfaces.zone_jit_dao_interface import IZoneJITDao
 from services.commande_state_machine import changer_statut
+from services.date_utils import today_morocco
 from services.fournisseur_resolver import resoudre_fournisseur_pour_commande
 from services.notification_jit_service import notifier_fournisseur
 from services.zone_resolver import resoudre_zone
@@ -23,6 +25,7 @@ from services.zone_resolver import resoudre_zone
 PENDING_JIT_STATUSES = ("EN_ATTENTE", "CONFIRMEE")
 LOCKED_JIT_STATUS = "VERROUILLEE"
 UNLOCKED_JIT_STATUS = "CONFIRMEE"
+JIT_LOCK_ID = 20240520
 
 
 class JITAlreadyExecutedError(Exception):
@@ -37,7 +40,7 @@ class JITService(IJITService):
         self.zone_jit_dao = zone_jit_dao
 
     def _today_bounds(self) -> tuple[datetime, datetime]:
-        today = date.today()
+        today = today_morocco()  # heure du Maroc, pas l'heure locale du serveur
         return datetime.combine(today, time.min), datetime.combine(today, time.max)
 
     def _count_locked_commandes_today(self, session: Session) -> int:
@@ -226,40 +229,58 @@ class JITService(IJITService):
 
             nombre_verrouillees = 0
             for commande in commandes:
-                fournisseur_id = resoudre_fournisseur_pour_commande(
-                    session,
-                    commande,
-                    zones,
-                )
-                if fournisseur_id is None and allow_unlocated_fallback and zone is not None:
-                    fallback_fournisseur_id = getattr(zone, "fournisseur_id", None)
-                    if fallback_fournisseur_id is not None:
-                        fournisseur_id = int(fallback_fournisseur_id)
-                if fournisseur_id is None:
-                    print(
-                        f"[JIT] Commande {commande.id} sans fournisseur résolu; "
-                        "conservée pour le backlog admin."
-                    )
-                    continue
+                # Savepoint par commande : une commande qui échoue (statut inattendu,
+                # erreur transitoire) est ignoree et loggee, sans abandonner le verrouillage
+                # des autres commandes du jour.
+                try:
+                    with session.begin_nested():
+                        fournisseur_id = resoudre_fournisseur_pour_commande(
+                            session,
+                            commande,
+                            zones,
+                        )
 
-                current_status = str(commande.statut or "").strip().upper()
-                if current_status == "EN_ATTENTE":
-                    changer_statut(
-                        session=session,
-                        commande=commande,
-                        nouveau_statut="CONFIRMEE",
-                        actor_id=actor_id,
-                        reason="JIT_CONFIRMATION",
-                    )
-                commande.fournisseur_id = fournisseur_id
-                changer_statut(
-                    session=session,
-                    commande=commande,
-                    nouveau_statut=LOCKED_JIT_STATUS,
-                    actor_id=actor_id,
-                    reason="JIT_LOCK",
-                )
-                nombre_verrouillees += 1
+                        # Conserver la logique HEAD de fallback.
+                        if (
+                            fournisseur_id is None
+                            and allow_unlocated_fallback
+                            and zone is not None
+                        ):
+                            fallback_fournisseur_id = getattr(
+                                zone,
+                                "fournisseur_id",
+                                None,
+                            )
+                            if fallback_fournisseur_id is not None:
+                                fournisseur_id = int(fallback_fournisseur_id)
+
+                        if fournisseur_id is None:
+                            print(
+                                f"[JIT] Commande {commande.id} sans fournisseur résolu; "
+                                "conservée pour le backlog admin."
+                            )
+                            continue
+
+                        current_status = str(commande.statut or "").strip().upper()
+                        if current_status == "EN_ATTENTE":
+                            changer_statut(
+                                session=session,
+                                commande=commande,
+                                nouveau_statut="CONFIRMEE",
+                                actor_id=actor_id,
+                                reason="JIT_CONFIRMATION",
+                            )
+                        commande.fournisseur_id = fournisseur_id
+                        changer_statut(
+                            session=session,
+                            commande=commande,
+                            nouveau_statut=LOCKED_JIT_STATUS,
+                            actor_id=actor_id,
+                            reason="JIT_LOCK",
+                        )
+                    nombre_verrouillees += 1
+                except Exception as exc:
+                    print(f"Commande {commande.id} non verrouillee (ignoree): {exc}")
 
             session.flush()
             return nombre_verrouillees
@@ -348,14 +369,23 @@ class JITService(IJITService):
         2. Verrouille les commandes
         3. Cree un log
         """
-        locked_count = self._count_locked_commandes_today(session)
-        if locked_count > 0:
-            raise JITAlreadyExecutedError(
-                f"Le JIT du jour est deja lance: {locked_count} commande(s) verrouillee(s). "
-                "Deverrouillez le JIT avant de le relancer."
-            )
-
         try:
+            acquired = session.execute(
+                text("SELECT pg_try_advisory_xact_lock(:lock_id)"),
+                {"lock_id": JIT_LOCK_ID},
+            ).scalar()
+            if not acquired:
+                raise JITAlreadyExecutedError(
+                    "JIT deja en cours d'execution. Reessayez dans quelques secondes."
+                )
+
+            locked_count = self._count_locked_commandes_today(session)
+            if locked_count > 0:
+                raise JITAlreadyExecutedError(
+                    f"Le JIT du jour est deja lance: {locked_count} commande(s) verrouillee(s). "
+                    "Deverrouillez le JIT avant de le relancer."
+                )
+
             print("Demarrage du job JIT d'agregation des commandes...")
 
             resultat = self.agreger_commandes(session)
@@ -391,22 +421,25 @@ class JITService(IJITService):
                 message_alerte="Erreur lors de la creation du log",
             )
 
+        except JITAlreadyExecutedError:
+            session.rollback()
+            raise
         except Exception as exc:
             print(f"Erreur lors de l'execution du job JIT: {exc}")
             session.rollback()
 
             try:
-                error_session = LocalSession()
+                # Reutilise la session injectee (deja rollback, donc propre) pour journaliser
+                # l'erreur, au lieu de creer un LocalSession() dans le service (cf. MVC2).
                 error_log = self.jit_dao.create_log(
-                    error_session,
+                    session,
                     volume_total=0.0,
                     nombre_commandes=0,
                     nombre_abonnements=0,
                     statut="erreur",
                     message_alerte=f"Erreur: {exc}",
                 )
-                error_session.commit()
-                error_session.close()
+                session.commit()
                 return error_log or JITLogDTO(
                     volume_total=0.0,
                     nombre_commandes=0,
@@ -415,6 +448,7 @@ class JITService(IJITService):
                     message_alerte=str(exc),
                 )
             except Exception as log_error:
+                session.rollback()
                 print(f"Erreur lors de la creation du log d'erreur: {log_error}")
                 return JITLogDTO(
                     volume_total=0.0,

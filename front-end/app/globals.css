@@ -142,9 +142,12 @@
     @apply bg-background text-foreground;
   }
   
-  /* Effets globaux "soulageants" pour l'interactivité */
+  /* Transitions ciblees (pas transition-all) : on n'anime que des proprietes
+     composables par le GPU pour rester proche de 60 FPS facon natif. */
   button, a, [role="button"] {
-    @apply transition-all duration-300 ease-out;
+    transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    transition-duration: 200ms;
   }
   
   @media (hover: hover) {
@@ -163,6 +166,20 @@
     @apply opacity-80;
   }
 }
+
+/* ─── Echelle typographique inspiree d'iOS (HIG) ───────────────────────────
+   On garde les polices de marque SOUKI : titres en Poppins, corps en Inter.
+   Ce sont les tailles / interlignes / graisses / tracking facon iOS. */
+.ios-large-title { font-family: var(--font-poppins), sans-serif; font-size: 2.125rem; line-height: 2.5rem;   font-weight: 700; letter-spacing: -0.022em; }
+.ios-title-1     { font-family: var(--font-poppins), sans-serif; font-size: 1.75rem;  line-height: 2.125rem; font-weight: 700; letter-spacing: -0.021em; }
+.ios-title-2     { font-family: var(--font-poppins), sans-serif; font-size: 1.375rem; line-height: 1.75rem;  font-weight: 600; letter-spacing: -0.018em; }
+.ios-title-3     { font-family: var(--font-poppins), sans-serif; font-size: 1.25rem;  line-height: 1.5625rem;font-weight: 600; letter-spacing: -0.015em; }
+.ios-headline    { font-size: 1.0625rem; line-height: 1.375rem;  font-weight: 600; letter-spacing: -0.012em; }
+.ios-body        { font-size: 1.0625rem; line-height: 1.375rem;  font-weight: 400; letter-spacing: -0.012em; }
+.ios-callout     { font-size: 1rem;      line-height: 1.3125rem; font-weight: 400; }
+.ios-subheadline { font-size: 0.9375rem; line-height: 1.25rem;   font-weight: 400; }
+.ios-footnote    { font-size: 0.8125rem; line-height: 1.125rem;  font-weight: 400; color: var(--text-muted); }
+.ios-caption     { font-size: 0.75rem;   line-height: 1rem;      font-weight: 400; color: var(--text-muted); }
 
 /* Custom animations */
 @keyframes pulse-cta {
@@ -965,12 +982,12 @@
 }
 
 .glass-ios26 {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.6)) !important;
-  backdrop-filter: blur(40px) saturate(210%) !important;
-  -webkit-backdrop-filter: blur(40px) saturate(210%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.35) !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
-  background-color: rgba(255, 255, 255, 0.6) !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.1)) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+  background-color: transparent !important;
 }
 
 .dark .glass-ios26 {
@@ -1058,8 +1075,10 @@
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.hover-scale:hover {
-  transform: translateY(-4px) scale(1.02);
+@media (hover: hover) and (pointer: fine) {
+  .hover-scale:hover {
+    transform: translateY(-4px) scale(1.02);
+  }
 }
 
 /* Floating orb animation */
@@ -1145,10 +1164,15 @@
 @media (max-width: 767px) {
   html {
     scroll-padding-bottom: 6rem;
+    /* Coupe le chainage d'overscroll (rubber-band qui revele le fond/la barre). */
+    overscroll-behavior-y: none;
   }
 
   body {
     -webkit-tap-highlight-color: rgba(30, 138, 60, 0.12);
+    /* Inertie de defilement facon natif (iOS) + pas de rebond global. */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: none;
   }
 
   button,
@@ -1248,9 +1272,11 @@ html {
               box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.glovo-card:hover {
-  transform: translateY(-6px) scale(1.015);
-  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.12);
+@media (hover: hover) and (pointer: fine) {
+  .glovo-card:hover {
+    transform: translateY(-6px) scale(1.015);
+    box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.12);
+  }
 }
 
 /* Gentle floating animation for hero elements */
@@ -1307,4 +1333,20 @@ html {
 
 .animate-avatar-celebrate {
   animation: avatar-celebrate-pop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ─── Transition de page (fondu natif a chaque navigation) ─── */
+@keyframes pageEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.page-enter {
+  animation: pageEnter 0.28s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter {
+    animation: none;
+  }
 }

@@ -36,9 +36,12 @@ import {
   ApiError,
   getBlacklistedClients,
   getBlacklistMonthlyReport,
+  getPendingLiftRequests,
   liftBlacklist,
+  rejectLiftRequest,
   type BlacklistReportDTO,
   type ClientBlacklistDTO,
+  type PendingLiftRequestDTO,
 } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
@@ -304,6 +307,7 @@ export default function AdminBlacklistPage() {
   const { token } = useAuth()
   const initialMonth = currentMonthInput()
   const [clients, setClients] = useState<ClientBlacklistDTO[]>([])
+  const [pendingRequests, setPendingRequests] = useState<PendingLiftRequestDTO[]>([])
   const [report, setReport] = useState<BlacklistReportDTO | null>(null)
   const [month, setMonth] = useState(initialMonth.month)
   const [year, setYear] = useState(initialMonth.year)
@@ -313,8 +317,13 @@ export default function AdminBlacklistPage() {
   const [error, setError] = useState("")
   const [toast, setToast] = useState("")
   const [isLoadingClients, setIsLoadingClients] = useState(true)
+  const [isLoadingPendingRequests, setIsLoadingPendingRequests] = useState(true)
   const [isLoadingReport, setIsLoadingReport] = useState(false)
   const [isLifting, setIsLifting] = useState(false)
+  const [pendingActionClientId, setPendingActionClientId] = useState<number | null>(null)
+  const [rejectTarget, setRejectTarget] = useState<PendingLiftRequestDTO | null>(null)
+  const [rejectReason, setRejectReason] = useState("")
+  const [isRejecting, setIsRejecting] = useState(false)
   const [selectedClient, setSelectedClient] = useState<ClientBlacklistDTO | null>(null)
   const [liftReason, setLiftReason] = useState("")
 
@@ -333,6 +342,24 @@ export default function AdminBlacklistPage() {
       setError(loadError instanceof Error ? loadError.message : "Impossible de charger la blacklist.")
     } finally {
       setIsLoadingClients(false)
+    }
+  }, [token])
+
+  const loadPendingRequests = useCallback(async () => {
+    if (!token) {
+      setIsLoadingPendingRequests(false)
+      return
+    }
+
+    setIsLoadingPendingRequests(true)
+    try {
+      const result = await getPendingLiftRequests(token)
+      setPendingRequests(result)
+      setError("")
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Impossible de charger les demandes de levee.")
+    } finally {
+      setIsLoadingPendingRequests(false)
     }
   }, [token])
 
@@ -356,6 +383,10 @@ export default function AdminBlacklistPage() {
   useEffect(() => {
     void loadClients()
   }, [loadClients])
+
+  useEffect(() => {
+    void loadPendingRequests()
+  }, [loadPendingRequests])
 
   useEffect(() => {
     void loadReport()
@@ -418,6 +449,7 @@ export default function AdminBlacklistPage() {
       setSelectedClient(null)
       setLiftReason("")
       await loadClients()
+      await loadPendingRequests()
     } catch (liftError) {
       setError(
         liftError instanceof ApiError || liftError instanceof Error
@@ -426,6 +458,57 @@ export default function AdminBlacklistPage() {
       )
     } finally {
       setIsLifting(false)
+    }
+  }
+
+  const liftPendingRequest = async (request: PendingLiftRequestDTO) => {
+    if (!token) {
+      return
+    }
+
+    setPendingActionClientId(request.client_id)
+    try {
+      await liftBlacklist(token, request.client_id, "Demande de levee acceptee")
+      setToast(`Restriction levee pour ${request.client_label || request.phone || `client #${request.client_id}`}.`)
+      await loadClients()
+      await loadPendingRequests()
+    } catch (liftError) {
+      setError(
+        liftError instanceof ApiError || liftError instanceof Error
+          ? liftError.message
+          : "Impossible de lever le blacklist."
+      )
+    } finally {
+      setPendingActionClientId(null)
+    }
+  }
+
+  const submitReject = async () => {
+    if (!token || !rejectTarget) {
+      return
+    }
+
+    const normalizedReason = rejectReason.trim()
+    if (!normalizedReason) {
+      setError("Motif de rejet obligatoire.")
+      return
+    }
+
+    setIsRejecting(true)
+    try {
+      await rejectLiftRequest(token, rejectTarget.client_id, normalizedReason)
+      setToast(`Demande rejetee pour ${rejectTarget.client_label || rejectTarget.phone || `client #${rejectTarget.client_id}`}.`)
+      setRejectTarget(null)
+      setRejectReason("")
+      await loadPendingRequests()
+    } catch (rejectError) {
+      setError(
+        rejectError instanceof ApiError || rejectError instanceof Error
+          ? rejectError.message
+          : "Impossible de rejeter la demande."
+      )
+    } finally {
+      setIsRejecting(false)
     }
   }
 
@@ -460,11 +543,14 @@ export default function AdminBlacklistPage() {
             <p className="hidden text-sm font-medium capitalize text-gray-500 md:block">{formatToday()}</p>
             <button
               type="button"
-              onClick={() => void loadClients()}
-              disabled={isLoadingClients}
+              onClick={() => {
+                void loadClients()
+                void loadPendingRequests()
+              }}
+              disabled={isLoadingClients || isLoadingPendingRequests}
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-all duration-150 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <RefreshCw className={cn("h-4 w-4 text-[#1E8A3C]", isLoadingClients && "animate-spin")} />
+              <RefreshCw className={cn("h-4 w-4 text-[#1E8A3C]", (isLoadingClients || isLoadingPendingRequests) && "animate-spin")} />
               <span className="hidden lg:inline">Actualiser</span>
             </button>
           </div>
@@ -515,7 +601,10 @@ export default function AdminBlacklistPage() {
               </div>
               <button
                 type="button"
-                onClick={() => void loadClients()}
+                onClick={() => {
+                  void loadClients()
+                  void loadPendingRequests()
+                }}
                 className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50"
               >
                 Reessayer
@@ -631,6 +720,79 @@ export default function AdminBlacklistPage() {
                                 <CheckCircle2 className="h-3.5 w-3.5" />
                                 Lever
                               </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </SectionShell>
+
+              <SectionShell className="mt-6 border-amber-200 bg-amber-50">
+                <div className="border-b border-amber-200 px-5 py-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-lg font-bold tracking-tight text-amber-900">Demandes de levee en attente</h2>
+                      <p className="mt-1 text-sm text-amber-700">Demandes envoyees par les clients blacklistes.</p>
+                    </div>
+                    {pendingRequests.length > 0 ? (
+                      <span className="inline-flex w-fit items-center rounded-full bg-amber-500 px-2.5 py-1 text-xs font-bold text-white">
+                        {pendingRequests.length}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+
+                {isLoadingPendingRequests ? (
+                  <TableSkeleton columns={5} rows={3} />
+                ) : pendingRequests.length === 0 ? (
+                  <EmptyState
+                    icon={ShieldCheck}
+                    title="Aucune demande en attente"
+                    description="Les nouvelles demandes de levee apparaitront ici."
+                  />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="border-b border-amber-200 bg-amber-100/60">
+                        <tr>
+                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-amber-800">Client</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-amber-800">Telephone</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-amber-800">Motif</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-amber-800">Date demande</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-amber-800">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-amber-100 bg-white/70">
+                        {pendingRequests.map((request) => (
+                          <tr key={request.log_id} className="transition-colors duration-100 hover:bg-amber-50/80">
+                            <td className="px-5 py-4 text-sm font-medium text-gray-950">{emptyValue(request.client_label || `Client #${request.client_id}`)}</td>
+                            <td className="px-5 py-4 text-sm text-gray-700">{emptyValue(request.phone)}</td>
+                            <td className="max-w-md px-5 py-4 text-sm text-gray-700">{request.motif || "-"}</td>
+                            <td className="px-5 py-4 text-sm text-gray-700">{formatDate(request.created_at)}</td>
+                            <td className="px-5 py-4 text-sm text-gray-700">
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => void liftPendingRequest(request)}
+                                  disabled={pendingActionClientId === request.client_id}
+                                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#1E8A3C] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#176B2E] disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {pendingActionClientId === request.client_id ? <Spinner className="size-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                                  Lever
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setRejectTarget(request)
+                                    setRejectReason("")
+                                  }}
+                                  className="inline-flex items-center gap-1.5 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-red-600"
+                                >
+                                  Rejeter
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -821,6 +983,53 @@ export default function AdminBlacklistPage() {
             >
               {isLifting ? <Spinner className="size-4" /> : <CheckCircle2 className="h-4 w-4" />}
               Confirmer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={rejectTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !isRejecting) {
+            setRejectTarget(null)
+            setRejectReason("")
+          }
+        }}
+      >
+        <AlertDialogContent className="rounded-2xl border border-gray-200 p-0 shadow-xl">
+          <div className="border-b border-gray-100 px-6 py-5">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-lg font-bold text-gray-950">
+                Rejeter la demande de levee ?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-sm text-gray-500">
+                Le client restera bloque pour les commandes COD et verra le motif dans son espace.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+          </div>
+          <div className="px-6 py-5">
+            <textarea
+              value={rejectReason}
+              onChange={(event) => setRejectReason(event.target.value)}
+              placeholder="Motif obligatoire..."
+              className="min-h-24 w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-700 outline-none transition-all duration-150 focus:border-red-500 focus:ring-4 focus:ring-red-500/10"
+            />
+          </div>
+          <AlertDialogFooter className="border-t border-gray-100 bg-gray-50 px-6 py-4">
+            <AlertDialogCancel className="rounded-lg border-gray-200 bg-white text-gray-700 hover:bg-gray-50" disabled={isRejecting}>
+              Annuler
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault()
+                void submitReject()
+              }}
+              className="rounded-lg bg-red-500 text-white hover:bg-red-600"
+              disabled={isRejecting || rejectReason.trim().length === 0}
+            >
+              {isRejecting ? <Spinner className="size-4" /> : null}
+              Rejeter
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

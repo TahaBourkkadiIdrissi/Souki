@@ -16,7 +16,9 @@ class ProduitPricingDTO(BaseModel):
     niveau: int = 2
     volatilite: str = "STABLE"
     prix_gros_saisi: Optional[float] = None
+    prix_khddar_reel: Optional[float] = None
     prix_affiche: Optional[float] = None
+    prix_vente_manuel: Optional[float] = None
     prix_khddar_estime: Optional[float] = None
     alerte: Optional[str] = None
 
@@ -27,6 +29,8 @@ class ProduitPricingUpdateDTO(BaseModel):
     niveau: Optional[int] = None
     volatilite: Optional[str] = None
     prix_gros_saisi: Optional[float] = None
+    prix_khddar_reel: Optional[float] = None
+    prix_vente_manuel: Optional[float] = None
 
 
 class ProductCreateDTO(BaseModel):
@@ -38,6 +42,9 @@ class ProductCreateDTO(BaseModel):
     marge_cible: float = 0.25
     coussin_securite: float = 0.10
     volatilite: str = "STABLE"
+    prix_gros_saisi: Optional[float] = None
+    prix_khddar_reel: Optional[float] = None
+    prix_vente_manuel: Optional[float] = None
 
 
 class ProductImageDTO(BaseModel):

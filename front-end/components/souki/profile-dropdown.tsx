@@ -14,6 +14,7 @@ import {
   Store,
   TrendingUp,
   User as UserIcon,
+  Wallet,
 } from "lucide-react"
 
 import { User } from "@/contexts/auth-context"
@@ -229,6 +230,21 @@ export function ProfileDropdown({ user }: { user: User }) {
             </button>
 
             <button
+              onClick={() => navigateTo("/wallet")}
+              className="group flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all hover:bg-[#F0FAF1]"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#1E8A3C] to-[#4CB84A] text-white shadow-inner transition-transform group-hover:scale-105">
+                <Wallet size={18} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-black text-[#264129]">Mon Wallet</span>
+                <span className="block text-xs font-medium text-[#7B8B7D]">
+                  Gérer votre solde et transactions
+                </span>
+              </span>
+            </button>
+
+            <button
               onClick={() => navigateTo("/parametres/notifications")}
               className="group flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all hover:bg-[#F0FAF1]"
             >
@@ -270,12 +286,15 @@ export function ProfileDropdown({ user }: { user: User }) {
 
             <button
               onClick={handleLogout}
-              className="group flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all hover:bg-red-50"
+              className="group flex min-h-12 w-full items-center gap-3 rounded-2xl border border-red-100 bg-red-50/70 px-3 py-2.5 text-left transition-all hover:bg-red-100"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-500 transition-transform group-hover:scale-105">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-red-600 transition-transform group-hover:scale-105">
                 <LogOut size={17} />
               </span>
-              <span className="text-sm font-black text-red-600">Se déconnecter</span>
+              <span className="min-w-0">
+                <span className="block text-sm font-black text-red-700">Se déconnecter</span>
+                <span className="block text-xs font-semibold text-red-500">Fermer la session sur cet appareil</span>
+              </span>
             </button>
           </div>
         </div>

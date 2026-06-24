@@ -37,6 +37,10 @@ from services.logistics_visibility import (
     LIVREUR_VISIBLE_STATUSES,
     is_livreur_tournee_row_visible,
 )
+from dao.parrainage_dao import ParrainageDaoBD
+from dao.souki_wallet_dao import SoukiWalletDaoBD
+from services.parrainage_service import ParrainageService
+from services.souki_wallet_service import SoukiWalletService
 
 TOURNEE_RELEASE_TIME = time(7, 0)
 LEGACY_PENDING_DELIVERY_STATUS = "EN_ATTENTE"
@@ -52,6 +56,13 @@ VISIBLE_TOURNEE_STATUSES = {
     *LIVREUR_VISIBLE_STATUSES,
 }
 logger = logging.getLogger(__name__)
+
+# Conversion du parrainage au passage d'une commande a LIVRE : credite parrain et
+# filleul une seule fois, sur la session de livraison (atomique et non bloquant).
+_parrainage_conversion_service = ParrainageService(
+    ParrainageDaoBD(),
+    SoukiWalletService(SoukiWalletDaoBD()),
+)
 
 
 class LivreurService(ILivreurService):
@@ -546,6 +557,12 @@ class LivreurService(ILivreurService):
                 client_event_id=str(payload.client_event_id),
                 server_timestamp=server_timestamp,
             )
+
+            # Parrainage : credite parrain + filleul a la 1ere livraison du filleul.
+            if target_status == DELIVERED_STATUS and commande.client_id is not None:
+                _parrainage_conversion_service.convert_on_delivery(
+                    session, filleul_id=int(commande.client_id)
+                )
 
             session.commit()
 

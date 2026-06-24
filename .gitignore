@@ -156,6 +156,8 @@ vite.config.ts.timestamp-*
 .venv
 
 regles.txt
+*.md
+*.mmd
 
 # Expo mobile
 mobile/node_modules

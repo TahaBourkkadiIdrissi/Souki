@@ -12,8 +12,8 @@ from interfaces.panier_service_interface import IPanierService
 from interfaces.panier_dao_interface import IPanierDao
 from sqlalchemy.orm import Session
 
-SEUIL_LIVRAISON_GRATUITE = 80.0
-DELIVERY_FEE = 10.0
+SEUIL_LIVRAISON_GRATUITE = 300.0
+DELIVERY_FEE = 15.0
 
 # ── Mapping des images pour les produits ──────────────────────────────────────
 PRODUCT_IMAGES = {

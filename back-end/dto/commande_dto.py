@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional, List
 
@@ -154,7 +154,11 @@ class UpdateConfirmationCODDTO(BaseModel):
     statut: str
 
 class BatchConfirmationCODDTO(BaseModel):
-    commande_ids: List[int]
+    commande_ids: List[int] = Field(
+        ...,
+        max_length=100,
+        description="Maximum 100 commandes par batch",
+    )
     statut: str
 
 class BatchConfirmationCODResponseDTO(BaseModel):

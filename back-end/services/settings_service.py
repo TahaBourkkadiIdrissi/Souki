@@ -15,9 +15,13 @@ from dto.settings_dto import (
 )
 from entities.address_entity import Address
 from entities.souki_wallet_entity import SoukiWallet
+from entities.transaction_wallet_entity import TransactionWallet
 from entities.user_entity import User
 from entities.user_notification_preferences_entity import UserNotificationPreferences
 from entities.user_session_entity import UserSession
+from entities.client_entity import Client
+from dao.parrainage_dao import ParrainageDaoBD
+from services.parrainage_service import ParrainageService
 from security import verify_password
 from services.supabase_storage_service import avatar_storage_service
 
@@ -324,6 +328,18 @@ class SettingsService:
                     "transaction_placeholder": "Aucune transaction pour le moment.",
                 }
             masked_wallet_code = self._mask_wallet_code(wallet.wallet_code)
+            
+            txs = db.query(TransactionWallet).filter(TransactionWallet.wallet_id == wallet.id).order_by(TransactionWallet.date.desc()).all()
+            transactions = [
+                {
+                    "id": t.id,
+                    "type": t.type,
+                    "montant_centimes": self._to_centimes(t.montant),
+                    "date": t.date.isoformat() if t.date else None,
+                }
+                for t in txs
+            ]
+
             return {
                 "has_wallet": True,
                 "is_activated": True,
@@ -331,7 +347,7 @@ class SettingsService:
                 "solde_centimes": self._to_centimes(wallet.balance),
                 "wallet_code_masked": masked_wallet_code,
                 "wallet_identifier": masked_wallet_code,
-                "transactions": [],
+                "transactions": transactions,
                 "transaction_placeholder": "Aucune transaction pour le moment.",
                 "created_at": wallet.created_at.isoformat() if wallet.created_at else None,
             }
@@ -377,5 +393,25 @@ class SettingsService:
                 status_code=500,
                 detail="Impossible de generer un code portefeuille unique pour le moment.",
             )
+        finally:
+            db.close()
+
+    def generate_parrainage_code(self, user_id: int):
+        db = LocalSession()
+        try:
+            client = db.query(Client).filter(Client.user_id == user_id).first()
+            if not client:
+                raise HTTPException(status_code=404, detail="Profil client introuvable")
+            
+            if client.code_parrainage:
+                return {"code_parrainage": client.code_parrainage}
+                
+            parrainage_dao = ParrainageDaoBD()
+            parrainage_service = ParrainageService(parrainage_dao=parrainage_dao)
+            new_code = parrainage_service.generate_unique_code(db)
+            
+            client.code_parrainage = new_code
+            db.commit()
+            return {"code_parrainage": new_code}
         finally:
             db.close()

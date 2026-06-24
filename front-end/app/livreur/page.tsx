@@ -2466,52 +2466,6 @@ export default function LivreurPage() {
             </div>
           )}
 
-          {tourneeData?.pickup && tourneeData.tournee_id && (
-            <section className="pointer-events-auto rounded-2xl border border-[#BFE2C4] bg-white/95 p-4 shadow-lg backdrop-blur">
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EAF8EC]">
-                  <Package className="h-5 w-5 text-[#1E8A3C]" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-black uppercase tracking-[0.15em] text-[#1E8A3C]">Ramassage</p>
-                  <h2 className="mt-1 truncate font-black text-[#17301E]">
-                    {tourneeData.pickup.shop_name || "Fournisseur"}
-                  </h2>
-                  <p className="mt-1 text-sm text-[#5B6B60]">
-                    {[tourneeData.pickup.address, tourneeData.pickup.ville].filter(Boolean).join(", ") ||
-                      "Adresse non renseignée"}
-                  </p>
-                  {tourneeData.pickup.phone && (
-                    <a href={`tel:${tourneeData.pickup.phone}`} className="mt-1 inline-flex items-center gap-1 text-sm font-bold text-[#285C9A]">
-                      <Phone className="h-4 w-4" />
-                      {tourneeData.pickup.phone}
-                    </a>
-                  )}
-                </div>
-              </div>
-              {!tourneeData.ramassee ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleConfirmPickup}
-                    disabled={isConfirmingPickup}
-                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#1E8A3C] px-4 py-3 font-black text-white disabled:opacity-60"
-                  >
-                    {isConfirmingPickup ? <Spinner className="size-5" /> : <CheckCircle2 className="h-5 w-5" />}
-                    {isConfirmingPickup ? "Confirmation..." : "J'ai ramassé les commandes"}
-                  </button>
-                  <p className="mt-2 text-center text-xs font-bold text-[#8A5A00]">
-                    Ramassez d'abord chez le fournisseur pour débloquer les livraisons.
-                  </p>
-                </>
-              ) : (
-                <div className="mt-3 rounded-xl bg-[#F0FAF1] px-4 py-2 text-center text-sm font-bold text-[#1E8A3C]">
-                  Ramassage confirmé · livraisons débloquées
-                </div>
-              )}
-            </section>
-          )}
-
           {canRejectEntireTournee && (
             <button
               type="button"

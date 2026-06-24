@@ -13,24 +13,6 @@ from interfaces.produit_pricing_dao_interface import IProduitPricingDao
 from interfaces.produit_pricing_service_interface import IProduitPricingService
 
 
-COEFFICIENT_KHDDAR_PRODUIT = {
-    "patates": 1.09,
-    "tomates": 1.17,
-    "citrons": 1.17,
-    "haricots": 1.00,
-    "oignons": 1.25,
-    "carottes": 1.19,
-    "navet": 1.25,
-    "aubergine": 1.33,
-    "khyar": 1.30,
-    "feves": 1.40,
-    "concombre": 1.44,
-    "poivrons": 1.50,
-    "courgettes": 1.40,
-}
-COEFFICIENT_KHDDAR_NIVEAU = {1: 1.08, 2: 1.12, 3: 1.25}
-
-
 class ProduitPricingServiceBD(IProduitPricingService):
 
     def __init__(self, dao: IProduitPricingDao) -> None:
@@ -60,14 +42,11 @@ class ProduitPricingServiceBD(IProduitPricingService):
             if produit is None:
                 raise HTTPException(status_code=404, detail="Produit introuvable.")
 
-            prix_gros = produit.prix_gros_saisi or produit.prix_kg
-            coefficient_khddar = self._get_coefficient_khddar(produit)
             prix_affiche = self._calculer_prix_affiche(
-                prix_gros=prix_gros,
-                niveau=produit.niveau,
+                prix_gros=produit.prix_gros_saisi,
                 marge_cible=produit.marge_cible,
                 coussin_securite=produit.coussin_securite,
-                coefficient_khddar=coefficient_khddar,
+                prix_vente_manuel=produit.prix_vente_manuel,
             )
             self.dao.update_prix_affiche(session, produit_id, prix_affiche)
             session.commit()
@@ -86,14 +65,11 @@ class ProduitPricingServiceBD(IProduitPricingService):
             recalcules = 0
 
             for produit in produits:
-                prix_gros = produit.prix_gros_saisi or produit.prix_kg
-                coefficient_khddar = self._get_coefficient_khddar(produit)
                 prix_affiche = self._calculer_prix_affiche(
-                    prix_gros=prix_gros,
-                    niveau=produit.niveau,
+                    prix_gros=produit.prix_gros_saisi,
                     marge_cible=produit.marge_cible,
                     coussin_securite=produit.coussin_securite,
-                    coefficient_khddar=coefficient_khddar,
+                    prix_vente_manuel=produit.prix_vente_manuel,
                 )
                 self.dao.update_prix_affiche(session, produit.id, prix_affiche)
                 recalcules += 1
@@ -110,6 +86,16 @@ class ProduitPricingServiceBD(IProduitPricingService):
     def create_product(self, session: Session, data: ProductCreateDTO) -> ProduitPricingDTO:
         try:
             product = self.dao.create_product(session, data)
+
+            # Resout le prix des la creation (override -> gros -> None) pour que le produit
+            # ne reste pas sans prix (sinon masque du catalogue jusqu'a un recalcul manuel).
+            prix_affiche = self._calculer_prix_affiche(
+                prix_gros=product.prix_gros_saisi,
+                marge_cible=product.marge_cible,
+                coussin_securite=product.coussin_securite,
+                prix_vente_manuel=product.prix_vente_manuel,
+            )
+            self.dao.update_prix_affiche(session, int(product.id), prix_affiche)
             session.commit()
 
             produit = self.dao.get_produit_pricing(session, int(product.id))
@@ -143,30 +129,28 @@ class ProduitPricingServiceBD(IProduitPricingService):
 
     def _calculer_prix_affiche(
         self,
-        prix_gros: float,
-        niveau: int,
+        prix_gros: float | None,
         marge_cible: float,
         coussin_securite: float,
-        coefficient_khddar: float,
-    ) -> float:
-        if niveau == 1:
-            return math.ceil(prix_gros * 10) / 10
+        prix_vente_manuel: float | None = None,
+    ) -> float | None:
+        # 1. Prix de vente saisi a la main par l'admin : prioritaire, survit au recalcul.
+        if prix_vente_manuel is not None:
+            return self._arrondi_dixieme_superieur(prix_vente_manuel)
 
-        prix = prix_gros * (1 + marge_cible) * (1 + coussin_securite)
-        prix_arrondi = math.ceil(prix * 10) / 10
+        # 2. Sans prix de gros ni prix manuel, le produit n'a pas de prix fiable :
+        #    on laisse None (le produit sera masque du catalogue + alerte cote admin).
+        if prix_gros is None:
+            return None
 
-        prix_khddar = prix_gros * coefficient_khddar
-        coussin_courant = coussin_securite
+        # 3. Calcul standard, tous niveaux : coussin (volatilite) + marge (admin).
+        #    Aucune auto-reduction : un depassement du khddar est seulement signale
+        #    par l'alerte PRIX_DEPASSE_KHDDAR (DAO), jamais bloque ni rabote.
+        prix = prix_gros * (1 + coussin_securite) * (1 + marge_cible)
+        return self._arrondi_dixieme_superieur(prix)
 
-        while prix_arrondi > prix_khddar and coussin_courant >= 0:
-            coussin_courant -= 0.02
-            prix = prix_gros * (1 + marge_cible) * (1 + coussin_courant)
-            prix_arrondi = math.ceil(prix * 10) / 10
-
-        return prix_arrondi
-
-    def _get_coefficient_khddar(self, produit) -> float:
-        nom = (produit.nom_darija or "").lower().strip()
-        if nom in COEFFICIENT_KHDDAR_PRODUIT:
-            return COEFFICIENT_KHDDAR_PRODUIT[nom]
-        return COEFFICIENT_KHDDAR_NIVEAU.get(produit.niveau, 1.12)
+    @staticmethod
+    def _arrondi_dixieme_superieur(prix: float) -> float:
+        # Arrondi au dixieme superieur. Le round(..., 6) neutralise le bruit flottant
+        # avant le ceil (sinon 18.00 * 1.05 = 18.900000000000002 -> 19.0 au lieu de 18.9).
+        return math.ceil(round(prix * 10, 6)) / 10
