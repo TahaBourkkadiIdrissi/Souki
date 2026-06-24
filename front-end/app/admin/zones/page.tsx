@@ -24,6 +24,8 @@ type Supplier = {
   shop_name: string
   statut: string
   ville: string | null
+  latitude: number | null
+  longitude: number | null
 }
 
 type ZoneForm = {
@@ -57,6 +59,11 @@ export default function AdminZonesPage() {
   const approvedSuppliers = useMemo(
     () => suppliers.filter((supplier) => supplier.statut === "APPROVED"),
     [suppliers],
+  )
+
+  const selectedSupplier = useMemo(
+    () => suppliers.find((supplier) => String(supplier.user_id) === form.fournisseur_id) || null,
+    [form.fournisseur_id, suppliers],
   )
 
   const loadData = useCallback(async () => {
@@ -105,6 +112,24 @@ export default function AdminZonesPage() {
       actif: zone.actif,
     })
     window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
+  const selectSupplier = (supplierId: string) => {
+    const supplier = suppliers.find((item) => String(item.user_id) === supplierId)
+
+    setForm((current) => ({
+      ...current,
+      fournisseur_id: supplierId,
+      nom_ville: supplier?.ville || current.nom_ville,
+      lat_centre:
+        typeof supplier?.latitude === "number" && Number.isFinite(supplier.latitude)
+          ? String(supplier.latitude)
+          : current.lat_centre,
+      lng_centre:
+        typeof supplier?.longitude === "number" && Number.isFinite(supplier.longitude)
+          ? String(supplier.longitude)
+          : current.lng_centre,
+    }))
   }
 
   const submitZone = async (event: FormEvent) => {
@@ -195,7 +220,7 @@ export default function AdminZonesPage() {
             <input required type="number" step="any" min="-90" max="90" value={form.lat_centre} onChange={(e) => setForm({ ...form, lat_centre: e.target.value })} placeholder="Latitude du centre" className="rounded-xl border border-[#DDEBDD] px-3 py-2.5 text-sm outline-none focus:border-[#1E8A3C]" />
             <input required type="number" step="any" min="-180" max="180" value={form.lng_centre} onChange={(e) => setForm({ ...form, lng_centre: e.target.value })} placeholder="Longitude du centre" className="rounded-xl border border-[#DDEBDD] px-3 py-2.5 text-sm outline-none focus:border-[#1E8A3C]" />
             <input required type="number" step="0.1" min="0.1" max="500" value={form.rayon_km} onChange={(e) => setForm({ ...form, rayon_km: e.target.value })} placeholder="Rayon (km)" className="rounded-xl border border-[#DDEBDD] px-3 py-2.5 text-sm outline-none focus:border-[#1E8A3C]" />
-            <select required value={form.fournisseur_id} onChange={(e) => setForm({ ...form, fournisseur_id: e.target.value })} className="rounded-xl border border-[#DDEBDD] px-3 py-2.5 text-sm outline-none focus:border-[#1E8A3C]">
+            <select required value={form.fournisseur_id} onChange={(e) => selectSupplier(e.target.value)} className="rounded-xl border border-[#DDEBDD] px-3 py-2.5 text-sm outline-none focus:border-[#1E8A3C]">
               <option value="">Choisir un fournisseur approuvé</option>
               {approvedSuppliers.map((supplier) => (
                 <option key={supplier.user_id} value={supplier.user_id}>
@@ -208,6 +233,12 @@ export default function AdminZonesPage() {
               Zone active
             </label>
           </div>
+
+          {selectedSupplier && (selectedSupplier.latitude === null || selectedSupplier.longitude === null) && (
+            <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-700">
+              Ce fournisseur n'a pas encore de coordonnées enregistrées. Complétez sa localisation ou saisissez le centre de zone manuellement.
+            </p>
+          )}
 
           <button disabled={saving} className="mt-4 rounded-xl bg-[#1E8A3C] px-5 py-2.5 text-sm font-black text-white disabled:opacity-50">
             {saving ? "Enregistrement..." : editingId ? "Enregistrer les modifications" : "Créer et rattacher"}
