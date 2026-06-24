@@ -27,6 +27,16 @@ export class ApiError extends Error {
 export interface TourneeItem {
   commande_id: number
   ordre_passage?: number | null
+  fournisseur_id?: number | null
+  fournisseur_nom?: string | null
+  fournisseur_shop_name?: string | null
+  fournisseur_address?: string | null
+  fournisseur_ville?: string | null
+  fournisseur_phone?: string | null
+  fournisseur_latitude?: number | null
+  fournisseur_longitude?: number | null
+  pickup_lat?: number | null
+  pickup_lng?: number | null
   client_phone: string | null
   client_label: string
   street: string | null

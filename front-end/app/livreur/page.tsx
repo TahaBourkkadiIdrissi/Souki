@@ -1,6 +1,6 @@
 "use client"
 
-import { type ReactNode, useEffect, useEffectEvent, useRef, useState } from "react"
+import { type ReactNode, useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -114,6 +114,12 @@ type SheetMode = "peek" | "expanded"
 interface DeliveryViewItem {
   id: string
   stepNumber: number
+  supplierId: string | null
+  supplierName: string | null
+  supplierAddress: string | null
+  supplierPhone: string | null
+  supplierLat: number | null
+  supplierLng: number | null
   orderNumber: string
   timeSlot: string
   address: string
@@ -155,6 +161,17 @@ interface RouteSummary {
   distanceMeters: number
   durationSeconds: number
 }
+
+interface RouteStop {
+  id: string
+  kind: "driver" | "supplier" | "delivery"
+  label: string
+  coordinate: [number, number]
+  deliveryId?: string
+  stepNumber?: number
+}
+
+type CoordinateOverrideMap = Record<string, { lat: number; lng: number }>
 
 interface LineFeatureCollection {
   type: "FeatureCollection"
@@ -207,6 +224,10 @@ function normalizeTourneeItem(item: TourneeItem): TourneeItem {
     ...item,
     lat: normalizeCoordinate(item.lat ?? item.latitude),
     lng: normalizeCoordinate(item.lng ?? item.longitude),
+    fournisseur_latitude: normalizeCoordinate(item.fournisseur_latitude ?? item.pickup_lat),
+    fournisseur_longitude: normalizeCoordinate(item.fournisseur_longitude ?? item.pickup_lng),
+    pickup_lat: normalizeCoordinate(item.pickup_lat ?? item.fournisseur_latitude),
+    pickup_lng: normalizeCoordinate(item.pickup_lng ?? item.fournisseur_longitude),
   }
 }
 
@@ -460,6 +481,12 @@ function mapTourneeItemToDeliveryView(item: TourneeItem, index: number): Deliver
   return {
     id: String(item.commande_id),
     stepNumber: index + 1,
+    supplierId: item.fournisseur_id != null ? String(item.fournisseur_id) : null,
+    supplierName: item.fournisseur_nom ?? item.fournisseur_shop_name ?? null,
+    supplierAddress: item.fournisseur_address ?? null,
+    supplierPhone: item.fournisseur_phone ?? null,
+    supplierLat: item.fournisseur_latitude ?? item.pickup_lat ?? null,
+    supplierLng: item.fournisseur_longitude ?? item.pickup_lng ?? null,
     orderNumber: String(item.commande_id),
     timeSlot: item.creneau_livraison || "Non précisé",
     address: item.full_address,
@@ -491,6 +518,29 @@ function hasCoordinates(item: DeliveryViewItem): item is DeliveryViewItem & { la
     typeof item.lng === "number" &&
     Number.isFinite(item.lng)
   )
+}
+
+function getDeliveryCoordinate(item: DeliveryViewItem, overrides: CoordinateOverrideMap) {
+  if (hasCoordinates(item)) {
+    return { lat: item.lat, lng: item.lng }
+  }
+
+  const override = overrides[item.id]
+  if (
+    override &&
+    typeof override.lat === "number" &&
+    Number.isFinite(override.lat) &&
+    typeof override.lng === "number" &&
+    Number.isFinite(override.lng)
+  ) {
+    return override
+  }
+
+  return null
+}
+
+function hasEffectiveCoordinates(item: DeliveryViewItem, overrides: CoordinateOverrideMap) {
+  return getDeliveryCoordinate(item, overrides) !== null
 }
 
 function isActiveDelivery(item: DeliveryViewItem) {
@@ -652,7 +702,11 @@ function formatDistanceLabel(distanceMeters: number) {
 }
 
 function buildDirectionsUrl(origin: [number, number], destination: [number, number]) {
-  const coordinates = `${origin[0]},${origin[1]};${destination[0]},${destination[1]}`
+  return buildMultiStopDirectionsUrl([origin, destination])
+}
+
+function buildMultiStopDirectionsUrl(stops: [number, number][]) {
+  const coordinates = stops.map((coordinate) => `${coordinate[0]},${coordinate[1]}`).join(";")
   const params = new URLSearchParams({
     alternatives: "false",
     geometries: "geojson",
@@ -663,6 +717,22 @@ function buildDirectionsUrl(origin: [number, number], destination: [number, numb
   })
 
   return `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?${params.toString()}`
+}
+
+function coordinateKey(coordinate: [number, number]) {
+  return `${coordinate[0].toFixed(6)},${coordinate[1].toFixed(6)}`
+}
+
+function areSameCoordinate(first: [number, number], second: [number, number]) {
+  return coordinateKey(first) === coordinateKey(second)
+}
+
+function areStringArraysEqual(first: string[], second: string[]) {
+  if (first.length !== second.length) {
+    return false
+  }
+
+  return first.every((value, index) => value === second[index])
 }
 
 function CenterStateCard({
@@ -708,7 +778,7 @@ export default function LivreurPage() {
   const isQueueSyncInFlightRef = useRef(false)
   const lastDirectionsRequestRef = useRef<{
     origin: [number, number]
-    destination: [number, number]
+    stopsKey: string
     timestamp: number
   } | null>(null)
 
@@ -743,6 +813,9 @@ export default function LivreurPage() {
   const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null)
   const [isRouteLoading, setIsRouteLoading] = useState(false)
   const [routeError, setRouteError] = useState<string | null>(null)
+  const [deliveryCoordinateOverrides, setDeliveryCoordinateOverrides] = useState<CoordinateOverrideMap>({})
+  const [geocodingDeliveryIds, setGeocodingDeliveryIds] = useState<string[]>([])
+  const [failedGeocodingDeliveryIds, setFailedGeocodingDeliveryIds] = useState<string[]>([])
 
   const handleConfirmPickup = async () => {
     if (!token || !tourneeData?.tournee_id || tourneeData.ramassee) {
@@ -761,7 +834,6 @@ export default function LivreurPage() {
             ? {
                 ...item,
                 statut: "A_LIVRER",
-                status_version: Number(item.status_version || 1) + 1,
               }
             : item
         ),
@@ -809,6 +881,21 @@ export default function LivreurPage() {
     applyTourneeData(cachedTournee, "cache")
     setNotice({ tone: "info", message: fallbackMessage })
     return true
+  })
+
+  const refreshTourneeFromServer = useEffectEvent(async () => {
+    if (!token) {
+      return
+    }
+
+    try {
+      const response = await getLivreurTournee(token)
+      const mergedResponse = mergeTourneeWithCache(response, null)
+      writeCachedTournee(mergedResponse)
+      applyTourneeData(mergedResponse, "api")
+    } catch {
+      // Keep the rollback snapshot visible if the refresh itself fails.
+    }
   })
 
   const applyLocalDeliverySnapshot = useEffectEvent((snapshot: DeliveryViewItem) => {
@@ -1174,6 +1261,7 @@ export default function LivreurPage() {
         if (error instanceof ApiError) {
           await removeDeliverySyncEvent(clientEventId)
           applyLocalDeliverySnapshot(previousSnapshot)
+          await refreshTourneeFromServer()
           setNotice({ tone: "error", message: error.message })
           return false
         }
@@ -1509,7 +1597,7 @@ export default function LivreurPage() {
     }
   }, [flushDeliverySyncQueue, token])
 
-  const mappableDeliveries = deliveryList.filter(hasCoordinates)
+  const mappableDeliveries = deliveryList.filter((item) => hasEffectiveCoordinates(item, deliveryCoordinateOverrides))
   const pickupCoordinates =
     tourneeData?.pickup?.latitude != null &&
     tourneeData.pickup.longitude != null &&
@@ -1520,25 +1608,119 @@ export default function LivreurPage() {
           lng: tourneeData.pickup.longitude,
         }
       : null
-  const activeDeliveries = deliveryList.filter(isActiveDelivery)
+  const pickupStop =
+    pickupCoordinates
+      ? {
+          id: tourneeData?.pickup?.fournisseur_id != null ? String(tourneeData.pickup.fournisseur_id) : "tournee-pickup",
+          label: tourneeData?.pickup?.shop_name || "Fournisseur",
+          coordinate: [pickupCoordinates.lng, pickupCoordinates.lat] as [number, number],
+        }
+      : null
+  const isPickupPhase = Boolean(tourneeData && !tourneeData.ramassee && pickupStop)
+  const activeDeliveries = useMemo(() => deliveryList.filter(isActiveDelivery), [deliveryList])
   const nextDelivery = activeDeliveries[0] ?? null
   const navigatingDelivery = activeNavigationDeliveryId
     ? deliveryList.find((item) => item.id === activeNavigationDeliveryId && isActiveDelivery(item)) ?? null
     : null
   const currentDelivery = isNavigating ? navigatingDelivery ?? nextDelivery : nextDelivery
   const futureDeliveries = activeDeliveries.filter((item) => item.id !== currentDelivery?.id)
-  const nextDeliveryWithCoordinates = currentDelivery && hasCoordinates(currentDelivery) ? currentDelivery : null
+  const nextDeliveryCoordinates = currentDelivery ? getDeliveryCoordinate(currentDelivery, deliveryCoordinateOverrides) : null
+  const nextDeliveryWithCoordinates = currentDelivery && nextDeliveryCoordinates ? currentDelivery : null
   const nextDeliveryIndex = currentDelivery ? deliveryList.findIndex((item) => item.id === currentDelivery.id) : -1
-  const previousMappableDelivery =
-    nextDeliveryIndex > 0 ? deliveryList.slice(0, nextDeliveryIndex).reverse().find(hasCoordinates) ?? null : null
-  const fallbackRouteStartCoordinates = previousMappableDelivery
-    ? ([previousMappableDelivery.lng, previousMappableDelivery.lat] as [number, number])
-    : ([FES_START_COORDINATE[0], FES_START_COORDINATE[1]] as [number, number])
+  const fallbackRouteStartCoordinates = pickupStop?.coordinate ?? ([FES_START_COORDINATE[0], FES_START_COORDINATE[1]] as [number, number])
   const routeOriginCoordinates = driverLocation
     ? ([driverLocation.longitude, driverLocation.latitude] as [number, number])
     : fallbackRouteStartCoordinates
-  const activeMissingCoordinatesCount = activeDeliveries.filter((item) => !hasCoordinates(item)).length
+  const routeDeliveries = isPickupPhase ? [] : isNavigating && currentDelivery ? [currentDelivery, ...futureDeliveries] : activeDeliveries
+  const routeStops: RouteStop[] = [
+    {
+      id: "driver",
+      kind: "driver",
+      label: "Position livreur",
+      coordinate: routeOriginCoordinates,
+    },
+  ]
+  const visitedSupplierKeys = new Set<string>()
+
+  if (isPickupPhase && pickupStop) {
+    const lastStop = routeStops[routeStops.length - 1]
+    if (!lastStop || !areSameCoordinate(lastStop.coordinate, pickupStop.coordinate)) {
+      routeStops.push({
+        id: `supplier-${pickupStop.id}`,
+        kind: "supplier",
+        label: pickupStop.label,
+        coordinate: pickupStop.coordinate,
+      })
+    }
+  }
+
+  for (const delivery of routeDeliveries) {
+    const supplierCoordinate =
+      delivery.supplierLat != null &&
+      delivery.supplierLng != null &&
+      Number.isFinite(delivery.supplierLat) &&
+      Number.isFinite(delivery.supplierLng)
+        ? ([delivery.supplierLng, delivery.supplierLat] as [number, number])
+        : pickupStop?.coordinate
+
+    if (supplierCoordinate && !tourneeData?.ramassee) {
+      const supplierKey = delivery.supplierId || coordinateKey(supplierCoordinate)
+      if (!visitedSupplierKeys.has(supplierKey)) {
+        const lastStop = routeStops[routeStops.length - 1]
+        if (!lastStop || !areSameCoordinate(lastStop.coordinate, supplierCoordinate)) {
+          routeStops.push({
+            id: `supplier-${supplierKey}`,
+            kind: "supplier",
+            label: delivery.supplierName || pickupStop?.label || "Fournisseur",
+            coordinate: supplierCoordinate,
+          })
+        }
+        visitedSupplierKeys.add(supplierKey)
+      }
+    }
+
+    const deliveryMapCoordinate = getDeliveryCoordinate(delivery, deliveryCoordinateOverrides)
+    if (deliveryMapCoordinate) {
+      const deliveryCoordinate: [number, number] = [deliveryMapCoordinate.lng, deliveryMapCoordinate.lat]
+      const lastStop = routeStops[routeStops.length - 1]
+      if (!lastStop || !areSameCoordinate(lastStop.coordinate, deliveryCoordinate)) {
+        routeStops.push({
+          id: `delivery-${delivery.id}`,
+          kind: "delivery",
+          label: `Commande #${delivery.orderNumber}`,
+          coordinate: deliveryCoordinate,
+          deliveryId: delivery.id,
+          stepNumber: delivery.stepNumber,
+        })
+      }
+    }
+  }
+
+  const routePlanCoordinates = routeStops.map((stop) => stop.coordinate)
+  const routePlanKey = routeStops.map((stop) => `${stop.kind}:${stop.id}:${coordinateKey(stop.coordinate)}`).join("|")
+  const supplierMarkers = routeStops.filter((stop) => stop.kind === "supplier")
+  const activeMissingCoordinatesCount = activeDeliveries.filter((item) => !hasEffectiveCoordinates(item, deliveryCoordinateOverrides)).length
   const isMapboxConfigured = MAPBOX_TOKEN.length > 0
+  const isCurrentDeliveryGeocoding = currentDelivery ? geocodingDeliveryIds.includes(currentDelivery.id) : false
+  const didCurrentDeliveryGeocodingFail = currentDelivery ? failedGeocodingDeliveryIds.includes(currentDelivery.id) : false
+  const deliveriesToGeocode = useMemo(
+    () =>
+      activeDeliveries.filter(
+        (delivery) =>
+          !hasCoordinates(delivery) &&
+          !deliveryCoordinateOverrides[delivery.id] &&
+          Boolean(delivery.address?.trim())
+      ),
+    [activeDeliveries, deliveryCoordinateOverrides]
+  )
+  const geocodeQueueKey = deliveriesToGeocode
+    .map((delivery) => `${delivery.id}:${delivery.address}:${delivery.street}:${delivery.neighborhood}`)
+    .join("|")
+  const geocodeProximityKey = driverLocation
+    ? `${driverLocation.longitude.toFixed(5)},${driverLocation.latitude.toFixed(5)}`
+    : pickupStop
+      ? coordinateKey(pickupStop.coordinate)
+      : "no-proximity"
   const routeOriginLongitude = routeOriginCoordinates[0]
   const routeOriginLatitude = routeOriginCoordinates[1]
 
@@ -1557,19 +1739,143 @@ export default function LivreurPage() {
   }, [isNavigating])
 
   useEffect(() => {
-    if (!nextDeliveryWithCoordinates) {
+    if (!isMapboxConfigured || isOffline || activeDeliveries.length === 0) {
+      return
+    }
+
+    if (deliveriesToGeocode.length === 0) {
+      return
+    }
+
+    let isCancelled = false
+    const controller = new AbortController()
+
+    const geocodeDeliveries = async () => {
+      const nextOverrides: CoordinateOverrideMap = {}
+      const failedIds: string[] = []
+      setGeocodingDeliveryIds((currentIds) =>
+        {
+          const nextIds = Array.from(new Set([...currentIds, ...deliveriesToGeocode.map((delivery) => delivery.id)]))
+          return areStringArraysEqual(currentIds, nextIds) ? currentIds : nextIds
+        }
+      )
+
+      for (const delivery of deliveriesToGeocode.slice(0, 8)) {
+        const queryCandidates = Array.from(
+          new Set(
+            [
+              [delivery.address, "Fes", "Maroc"].filter(Boolean).join(", "),
+              [delivery.street, delivery.neighborhood, "Fes", "Maroc"].filter(Boolean).join(", "),
+              [delivery.neighborhood, "Fes", "Maroc"].filter(Boolean).join(", "),
+              [delivery.street, "Fes", "Maroc"].filter(Boolean).join(", "),
+            ].filter((query) => query.trim().length > 0)
+          )
+        )
+
+        let resolvedCoordinate: { lat: number; lng: number } | null = null
+
+        for (const query of queryCandidates) {
+          const params = new URLSearchParams({
+            access_token: MAPBOX_TOKEN,
+            language: "fr",
+            country: "ma",
+            limit: "1",
+            types: "address,poi,neighborhood,locality,place",
+          })
+
+          if (driverLocation) {
+            params.set("proximity", `${driverLocation.longitude},${driverLocation.latitude}`)
+          } else if (pickupStop) {
+            params.set("proximity", `${pickupStop.coordinate[0]},${pickupStop.coordinate[1]}`)
+          }
+
+          try {
+            const response = await fetch(
+              `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?${params.toString()}`,
+              { signal: controller.signal }
+            )
+            if (!response.ok) {
+              continue
+            }
+
+            const payload = (await response.json()) as { features?: Array<{ center?: [number, number] }> }
+            const center = payload.features?.[0]?.center
+            if (!center || center.length < 2 || !Number.isFinite(center[0]) || !Number.isFinite(center[1])) {
+              continue
+            }
+
+            resolvedCoordinate = { lng: center[0], lat: center[1] }
+            break
+          } catch (error) {
+            if (error instanceof DOMException && error.name === "AbortError") {
+              return
+            }
+          }
+        }
+
+        if (resolvedCoordinate) {
+          nextOverrides[delivery.id] = resolvedCoordinate
+        } else {
+          failedIds.push(delivery.id)
+        }
+      }
+
+      if (!isCancelled && Object.keys(nextOverrides).length > 0) {
+        setDeliveryCoordinateOverrides((currentOverrides) => ({
+          ...currentOverrides,
+          ...nextOverrides,
+        }))
+      }
+      if (!isCancelled) {
+        setGeocodingDeliveryIds((currentIds) =>
+          {
+            const nextIds = currentIds.filter((id) => !deliveriesToGeocode.some((delivery) => delivery.id === id))
+            return areStringArraysEqual(currentIds, nextIds) ? currentIds : nextIds
+          }
+        )
+        if (failedIds.length > 0) {
+          setFailedGeocodingDeliveryIds((currentIds) => {
+            const nextIds = Array.from(new Set([...currentIds, ...failedIds]))
+            return areStringArraysEqual(currentIds, nextIds) ? currentIds : nextIds
+          })
+        }
+      }
+    }
+
+    void geocodeDeliveries()
+
+    return () => {
+      isCancelled = true
+      controller.abort()
+    }
+  }, [deliveriesToGeocode, geocodeQueueKey, geocodeProximityKey, isMapboxConfigured, isOffline])
+
+  useEffect(() => {
+    if (routePlanCoordinates.length < 2) {
       setRouteGeoJson(EMPTY_ROUTE_GEOJSON)
       setRouteSummary(null)
-      setRouteError(null)
+      if (currentDelivery && !nextDeliveryCoordinates) {
+        if (!isMapboxConfigured) {
+          setRouteError("Token Mapbox manquant: impossible de localiser l'adresse client.")
+        } else if (isOffline) {
+          setRouteError("Mode hors ligne: l'adresse client n'a pas de coordonnees GPS disponibles.")
+        } else if (isCurrentDeliveryGeocoding) {
+          setRouteError("Localisation de l'adresse client en cours...")
+        } else if (didCurrentDeliveryGeocodingFail) {
+          setRouteError("Adresse client introuvable sur Mapbox. Ajoutez lat/lng a l'adresse pour tracer le chemin.")
+        } else {
+          setRouteError("Adresse client sans coordonnees GPS. Recherche Mapbox en cours.")
+        }
+      } else {
+        setRouteError(null)
+      }
       setIsRouteLoading(false)
       lastDirectionsRequestRef.current = null
       return
     }
 
-    const destinationCoordinates: [number, number] = [nextDeliveryWithCoordinates.lng, nextDeliveryWithCoordinates.lat]
-
     if (!isMapboxConfigured) {
-      setRouteGeoJson(EMPTY_ROUTE_GEOJSON)
+      setRouteGeoJson(createLineFeatureCollection(routePlanCoordinates, "fallback"))
       setRouteSummary(null)
       setRouteError("Le token Mapbox est requis pour calculer un itinéraire.")
       setIsRouteLoading(false)
@@ -1577,8 +1883,17 @@ export default function LivreurPage() {
       return
     }
 
+    if (routePlanCoordinates.length > 25) {
+      setRouteGeoJson(createLineFeatureCollection(routePlanCoordinates, "fallback"))
+      setRouteSummary(null)
+      setRouteError("Tournee trop longue pour un seul calcul Mapbox. Trace simplifiee active.")
+      setIsRouteLoading(false)
+      lastDirectionsRequestRef.current = null
+      return
+    }
+
     if (isOffline) {
-      setRouteGeoJson(createLineFeatureCollection([routeOriginCoordinates, destinationCoordinates], "fallback"))
+      setRouteGeoJson(createLineFeatureCollection(routePlanCoordinates, "fallback"))
       setRouteSummary(null)
       setRouteError("Trace simplifiée active. L'itinéraire détaillé Mapbox est indisponible hors ligne.")
       setIsRouteLoading(false)
@@ -1593,17 +1908,11 @@ export default function LivreurPage() {
         routeOriginLatitude,
         routeOriginLongitude
       )
-      const destinationDrift = computeDistanceMeters(
-        lastRequest.destination[1],
-        lastRequest.destination[0],
-        destinationCoordinates[1],
-        destinationCoordinates[0]
-      )
       const requestAge = Date.now() - lastRequest.timestamp
 
       if (
         originDrift < ROUTE_REFRESH_DISTANCE_METERS &&
-        destinationDrift < 5 &&
+        lastRequest.stopsKey === routePlanKey &&
         requestAge < ROUTE_REFRESH_INTERVAL_MS
       ) {
         return
@@ -1618,7 +1927,7 @@ export default function LivreurPage() {
       setRouteError(null)
 
       try {
-        const response = await fetch(buildDirectionsUrl(routeOriginCoordinates, destinationCoordinates), {
+        const response = await fetch(buildMultiStopDirectionsUrl(routePlanCoordinates), {
           signal: controller.signal,
         })
         if (!response.ok) {
@@ -1643,7 +1952,7 @@ export default function LivreurPage() {
         setRouteError(null)
         lastDirectionsRequestRef.current = {
           origin: routeOriginCoordinates,
-          destination: destinationCoordinates,
+          stopsKey: routePlanKey,
           timestamp: Date.now(),
         }
       } catch (error) {
@@ -1651,11 +1960,11 @@ export default function LivreurPage() {
           return
         }
 
-        setRouteGeoJson(createLineFeatureCollection([routeOriginCoordinates, destinationCoordinates], "fallback"))
+        setRouteGeoJson(createLineFeatureCollection(routePlanCoordinates, "fallback"))
         setRouteSummary(null)
         setRouteError(
           error instanceof Error
-            ? `${error.message} La carte affiche un trace simplifie entre le livreur et la destination.`
+            ? `${error.message} La carte affiche un trace simplifie de la tournee.`
             : "Impossible de calculer l'itinéraire détaillé."
         )
       } finally {
@@ -1676,9 +1985,12 @@ export default function LivreurPage() {
     driverLocation?.longitude,
     isMapboxConfigured,
     isOffline,
-    nextDeliveryWithCoordinates?.id,
-    nextDeliveryWithCoordinates?.lat,
-    nextDeliveryWithCoordinates?.lng,
+    currentDelivery?.id,
+    didCurrentDeliveryGeocodingFail,
+    isCurrentDeliveryGeocoding,
+    nextDeliveryCoordinates?.lat,
+    nextDeliveryCoordinates?.lng,
+    routePlanKey,
     routeOriginLatitude,
     routeOriginLongitude,
   ])
@@ -1715,7 +2027,7 @@ export default function LivreurPage() {
 
       if (nextDeliveryWithCoordinates) {
         mapInstance.easeTo({
-          center: [nextDeliveryWithCoordinates.lng, nextDeliveryWithCoordinates.lat],
+          center: [nextDeliveryCoordinates!.lng, nextDeliveryCoordinates!.lat],
           zoom: 15.2,
           pitch: 45,
           bearing: mapInstance.getBearing(),
@@ -1727,11 +2039,46 @@ export default function LivreurPage() {
       }
     }
 
+    if (routeStops.length > 1) {
+      const longitudes = routeStops.map((stop) => stop.coordinate[0])
+      const latitudes = routeStops.map((stop) => stop.coordinate[1])
+      const west = Math.min(...longitudes)
+      const east = Math.max(...longitudes)
+      const south = Math.min(...latitudes)
+      const north = Math.max(...latitudes)
+
+      if (west === east && south === north) {
+        mapInstance.easeTo({
+          center: [west, south],
+          zoom: 15,
+          pitch: 20,
+          bearing: 0,
+          padding: routeOverviewPadding,
+          duration: 900,
+          essential: true,
+        })
+        return
+      }
+
+      mapInstance.fitBounds(
+        [
+          [west, south],
+          [east, north],
+        ],
+        {
+          padding: routeOverviewPadding,
+          duration: 900,
+          essential: true,
+        }
+      )
+      return
+    }
+
     if (driverLocation && nextDeliveryWithCoordinates) {
-      const west = Math.min(driverLocation.longitude, nextDeliveryWithCoordinates.lng)
-      const east = Math.max(driverLocation.longitude, nextDeliveryWithCoordinates.lng)
-      const south = Math.min(driverLocation.latitude, nextDeliveryWithCoordinates.lat)
-      const north = Math.max(driverLocation.latitude, nextDeliveryWithCoordinates.lat)
+      const west = Math.min(driverLocation.longitude, nextDeliveryCoordinates!.lng)
+      const east = Math.max(driverLocation.longitude, nextDeliveryCoordinates!.lng)
+      const south = Math.min(driverLocation.latitude, nextDeliveryCoordinates!.lat)
+      const north = Math.max(driverLocation.latitude, nextDeliveryCoordinates!.lat)
 
       if (west === east && south === north) {
         mapInstance.easeTo({
@@ -1762,7 +2109,7 @@ export default function LivreurPage() {
 
     if (nextDeliveryWithCoordinates) {
       mapInstance.easeTo({
-        center: [nextDeliveryWithCoordinates.lng, nextDeliveryWithCoordinates.lat],
+        center: [nextDeliveryCoordinates!.lng, nextDeliveryCoordinates!.lat],
         zoom: 15,
         pitch: 10,
         bearing: 0,
@@ -1809,8 +2156,11 @@ export default function LivreurPage() {
       return
     }
 
-    const longitudes = mappableDeliveries.map((item) => item.lng)
-    const latitudes = mappableDeliveries.map((item) => item.lat)
+    const mappableCoordinates = mappableDeliveries
+      .map((item) => getDeliveryCoordinate(item, deliveryCoordinateOverrides))
+      .filter((coordinate): coordinate is { lat: number; lng: number } => coordinate !== null)
+    const longitudes = mappableCoordinates.map((coordinate) => coordinate.lng)
+    const latitudes = mappableCoordinates.map((coordinate) => coordinate.lat)
     const west = Math.min(...longitudes)
     const east = Math.max(...longitudes)
     const south = Math.min(...latitudes)
@@ -1852,6 +2202,7 @@ export default function LivreurPage() {
     driverLocation?.longitude ?? "no-lng",
     pickupCoordinates?.lat ?? "no-pickup-lat",
     pickupCoordinates?.lng ?? "no-pickup-lng",
+    routePlanKey,
     roundedHeadingKey,
     routeGeoJson.features.length,
   ].join(":")
@@ -1872,7 +2223,15 @@ export default function LivreurPage() {
   const currentRouteDistanceLabel = routeSummary ? formatDistanceLabel(routeSummary.distanceMeters) : "Trace en attente"
   const currentRouteDurationLabel = routeSummary ? formatDurationFromSeconds(routeSummary.durationSeconds) : remainingTime
   const pendingAssignmentCount = deliveryList.filter(isPendingAssignmentDelivery).length
-  const futureMarkers = currentDelivery ? futureDeliveries.filter(hasCoordinates) : mappableDeliveries
+  const futureMarkers = (currentDelivery ? futureDeliveries : mappableDeliveries)
+    .map((delivery) => ({
+      delivery,
+      coordinate: getDeliveryCoordinate(delivery, deliveryCoordinateOverrides),
+    }))
+    .filter(
+      (marker): marker is { delivery: DeliveryViewItem; coordinate: { lat: number; lng: number } } =>
+        marker.coordinate !== null
+    )
   const sheetHeightValue = sheetMode === "expanded" ? "min(58dvh, 34rem)" : "max(20dvh, 12rem)"
   const isSheetExpanded = sheetMode === "expanded"
   const routeOverviewPadding = isHeaderCollapsed ? { ...ROUTE_OVERVIEW_PADDING, top: 72 } : ROUTE_OVERVIEW_PADDING
@@ -1888,7 +2247,7 @@ export default function LivreurPage() {
     !isTourneeLoading &&
     !beforeSeven &&
     Boolean(token) &&
-    Boolean(tourneeData?.ramassee) &&
+    Boolean(tourneeData) &&
     deliveryList.length > 0
   const isCodDeliveryPendingValidation = Boolean(
     currentDelivery && currentDelivery.paymentMethod === "cod" && !currentDelivery.paymentValidated
@@ -2129,10 +2488,10 @@ export default function LivreurPage() {
     }
 
     if (nextDeliveryWithCoordinates) {
-      const west = Math.min(activeDriverLocation.longitude, nextDeliveryWithCoordinates.lng)
-      const east = Math.max(activeDriverLocation.longitude, nextDeliveryWithCoordinates.lng)
-      const south = Math.min(activeDriverLocation.latitude, nextDeliveryWithCoordinates.lat)
-      const north = Math.max(activeDriverLocation.latitude, nextDeliveryWithCoordinates.lat)
+      const west = Math.min(activeDriverLocation.longitude, nextDeliveryCoordinates!.lng)
+      const east = Math.max(activeDriverLocation.longitude, nextDeliveryCoordinates!.lng)
+      const south = Math.min(activeDriverLocation.latitude, nextDeliveryCoordinates!.lat)
+      const north = Math.max(activeDriverLocation.latitude, nextDeliveryCoordinates!.lat)
 
       if (west === east && south === north) {
         mapInstance.easeTo({
@@ -2301,15 +2660,28 @@ export default function LivreurPage() {
             )}
 
             {futureMarkers.map((item) => (
-              <Marker key={item.id} longitude={item.lng} latitude={item.lat} anchor="center">
+              <Marker key={item.delivery.id} longitude={item.coordinate.lng} latitude={item.coordinate.lat} anchor="center">
                 <div className="h-3 w-3 rounded-full bg-[#8B9991]/90 ring-4 ring-white/85 shadow-sm" />
               </Marker>
             ))}
 
-            {/* Pickup marker removed to simplify the driver UI as requested. */}
+            {supplierMarkers.map((supplier) => (
+              <Marker key={supplier.id} longitude={supplier.coordinate[0]} latitude={supplier.coordinate[1]} anchor="bottom">
+                <div className="relative flex flex-col items-center">
+                  <div className="absolute top-1/2 h-14 w-14 -translate-y-1/2 rounded-full bg-[#1E8A3C]/25 animate-ping" />
+                  <div className="relative flex h-12 w-12 items-center justify-center rounded-full border-4 border-white bg-[#1E8A3C] text-white shadow-[0_16px_32px_rgba(30,138,60,0.35)]">
+                    <Package className="h-5 w-5" />
+                  </div>
+                  <div className="-mt-2 h-4 w-4 rotate-45 rounded-[4px] bg-[#1E8A3C] ring-4 ring-white" />
+                  <div className="mt-1 max-w-[130px] rounded-full bg-white/95 px-2.5 py-1 text-center text-[10px] font-black uppercase tracking-wide text-[#1E8A3C] shadow-sm">
+                    Collecte
+                  </div>
+                </div>
+              </Marker>
+            ))}
 
             {nextDeliveryWithCoordinates && (
-              <Marker longitude={nextDeliveryWithCoordinates.lng} latitude={nextDeliveryWithCoordinates.lat} anchor="bottom">
+              <Marker longitude={nextDeliveryCoordinates!.lng} latitude={nextDeliveryCoordinates!.lat} anchor="bottom">
                 <div className="relative flex flex-col items-center">
                   <div className="absolute top-1/2 h-16 w-16 -translate-y-1/2 rounded-full bg-[#F07C00]/30 animate-ping" />
                   <div className="absolute top-1/2 h-20 w-20 -translate-y-1/2 rounded-full bg-[#F07C00]/12" />
@@ -2499,7 +2871,7 @@ export default function LivreurPage() {
             </div>
           )}
 
-          {routeError && !beforeSeven && nextDeliveryWithCoordinates && (
+          {routeError && !beforeSeven && currentDelivery && (
             <div className="rounded-2xl bg-[#EEF5FF]/95 px-4 py-3 text-sm text-[#285C9A] shadow-sm backdrop-blur">
               {routeError}
             </div>
@@ -2552,20 +2924,26 @@ export default function LivreurPage() {
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="inline-flex rounded-full bg-[#F0FAF1] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#1E8A3C]">
-                            {isNavigating ? "En travail" : "Prêt pour la course"}
+                            {isPickupPhase ? "Collecte fournisseur" : isNavigating ? "En travail" : "Prêt pour la course"}
                           </span>
                           <span className="inline-flex rounded-full bg-[#EEF5FF] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#285C9A]">
                             {currentRouteDistanceLabel}
                           </span>
                         </div>
-                        <h3 className="mt-2 truncate text-lg font-bold text-[#17301E]">{currentDelivery.clientName}</h3>
-                        <p className="mt-1 truncate text-sm font-medium text-[#3F5246]">{buildPreciseAddress(currentDelivery)}</p>
-                        <p className="mt-1 truncate text-xs text-[#5B6B60]">{buildPaymentSummary(currentDelivery)}</p>
+                        <h3 className="mt-2 truncate text-lg font-bold text-[#17301E]">
+                          {isPickupPhase ? pickupStop?.label || "Fournisseur" : currentDelivery.clientName}
+                        </h3>
+                        <p className="mt-1 truncate text-sm font-medium text-[#3F5246]">
+                          {isPickupPhase ? tourneeData?.pickup?.address || "Adresse fournisseur" : buildPreciseAddress(currentDelivery)}
+                        </p>
+                        <p className="mt-1 truncate text-xs text-[#5B6B60]">
+                          {isPickupPhase ? "Premiere etape obligatoire avant livraison" : buildPaymentSummary(currentDelivery)}
+                        </p>
                       </div>
 
                       <div className="shrink-0 rounded-[1.25rem] bg-white px-3 py-2 text-center shadow-sm">
                         <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#6B7280]">Stop</p>
-                        <p className="mt-1 text-xl font-black text-[#1E8A3C]">{currentDelivery.stepNumber}</p>
+                        <p className="mt-1 text-xl font-black text-[#1E8A3C]">{isPickupPhase ? "F" : currentDelivery.stepNumber}</p>
                       </div>
                     </div>
 
@@ -2713,7 +3091,7 @@ export default function LivreurPage() {
                         <Phone className="h-5 w-5" />
                       </a>
 
-                      {isNavigating && (
+                      {isNavigating && !isPickupPhase && (
                         <button
                           type="button"
                           onClick={handleMarkCurrentDeliveryAbsent}
@@ -2725,7 +3103,7 @@ export default function LivreurPage() {
                         </button>
                       )}
 
-                      {isNavigating && (
+                      {isNavigating && !isPickupPhase && (
                         <button
                           type="button"
                           onClick={handleMarkCurrentDeliveryRefused}
@@ -2742,26 +3120,31 @@ export default function LivreurPage() {
 
                       <button
                         type="button"
-                        onClick={isNavigating ? handleCompleteCurrentDelivery : handleStartDriveMode}
+                        onClick={isPickupPhase ? handleConfirmPickup : isNavigating ? handleCompleteCurrentDelivery : handleStartDriveMode}
                         disabled={
                           isStartingTournee ||
+                          isConfirmingPickup ||
                           isValidatingCodPayment ||
                           !currentDelivery ||
-                          (isNavigating && isCodDeliveryPendingValidation)
+                          (!isPickupPhase && isNavigating && isCodDeliveryPendingValidation)
                         }
                         className={cn(
                           "flex h-12 w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60",
-                          isNavigating ? "bg-[#1E8A3C]" : "bg-[#17301E]"
+                          isPickupPhase || isNavigating ? "bg-[#1E8A3C]" : "bg-[#17301E]"
                         )}
                       >
-                        {isStartingTournee ? (
+                        {isStartingTournee || isConfirmingPickup ? (
                           <Spinner className="size-5" />
+                        ) : isPickupPhase ? (
+                          <Package className="h-5 w-5" />
                         ) : isNavigating ? (
                           <CheckCircle2 className="h-5 w-5" />
                         ) : (
                           <Navigation className="h-5 w-5" />
                         )}
-                        <span className="truncate">{isNavigating ? "Marquer comme livre" : "Demarrer la course"}</span>
+                        <span className="truncate">
+                          {isPickupPhase ? "Confirmer la collecte" : isNavigating ? "Marquer comme livre" : "Demarrer la course"}
+                        </span>
                       </button>
                     </div>
 
