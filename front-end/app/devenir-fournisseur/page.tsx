@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { Navigation } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { API_BASE_URL, ApiError } from "@/lib/api"
+import { MapboxLocator } from "@/components/souki/mapbox-locator"
 
 interface Produit {
   id: number
@@ -21,7 +23,10 @@ export default function DevenirFournisseurPage() {
   const [phone, setPhone] = useState("")
   const [address, setAddress] = useState("")
   const [ville, setVille] = useState("")
+  const [latitude, setLatitude] = useState<number | null>(null)
+  const [longitude, setLongitude] = useState<number | null>(null)
   const [description, setDescription] = useState("")
+  const [mapboxModalOpen, setMapboxModalOpen] = useState(false)
 
   const [produits, setProduits] = useState<Produit[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -69,6 +74,10 @@ export default function DevenirFournisseurPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (latitude === null || longitude === null) {
+      setError("Localisez votre boutique sur la carte pour continuer.")
+      return
+    }
     if (selectedIds.size === 0) {
       setError("Sélectionnez au moins un produit.")
       return
@@ -89,6 +98,8 @@ export default function DevenirFournisseurPage() {
           phone,
           address,
           ville,
+          latitude,
+          longitude,
           description,
           produit_ids: Array.from(selectedIds),
         }),
@@ -178,6 +189,26 @@ export default function DevenirFournisseurPage() {
               />
             </div>
             <div>
+              <label className="mb-1 block text-xs font-bold text-[#264129]">Localisation *</label>
+              <button
+                type="button"
+                onClick={() => setMapboxModalOpen(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#1E8A3C] px-4 py-3 text-sm font-black text-[#1E8A3C] transition-colors hover:bg-[#F0FAF1]"
+              >
+                <Navigation className="h-4 w-4" />
+                Me localiser
+              </button>
+              {latitude !== null && longitude !== null ? (
+                <p className="mt-2 text-xs font-semibold text-[#1E8A3C]">
+                  Position sélectionnée : {latitude.toFixed(6)}, {longitude.toFixed(6)}
+                </p>
+              ) : (
+                <p className="mt-2 text-xs font-semibold text-red-500">
+                  Localisation obligatoire pour créer votre zone fournisseur.
+                </p>
+              )}
+            </div>
+            <div>
               <label className="mb-1 block text-xs font-bold text-[#264129]">Description</label>
               <textarea
                 value={description}
@@ -236,12 +267,25 @@ export default function DevenirFournisseurPage() {
 
         <button
           type="submit"
-          disabled={loading || selectedIds.size === 0}
+          disabled={loading || selectedIds.size === 0 || latitude === null || longitude === null}
           className="w-full rounded-xl bg-[#1E8A3C] px-6 py-4 text-sm font-black text-white transition-opacity disabled:opacity-50"
         >
           {loading ? "Envoi en cours..." : "Envoyer ma demande"}
         </button>
       </form>
+      <MapboxLocator
+        isOpen={mapboxModalOpen}
+        onClose={() => setMapboxModalOpen(false)}
+        confirmSelection
+        onAddressDetected={(detectedAddress, detectedCity, coordinates) => {
+          setAddress(detectedAddress)
+          setVille(detectedCity || ville)
+          if (coordinates) {
+            setLatitude(coordinates.latitude)
+            setLongitude(coordinates.longitude)
+          }
+        }}
+      />
     </div>
   )
 }

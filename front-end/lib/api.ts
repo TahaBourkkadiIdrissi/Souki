@@ -232,6 +232,22 @@ export interface JITLogDTO {
   message_alerte?: string | null
 }
 
+export interface JITZoneExecutionResult {
+  statut: string
+  log_id?: number | null
+  volume_total_kg?: number
+  nombre_commandes?: number
+  nombre_verrouillees?: number
+  montant_total?: number
+  message?: string | null
+}
+
+export interface JITExecutionResponse {
+  statut: string
+  zones: Record<string, JITZoneExecutionResult>
+  nombre_zones: number
+}
+
 export interface JITDeverrouillerResponse {
   nombre_commandes?: number
   nombre_deverrouillees?: number
@@ -250,6 +266,12 @@ export interface JITCommandeDeverrouillee {
 export interface JITLogsParPlageResponse {
   logs: JITLogDTO[]
   nombre: number
+}
+
+export interface JITDernierLogResponse {
+  logs: JITLogDTO[]
+  nombre: number
+  mode: "regional" | "global"
 }
 
 export interface DeliveryEventRequest {
@@ -824,10 +846,23 @@ export async function validerPaiementCodLivreur(token: string, commandeId: strin
 }
 
 export async function jitExecuter(token: string) {
-  return apiCall<JITLogDTO>("/api/jit/executer", {
-    method: "POST",
-    token,
-  })
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), 30000)
+
+  try {
+    return await apiCall<JITExecutionResponse>("/api/jit/executer", {
+      method: "POST",
+      token,
+      signal: controller.signal,
+    })
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new ApiError(408, "Le backend ne répond pas pour le lancement JIT. Vérifiez que l'API est démarrée et accessible.")
+    }
+    throw error
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
 }
 
 export async function jitDeverrouiller(token: string) {
@@ -838,7 +873,19 @@ export async function jitDeverrouiller(token: string) {
 }
 
 export async function jitDernierLog(token: string) {
-  return apiCall<JITLogDTO>("/api/jit/logs/dernier", { token })
+  const response = await apiCall<JITDernierLogResponse>("/api/jit/logs/dernier", { token })
+  const logs = [...(response.logs || [])]
+  logs.sort((a, b) => {
+    const dateA = a.date_execution ? new Date(a.date_execution).getTime() : 0
+    const dateB = b.date_execution ? new Date(b.date_execution).getTime() : 0
+    return dateB - dateA
+  })
+
+  if (!logs[0]) {
+    throw new ApiError(404, "Aucun log JIT trouvé")
+  }
+
+  return logs[0]
 }
 
 export async function jitLogsParPlage(token: string, dateDebut: string, dateFin: string) {

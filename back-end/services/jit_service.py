@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from config import LocalSession
 from dto.jit_dto import DetailProduitJIT, JITLogDTO, ResultatAgregationJIT, ZoneJITDTO
@@ -47,7 +48,7 @@ class JITService(IJITService):
         return (
             session.query(Commande)
             .filter(
-                Commande.statut == LOCKED_JIT_STATUS,
+                func.upper(func.coalesce(Commande.statut, "")) == LOCKED_JIT_STATUS,
                 Commande.date_commande >= start_of_day,
                 Commande.date_commande <= end_of_day,
             )
@@ -55,14 +56,17 @@ class JITService(IJITService):
         )
 
     def _get_commandes_du_jour(
-        self, session: Session, zone: Optional[ZoneJITDTO] = None
+        self,
+        session: Session,
+        zone: Optional[ZoneJITDTO] = None,
+        allow_unlocated_fallback: bool = False,
     ) -> List[Commande]:
         """Retourne les commandes du jour. Si zone fournie, filtre géographiquement."""
         start_of_day, end_of_day = self._today_bounds()
         commandes = (
             session.query(Commande)
             .filter(
-                Commande.statut.in_(PENDING_JIT_STATUSES),
+                func.upper(func.coalesce(Commande.statut, "")).in_(PENDING_JIT_STATUSES),
                 Commande.date_commande >= start_of_day,
                 Commande.date_commande <= end_of_day,
             )
@@ -86,10 +90,19 @@ class JITService(IJITService):
             )
             if addr and resoudre_zone(float(addr.latitude), float(addr.longitude), [zone]):  # type: ignore
                 dans_zone.append(commande)
+            elif (
+                not addr
+                and allow_unlocated_fallback
+                and getattr(zone, "fournisseur_id", None) is not None
+            ):
+                dans_zone.append(commande)
         return dans_zone
 
     def agreger_commandes(
-        self, session: Session, zone: Optional[ZoneJITDTO] = None
+        self,
+        session: Session,
+        zone: Optional[ZoneJITDTO] = None,
+        allow_unlocated_fallback: bool = False,
     ) -> ResultatAgregationJIT:
         """
         Agrege les commandes confirmees et les abonnements actifs.
@@ -98,7 +111,11 @@ class JITService(IJITService):
         """
         volumes_par_produit: Dict[int, Dict] = {}
 
-        commandes = self._get_commandes_du_jour(session, zone=zone)
+        commandes = self._get_commandes_du_jour(
+            session,
+            zone=zone,
+            allow_unlocated_fallback=allow_unlocated_fallback,
+        )
 
         for commande in commandes:
             panier = session.query(Panier).filter(Panier.id == commande.panier_id).first()
@@ -187,7 +204,11 @@ class JITService(IJITService):
         )
 
     def verrouiller_commandes(
-        self, session: Session, actor_id: int = 0, zone: Optional[ZoneJITDTO] = None
+        self,
+        session: Session,
+        actor_id: int = 0,
+        zone: Optional[ZoneJITDTO] = None,
+        allow_unlocated_fallback: bool = False,
     ) -> int:
         """
         Verrouille les commandes EN_ATTENTE ou CONFIRMEE.
@@ -195,7 +216,11 @@ class JITService(IJITService):
         Retourne le nombre de commandes verrouillees.
         """
         try:
-            commandes = self._get_commandes_du_jour(session, zone=zone)
+            commandes = self._get_commandes_du_jour(
+                session,
+                zone=zone,
+                allow_unlocated_fallback=allow_unlocated_fallback,
+            )
             zones = [zone] if zone is not None else (
                 self.zone_jit_dao.get_zones_actives(session)
                 if self.zone_jit_dao
@@ -204,7 +229,7 @@ class JITService(IJITService):
 
             nombre_verrouillees = 0
             for commande in commandes:
-                # Savepoint par commande : une commande qui echoue (statut inattendu,
+                # Savepoint par commande : une commande qui échoue (statut inattendu,
                 # erreur transitoire) est ignoree et loggee, sans abandonner le verrouillage
                 # des autres commandes du jour.
                 try:
@@ -214,6 +239,21 @@ class JITService(IJITService):
                             commande,
                             zones,
                         )
+
+                        # Conserver la logique HEAD de fallback.
+                        if (
+                            fournisseur_id is None
+                            and allow_unlocated_fallback
+                            and zone is not None
+                        ):
+                            fallback_fournisseur_id = getattr(
+                                zone,
+                                "fournisseur_id",
+                                None,
+                            )
+                            if fallback_fournisseur_id is not None:
+                                fournisseur_id = int(fallback_fournisseur_id)
+
                         if fournisseur_id is None:
                             print(
                                 f"[JIT] Commande {commande.id} sans fournisseur résolu; "
@@ -260,7 +300,7 @@ class JITService(IJITService):
             start_of_day, end_of_day = self._today_bounds()
 
             query = session.query(Commande).filter(
-                Commande.statut == LOCKED_JIT_STATUS,
+                func.upper(func.coalesce(Commande.statut, "")) == LOCKED_JIT_STATUS,
                 Commande.date_commande >= start_of_day,
                 Commande.date_commande <= end_of_day,
             )
@@ -435,29 +475,57 @@ class JITService(IJITService):
 
         if not zones:
             print("Aucune zone JIT active configuree.")
-            return {}
+            raise RuntimeError(
+                "Aucune zone JIT active configuree. Activez au moins une zone JIT avec un fournisseur affecte."
+            )
 
         resultats: Dict[str, dict] = {}
+        allow_unlocated_fallback = len(zones) == 1
 
         for zone_dto in zones:
             zone_session = LocalSession()
             try:
                 if self.jit_dao.zone_deja_executee_aujourd_hui(zone_session, zone_dto.id):  # type: ignore
-                    print(f"[JIT] Zone {zone_dto.nom_ville} deja executee aujourd'hui - ignoree")
-                    resultats[zone_dto.nom_ville] = {"statut": "deja_execute"}
-                    continue
+                    locked_count = self._count_locked_commandes_today(zone_session)
+                    if locked_count > 0:
+                        print(f"[JIT] Zone {zone_dto.nom_ville} deja executee aujourd'hui - ignoree")
+                        resultats[zone_dto.nom_ville] = {
+                            "statut": "deja_execute",
+                            "nombre_commandes": locked_count,
+                            "nombre_verrouillees": locked_count,
+                        }
+                        continue
+                    print(
+                        f"[JIT] Zone {zone_dto.nom_ville} a un log succes sans commande verrouillee; "
+                        "relance autorisee."
+                    )
 
                 print(f"[JIT] Demarrage zone {zone_dto.nom_ville}...")
 
-                resultat = self.agreger_commandes(zone_session, zone=zone_dto)
+                resultat = self.agreger_commandes(
+                    zone_session,
+                    zone=zone_dto,
+                    allow_unlocated_fallback=allow_unlocated_fallback,
+                )
+                nb = 0
                 print(
                     f"[JIT] {zone_dto.nom_ville}: {resultat.nombre_commandes} commandes, "
                     f"{resultat.volume_total_kg} kg"
                 )
 
                 if resultat.statut == "succès":
-                    nb = self.verrouiller_commandes(zone_session, actor_id=actor_id, zone=zone_dto)
+                    nb = self.verrouiller_commandes(
+                        zone_session,
+                        actor_id=actor_id,
+                        zone=zone_dto,
+                        allow_unlocated_fallback=allow_unlocated_fallback,
+                    )
                     print(f"[JIT] {zone_dto.nom_ville}: {nb} commandes verrouillees")
+                    if resultat.nombre_commandes > 0 and nb == 0:
+                        raise RuntimeError(
+                            "Aucune commande verrouillee: verifiez que la zone a un fournisseur affecte "
+                            "et que les clients ont une adresse par defaut geolocalisee dans cette zone."
+                        )
                     notifier_fournisseur(zone_session, zone_dto, resultat)
 
                 details_json = self._build_details_json(resultat)
@@ -482,6 +550,7 @@ class JITService(IJITService):
                     "log_id": log.id if log else None,
                     "volume_total_kg": resultat.volume_total_kg,
                     "nombre_commandes": resultat.nombre_commandes,
+                    "nombre_verrouillees": nb,
                     "montant_total": resultat.montant_total,
                     "message": resultat.message,
                 }
@@ -529,10 +598,19 @@ class JITService(IJITService):
             if not zone_dto.actif:
                 raise ValueError(f"Zone {zone_dto.nom_ville} est inactive")
 
-            resultat = self.agreger_commandes(session, zone=zone_dto)
+            resultat = self.agreger_commandes(
+                session,
+                zone=zone_dto,
+                allow_unlocated_fallback=True,
+            )
 
             if resultat.statut == "succès":
-                self.verrouiller_commandes(session, actor_id=actor_id, zone=zone_dto)
+                self.verrouiller_commandes(
+                    session,
+                    actor_id=actor_id,
+                    zone=zone_dto,
+                    allow_unlocated_fallback=True,
+                )
                 notifier_fournisseur(session, zone_dto, resultat)
 
             details_json = self._build_details_json(resultat)

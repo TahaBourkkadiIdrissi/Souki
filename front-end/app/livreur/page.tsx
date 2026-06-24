@@ -10,6 +10,7 @@ import {
   Clock3,
   DollarSign,
   Gauge,
+  LogOut,
   type LucideIcon,
   Map as MapIcon,
   MapPin,
@@ -210,10 +211,18 @@ function normalizeTourneeItem(item: TourneeItem): TourneeItem {
 }
 
 function normalizeTourneeResponse(response: TourneeResponse): TourneeResponse {
+  const pickup = response.pickup
+    ? {
+        ...response.pickup,
+        latitude: normalizeCoordinate(response.pickup.latitude),
+        longitude: normalizeCoordinate(response.pickup.longitude),
+      }
+    : null
+
   return {
     ...response,
     tournee_id: response.tournee_id ?? null,
-    pickup: response.pickup ?? null,
+    pickup,
     ramassee: Boolean(response.ramassee),
     ramasse_at: response.ramasse_at ?? null,
     items: Array.isArray(response.items) ? response.items.map(normalizeTourneeItem) : [],
@@ -690,7 +699,7 @@ function HeaderMetric({ label, value }: { label: string; value: string }) {
 
 export default function LivreurPage() {
   const router = useRouter()
-  const { token, isLoading: isAuthLoading, isAuthenticated, can } = useAuth()
+  const { token, isLoading: isAuthLoading, isAuthenticated, can, logout } = useAuth()
   const hasLivreurAccess = can("livreur.dashboard.access")
   const mapRef = useRef<MapRef | null>(null)
   const deliveryListRef = useRef<DeliveryViewItem[]>([])
@@ -713,6 +722,11 @@ export default function LivreurPage() {
   const [isValidatingCodPayment, setIsValidatingCodPayment] = useState(false)
   const [isLoadingRefus, setIsLoadingRefus] = useState(false)
   const [isRefusingTournee, setIsRefusingTournee] = useState(false)
+
+  const handleLogout = async () => {
+    await logout()
+    router.replace("/login/livreur")
+  }
   const [beforeSeven, setBeforeSeven] = useState(false)
   const [tourneeStarted, setTourneeStarted] = useState(false)
   const [loadSource, setLoadSource] = useState<"api" | "cache" | null>(null)
@@ -1496,6 +1510,16 @@ export default function LivreurPage() {
   }, [flushDeliverySyncQueue, token])
 
   const mappableDeliveries = deliveryList.filter(hasCoordinates)
+  const pickupCoordinates =
+    tourneeData?.pickup?.latitude != null &&
+    tourneeData.pickup.longitude != null &&
+    Number.isFinite(tourneeData.pickup.latitude) &&
+    Number.isFinite(tourneeData.pickup.longitude)
+      ? {
+          lat: tourneeData.pickup.latitude,
+          lng: tourneeData.pickup.longitude,
+        }
+      : null
   const activeDeliveries = deliveryList.filter(isActiveDelivery)
   const nextDelivery = activeDeliveries[0] ?? null
   const navigatingDelivery = activeNavigationDeliveryId
@@ -1762,6 +1786,19 @@ export default function LivreurPage() {
       return
     }
 
+    if (pickupCoordinates) {
+      mapInstance.easeTo({
+        center: [pickupCoordinates.lng, pickupCoordinates.lat],
+        zoom: 15,
+        pitch: 10,
+        bearing: 0,
+        padding: routeOverviewPadding,
+        duration: 900,
+        essential: true,
+      })
+      return
+    }
+
     if (mappableDeliveries.length === 0) {
       mapInstance.easeTo({
         center: [DEFAULT_MAP_VIEW.longitude, DEFAULT_MAP_VIEW.latitude],
@@ -1813,6 +1850,8 @@ export default function LivreurPage() {
     nextDeliveryWithCoordinates?.id ?? "no-destination",
     driverLocation?.latitude ?? "no-lat",
     driverLocation?.longitude ?? "no-lng",
+    pickupCoordinates?.lat ?? "no-pickup-lat",
+    pickupCoordinates?.lng ?? "no-pickup-lng",
     roundedHeadingKey,
     routeGeoJson.features.length,
   ].join(":")
@@ -1840,7 +1879,11 @@ export default function LivreurPage() {
   const driveModePadding = isHeaderCollapsed ? { ...DRIVE_MODE_PADDING, top: 56 } : DRIVE_MODE_PADDING
   const topOverlayOffset = isHeaderCollapsed ? "3.75rem" : "8.75rem"
   const showMap =
-    isMapboxConfigured && !isTourneeLoading && !beforeSeven && Boolean(token) && mappableDeliveries.length > 0
+    isMapboxConfigured &&
+    !isTourneeLoading &&
+    !beforeSeven &&
+    Boolean(token) &&
+    (mappableDeliveries.length > 0 || pickupCoordinates !== null)
   const showBottomSheet =
     !isTourneeLoading &&
     !beforeSeven &&
@@ -2212,12 +2255,12 @@ export default function LivreurPage() {
       )
     }
 
-    if (mappableDeliveries.length === 0) {
+    if (mappableDeliveries.length === 0 && !pickupCoordinates) {
       return (
         <CenterStateCard
           icon={MapPin}
           title="Coordonnees GPS manquantes"
-          description="Les commandes doivent fournir lat et lng pour la navigation terrain."
+          description="Les commandes ou le fournisseur doivent fournir lat et lng pour la navigation terrain."
         />
       )
     }
@@ -2262,6 +2305,8 @@ export default function LivreurPage() {
                 <div className="h-3 w-3 rounded-full bg-[#8B9991]/90 ring-4 ring-white/85 shadow-sm" />
               </Marker>
             ))}
+
+            {/* Pickup marker removed to simplify the driver UI as requested. */}
 
             {nextDeliveryWithCoordinates && (
               <Marker longitude={nextDeliveryWithCoordinates.lng} latitude={nextDeliveryWithCoordinates.lat} anchor="bottom">
@@ -2385,6 +2430,16 @@ export default function LivreurPage() {
 
                   <button
                     type="button"
+                    onClick={() => void handleLogout()}
+                    className="inline-flex items-center gap-1 rounded-full border border-red-100 bg-red-50/90 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-red-600 transition-colors hover:bg-red-100"
+                    aria-label="Déconnexion"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    Sortir
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => setIsOnDuty((currentValue) => !currentValue)}
                     className={cn(
                       "rounded-full px-3 py-2 text-sm font-semibold shadow-sm transition-colors",
@@ -2409,52 +2464,6 @@ export default function LivreurPage() {
             <div className="rounded-2xl bg-[#FFF3E0]/95 px-4 py-3 text-sm text-[#8A5A00] shadow-sm backdrop-blur">
               Mode hors ligne actif. La dernière tournée sauvegardée est affichée.
             </div>
-          )}
-
-          {tourneeData?.pickup && tourneeData.tournee_id && (
-            <section className="pointer-events-auto rounded-2xl border border-[#BFE2C4] bg-white/95 p-4 shadow-lg backdrop-blur">
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EAF8EC]">
-                  <Package className="h-5 w-5 text-[#1E8A3C]" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-black uppercase tracking-[0.15em] text-[#1E8A3C]">Ramassage</p>
-                  <h2 className="mt-1 truncate font-black text-[#17301E]">
-                    {tourneeData.pickup.shop_name || "Fournisseur"}
-                  </h2>
-                  <p className="mt-1 text-sm text-[#5B6B60]">
-                    {[tourneeData.pickup.address, tourneeData.pickup.ville].filter(Boolean).join(", ") ||
-                      "Adresse non renseignée"}
-                  </p>
-                  {tourneeData.pickup.phone && (
-                    <a href={`tel:${tourneeData.pickup.phone}`} className="mt-1 inline-flex items-center gap-1 text-sm font-bold text-[#285C9A]">
-                      <Phone className="h-4 w-4" />
-                      {tourneeData.pickup.phone}
-                    </a>
-                  )}
-                </div>
-              </div>
-              {!tourneeData.ramassee ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleConfirmPickup}
-                    disabled={isConfirmingPickup}
-                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#1E8A3C] px-4 py-3 font-black text-white disabled:opacity-60"
-                  >
-                    {isConfirmingPickup ? <Spinner className="size-5" /> : <CheckCircle2 className="h-5 w-5" />}
-                    {isConfirmingPickup ? "Confirmation..." : "J'ai ramassé les commandes"}
-                  </button>
-                  <p className="mt-2 text-center text-xs font-bold text-[#8A5A00]">
-                    Ramassez d'abord chez le fournisseur pour débloquer les livraisons.
-                  </p>
-                </>
-              ) : (
-                <div className="mt-3 rounded-xl bg-[#F0FAF1] px-4 py-2 text-center text-sm font-bold text-[#1E8A3C]">
-                  Ramassage confirmé · livraisons débloquées
-                </div>
-              )}
-            </section>
           )}
 
           {canRejectEntireTournee && (
