@@ -27,6 +27,8 @@ export function useApi() {
         const res = await fetch(`${API_BASE_URL}${path}`, {
           method,
           headers,
+          // Envoie le cookie httpOnly d'authentification (proxy same-origin /backend).
+          credentials: "include",
           body: body ? (isFormData ? (body as FormData) : JSON.stringify(body)) : undefined,
         })
         const data = await res.json().catch(() => ({}))

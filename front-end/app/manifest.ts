@@ -2,12 +2,17 @@ import type { MetadataRoute } from "next"
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "SOUKI",
+    id: "/",
+    name: "SOUKI Fresh Market",
     short_name: "SOUKI",
-    description: "SOUKI Fresh Market",
+    description: "Legumes frais du marche de gros de Fes, livres chez vous le matin meme.",
+    lang: "fr",
+    dir: "ltr",
+    categories: ["shopping", "food"],
     start_url: "/",
     scope: "/",
     display: "standalone",
+    display_override: ["standalone", "minimal-ui"],
     orientation: "portrait",
     background_color: "#FFFFFF",
     theme_color: "#1E8A3C",
@@ -19,23 +24,22 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: "any",
       },
       {
-        src: "/pwa-icon-192.png",
-        sizes: "192x192",
-        type: "image/png",
-        purpose: "maskable",
-      },
-      {
         src: "/pwa-icon-512.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/pwa-icon-512.png",
+        src: "/pwa-icon-maskable-512.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
       },
+    ],
+    shortcuts: [
+      { name: "Catalogue", short_name: "Catalogue", url: "/catalogue" },
+      { name: "Mes commandes", short_name: "Commandes", url: "/historique" },
+      { name: "Mon Wallet", short_name: "Wallet", url: "/wallet" },
     ],
   }
 }

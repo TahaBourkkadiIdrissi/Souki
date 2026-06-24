@@ -86,6 +86,13 @@ export const ROUTES: RouteConfig[] = [
     blockedPermissions: ["admin.panel.access", "livreur.dashboard.access"],
   },
   {
+    path: "/abonnements",
+    label: "Abonnements",
+    authRequired: false,
+    allowedRoles: ["PUBLIC", "CLIENT", "PARENT", "FOURNISSEUR"],
+    blockedPermissions: ["admin.panel.access", "livreur.dashboard.access"],
+  },
+  {
     path: "/checkout",
     label: "Checkout",
     authRequired: true,

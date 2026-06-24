@@ -1,6 +1,9 @@
 const CACHE_PREFIX = "souki-pwa"
-const CACHE_VERSION = "v2"
+const CACHE_VERSION = "v3"
 const RUNTIME_CACHE = `${CACHE_PREFIX}-${CACHE_VERSION}`
+
+// Page de repli affichee quand une navigation echoue hors ligne.
+const OFFLINE_URL = "/offline"
 
 const STATIC_ASSETS = [
   "/manifest.webmanifest",
@@ -8,6 +11,7 @@ const STATIC_ASSETS = [
   "/pwa-icon-192.png",
   "/pwa-icon-512.png",
   "/apple-icon.png",
+  OFFLINE_URL,
 ]
 
 self.addEventListener("install", (event) => {
@@ -54,6 +58,14 @@ self.addEventListener("fetch", (event) => {
     return
   }
 
+  // Navigations (chargement de pages) : network-first avec repli sur la page /offline
+  // precachee. Sans cela, lancer l'app installee hors ligne affiche l'ecran d'erreur
+  // du navigateur au lieu d'un ecran SOUKI.
+  if (request.mode === "navigate") {
+    event.respondWith(navigationWithOfflineFallback(request))
+    return
+  }
+
   if (
     url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/avatar/") ||
@@ -62,6 +74,22 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(networkFirst(request))
   }
 })
+
+async function navigationWithOfflineFallback(request) {
+  const cache = await caches.open(RUNTIME_CACHE)
+  try {
+    const response = await fetch(request)
+    return response
+  } catch (err) {
+    const cachedPage = await cache.match(request)
+    if (cachedPage) return cachedPage
+
+    const offline = await cache.match(OFFLINE_URL)
+    if (offline) return offline
+
+    throw err
+  }
+}
 
 async function networkFirst(request) {
   const cache = await caches.open(RUNTIME_CACHE)

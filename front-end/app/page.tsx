@@ -30,8 +30,6 @@ import { AIModals } from "@/components/souki/ai-modals"
 import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
 import { useScrollReveal } from "@/hooks/useScrollReveal"
 
-const BACKEND_URL = "http://localhost:8000"
-
 // Liste des produits (données uniques)
 const products = [
   { id: "1", name: "Tomates Marocaines", price: 7, unit: "kg", image: "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&h=300&fit=crop", badge: "fresh" as const },
@@ -614,7 +612,7 @@ export default function HomePage() {
             <div>
               <h3 className="font-semibold mb-4">Légal</h3>
               <ul className="space-y-2 text-white/80">
-                <li><Link href="/privacy" className="hover:text-white transition-colors">Politique de confidentialité</Link></li>
+                <li><Link href="/politique-confidentialite" className="hover:text-white transition-colors">Politique de confidentialité</Link></li>
                 <li><Link href="/cgu" className="hover:text-white transition-colors">Conditions générales</Link></li>
                 <li><Link href="/mentions-legales" className="hover:text-white transition-colors">Mentions légales</Link></li>
               </ul>
