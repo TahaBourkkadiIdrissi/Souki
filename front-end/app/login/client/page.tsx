@@ -121,6 +121,15 @@ function ClientLoginContent() {
     
     if (Object.keys(formErrors).length > 0) return;
 
+    // ── Strict email format validation (prevents malformed input & injection) ──
+    const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/
+    const trimmedId = loginId.trim()
+    // Validate as email only when the field looks like an email (contains @)
+    if (trimmedId.includes("@") && !EMAIL_REGEX.test(trimmedId)) {
+      setError("Format d'email invalide. Veuillez saisir une adresse email correcte (ex: nom@domaine.ma).")
+      return
+    }
+
     setLoading(true);
 
     try {
@@ -168,6 +177,10 @@ function ClientLoginContent() {
       } else {
         // --- NOUVELLE LOGIQUE DE CONNEXION SÉCURISÉE ---
         const nextUser = await login(loginId, password, "CLIENT");
+        // Mark this device as having logged in before (used for "Rebonjour" greeting)
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("souki_has_logged_in", "true")
+        }
         const dest = redirectTarget !== "/" ? redirectTarget : shouldShowOnboarding() ? "/onboarding" : nextUser.default_dashboard || "/";
         router.push(dest);
       }
@@ -601,7 +614,7 @@ function ClientLoginContent() {
                     CGU
                   </Link>{" "}
                   et la{" "}
-                  <Link href="/privacy" className="text-[#1A4F8A] hover:underline">
+                  <Link href="/politique-confidentialite" className="text-[#1A4F8A] hover:underline">
                     Politique de Confidentialité
                   </Link>
                 </span>

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+import { useRouter } from "expo-router"
 import React from "react"
 import { ActivityIndicator, Text, View } from "react-native"
 
@@ -11,6 +12,7 @@ import { colors } from "@/theme/tokens"
 
 export default function ParametresPage() {
   const { isAuthenticated, logout } = useAuth()
+  const router = useRouter()
   const { data, isLoading, error } = useQuery({
     queryKey: ["profile"],
     queryFn: getProfile,
@@ -34,7 +36,10 @@ export default function ParametresPage() {
             <Text className="text-sm text-text-body">{data.address?.adresse}</Text>
           </View>
         ) : null}
-        <Button variant="outline" onPress={() => void logout()}>
+        <Button variant="outline" onPress={async () => {
+          await logout()
+          router.replace('/login')
+        }}>
           Deconnexion
         </Button>
       </View>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { CalendarDays, HeartHandshake, ShieldCheck, ShoppingBasket } from "lucide-react"
@@ -11,6 +11,11 @@ import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
 export default function ParentDashboardPage() {
   const router = useRouter()
   const { isLoading, isAuthenticated, user, can } = useAuth()
+
+  const isReturningUser = useMemo(() => {
+    if (typeof window === "undefined") return false
+    return window.localStorage.getItem("souki_has_logged_in") === "true"
+  }, [])
 
   useEffect(() => {
     if (isLoading) {
@@ -43,7 +48,7 @@ export default function ParentDashboardPage() {
             </div>
             <div>
               <p className="text-sm uppercase tracking-[0.22em] text-[#B08B12]">Espace Parent</p>
-              <h1 className="text-2xl font-bold text-[#3D3D3D]">Bonjour {user?.email || "Parent"}</h1>
+              <h1 className="text-2xl font-bold text-[#3D3D3D]">{isReturningUser ? "Rebonjour" : "Bonjour"} {user?.email || "Parent"}</h1>
             </div>
           </div>
           <Link
@@ -59,7 +64,7 @@ export default function ParentDashboardPage() {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 space-y-6">
         <div className="md:hidden">
           <p className="text-sm uppercase tracking-[0.22em] text-[#B08B12]">Espace Parent</p>
-          <h1 className="mt-1 text-2xl font-bold text-[#3D3D3D]">Bonjour {user?.email || "Parent"}</h1>
+          <h1 className="mt-1 text-2xl font-bold text-[#3D3D3D]">{isReturningUser ? "Rebonjour" : "Bonjour"} {user?.email || "Parent"}</h1>
         </div>
         <section className="rounded-[32px] bg-white border border-[#F3EAAE] p-8 shadow-sm">
           <p className="text-sm uppercase tracking-[0.2em] text-[#B08B12]">Dashboard parental</p>

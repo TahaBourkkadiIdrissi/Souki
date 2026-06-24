@@ -11,6 +11,7 @@ import {
   DollarSign,
   Gauge,
   type LucideIcon,
+  LogOut,
   Map as MapIcon,
   MapPin,
   Navigation,
@@ -690,7 +691,7 @@ function HeaderMetric({ label, value }: { label: string; value: string }) {
 
 export default function LivreurPage() {
   const router = useRouter()
-  const { token, isLoading: isAuthLoading, isAuthenticated, can } = useAuth()
+  const { token, isLoading: isAuthLoading, isAuthenticated, can, logout } = useAuth()
   const hasLivreurAccess = can("livreur.dashboard.access")
   const mapRef = useRef<MapRef | null>(null)
   const deliveryListRef = useRef<DeliveryViewItem[]>([])
@@ -2392,6 +2393,17 @@ export default function LivreurPage() {
                     )}
                   >
                     {isOnDuty ? "En service" : "Pause"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await logout()
+                      router.replace("/login")
+                    }}
+                    className="inline-flex items-center justify-center rounded-full bg-white p-2 text-red-500 shadow-sm transition-colors hover:bg-red-50"
+                  >
+                    <LogOut className="h-5 w-5" />
                   </button>
                 </div>
               </div>

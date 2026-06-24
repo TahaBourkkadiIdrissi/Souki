@@ -40,6 +40,16 @@ export function LoginScreen({
       return
     }
 
+    // ── Strict email validation to prevent malformed input ──
+    const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/
+    const trimmedId = loginId.trim()
+    if (trimmedId.includes("@") && !EMAIL_REGEX.test(trimmedId)) {
+      const msg = "Format d'email invalide. Utilisez le format nom@domaine.ma"
+      setError(msg)
+      Alert.alert("Email invalide", msg)
+      return
+    }
+
     setLoading(true)
     setError(null)
     try {
