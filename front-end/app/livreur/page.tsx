@@ -2820,6 +2820,17 @@ export default function LivreurPage() {
                   >
                     {isOnDuty ? "En service" : "Pause"}
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await logout()
+                      router.replace("/login")
+                    }}
+                    className="inline-flex items-center justify-center rounded-full bg-white p-2 text-red-500 shadow-sm transition-colors hover:bg-red-50"
+                  >
+                    <LogOut className="h-5 w-5" />
+                  </button>
                 </div>
               </div>
             </div>

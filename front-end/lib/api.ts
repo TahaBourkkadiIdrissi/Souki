@@ -1,5 +1,7 @@
-const DEFAULT_API_BASE_URL =
-  process.env.NODE_ENV === "development" ? "http://localhost:8000" : "/backend"
+// On passe TOUJOURS par le proxy same-origin /backend (dev comme prod). Cela rend le
+// cookie d'authentification httpOnly first-party (envoye automatiquement par le navigateur,
+// SameSite=Lax sans contrainte HTTPS en dev) et supprime tout host code en dur.
+const DEFAULT_API_BASE_URL = "/backend"
 
 export const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_BASE_URL
@@ -746,6 +748,8 @@ export async function apiCall<T = any>(endpoint: string, options: ApiOptions = {
     headers,
     signal: options.signal,
     cache: options.cache,
+    // Envoie le cookie httpOnly d'authentification.
+    credentials: "include",
   }
 
   if (options.body !== undefined) {

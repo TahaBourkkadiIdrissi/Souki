@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
+  Crown,
   Home,
   Leaf,
   Menu,
@@ -40,12 +41,19 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
 
   const secondaryItems = [
     { label: "Historique", href: "/historique", icon: PackageCheck },
+    { label: "Abonnements", href: "/abonnements", icon: Crown },
     { label: "Mon Wallet", href: "/wallet", icon: Wallet },
     { label: "Mon profil", href: "/parametres/compte", icon: User },
     { label: "Paramètres", href: "/parametres/notifications", icon: Settings },
+    ...(!isFournisseur ? [{ label: "Devenir fournisseur", href: "/devenir-fournisseur", icon: Store }] : [])
   ]
 
   const gridCols = isFournisseur ? "grid-cols-5" : "grid-cols-4"
+
+  // Actif si la route correspond exactement ("/") ou en prefixe (sous-routes,
+  // query string). Sans cela, "/catalogue?..." n'allumait jamais l'onglet.
+  const isActiveLink = (href: string) =>
+    href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`)
 
   const openDrawer = () => {
     if (onMenuClick) {
@@ -64,7 +72,7 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
         <div className={cn("mx-auto grid max-w-md gap-1", gridCols)}>
           {linkItems.map((item) => {
             const Icon = item.icon
-            const isActive = pathname === item.href
+            const isActive = isActiveLink(item.href)
             return (
               <Link
                 key={item.href}

@@ -164,6 +164,11 @@ export default function PwaWelcomePage() {
     navigator.vibrate?.(20)
   }
 
+  const isReturningUser = useMemo(() => {
+    if (typeof window === "undefined") return false
+    return window.localStorage.getItem("souki_has_logged_in") === "true"
+  }, [])
+
   const userName = useMemo(() => {
     if (!user) return null
     if (user.email) {
@@ -253,7 +258,7 @@ export default function PwaWelcomePage() {
             <div className="mt-6 flex items-center justify-between">
                <div className="animate-slide-in-up">
                  <h2 className="text-2xl font-black text-white leading-tight drop-shadow-md">
-                   Bonjour {userName ? userName : "!"} 👋
+                   {isReturningUser ? "Rebonjour" : "Bonjour"} {userName ? userName : "!"} 👋
                  </h2>
                  <p className="text-sm font-medium text-[#D3EEDB] mt-1 drop-shadow-sm">Vos courses fraîches en un clic.</p>
                </div>
@@ -301,6 +306,27 @@ export default function PwaWelcomePage() {
               Appuyez pour laisser notre IA composer votre marché du jour !
             </p>
           </div>
+
+          {/* Devenir fournisseur */}
+          <button
+            type="button"
+            onClick={() => router.push("/devenir-fournisseur")}
+            className="mt-3 flex w-full items-center gap-3 rounded-3xl border border-[#1E8A3C]/20 bg-white px-5 py-4 shadow-sm shadow-gray-200/50 transition active:scale-[0.98]"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#1E8A3C]/10">
+              <svg viewBox="0 0 24 24" className="h-5 w-5 text-[#1E8A3C]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
+            </div>
+            <div className="text-left">
+              <p className="text-[15px] font-black text-[#3D3D3D] leading-tight">Devenir un fournisseur</p>
+              <p className="mt-0.5 text-[12px] font-medium text-gray-400">Rejoignez notre réseau de producteurs</p>
+            </div>
+            <svg viewBox="0 0 24 24" className="ml-auto h-4 w-4 text-gray-300" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
         </div>
 
         {/* Favorites Section */}

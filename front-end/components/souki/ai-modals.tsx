@@ -17,6 +17,7 @@ import {
   Zap,
 } from "lucide-react"
 
+import { CartLoadingAnimation } from "@/components/cart/CartLoadingAnimation"
 import { useAuth } from "@/hooks/useAuth"
 import { API_BASE_URL } from "@/lib/api"
 import {
@@ -99,6 +100,7 @@ export function AIModals({
   const [profile, setProfile] = useState<SmartBasketProfile>("equilibre")
   const [smartResult, setSmartResult] = useState<SmartBasketResponse | null>(null)
   const [isGeneratingSmart, setIsGeneratingSmart] = useState(false)
+  const [cartProgress, setCartProgress] = useState(0)
   const [smartSelections, setSmartSelections] = useState<BasketSelection[]>([])
   const [editedBasket, setEditedBasket] = useState<LigneCommandeDTO[]>([])
 
@@ -134,6 +136,7 @@ export function AIModals({
     setSmartResult(null)
     setSmartSelections([])
     setEditedBasket([])
+    setCartProgress(0)
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop()
     }
@@ -315,9 +318,21 @@ export function AIModals({
     }
 
     setIsGeneratingSmart(true)
+    setCartProgress(0)
     setError(null)
     setSmartResult(null)
     setSmartSelections([])
+
+    // Simulate incremental progress while the API call is in flight.
+    // Progress rises quickly to ~85 % then slows, so the last jump to 100 %
+    // feels satisfying when the call resolves.
+    const progressIntervalId = window.setInterval(() => {
+      setCartProgress((prev) => {
+        if (prev >= 85) return prev + 0.5   // slow crawl near the end
+        return prev + 3                      // fast progress at the start
+      })
+    }, 120)
+
     try {
       const data = await generateSmartPanier(
         {
@@ -328,6 +343,12 @@ export function AIModals({
         },
         token
       )
+      // Jump to 100 % to signal completion
+      window.clearInterval(progressIntervalId)
+      setCartProgress(100)
+      // Small delay so the user sees 100 % before the result renders
+      await new Promise((resolve) => window.setTimeout(resolve, 800))
+
       setSmartResult(data)
       setSmartSelections(
         data.lignes_panier.map((line) => ({
@@ -335,7 +356,23 @@ export function AIModals({
           quantity: line.quantite_kg,
         }))
       )
+
+      // Auto redirect to checkout
+      const checkoutCart = data.lignes_panier.map((line) => ({
+        id: String(line.product_id),
+        name: line.nom_produit,
+        price: line.prix_unitaire,
+        quantity: line.quantite_kg,
+        unit: line.unite,
+        image: line.image,
+      }))
+      const encodedCart = encodeURIComponent(JSON.stringify(checkoutCart))
+      const panierQuery = data.panier_id ? `&panier_id=${data.panier_id}` : ""
+      closeModal()
+      router.push(`/checkout?source=smart${panierQuery}&cart=${encodedCart}`)
     } catch (generationError) {
+      window.clearInterval(progressIntervalId)
+      setCartProgress(0)
       setError(
         generationError instanceof Error
           ? generationError.message
@@ -639,6 +676,12 @@ export function AIModals({
 
         {mode === "smart" && (
           <div className="flex max-h-[90vh] flex-col overflow-y-auto">
+            {/* ── Cart-loading animation overlay ── */}
+            {isGeneratingSmart && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-3xl bg-white/95 backdrop-blur-sm">
+                <CartLoadingAnimation progress={cartProgress} />
+              </div>
+            )}
             <div className="flex items-center justify-between border-b border-gray-100 p-6">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#F07C00] to-[#FF9421] text-white shadow-lg shadow-orange-500/20">
@@ -766,7 +809,19 @@ export function AIModals({
                 {isOrderLocked
                   ? orderLockMessage
                   : isGeneratingSmart
-                    ? "Le modele compose votre panier. Cela peut prendre quelques secondes."
+                    ? (
+                      <div className="space-y-3">
+                        <p className="font-semibold">Generation de votre panier en cours...</p>
+                        <div className="h-4 w-full overflow-hidden rounded-full bg-[#FFE8CC]">
+                          <div
+                            className="h-full bg-[#F07C00] transition-all duration-300 ease-out flex items-center justify-end px-2"
+                            style={{ width: `${Math.min(cartProgress, 100)}%` }}
+                          >
+                          </div>
+                        </div>
+                        <p className="text-right text-xs font-bold text-[#F07C00]">{Math.round(Math.min(cartProgress, 100))}%</p>
+                      </div>
+                    )
                     : "IA-SOUKI compose un panier avec le modele ML entraine sur les compositions SOUKI."}
               </div>
 

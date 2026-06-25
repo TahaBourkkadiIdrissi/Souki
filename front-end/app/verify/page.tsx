@@ -64,6 +64,8 @@ function OTPVerificationForm({
       const response = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // Indispensable pour que le navigateur stocke le cookie httpOnly renvoye.
+        credentials: "include",
         body: JSON.stringify({
           user_id: userId,
           channel,
@@ -78,7 +80,8 @@ function OTPVerificationForm({
       }
 
       if (data.access_token) {
-        localStorage.setItem("token", data.access_token)
+        // Le token vit desormais dans un cookie httpOnly (pose par le backend), plus
+        // dans le localStorage. On notifie juste le contexte d'auth de se rafraichir.
         window.dispatchEvent(
           new CustomEvent("auth-token-changed", {
             detail: { token: data.access_token },

@@ -142,6 +142,14 @@ function ParentLoginContent() {
     
     if (Object.keys(fieldErrors).length > 0) return;
 
+    // ── Strict email format validation (prevents malformed input & injection) ──
+    const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/
+    const trimmedId = loginId.trim()
+    if (trimmedId.includes("@") && !EMAIL_REGEX.test(trimmedId)) {
+      setGeneralError("Format d'email invalide. Veuillez saisir une adresse email correcte.")
+      return
+    }
+
     const validationErrors = validateForm();
     if (Object.keys(validationErrors).length > 0) {
       setFieldErrors(validationErrors);
@@ -629,7 +637,7 @@ function ParentLoginContent() {
                       CGU
                     </Link>{" "}
                     et la{" "}
-                    <Link href="/privacy" className="text-[#D97706] hover:underline">
+                    <Link href="/politique-confidentialite" className="text-[#D97706] hover:underline">
                       Politique de Confidentialité
                     </Link>
                   </span>

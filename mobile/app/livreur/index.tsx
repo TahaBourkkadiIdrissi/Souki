@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+import { useRouter } from "expo-router"
 import { CheckCircle2, Navigation, PackageCheck, Truck } from "lucide-react-native"
 import React from "react"
 import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native"
@@ -16,7 +17,8 @@ import {
 import { colors } from "@/theme/tokens"
 
 export default function LivreurPage() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, logout } = useAuth()
+  const router = useRouter()
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["livreur-tournee"],
     queryFn: () => getLivreurTournee(),
@@ -102,6 +104,16 @@ export default function LivreurPage() {
             ))}
           </>
         ) : null}
+        <Button
+          variant="outline"
+          onPress={async () => {
+            await logout()
+            router.replace("/login")
+          }}
+          className="mt-4 border-red-200"
+        >
+          <Text className="text-red-500 font-bold">Déconnexion</Text>
+        </Button>
       </View>
     </Screen>
   )

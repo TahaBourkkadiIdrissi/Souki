@@ -18,6 +18,8 @@ export function PwaInstallPrompt() {
   const [isStandalone, setIsStandalone] = useState(true)
 
   useEffect(() => {
+    // L'enregistrement du service worker est gere par <PwaServiceWorker /> (toujours
+    // actif). Ici on ne pilote que la banniere d'installation, masquee en standalone.
     if (isPwaStandalone()) {
       setIsStandalone(true)
       setIsVisible(false)
@@ -26,39 +28,6 @@ export function PwaInstallPrompt() {
 
     setIsStandalone(false)
     setIsVisible(true)
-
-    if (!("serviceWorker" in navigator)) {
-      return
-    }
-
-    navigator.serviceWorker
-      .register("/sw.js", { scope: "/" })
-      .then((registration) => {
-        registration.update()
-
-        registration.addEventListener("updatefound", () => {
-          const newWorker = registration.installing
-
-          newWorker?.addEventListener("statechange", () => {
-            if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-              newWorker.postMessage({ type: "SKIP_WAITING" })
-            }
-          })
-        })
-      })
-      .catch(() => undefined)
-
-    const updateWhenVisible = () => {
-      if (document.visibilityState === "visible") {
-        navigator.serviceWorker.getRegistration().then((registration) => registration?.update())
-      }
-    }
-
-    document.addEventListener("visibilitychange", updateWhenVisible)
-
-    return () => {
-      document.removeEventListener("visibilitychange", updateWhenVisible)
-    }
   }, [])
 
   useEffect(() => {

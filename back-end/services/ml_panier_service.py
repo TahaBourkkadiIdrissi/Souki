@@ -44,7 +44,7 @@ class MLPanierService:
             "SOUKI_ML_INFERENCE_URL",
             f"https://router.huggingface.co/hf-inference/models/{self._repo_id}",
         )
-        self._timeout_seconds = float(os.getenv("SOUKI_ML_TIMEOUT_SECONDS", "45"))
+        self._timeout_seconds = float(os.getenv("SOUKI_ML_TIMEOUT_SECONDS", "120"))
         self._preload_timeout_seconds = float(
             os.getenv("SOUKI_ML_PRELOAD_TIMEOUT_SECONDS", str(max(self._timeout_seconds, 180)))
         )

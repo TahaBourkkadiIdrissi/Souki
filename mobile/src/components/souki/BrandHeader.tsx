@@ -41,7 +41,10 @@ export function BrandHeader({
           </Link>
         </View>
         {isAuthenticated ? (
-          <Pressable className="rounded-xl bg-bg-card p-2" onPress={() => void logout()}>
+          <Pressable className="rounded-xl bg-bg-card p-2" onPress={async () => {
+             await logout();
+             router.replace('/login');
+          }}>
             <LogOut color={colors.greenMarket} size={20} />
           </Pressable>
         ) : (

@@ -36,6 +36,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 const AUTH_REQUEST_TIMEOUT_MS = 10000
+// Cle de synchronisation inter-onglets (valeur = horodatage, jamais le token).
+const AUTH_SYNC_STORAGE_KEY = "souki-auth-sync"
+// Marqueur de session non secret expose via useAuth().token quand l'utilisateur est
+// connecte. Le vrai JWT vit exclusivement dans le cookie httpOnly.
+const COOKIE_SESSION_SENTINEL = "cookie-session"
 const NETWORK_RETRY_ATTEMPTS = 3
 const NETWORK_RETRY_DELAY_MS = 1200
 const NETWORK_TIMEOUT_MS = 5000
@@ -123,20 +128,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
-  const validateTokenWithBackend = async (
-    tok: string
-  ): Promise<{ user: User | null; networkError: boolean }> => {
+  // Source de verite = cookie httpOnly. On interroge /auth/me avec credentials:"include"
+  // (le navigateur joint le cookie automatiquement) ; aucun token n'est requis cote JS.
+  const fetchCurrentUser = async (): Promise<{ user: User | null; networkError: boolean }> => {
     try {
-      const controller = new AbortController()
-      const timeoutId = window.setTimeout(() => controller.abort(), NETWORK_TIMEOUT_MS)
       const response = await fetchWithTimeout(`${API_BASE_URL}/auth/me`, {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${tok}`,
-          "Content-Type": "application/json",
-        },
-        mode: "cors",
-        credentials: "omit",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
       }, NETWORK_TIMEOUT_MS)
 
       if (!response.ok) {
@@ -156,48 +155,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { user: null, networkError: true }
       }
       console.warn(
-        "Token validation error:",
+        "Session refresh error:",
         error instanceof Error ? error.message : String(error)
       )
       return { user: null, networkError: false }
     }
   }
 
+  const clearLocalSession = () => {
+    setToken(null)
+    setUser(null)
+    setIsAuthenticated(false)
+  }
+
+  // Declenche un evenement "storage" dans les autres onglets pour resynchroniser la session.
+  const notifyAuthSync = () => {
+    try {
+      localStorage.setItem(AUTH_SYNC_STORAGE_KEY, String(Date.now()))
+    } catch {
+      // localStorage indisponible (mode prive) : la synchro inter-onglets est juste ignoree.
+    }
+  }
+
+  // Recharge l'utilisateur courant depuis le cookie httpOnly (seule source de verite).
+  // nextToken sert uniquement de signal "connexion" (non-null) vs "deconnexion" (null) ;
+  // sa valeur reelle est ignoree : le vrai JWT n'est JAMAIS conserve cote JS (anti-XSS).
   const syncAuthState = async (nextToken: string | null): Promise<User | null> => {
-    if (!nextToken) {
-      localStorage.removeItem("token")
-      setToken(null)
-      setUser(null)
-      setIsAuthenticated(false)
+    if (nextToken === null) {
+      clearLocalSession()
       return null
     }
 
-    localStorage.setItem("token", nextToken)
-    setToken(nextToken)
-
-    const { user: nextUser, networkError } = await validateTokenWithBackend(nextToken)
+    const { user: nextUser, networkError } = await fetchCurrentUser()
     if (nextUser) {
+      // Marqueur de session NON secret. Les pages qui conditionnent leurs appels sur
+      // `token` (ex: supplier, livreur) continuent de fonctionner, et l'en-tete
+      // "Authorization: Bearer cookie-session" eventuellement envoye est ignore par le
+      // backend (il privilegie le cookie). Le JWT reel reste dans le cookie httpOnly.
+      setToken(COOKIE_SESSION_SENTINEL)
       setIsAuthenticated(true)
       return nextUser
     }
 
-    // Ne pas supprimer la session si le backend est simplement indisponible temporairement.
+    // Ne pas effacer la session si le backend est simplement indisponible temporairement.
     if (networkError) {
       setIsAuthenticated(false)
       return null
     }
 
-    localStorage.removeItem("token")
-    setToken(null)
-    setUser(null)
-    setIsAuthenticated(false)
+    clearLocalSession()
     return null
   }
 
+  // Verifie la session via le cookie, sans token en memoire (init, autres onglets).
+  const refreshSession = (): Promise<User | null> => syncAuthState("")
+
   useEffect(() => {
-    const retryTokenSync = async (storedToken: string) => {
+    const retrySessionRefresh = async () => {
       for (let attempt = 1; attempt <= NETWORK_RETRY_ATTEMPTS; attempt += 1) {
-        const nextUser = await syncAuthState(storedToken)
+        const nextUser = await refreshSession()
         if (nextUser) {
           return
         }
@@ -209,26 +225,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const initializeAuth = async () => {
       setIsLoading(true)
-      const storedToken = localStorage.getItem("token")
-
-      if (storedToken) {
-        await retryTokenSync(storedToken)
-      } else {
-        setIsAuthenticated(false)
-      }
-
+      // On tente toujours une reprise de session via le cookie httpOnly.
+      await retrySessionRefresh()
       setIsLoading(false)
     }
 
+    // Synchronisation inter-onglets : on relaie un signal non sensible (jamais le token).
     const handleStorageChange = async (e: StorageEvent) => {
-      if (e.key === "token") {
-        await syncAuthState(e.newValue)
+      if (e.key === AUTH_SYNC_STORAGE_KEY) {
+        await refreshSession()
       }
     }
 
     const handleAuthTokenChanged = async (event: Event) => {
       const customEvent = event as CustomEvent<{ token: string | null }>
-      await syncAuthState(customEvent.detail?.token ?? null)
+      await syncAuthState(customEvent.detail?.token ?? "")
     }
 
     void initializeAuth()
@@ -242,8 +253,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const validateToken = async (): Promise<boolean> => {
-    if (!token) return false
-    return Boolean(await syncAuthState(token))
+    return Boolean(await refreshSession())
   }
 
   const authenticate = async (endpoint: string, payload: Record<string, unknown>) => {
@@ -256,8 +266,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
-            mode: "cors",
-            credentials: "omit",
+            // credentials:"include" pour que le navigateur stocke le cookie httpOnly renvoye.
+            credentials: "include",
           }, NETWORK_TIMEOUT_MS)
           break
         } catch (error) {
@@ -293,6 +303,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!nextUser) {
         throw new Error("Validation du token echouee")
       }
+      notifyAuthSync()
       return nextUser
     } catch (error) {
       console.warn(
@@ -333,7 +344,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = async () => {
+    // Invalide la session serveur et supprime le cookie httpOnly.
+    try {
+      await fetchWithTimeout(`${API_BASE_URL}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      }, NETWORK_TIMEOUT_MS)
+    } catch {
+      // On nettoie l'etat local meme si l'appel reseau echoue.
+    }
     await syncAuthState(null)
+    notifyAuthSync()
   }
 
   const hasRole = (role: string) => Boolean(user?.roles.includes(role.toUpperCase()))

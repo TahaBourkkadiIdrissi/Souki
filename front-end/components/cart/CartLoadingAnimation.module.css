@@ -1,0 +1,73 @@
+﻿.container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.cartWrapper {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.cartSvg {
+  width: 96px;
+  height: 96px;
+  position: relative;
+  z-index: 2;
+  filter: drop-shadow(0 4px 12px rgba(240, 124, 0, 0.3));
+}
+
+.fillBar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: linear-gradient(to top, #F07C00cc, #FFC24455);
+  transition: height 0.25s ease;
+  z-index: 1;
+  border-radius: 0 0 8px 8px;
+}
+
+.labelRow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.percentage {
+  font-size: 2rem;
+  font-weight: 900;
+  color: #F07C00;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #9A5C11;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.progressTrack {
+  width: 160px;
+  height: 6px;
+  background: #FFF0D9;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #F07C00, #FFC244);
+  border-radius: 99px;
+  transition: width 0.25s ease;
+}

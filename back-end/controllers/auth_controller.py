@@ -1,8 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
 
 from auth_dependencies import require_auth
-from config import ALGORITHM, SECRET_KEY
+from config import (
+    ACCESS_TOKEN_COOKIE_NAME,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    ALGORITHM,
+    COOKIE_SAMESITE,
+    COOKIE_SECURE,
+    SECRET_KEY,
+)
 from dto.user_dto import (
     AdminLoginRequest,
     CurrentUserResponse,
@@ -20,10 +30,28 @@ from services.user_session_service import UserSessionService
 
 auth_router = APIRouter(prefix="/auth", tags=["Auth"])
 
+# Lecture optionnelle du token depuis l'en-tete (pour /logout, qui doit fonctionner
+# meme si l'en-tete est absent — le token vient alors du cookie).
+_optional_bearer = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
+
+
 def _register_session_for_token(token: str, request: Request):
     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     user_id = int(payload.get("sub"))
     UserSessionService().create_session(user_id=user_id, token=token, request=request)
+
+
+def _set_auth_cookie(response: Response, token: str):
+    """Pose le JWT dans un cookie httpOnly (inaccessible au JS, anti-XSS)."""
+    response.set_cookie(
+        key=ACCESS_TOKEN_COOKIE_NAME,
+        value=token,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        path="/",
+    )
 
 
 @auth_router.post("/register", response_model=RegisterResponse)
@@ -32,11 +60,12 @@ def register(data: UserRegister, request: Request):
 
 
 @auth_router.post("/login")
-def login(data: LoginRequest, request: Request):
+def login(data: LoginRequest, request: Request, response: Response):
     token = AuthService().login(data)
     if not token:
         raise HTTPException(status_code=401, detail="Identifiants incorrects.")
     _register_session_for_token(token, request)
+    _set_auth_cookie(response, token)
     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     return {
         "access_token": token,
@@ -48,11 +77,12 @@ def login(data: LoginRequest, request: Request):
 
 
 @auth_router.post("/admin/login")
-def admin_login(data: AdminLoginRequest, request: Request):
+def admin_login(data: AdminLoginRequest, request: Request, response: Response):
     token = AuthService().admin_login(data)
     if not token:
         raise HTTPException(status_code=401, detail="Identifiants incorrects.")
     _register_session_for_token(token, request)
+    _set_auth_cookie(response, token)
     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     return {
         "access_token": token,
@@ -64,11 +94,12 @@ def admin_login(data: AdminLoginRequest, request: Request):
 
 
 @auth_router.post("/verify-otp", response_model=OTPVerificationResponse)
-def verify_otp(data: OTPVerifyRequest, request: Request):
+def verify_otp(data: OTPVerifyRequest, request: Request, response: Response):
     res = AuthService().verify_otp(data.user_id, data.code, data.channel)
     token = res.get("access_token")
     if token:
         _register_session_for_token(token, request)
+        _set_auth_cookie(response, token)
     return res
 
 
@@ -78,11 +109,12 @@ def resend_otp(data: OTPResendRequest):
 
 
 @auth_router.post("/google")
-def google_login(data: GoogleLoginRequest, request: Request):
+def google_login(data: GoogleLoginRequest, request: Request, response: Response):
     token = AuthService().google_login(data.token, data.role)
     if not token:
         raise HTTPException(status_code=401, detail="Token Google invalide ou expire.")
     _register_session_for_token(token, request)
+    _set_auth_cookie(response, token)
     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     return {
         "access_token": token,
@@ -94,11 +126,12 @@ def google_login(data: GoogleLoginRequest, request: Request):
 
 
 @auth_router.post("/google-login")
-def google_login_legacy(data: GoogleLoginRequest, request: Request):
+def google_login_legacy(data: GoogleLoginRequest, request: Request, response: Response):
     token = AuthService().google_login(data.token, data.role)
     if not token:
         raise HTTPException(status_code=401, detail="Token Google invalide ou expire.")
     _register_session_for_token(token, request)
+    _set_auth_cookie(response, token)
     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     return {
         "access_token": token,
@@ -112,6 +145,24 @@ def google_login_legacy(data: GoogleLoginRequest, request: Request):
 @auth_router.get("/me", response_model=CurrentUserResponse)
 def get_me(principal=Depends(require_auth)):
     return AuthService().export_current_principal(principal)
+
+
+@auth_router.post("/logout")
+def logout(
+    request: Request,
+    response: Response,
+    header_token: Optional[str] = Depends(_optional_bearer),
+):
+    """Invalide la session courante et supprime le cookie httpOnly."""
+    token = header_token or request.cookies.get(ACCESS_TOKEN_COOKIE_NAME)
+    if token:
+        try:
+            UserSessionService().invalidate_token_session(token)
+        except Exception:
+            # La suppression du cookie doit aboutir meme si l'invalidation echoue.
+            pass
+    response.delete_cookie(key=ACCESS_TOKEN_COOKIE_NAME, path="/")
+    return {"status": "ok"}
 
 
 get_current_user = require_auth
