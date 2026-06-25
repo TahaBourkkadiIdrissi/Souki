@@ -38,6 +38,7 @@ import type { CommandeHistoriqueDTO, ProduitSuggestionDTO } from "@/lib/api"
 import { getCatalogueSuggestions } from "@/lib/api"
 import {
   BasketSelection,
+  CatalogueCategory,
   CatalogueProduct,
   ClaimReason,
   CartItem,
@@ -387,6 +388,10 @@ function CatalogueContent() {
     useState<(typeof categories)[number]["id"]>("tous")
   const [sortBy, setSortBy] = useState<(typeof sortOptions)[number]["id"]>("popular")
   const [searchQuery, setSearchQuery] = useState("")
+  // Categorie ciblee depuis l'accueil PWA : on garde TOUS les produits affiches
+  // (pas de filtre) et on regroupe par categorie pour scroller vers la bonne.
+  const [categoryFocus, setCategoryFocus] = useState<CatalogueCategory | null>(null)
+  const hasScrolledToFocusRef = useRef(false)
   const [showSidebar, setShowSidebar] = useState(false)
   const [showCart, setShowCart] = useState(false)
   const [activeModal, setActiveModal] = useState<"voice" | "smart" | null>(null)
@@ -591,6 +596,23 @@ function CatalogueContent() {
       setActiveModal(assistantMode)
     }
   }, [isAuthenticated, isLoading, searchParams])
+
+  // Deep-link depuis l'accueil PWA.
+  // - ?q=   : recherche
+  // - ?focus= : categorie ciblee, SANS filtrer (tous les produits restent visibles),
+  //            on regroupe par categorie et on scrolle vers la section choisie.
+  useEffect(() => {
+    const query = searchParams.get("q")
+    if (query) setSearchQuery(query)
+
+    const focus = searchParams.get("focus")
+    if (focus === "legumes" || focus === "fruits" || focus === "herbes") {
+      setCategoryFocus(focus)
+      hasScrolledToFocusRef.current = false
+    } else {
+      setCategoryFocus(null)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     const panierIdParam = searchParams.get("panier_id")
@@ -935,7 +957,20 @@ function CatalogueContent() {
       return left.id - right.id
     })
 
+  // Vue ciblee par categorie (depuis l'accueil) : tous les produits restent
+  // visibles, regroupes par categorie. Prioritaire sur le regroupement par niveau.
+  const productsByCategory = useMemo(() => {
+    if (!categoryFocus) return null
+    if (searchQuery.trim() !== "" || selectedCategory !== "tous") return null
+    return {
+      legumes: filteredProducts.filter((p) => p.category === "legumes"),
+      fruits: filteredProducts.filter((p) => p.category === "fruits"),
+      herbes: filteredProducts.filter((p) => p.category === "herbes"),
+    }
+  }, [categoryFocus, filteredProducts, searchQuery, selectedCategory])
+
   const productsByLevel = useMemo(() => {
+    if (categoryFocus) return null // la vue par categorie prend le dessus
     const hasSearchOrFilter = searchQuery.trim() !== "" || selectedCategory !== "tous"
     if (hasSearchOrFilter) return null // skip level grouping when filtering
     return {
@@ -943,7 +978,18 @@ function CatalogueContent() {
       level2: filteredProducts.filter((p) => p.niveau === 2),
       level3: filteredProducts.filter((p) => p.niveau === 3),
     }
-  }, [filteredProducts, searchQuery, selectedCategory])
+  }, [categoryFocus, filteredProducts, searchQuery, selectedCategory])
+
+  // Scroll doux vers la section de la categorie choisie une fois les produits charges.
+  useEffect(() => {
+    if (!categoryFocus || isFetching || hasScrolledToFocusRef.current) return
+    const target = document.getElementById(`catalogue-cat-${categoryFocus}`)
+    if (!target) return
+    hasScrolledToFocusRef.current = true
+    window.requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: "smooth", block: "start" })
+    })
+  }, [categoryFocus, isFetching, productsByCategory])
 
   const cartSubtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const reste = Math.max(0, SEUIL - cartSubtotal)
@@ -1556,7 +1602,70 @@ function CatalogueContent() {
 
           {!showOrderHistory && !isFetching && !error && (
             <>
-              {productsByLevel ? (
+              {productsByCategory ? (
+                <div
+                  ref={revealRef}
+                  id="catalogue-products"
+                  className="space-y-12 scroll-mt-28"
+                >
+                  {([
+                    { key: "legumes" as const, label: "Légumes", subtitle: "Frais du marché de gros" },
+                    { key: "fruits" as const, label: "Fruits", subtitle: "Sucrés et de saison" },
+                    { key: "herbes" as const, label: "Herbes", subtitle: "Aromates et fraîcheur" },
+                  ] as const).map((section, sectionIndex) => {
+                    const items = productsByCategory[section.key]
+                    if (items.length === 0) return null
+                    return (
+                      <section key={section.key} id={`catalogue-cat-${section.key}`} className="scroll-mt-28">
+                        <div
+                          data-reveal="up"
+                          data-delay={String((sectionIndex % 4) + 1)}
+                          className="mb-4 flex items-end justify-between"
+                        >
+                          <div>
+                            <h3 className="text-lg font-bold text-[#264129]">{section.label}</h3>
+                            <p className="text-sm text-[#6F8070]">{section.subtitle}</p>
+                          </div>
+                          <span className="rounded-full bg-[#F0FAF1] px-3 py-1 text-xs font-bold text-[#1E8A3C]">
+                            {items.length} produit{items.length > 1 ? "s" : ""}
+                          </span>
+                        </div>
+                        <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-3 scrollbar-none sm:gap-4">
+                          {items.map((product, index) => (
+                            <div
+                              key={product.id}
+                              data-reveal="scale"
+                              data-delay={String(((sectionIndex * 3 + index) % 4) + 1)}
+                              className="w-[10.5rem] shrink-0 snap-start sm:w-[12rem]"
+                            >
+                              <ProductCard
+                                id={product.id}
+                                name={product.name}
+                                image={product.image}
+                                price={product.price}
+                                prixKhddarEstime={product.prix_khddar_estime}
+                                niveau={product.niveau}
+                                unit={product.unit}
+                                displayUnit={product.displayUnit}
+                                quantityStep={product.quantityStep}
+                                stock={product.stock}
+                                onView={handleProductView}
+                                onAddToCart={handleAddToCart}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    )
+                  })}
+
+                  {filteredProducts.length === 0 && (
+                    <div className="rounded-[28px] border border-[#E6EFE7] bg-white p-12 text-center">
+                      <p className="text-[#6F8070]">Aucun produit disponible pour le moment.</p>
+                    </div>
+                  )}
+                </div>
+              ) : productsByLevel ? (
                 <div
                   ref={revealRef}
                   id="catalogue-products"

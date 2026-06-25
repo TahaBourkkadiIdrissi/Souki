@@ -1335,6 +1335,42 @@ html {
   animation: avatar-celebrate-pop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+/* ─── Animations d'entree de l'accueil PWA (etaient referencees sans etre definies) ─── */
+@keyframes slide-in-down {
+  from { opacity: 0; transform: translateY(-14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes bounce-in {
+  0% { opacity: 0; transform: scale(0.6); }
+  60% { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.animate-slide-in-down { animation: slide-in-down 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-slide-in-up { animation: slide-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-bounce-in { animation: bounce-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+/* Placeholder de recherche qui defile (style marketplace) */
+@keyframes search-hint-cycle {
+  0%, 18% { opacity: 1; transform: translateY(0); }
+  25%, 100% { opacity: 0; transform: translateY(-8px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-in-down,
+  .animate-slide-in-up,
+  .animate-bounce-in {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
 /* ─── Transition de page (fondu natif a chaque navigation) ─── */
 @keyframes pageEnter {
   from { opacity: 0; }

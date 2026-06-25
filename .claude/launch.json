@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "souki-front",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "front-end", "run", "dev"],
+      "port": 3000,
+      "autoPort": true
+    }
+  ]
+}

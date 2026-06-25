@@ -206,7 +206,7 @@ export default function DevenirFournisseurPage() {
 
   return (
     <main className="min-h-screen bg-muted/55 text-foreground dark:bg-background">
-      <div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
+      <div className="mobile-native-surface mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
         <SupplierPageHeader
           eyebrow="Demande fournisseur"
           title="Ouvrir ma boutique Souki"
