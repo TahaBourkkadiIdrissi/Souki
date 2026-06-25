@@ -12,7 +12,6 @@ import {
   Gauge,
   LogOut,
   type LucideIcon,
-  LogOut,
   Map as MapIcon,
   MapPin,
   Navigation,
