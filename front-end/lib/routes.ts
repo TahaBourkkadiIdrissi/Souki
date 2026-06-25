@@ -320,13 +320,13 @@ export function canAccessRoute({
   isAuthenticated: boolean
   isLoading: boolean
 }): RouteAccessDecision {
-  if (isLoading) {
-    return { allowed: false, reason: "loading" }
-  }
-
   const route = getRouteConfig(pathname)
   if (!route) {
     return { allowed: true }
+  }
+
+  if (isLoading && route.authRequired) {
+    return { allowed: false, reason: "loading", route }
   }
 
   const hasAuthIntent =

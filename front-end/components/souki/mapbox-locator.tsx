@@ -5,17 +5,22 @@ import { MapPin, Loader2, AlertCircle, X } from "lucide-react"
 import "mapbox-gl/dist/mapbox-gl.css"
 
 interface MapboxLocatorProps {
-  onAddressDetected: (address: string, city: string) => void
+  onAddressDetected: (address: string, city: string, coordinates?: { latitude: number; longitude: number }) => void
   isOpen: boolean
   onClose: () => void
+  confirmSelection?: boolean
 }
 
-export function MapboxLocator({ onAddressDetected, isOpen, onClose }: MapboxLocatorProps) {
+export function MapboxLocator({ onAddressDetected, isOpen, onClose, confirmSelection = false }: MapboxLocatorProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<any>(null)
+  const marker = useRef<any>(null)
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
+  const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null)
+  const [selectedAddress, setSelectedAddress] = useState("")
+  const [selectedCity, setSelectedCity] = useState("")
 
   const resetMap = useCallback(() => {
     if (map.current) {
@@ -23,6 +28,9 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose }: MapboxLoca
       map.current = null
     }
     setUserLocation(null)
+    setSelectedLocation(null)
+    setSelectedAddress("")
+    setSelectedCity("")
     setLoading(false)
   }, [])
 
@@ -47,6 +55,7 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose }: MapboxLoca
       (position) => {
         const { latitude, longitude } = position.coords
         setUserLocation({ latitude, longitude })
+        setSelectedLocation({ latitude, longitude })
         setLoading(false)
       },
       (err) => {
@@ -89,22 +98,20 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose }: MapboxLoca
       })
 
       newMap.on("load", () => {
-        new MapboxGl.Marker({ color: "#1E8A3C" })
+        marker.current = new MapboxGl.Marker({ color: "#1E8A3C", draggable: true })
           .setLngLat([lng, lat])
           .addTo(newMap)
+        marker.current.on("dragend", async () => {
+          const lngLat = marker.current.getLngLat()
+          await detectAddressAtLocation(lngLat.lng, lngLat.lat)
+        })
+        void detectAddressAtLocation(lng, lat, true)
       })
 
       // Handle map clicks for address detection
       newMap.on("click", async (e) => {
         await detectAddressAtLocation(e.lngLat.lng, e.lngLat.lat)
-        
-        // Update marker position
-        const markers = document.querySelectorAll(".mapboxgl-marker")
-        markers.forEach((marker) => marker.remove())
-        
-        new MapboxGl.Marker({ color: "#1E8A3C" })
-          .setLngLat([e.lngLat.lng, e.lngLat.lat])
-          .addTo(newMap)
+        marker.current?.setLngLat([e.lngLat.lng, e.lngLat.lat])
       })
 
       map.current = newMap
@@ -115,14 +122,21 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose }: MapboxLoca
   }
 
   // Reverse geocode coordinates to get address
-  const detectAddressAtLocation = async (lng: number, lat: number) => {
+  const detectAddressAtLocation = async (lng: number, lat: number, initialDetection = false) => {
     try {
       setLoading(true)
       setError(null)
+      setSelectedLocation({ latitude: lat, longitude: lng })
 
       const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
       if (!mapboxToken) {
-        setError("Token Mapbox non configuré.")
+        const fallbackAddress = `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+        setSelectedAddress(fallbackAddress)
+        setSelectedCity("")
+        if (!confirmSelection && !initialDetection) {
+          onAddressDetected(fallbackAddress, "", { latitude: lat, longitude: lng })
+          onClose()
+        }
         setLoading(false)
         return
       }
@@ -148,10 +162,20 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose }: MapboxLoca
           city = cityFeature.text || ""
         }
 
-        onAddressDetected(address, city)
-        onClose()
+        setSelectedAddress(address)
+        setSelectedCity(city)
+        if (!confirmSelection && !initialDetection) {
+          onAddressDetected(address, city, { latitude: lat, longitude: lng })
+          onClose()
+        }
       } else {
-        setError("Adresse non trouvée. Essayez un autre emplacement.")
+        const fallbackAddress = `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+        setSelectedAddress(fallbackAddress)
+        setSelectedCity("")
+        if (!confirmSelection && !initialDetection) {
+          onAddressDetected(fallbackAddress, "", { latitude: lat, longitude: lng })
+          onClose()
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur lors de la localisation")
@@ -241,6 +265,14 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose }: MapboxLoca
                 {/* Instructions overlay */}
                 <div className="absolute bottom-4 left-4 right-4 bg-white rounded-lg shadow-lg p-4">
                   <p className="text-sm text-[#3D3D3D] font-medium">Cliquez sur la carte pour sélectionner votre adresse</p>
+                  {confirmSelection && (
+                    <p className="mt-1 text-xs font-medium text-[#6F8070]">
+                      Vous pouvez aussi déplacer le marqueur pour ajuster la position.
+                    </p>
+                  )}
+                  {selectedAddress && (
+                    <p className="mt-2 text-xs font-semibold text-[#1E8A3C]">{selectedAddress}</p>
+                  )}
                   {loading && (
                     <div className="mt-3 flex items-center gap-2">
                       <Loader2 className="w-4 h-4 text-[#1E8A3C] animate-spin" />
@@ -261,6 +293,24 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose }: MapboxLoca
           >
             Annuler
           </button>
+          {confirmSelection && (
+            <button
+              type="button"
+              disabled={!selectedLocation || loading}
+              onClick={() => {
+                if (!selectedLocation) return
+                onAddressDetected(
+                  selectedAddress || `${selectedLocation.latitude.toFixed(6)}, ${selectedLocation.longitude.toFixed(6)}`,
+                  selectedCity,
+                  selectedLocation
+                )
+                onClose()
+              }}
+              className="px-6 py-2 rounded-xl bg-[#1E8A3C] text-white font-semibold hover:bg-[#176B2E] disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+            >
+              Confirmer cette position
+            </button>
+          )}
         </div>
       </div>
     </div>
