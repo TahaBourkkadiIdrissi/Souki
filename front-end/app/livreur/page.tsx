@@ -817,6 +817,19 @@ export default function LivreurPage() {
   const [geocodingDeliveryIds, setGeocodingDeliveryIds] = useState<string[]>([])
   const [failedGeocodingDeliveryIds, setFailedGeocodingDeliveryIds] = useState<string[]>([])
 
+  useEffect(() => {
+    if (!notice) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(
+      () => setNotice(null),
+      notice.tone === "error" ? 5200 : 3600
+    )
+
+    return () => window.clearTimeout(timeoutId)
+  }, [notice])
+
   const handleConfirmPickup = async () => {
     if (!token || !tourneeData?.tournee_id || tourneeData.ramassee) {
       return
@@ -2770,6 +2783,20 @@ export default function LivreurPage() {
                         {driverLocation.speedKmh ? `${Math.round(driverLocation.speedKmh)} km/h` : "GPS actif"}
                       </span>
                     )}
+                    {canRejectEntireTournee && (
+                      <button
+                        type="button"
+                        onClick={handleRejectEntireTournee}
+                        disabled={isRefusingTournee}
+                        title={`Refuser ${pendingAssignmentCount} nouvelle(s) course(s)`}
+                        className="inline-flex max-w-full items-center justify-center gap-1 rounded-full bg-red-600 px-3 py-1 text-[11px] font-bold text-white shadow-sm transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-65"
+                      >
+                        {isRefusingTournee ? <Spinner className="size-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+                        <span className="truncate">
+                          {isRefusingTournee ? "Refus..." : "Refuser la livraison"}
+                        </span>
+                      </button>
+                    )}
                   </div>
 
                   <div className="mt-3 grid grid-cols-3 gap-2">
@@ -2849,24 +2876,10 @@ export default function LivreurPage() {
             </div>
           )}
 
-          {canRejectEntireTournee && (
-            <button
-              type="button"
-              onClick={handleRejectEntireTournee}
-              disabled={isRefusingTournee}
-              className="pointer-events-auto relative z-10 my-4 flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 font-semibold text-white shadow-md transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-65"
-            >
-              {isRefusingTournee ? <Spinner className="size-5" /> : <XCircle className="h-5 w-5" />}
-              <span className="truncate">
-                {isRefusingTournee ? "Refus en cours..." : `Refuser ${pendingAssignmentCount} nouvelle(s) course(s)`}
-              </span>
-            </button>
-          )}
-
           {notice && !beforeSeven && (
             <div
               className={cn(
-                "rounded-2xl px-4 py-3 text-sm shadow-sm backdrop-blur",
+                "rounded-2xl px-4 py-3 text-sm shadow-sm backdrop-blur animate-in fade-in slide-in-from-top-2 duration-300",
                 notice.tone === "success" && "bg-[#F0FAF1]/95 text-[#1E8A3C]",
                 notice.tone === "info" && "bg-[#FFF3E0]/95 text-[#8A5A00]",
                 notice.tone === "error" && "bg-red-50/95 text-red-600"
