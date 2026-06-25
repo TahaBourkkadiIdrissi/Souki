@@ -26,6 +26,8 @@ class SupplierRequestDTO(BaseModel):
     phone: str
     address: str = Field(min_length=3)
     ville: Optional[str] = None
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
     code_postal: Optional[str] = None
     siret: Optional[str] = None
     logo_url: Optional[str] = None
@@ -49,6 +51,8 @@ class SupplierProfileDTO(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     ville: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     statut: SupplierStatus
     rejected_reason: Optional[str] = None
     rating: float = 0
@@ -66,6 +70,8 @@ class SupplierUpdateDTO(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = Field(default=None, min_length=3)
     ville: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     logo_url: Optional[str] = None
     couverture_url: Optional[str] = None
     horaires: Optional[Dict[str, Any]] = None

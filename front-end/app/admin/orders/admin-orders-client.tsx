@@ -19,6 +19,7 @@ import {
   Search,
   Scale,
   TriangleAlert,
+  Truck,
   Unlock,
   XCircle,
 } from "lucide-react"
@@ -61,6 +62,7 @@ import {
   type FicheClientDTO,
   type JITCommandeDeverrouillee,
   type JITDeverrouillerResponse,
+  type JITExecutionResponse,
   type JITLogDTO,
   jitAgreger,
   jitDernierLog,
@@ -498,6 +500,43 @@ function normalizeLogResult(log: JITLogDTO): ResultatAgregationJIT {
     statut: log.statut,
     message: log.message_alerte,
   }
+}
+
+function normalizeExecutionResult(response: JITExecutionResponse): ResultatAgregationJIT {
+  const zones = Object.values(response.zones || {})
+  const nombreCommandes = zones.reduce((sum, zone) => sum + (getNumber(zone.nombre_commandes) || 0), 0)
+  const volumeTotal = zones.reduce((sum, zone) => sum + (getNumber(zone.volume_total_kg) || 0), 0)
+  const montantTotal = zones.reduce((sum, zone) => sum + (getNumber(zone.montant_total) || 0), 0)
+  const hasError = zones.some((zone) => normalizeStatus(zone.statut) === "erreur")
+  const hasAnyOrder = nombreCommandes > 0
+
+  return {
+    nombre_commandes: nombreCommandes,
+    nombre_abonnements: 0,
+    volume_total_kg: Number(volumeTotal.toFixed(2)),
+    details_produits: [],
+    montant_total: Number(montantTotal.toFixed(2)),
+    ca_estime_total: Number(montantTotal.toFixed(2)),
+    cout_achat_estime: 0,
+    marge_estimee: 0,
+    statut: hasError ? "erreur" : hasAnyOrder ? "succès" : "aucune_commande",
+    message: zones.map((zone) => zone.message).filter(Boolean).join(" | ") || null,
+  }
+}
+
+function summarizeExecutionLock(response: JITExecutionResponse) {
+  const zones = Object.values(response.zones || {})
+  const nombreCommandes = zones.reduce((sum, zone) => sum + (getNumber(zone.nombre_commandes) || 0), 0)
+  const nombreVerrouillees = zones.reduce((sum, zone) => sum + (getNumber(zone.nombre_verrouillees) || 0), 0)
+  const zonesErreur = Object.entries(response.zones || {})
+    .filter(([, zone]) => normalizeStatus(zone.statut) === "erreur")
+    .map(([name, zone]) => `${name}: ${zone.message || "erreur JIT"}`)
+  const toutesZonesDejaExecutees =
+    zones.length > 0 && zones.every((zone) => normalizeStatus(zone.statut) === "deja_execute")
+  const aucuneCommandeDansZones =
+    zones.length > 0 && zones.every((zone) => normalizeStatus(zone.statut) === "aucune_commande")
+
+  return { nombreCommandes, nombreVerrouillees, zonesErreur, toutesZonesDejaExecutees, aucuneCommandeDansZones }
 }
 
 function getOrdersErrorMessage(error: unknown) {
@@ -1425,12 +1464,19 @@ export default function AdminOrdersPage() {
   }
 
   async function handleExecute() {
-    if (!token || isExecuteLoading) {
+    if (isExecuteLoading) {
+      return
+    }
+
+    if (!token) {
+      setJitError("Session admin expirée. Reconnectez-vous puis relancez le JIT.")
+      setIsExecuteDialogOpen(false)
       return
     }
 
     if (hasLockedOrdersToday) {
-      setJitError("Le JIT du jour est déjà lancé. Déverrouillez les commandes avant de le relancer.")
+      setJitError("Le JIT du jour est deja lance. Deverrouillez les commandes avant de le relancer.")
+      setIsExecuteDialogOpen(false)
       return
     }
 
@@ -1439,22 +1485,34 @@ export default function AdminOrdersPage() {
     setJitFeedback(null)
 
     try {
-      const log = await jitExecuter(token)
-      setJitResult(normalizeLogResult(log))
+      const execution = await jitExecuter(token)
+      const { nombreCommandes, nombreVerrouillees, zonesErreur, toutesZonesDejaExecutees, aucuneCommandeDansZones } = summarizeExecutionLock(execution)
+      setJitResult(normalizeExecutionResult(execution))
       setJitResultSource("execute")
-      setLastLog(log)
       setLogError(null)
-      setJitFeedback(
-        normalizeStatus(log.statut) === "succes"
-          ? `${log.nombre_commandes} commande(s) verrouillée(s) avec succès.`
-          : log.message_alerte || "Exécution JIT terminée."
-      )
+
+      if (execution.nombre_zones === 0) {
+        setJitError("Aucune zone JIT active. Ouvrez /admin/zones puis créez une zone active rattachée à un fournisseur approuvé.")
+      } else if (toutesZonesDejaExecutees) {
+        setJitError("Le JIT a deja ete execute pour toutes les zones actives aujourd'hui.")
+      } else if (aucuneCommandeDansZones && orders.length > 0) {
+        setJitError("Aucune commande n'est dans les zones JIT actives. Verifiez le rayon de la zone et la localisation des adresses client.")
+      } else if (zonesErreur.length > 0) {
+        setJitError(`Erreur JIT: ${zonesErreur.join(" | ")}`)
+      } else if (nombreCommandes > 0 && nombreVerrouillees === 0) {
+        setJitError(
+          "JIT execute, mais aucune commande n'a ete verrouillee. Verifiez les zones actives, les fournisseurs affectes et les adresses client geolocalisees."
+        )
+      } else {
+        setJitFeedback(`${nombreVerrouillees}/${nombreCommandes} commande(s) verrouillee(s) avec succes.`)
+      }
 
       await loadOrders(token, false)
       await loadLastLog(token, false)
       setIsExecuteDialogOpen(false)
     } catch (error) {
-      setJitError(error instanceof Error ? error.message : "Impossible d'exécuter le job JIT.")
+      setJitError(error instanceof Error ? error.message : "Impossible d'executer le job JIT.")
+      setIsExecuteDialogOpen(false)
     } finally {
       setIsExecuteLoading(false)
     }
@@ -2208,8 +2266,13 @@ export default function AdminOrdersPage() {
           </div>
 
           {jitError && (
-            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {jitError}
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <span>{jitError}</span>
+              {jitError.includes("Aucune zone JIT active") && (
+                <Link href="/admin/zones" className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700">
+                  Configurer les zones
+                </Link>
+              )}
             </div>
           )}
 
@@ -2220,8 +2283,15 @@ export default function AdminOrdersPage() {
           )}
 
           {hasLockedOrdersToday && (
-            <div className="mb-4 rounded-xl border border-[#F5C400]/40 bg-[#F5C400]/10 px-4 py-3 text-sm font-medium text-[#8B6A00] flex items-start gap-3">
+            <div className="mb-4 rounded-xl border border-[#F5C400]/40 bg-[#F5C400]/10 px-4 py-3 text-sm font-medium text-[#8B6A00] flex flex-wrap items-center justify-between gap-3">
               <TriangleAlert className="w-4 h-4 mt-0.5 shrink-0" />
+              <Link
+                href="/admin/livreur"
+                className="inline-flex items-center gap-2 rounded-lg bg-[#F07C00] px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#D66B00]"
+              >
+                <Truck className="h-4 w-4" />
+                Faire le dispatch
+              </Link>
               <span>Le JIT du jour est déjà lancé. Déverrouillez les commandes avant de relancer une agrégation.</span>
             </div>
           )}
@@ -2775,13 +2845,14 @@ export default function AdminOrdersPage() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel className="rounded-xl">Annuler</AlertDialogCancel>
+              <AlertDialogCancel className="rounded-xl" disabled={isExecuteLoading}>Annuler</AlertDialogCancel>
               <AlertDialogAction
                 onClick={(event) => {
                   event.preventDefault()
                   void handleExecute()
                 }}
                 className="rounded-xl bg-[#1E8A3C] hover:bg-[#166d30]"
+                disabled={isExecuteLoading}
               >
                 {isExecuteLoading ? <Spinner className="size-4" /> : <Rocket className="w-4 h-4" />}
                 Confirmer
