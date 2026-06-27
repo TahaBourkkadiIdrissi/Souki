@@ -257,6 +257,10 @@ export function AIModals({
             headers: {
               Authorization: `Bearer ${token}`,
             },
+            // Le JWT reel vit dans le cookie httpOnly : il faut l'envoyer.
+            // (token vaut ici le sentinelle "cookie-session", non decodable cote back ;
+            // le backend privilegie le cookie.)
+            credentials: "include",
             body: formData,
           })
 
