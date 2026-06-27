@@ -11,6 +11,9 @@ const backendTarget = (
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Autorise l'acces aux ressources dev (HMR, etc.) depuis le telephone sur le
+  // reseau local. Adapte l'IP a celle de ta machine (cf. `ipconfig`).
+  allowedDevOrigins: ["192.168.100.198"],
   typescript: {
     ignoreBuildErrors: true,
   },
