@@ -67,13 +67,10 @@ function buildRequestTimeoutMessage() {
 async function readErrorDetail(response: Response) {
   const contentType = response.headers.get("content-type") || ""
   if (!contentType.includes("application/json")) {
-    try {
-      const rawText = await response.text()
-      const compactText = rawText.replace(/\s+/g, " ").trim()
-      return compactText ? compactText.slice(0, 180) : null
-    } catch {
-      return null
-    }
+    // Reponse non-JSON (page d'erreur HTML d'un proxy/CDN, 5xx, tunnel KO...) :
+    // ne JAMAIS exposer ce contenu brut a l'utilisateur. On renvoie null pour que
+    // l'appelant affiche un message generique propre.
+    return null
   }
 
   try {
@@ -291,9 +288,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!response.ok) {
         const errorDetail = await readErrorDetail(response)
-        throw new Error(
-          errorDetail || `Erreur de connexion (${response.status} ${response.statusText || "HTTP"})`
-        )
+        const fallback =
+          response.status >= 500
+            ? "Le service est momentanément indisponible. Réessayez dans quelques instants."
+            : "Identifiants incorrects ou requête invalide. Vérifiez vos informations."
+        throw new Error(errorDetail || fallback)
       }
 
       const data = await response.json()

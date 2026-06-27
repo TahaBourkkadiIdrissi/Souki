@@ -363,7 +363,8 @@
 }
 
 .animate-slow-zoom {
-  animation: slow-zoom 8s ease-in-out infinite alternate;
+  /* Zoom unique qui se fige (forwards) : plus d'effet "zoom/dezoom" en boucle. */
+  animation: slow-zoom 14s ease-out forwards;
   will-change: transform;
 }
 
@@ -1135,7 +1136,8 @@
 }
 
 .animate-slow-zoom {
-  animation: slowZoom 20s ease-in-out infinite alternate;
+  /* Zoom unique qui se fige (forwards) : plus d'effet "zoom/dezoom" en boucle. */
+  animation: slowZoom 18s ease-out forwards;
 }
 
 /* Staggered animations */

@@ -795,7 +795,7 @@ export default function LivreurPage() {
 
   const handleLogout = async () => {
     await logout()
-    router.replace("/login/livreur")
+    router.replace("/login")
   }
   const [beforeSeven, setBeforeSeven] = useState(false)
   const [tourneeStarted, setTourneeStarted] = useState(false)

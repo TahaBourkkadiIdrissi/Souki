@@ -159,6 +159,12 @@ export function GoogleLoginButton({
           googleInitialized = true
         }
 
+        // Largeur dynamique calee sur le conteneur (le bouton Google exige une
+        // largeur en pixels). Sans ca, une valeur fixe (380px) deborde sur les
+        // petits ecrans mobiles. On borne entre 200 et 400 (max autorise par Google).
+        const hostWidth = Math.floor(containerRef.current.getBoundingClientRect().width) || 320
+        const buttonWidth = Math.min(Math.max(hostWidth, 200), 400)
+
         googleId.renderButton(containerRef.current, {
           type: "standard",
           theme: "outline",
@@ -166,7 +172,7 @@ export function GoogleLoginButton({
           text: "continue_with",
           shape: "rectangular",
           logo_alignment: "left",
-          width: 380,
+          width: buttonWidth,
           locale: "fr",
         })
 
