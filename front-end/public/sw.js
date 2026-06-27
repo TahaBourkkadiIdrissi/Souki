@@ -58,9 +58,6 @@ self.addEventListener("fetch", (event) => {
     return
   }
 
-  // Navigations (chargement de pages) : network-first avec repli sur la page /offline
-  // precachee. Sans cela, lancer l'app installee hors ligne affiche l'ecran d'erreur
-  // du navigateur au lieu d'un ecran SOUKI.
   if (request.mode === "navigate") {
     event.respondWith(navigationWithOfflineFallback(request))
     return

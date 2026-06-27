@@ -1,6 +1,7 @@
 "use client"
 
 import { type ReactNode, useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
+import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -26,6 +27,17 @@ import {
 import type { LineLayerSpecification } from "mapbox-gl"
 import MapView, { Layer, Marker, NavigationControl, Source, type MapRef } from "react-map-gl/mapbox"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Spinner } from "@/components/ui/spinner"
 import { useAuth } from "@/hooks/useAuth"
 import {
@@ -110,6 +122,21 @@ type DeliveryBackendStatus = DeliveryEventRequest["target_status"]
 type PaymentMethod = "cod" | "wallet" | "cmi"
 type NoticeTone = "info" | "success" | "error"
 type SheetMode = "peek" | "expanded"
+type DriverMarkerDirection = "north" | "east" | "south" | "west"
+
+const DRIVER_MARKER_IMAGES: Record<DriverMarkerDirection, string> = {
+  north: "/livreur/livreur_moto-north.png",
+  east: "/livreur/livreur_moto-east.png",
+  south: "/livreur/livreur_moto-south.png",
+  west: "/livreur/livreur_moto-west.png",
+}
+
+const DRIVER_MARKER_LABELS: Record<DriverMarkerDirection, string> = {
+  north: "nord",
+  east: "est",
+  south: "sud",
+  west: "ouest",
+}
 
 interface DeliveryViewItem {
   id: string
@@ -735,6 +762,33 @@ function areStringArraysEqual(first: string[], second: string[]) {
   return first.every((value, index) => value === second[index])
 }
 
+function getDriverMarkerDirection(heading: number | null | undefined): DriverMarkerDirection {
+  if (typeof heading !== "number" || !Number.isFinite(heading)) {
+    return "north"
+  }
+
+  const normalizedHeading = ((heading % 360) + 360) % 360
+
+  if (normalizedHeading < 45 || normalizedHeading >= 315) {
+    return "north"
+  }
+  if (normalizedHeading < 135) {
+    return "east"
+  }
+  if (normalizedHeading < 225) {
+    return "south"
+  }
+  return "west"
+}
+
+function getDriverMarkerSize(zoom: number) {
+  const minSize = 44
+  const maxSize = 84
+  const scaledSize = minSize + (zoom - DEFAULT_MAP_VIEW.zoom) * 6
+
+  return Math.round(Math.min(maxSize, Math.max(minSize, scaledSize)))
+}
+
 function CenterStateCard({
   icon: Icon,
   title,
@@ -772,6 +826,8 @@ export default function LivreurPage() {
   const { token, isLoading: isAuthLoading, isAuthenticated, can, logout } = useAuth()
   const hasLivreurAccess = can("livreur.dashboard.access")
   const mapRef = useRef<MapRef | null>(null)
+  const driverMarkerRef = useRef<HTMLDivElement | null>(null)
+  const mapZoomRef = useRef(DEFAULT_MAP_VIEW.zoom)
   const deliveryListRef = useRef<DeliveryViewItem[]>([])
   const lastDriverLocationRef = useRef<DriverLocation | null>(null)
   const isLocationRequestPendingRef = useRef(false)
@@ -797,6 +853,15 @@ export default function LivreurPage() {
     await logout()
     router.replace("/login/livreur")
   }
+
+  const updateDriverMarkerSize = (zoom: number) => {
+    mapZoomRef.current = zoom
+
+    if (driverMarkerRef.current) {
+      driverMarkerRef.current.style.width = `${getDriverMarkerSize(zoom)}px`
+    }
+  }
+
   const [beforeSeven, setBeforeSeven] = useState(false)
   const [tourneeStarted, setTourneeStarted] = useState(false)
   const [loadSource, setLoadSource] = useState<"api" | "cache" | null>(null)
@@ -2207,6 +2272,8 @@ export default function LivreurPage() {
 
   const roundedHeadingKey =
     typeof driverLocation?.heading === "number" ? Math.round(driverLocation.heading / 8) * 8 : "none"
+  const driverMarkerDirection = getDriverMarkerDirection(driverLocation?.heading)
+  const driverMarkerImage = DRIVER_MARKER_IMAGES[driverMarkerDirection]
   const mapCameraKey = [
     isNavigating ? "drive" : "overview",
     isHeaderCollapsed ? "header-collapsed" : "header-expanded",
@@ -2245,7 +2312,10 @@ export default function LivreurPage() {
       (marker): marker is { delivery: DeliveryViewItem; coordinate: { lat: number; lng: number } } =>
         marker.coordinate !== null
     )
-  const sheetHeightValue = sheetMode === "expanded" ? "min(58dvh, 34rem)" : "max(20dvh, 12rem)"
+  const sheetHeightValue =
+    sheetMode === "expanded"
+      ? "min(72dvh, 42rem)"
+      : "clamp(12rem, 24dvh, 15rem)"
   const isSheetExpanded = sheetMode === "expanded"
   const routeOverviewPadding = isHeaderCollapsed ? { ...ROUTE_OVERVIEW_PADDING, top: 72 } : ROUTE_OVERVIEW_PADDING
   const driveModePadding = isHeaderCollapsed ? { ...DRIVE_MODE_PADDING, top: 56 } : DRIVE_MODE_PADDING
@@ -2644,7 +2714,7 @@ export default function LivreurPage() {
 
   return (
     <div
-      className="relative mx-auto h-screen w-full max-w-md overflow-hidden bg-[#D9E6DD] md:rounded-[2rem] md:shadow-[0_20px_70px_rgba(15,23,42,0.18)]"
+      className="relative mx-auto h-dvh w-full max-w-md overflow-hidden bg-[#D9E6DD] md:rounded-[2rem] md:shadow-[0_20px_70px_rgba(15,23,42,0.18)]"
       style={{ ["--driver-bottom-sheet-height" as string]: sheetHeightValue }}
     >
       <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.75),_rgba(217,230,221,0.6)_35%,_rgba(185,208,190,0.9)_100%)]" />
@@ -2662,6 +2732,7 @@ export default function LivreurPage() {
             dragPan={!isNavigating}
             onLoad={() => syncMapCamera()}
             onDragStart={() => setIsDriverFocusEnabled(false)}
+            onZoom={(event) => updateDriverMarkerSize(event.viewState.zoom)}
           >
             <NavigationControl position="top-right" showCompass={false} />
 
@@ -2707,18 +2778,18 @@ export default function LivreurPage() {
             )}
 
             {driverLocation && (
-              <Marker longitude={driverLocation.longitude} latitude={driverLocation.latitude} anchor="center">
-                <div className="relative flex h-16 w-16 items-center justify-center">
-                  <div className="absolute h-14 w-14 rounded-full bg-[#1A73E8]/20 animate-ping" />
-                  <div className="absolute h-10 w-10 rounded-full bg-[#1A73E8]/15" />
-                  <div className="relative flex h-8 w-8 items-center justify-center rounded-full border-4 border-white bg-[#1A73E8] shadow-[0_12px_24px_rgba(26,115,232,0.35)]">
-                    <div
-                      className="h-0 w-0 border-b-[10px] border-l-[6px] border-r-[6px] border-b-white border-l-transparent border-r-transparent"
-                      style={{
-                        transform: `rotate(${driverLocation.heading ?? 0}deg)`,
-                      }}
-                    />
-                  </div>
+              <Marker longitude={driverLocation.longitude} latitude={driverLocation.latitude} anchor="bottom">
+                <div
+                  ref={driverMarkerRef}
+                  style={{ width: getDriverMarkerSize(mapZoomRef.current) }}
+                >
+                  <Image
+                    src={driverMarkerImage}
+                    alt={`Position actuelle du livreur, orienté vers le ${DRIVER_MARKER_LABELS[driverMarkerDirection]}`}
+                    width={512}
+                    height={512}
+                    className="h-auto w-full drop-shadow-[0_8px_10px_rgba(23,48,30,0.3)]"
+                  />
                 </div>
               </Marker>
             )}
@@ -2827,15 +2898,44 @@ export default function LivreurPage() {
                     <ChevronUp className="h-4 w-4" />
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => void handleLogout()}
-                    className="inline-flex items-center gap-1 rounded-full border border-red-100 bg-red-50/90 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-red-600 transition-colors hover:bg-red-100"
-                    aria-label="Déconnexion"
-                  >
-                    <LogOut className="h-3.5 w-3.5" />
-                    Sortir
-                  </button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 rounded-full border border-red-100 bg-red-50/90 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-red-600 transition-colors hover:bg-red-100"
+                        aria-label="Se déconnecter"
+                      >
+                        <LogOut className="h-3.5 w-3.5" />
+                        Sortir
+                      </button>
+                    </AlertDialogTrigger>
+
+                    <AlertDialogContent className="max-w-xs gap-4 rounded-[1.5rem] border-white/70 bg-white/98 p-5 text-[#17301E] shadow-[0_24px_70px_rgba(15,23,42,0.24)]">
+                      <AlertDialogHeader className="items-center text-center sm:text-center">
+                        <div className="flex size-11 items-center justify-center rounded-full bg-red-50 text-red-600">
+                          <LogOut className="size-5" />
+                        </div>
+                        <AlertDialogTitle className="text-lg font-bold">
+                          Se déconnecter ?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-sm leading-5 text-[#5B6B60]">
+                          Êtes-vous sûr de vouloir vous déconnecter ?
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+
+                      <AlertDialogFooter className="flex-row gap-2">
+                        <AlertDialogCancel className="h-10 flex-1 rounded-xl border-[#D7E1DA] text-[#17301E]">
+                          Non
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => void handleLogout()}
+                          className="h-10 flex-1 rounded-xl bg-red-600 text-white hover:bg-red-700"
+                        >
+                          Oui
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
 
                   <button
                     type="button"
@@ -2848,16 +2948,6 @@ export default function LivreurPage() {
                     {isOnDuty ? "En service" : "Pause"}
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await logout()
-                      router.replace("/login")
-                    }}
-                    className="inline-flex items-center justify-center rounded-full bg-white p-2 text-red-500 shadow-sm transition-colors hover:bg-red-50"
-                  >
-                    <LogOut className="h-5 w-5" />
-                  </button>
                 </div>
               </div>
             </div>
@@ -2911,15 +3001,21 @@ export default function LivreurPage() {
 
       {showBottomSheet && (
         <div className="absolute inset-x-0 bottom-0 z-50 h-[var(--driver-bottom-sheet-height)]">
-          <div className="h-full px-2 pb-2">
+          <div className="h-full px-[clamp(0.375rem,2vw,0.75rem)] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
             <div className="pointer-events-auto flex h-full flex-col overflow-hidden rounded-t-[2rem] border border-white/70 bg-white/96 shadow-[0_-18px_56px_rgba(15,23,42,0.24)] backdrop-blur-xl">
               <button
                 type="button"
                 onClick={() => setSheetMode((currentMode) => (currentMode === "peek" ? "expanded" : "peek"))}
-                className="flex items-center justify-center gap-1 px-4 pb-2 pt-3 text-[#6B7280]"
+                aria-label={isSheetExpanded ? "Réduire les détails de la course" : "Afficher les détails de la course"}
+                aria-expanded={isSheetExpanded}
+                className="delivery-sheet-toggle flex shrink-0 items-center justify-center gap-1 px-4 text-[#6B7280]"
               >
-                <span className="h-1.5 w-14 rounded-full bg-[#D1D5DB]" />
-                {isSheetExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                <span className="delivery-sheet-handle rounded-full bg-[#D1D5DB]" />
+                {isSheetExpanded ? (
+                  <ChevronDown className="delivery-sheet-toggle-icon" />
+                ) : (
+                  <ChevronUp className="delivery-sheet-toggle-icon" />
+                )}
               </button>
 
               {!currentDelivery ? (
@@ -3099,7 +3195,7 @@ export default function LivreurPage() {
                     className={cn(
                       "grid gap-3",
                       isNavigating
-                        ? "grid-cols-[3.25rem_5.5rem_7.5rem_minmax(0,1fr)]"
+                        ? "grid-cols-[3rem_minmax(0,1fr)_minmax(0,1.35fr)] gap-2 min-[430px]:grid-cols-[3.25rem_5.5rem_7.5rem_minmax(0,1fr)] min-[430px]:gap-3"
                         : "grid-cols-[3.25rem_minmax(0,1fr)]",
                       isSheetExpanded ? "pt-3" : "mt-auto pt-3"
                     )}
@@ -3107,12 +3203,14 @@ export default function LivreurPage() {
                       <a
                         href={currentDelivery.callHref ?? undefined}
                         aria-disabled={!currentDelivery.callHref}
+                        aria-label={`Appeler ${currentDelivery.clientName}`}
+                        title={`Appeler ${currentDelivery.clientName}`}
                         className={cn(
-                          "flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#F3F4F6] px-3 text-sm font-semibold text-[#17301E] transition-transform active:scale-[0.99]",
+                          "flex h-11 min-w-0 items-center justify-center rounded-2xl bg-[#F3F4F6] px-2 text-sm font-semibold text-[#17301E] transition-transform active:scale-[0.99] min-[430px]:h-12 min-[430px]:px-3",
                           !currentDelivery.callHref && "pointer-events-none bg-gray-200 text-gray-500"
                         )}
                       >
-                        <Phone className="h-5 w-5" />
+                        <Phone className="size-4 shrink-0 min-[430px]:size-5" />
                       </a>
 
                       {isNavigating && !isPickupPhase && (
@@ -3121,7 +3219,7 @@ export default function LivreurPage() {
                           onClick={handleMarkCurrentDeliveryAbsent}
                           disabled={isStartingTournee || isValidatingCodPayment || !currentDelivery}
                           title="Client introuvable"
-                          className="flex h-12 items-center justify-center rounded-2xl bg-amber-500 px-3 text-xs font-semibold text-white shadow-[0_14px_30px_rgba(245,158,11,0.24)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                          className="flex h-11 min-w-0 items-center justify-center rounded-2xl bg-amber-500 px-2 text-[11px] font-semibold text-white shadow-[0_14px_30px_rgba(245,158,11,0.24)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 min-[430px]:h-12 min-[430px]:px-3 min-[430px]:text-xs"
                         >
                           Absent
                         </button>
@@ -3134,7 +3232,7 @@ export default function LivreurPage() {
                           disabled={isLoadingRefus || isStartingTournee || isValidatingCodPayment || !currentDelivery}
                           title="Client refuse la commande"
                           className={cn(
-                            "flex h-12 items-center justify-center rounded-2xl bg-red-600 px-3 text-xs font-semibold text-white shadow-[0_14px_30px_rgba(220,38,38,0.24)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60",
+                            "flex h-11 min-w-0 items-center justify-center rounded-2xl bg-red-600 px-2 text-[11px] font-semibold text-white shadow-[0_14px_30px_rgba(220,38,38,0.24)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 min-[430px]:h-12 min-[430px]:px-3 min-[430px]:text-xs",
                             isLoadingRefus && "opacity-50"
                           )}
                         >
@@ -3153,7 +3251,8 @@ export default function LivreurPage() {
                           (!isPickupPhase && isNavigating && isCodDeliveryPendingValidation)
                         }
                         className={cn(
-                          "flex h-12 w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60",
+                          "flex h-11 w-full min-w-0 items-center justify-center gap-2 rounded-2xl px-3 text-xs font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 min-[430px]:h-12 min-[430px]:px-4 min-[430px]:text-sm",
+                          isNavigating && "col-span-3 min-[430px]:col-span-1",
                           isPickupPhase || isNavigating ? "bg-[#1E8A3C]" : "bg-[#17301E]"
                         )}
                       >

@@ -18,10 +18,30 @@ export function PwaServiceWorker() {
       return
     }
 
-    navigator.serviceWorker
+    const updateRegistration = async (registration: ServiceWorkerRegistration) => {
+      try {
+        await registration.update()
+      } catch {
+        // Une indisponibilite temporaire du worker ne doit jamais casser l'UI.
+      }
+    }
+
+    // Un service worker en mode `next dev` peut conserver d'anciens bundles,
+    // perturber le HMR et produire une erreur si /sw.js est momentanement absent.
+    if (process.env.NODE_ENV === "development") {
+      void navigator.serviceWorker
+        .getRegistrations()
+        .then((registrations) =>
+          Promise.all(registrations.map((registration) => registration.unregister())),
+        )
+        .catch(() => undefined)
+      return
+    }
+
+    void navigator.serviceWorker
       .register("/sw.js", { scope: "/" })
       .then((registration) => {
-        registration.update()
+        void updateRegistration(registration)
 
         registration.addEventListener("updatefound", () => {
           const newWorker = registration.installing
@@ -37,7 +57,14 @@ export function PwaServiceWorker() {
 
     const updateWhenVisible = () => {
       if (document.visibilityState === "visible") {
-        navigator.serviceWorker.getRegistration().then((registration) => registration?.update())
+        void navigator.serviceWorker
+          .getRegistration()
+          .then((registration) => {
+            if (registration) {
+              return updateRegistration(registration)
+            }
+          })
+          .catch(() => undefined)
       }
     }
 
