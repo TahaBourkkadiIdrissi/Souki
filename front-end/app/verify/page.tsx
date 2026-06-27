@@ -131,7 +131,7 @@ function OTPVerificationForm({
   }
 
   return (
-    <div className="rounded-[28px] border border-[#E4EAE5] bg-white p-6 shadow-xl shadow-[#1E8A3C]/5 sm:p-8">
+    <div className="rounded-[28px] border border-[#E4EAE5] bg-white p-4 shadow-xl shadow-[#1E8A3C]/5 sm:p-8">
       <div className="mb-6 flex items-start gap-4">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F0FAF1] text-[#1E8A3C]">
           <ShieldCheck className="h-7 w-7" />
@@ -172,16 +172,16 @@ function OTPVerificationForm({
               if (error) setError("")
             }}
             pattern={REGEXP_ONLY_DIGITS}
-            containerClassName="gap-2"
+            containerClassName="gap-1.5 sm:gap-2"
             className="justify-center"
           >
-            <InputOTPGroup className="gap-2">
-              <InputOTPSlot index={0} className="h-12 w-12 rounded-2xl border border-[#DCE7DE] text-lg font-semibold" />
-              <InputOTPSlot index={1} className="h-12 w-12 rounded-2xl border border-[#DCE7DE] text-lg font-semibold" />
-              <InputOTPSlot index={2} className="h-12 w-12 rounded-2xl border border-[#DCE7DE] text-lg font-semibold" />
-              <InputOTPSlot index={3} className="h-12 w-12 rounded-2xl border border-[#DCE7DE] text-lg font-semibold" />
-              <InputOTPSlot index={4} className="h-12 w-12 rounded-2xl border border-[#DCE7DE] text-lg font-semibold" />
-              <InputOTPSlot index={5} className="h-12 w-12 rounded-2xl border border-[#DCE7DE] text-lg font-semibold" />
+            <InputOTPGroup className="gap-1.5 sm:gap-2">
+              <InputOTPSlot index={0} className="h-12 w-9 rounded-2xl border border-[#DCE7DE] text-base font-semibold sm:w-12 sm:text-lg" />
+              <InputOTPSlot index={1} className="h-12 w-9 rounded-2xl border border-[#DCE7DE] text-base font-semibold sm:w-12 sm:text-lg" />
+              <InputOTPSlot index={2} className="h-12 w-9 rounded-2xl border border-[#DCE7DE] text-base font-semibold sm:w-12 sm:text-lg" />
+              <InputOTPSlot index={3} className="h-12 w-9 rounded-2xl border border-[#DCE7DE] text-base font-semibold sm:w-12 sm:text-lg" />
+              <InputOTPSlot index={4} className="h-12 w-9 rounded-2xl border border-[#DCE7DE] text-base font-semibold sm:w-12 sm:text-lg" />
+              <InputOTPSlot index={5} className="h-12 w-9 rounded-2xl border border-[#DCE7DE] text-base font-semibold sm:w-12 sm:text-lg" />
             </InputOTPGroup>
           </InputOTP>
         </div>
@@ -277,7 +277,7 @@ function VerifyContent() {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col justify-center bg-[#FCFDFC] px-6 py-12 lg:px-12 xl:px-20">
+      <div className="flex-1 flex flex-col justify-center bg-[#FCFDFC] px-4 py-12 sm:px-6 lg:px-12 xl:px-20">
         <div className="mx-auto w-full max-w-xl">
           <div className="lg:hidden mb-8">
             <Link href="/" className="flex items-center gap-2">
