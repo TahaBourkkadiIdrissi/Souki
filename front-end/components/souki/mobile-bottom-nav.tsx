@@ -36,7 +36,7 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
 
   const linkItems = [
     { label: "Accueil", href: "/", icon: Home },
-    { label: "Catalogue", href: "/catalogue", icon: Leaf },
+    { label: "Produits", href: "/catalogue", icon: Leaf },
   ]
 
   const secondaryItems = [

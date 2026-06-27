@@ -38,7 +38,7 @@ export function Navbar() {
                 href="/catalogue"
                 className="text-sm font-medium tracking-wide text-[#3D3D3D] transition-colors hover:text-[#1E8A3C]"
               >
-                Nos Légumes
+                Produits
               </Link>
               <Link
                 href="/abonnements"

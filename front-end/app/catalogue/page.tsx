@@ -1217,7 +1217,7 @@ function CatalogueContent() {
                 <div className="mb-4 flex flex-wrap items-center gap-3 pr-24 sm:pr-32 xl:pr-0">
                   <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-[#1E8A3C] ring-1 ring-[#D7EBD9]">
                     <Leaf className="h-4 w-4" />
-                    Catalogue du jour
+                    Produits du jour
                   </span>
                   <span className="inline-flex items-center gap-2 rounded-full bg-[#FFF7EE] px-3 py-1.5 text-xs font-bold text-[#9A5C11] ring-1 ring-[#F3D8B2]">
                     <Sparkles className="h-4 w-4" />
@@ -1258,7 +1258,7 @@ function CatalogueContent() {
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-black leading-tight">Commander moi-même</span>
                       <span className="mt-0.5 block text-[11px] font-semibold leading-snug text-[#6F8070]">
-                        Parcours le catalogue et choisis tes produits librement.
+                        Parcours les produits et choisis librement.
                       </span>
                     </span>
                     <ArrowRight className="h-4 w-4 shrink-0 text-[#9AB49C] transition-transform group-hover:translate-x-1" />
@@ -1343,7 +1343,7 @@ function CatalogueContent() {
                 onClick={() => setShowOrderHistory(false)}
                 className="rounded-t-2xl border border-b-0 border-[#DDEBDD] bg-[#F7FCF7] px-4 py-3 text-sm font-bold text-[#607061] transition-colors hover:bg-white"
               >
-                Catalogue
+                Produits
               </button>
               <div className="flex items-center gap-3 rounded-t-2xl border border-b-0 border-[#1E8A3C] bg-[#1E8A3C] px-4 py-3 text-sm font-bold text-white">
                 <span className="inline-flex items-center gap-2">

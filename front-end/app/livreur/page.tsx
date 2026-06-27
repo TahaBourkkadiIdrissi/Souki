@@ -851,7 +851,7 @@ export default function LivreurPage() {
 
   const handleLogout = async () => {
     await logout()
-    router.replace("/login/livreur")
+    router.replace("/login")
   }
 
   const updateDriverMarkerSize = (zoom: number) => {

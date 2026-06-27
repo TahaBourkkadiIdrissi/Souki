@@ -261,7 +261,7 @@ export default function ParametresPage() {
   const onSaveNotifications = async () => { try { await notifApi.updateNotifications(notifications); showSaved() } catch {} }
   const onChangePassword = async () => { try { await securityApi.changePassword(passwords); setPasswords({ current_password: "", new_password: "", confirm_password: "" }); showSaved() } catch (e) { setErrors((v) => ({ ...v, password: e instanceof Error ? e.message : "Erreur" })) } }
   const onDisconnectSession = async (id: number) => { await securityApi.disconnectSession(id); setSessions((prev) => prev.filter((s) => s.id !== id)) }
-  const onDisconnectAll = async () => { await securityApi.disconnectAll(); logout(); router.push("/login/client") }
+  const onDisconnectAll = async () => { await securityApi.disconnectAll(); logout(); router.push("/login") }
   const onDeleteAccount = async () => { await securityApi.deleteAccount("SUPPRIMER"); logout(); router.push("/app?page=deleted") }
   const onRequestLift = async () => {
     if (!token) {
