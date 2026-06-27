@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "dev:webpack": "node --max-old-space-size=4096 ./node_modules/next/dist/bin/next dev --webpack",
-    "dev:turbo": "next dev --turbopack",
+    "dev": "next dev --turbopack --hostname 0.0.0.0",
+    "dev:webpack": "node --max-old-space-size=4096 ./node_modules/next/dist/bin/next dev --webpack --hostname 0.0.0.0",
+    "dev:turbo": "next dev --turbopack --hostname 0.0.0.0",
     "build": "next build",
     "start": "next start",
     "lint": "eslint ."

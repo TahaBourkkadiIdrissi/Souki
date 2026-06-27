@@ -73,8 +73,10 @@ export interface SmartBasketResponse {
 export const CART_STORAGE_KEY = "souki-cart"
 export const FREE_DELIVERY_THRESHOLD = 300
 export const DELIVERY_FEE = 15
-export const POTATO_IMAGE_URL =
-  "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=800&h=600&fit=crop"
+const VEGETABLE_IMAGE_DIRECTORY = "/images/legumes"
+const vegetableImage = (filename: string) => `${VEGETABLE_IMAGE_DIRECTORY}/${filename}.png`
+
+export const POTATO_IMAGE_URL = vegetableImage("pomme-de-terre")
 
 const productPresentation: Record<
   string,
@@ -86,31 +88,31 @@ const productPresentation: Record<
   },
   "Oignons rouge": {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=800&h=600&fit=crop",
+    image: vegetableImage("oignon"),
   },
   Tomates: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&h=600&fit=crop",
+    image: vegetableImage("tomate"),
   },
   Carottes: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=800&h=600&fit=crop",
+    image: vegetableImage("carotte"),
   },
   Courgettes: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1768405741410-71317eceb565?w=800&h=600&fit=crop&auto=format",
+    image: vegetableImage("courgette"),
   },
   Piments: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1583119022894-919a68a3d0e3?w=800&h=600&fit=crop",
+    image: vegetableImage("piment"),
   },
   Aubergines: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1639428134238-b548770d4b77?w=800&h=600&fit=crop&auto=format",
+    image: vegetableImage("aubergine"),
   },
   Concombres: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1449300079323-02e209d9d3a6?w=800&h=600&fit=crop",
+    image: vegetableImage("concombre"),
   },
   "Menthe fraiche": {
     category: "herbes",
@@ -140,55 +142,55 @@ const productPresentation: Record<
   },
   Poivrons: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=800&h=600&fit=crop",
+    image: vegetableImage("poivron-rouge"),
   },
   "Haricots verts": {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1567375698348-5d9d5ae99de0?w=800&h=600&fit=crop",
+    image: vegetableImage("haricot-vert"),
   },
   Laitue: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1691546327195-01ac1055a870?w=800&h=600&fit=crop&auto=format",
+    image: vegetableImage("laitue"),
     displayUnit: "lot",
     quantityStep: 1,
   },
   Epinards: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=800&h=600&fit=crop",
+    image: vegetableImage("epinard"),
   },
   Ail: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1620574387735-3624d75b2dbc?w=800&h=600&fit=crop",
+    image: vegetableImage("ail"),
     displayUnit: "250g",
     quantityStep: 1,
   },
   Betteraves: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1639402480805-ea8ef529e028?w=800&h=600&fit=crop",
+    image: vegetableImage("betterave"),
   },
   Radis: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1638116282510-128dd635bbf7?w=800&h=600&fit=crop",
+    image: vegetableImage("radis"),
   },
   Navets: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1615485020845-601a6d2971a5?w=800&h=600&fit=crop",
+    image: vegetableImage("navet"),
   },
   Celeri: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1760368104744-bca7a41e0315?w=800&h=600&fit=crop&auto=format",
+    image: vegetableImage("celeri"),
   },
   Brocoli: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1459411621453-7b03977f4bfc?w=800&h=600&fit=crop",
+    image: vegetableImage("brocoli"),
   },
   "Chou-fleur": {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1613743983303-b3e89f8a2b80?w=800&h=600&fit=crop",
+    image: vegetableImage("chou-fleur"),
   },
   "Petit pois": {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1567375698348-5d9d5ae99de0?w=800&h=600&fit=crop",
+    image: vegetableImage("petit-pois"),
   },
 }
 
@@ -281,7 +283,7 @@ export function getCataloguePresentation(name: string) {
 
 export function resolveCatalogueImage(name: string, imageUrl?: string | null) {
   const presentation = getCataloguePresentation(name)
-  if (normalizeProductName(name) === "pommes de terre") {
+  if (presentation.image.startsWith(`${VEGETABLE_IMAGE_DIRECTORY}/`)) {
     return presentation.image
   }
   return imageUrl || presentation.image
