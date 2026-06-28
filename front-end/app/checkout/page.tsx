@@ -495,7 +495,7 @@ function CheckoutContent() {
       setBlacklistStatus(status)
       setLiftMotif("")
       setShowLiftModal(false)
-      setLiftRequestMessage("Demande envoyee.")
+      setLiftRequestMessage("Demande envoyée.")
     } catch (error) {
       setLiftRequestMessage(error instanceof Error ? error.message : "Impossible d'envoyer la demande.")
     } finally {

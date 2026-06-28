@@ -1,6 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react"
+import { toast } from "sonner"
 import { API_BASE_URL } from "@/lib/api"
 
 export interface User {
@@ -144,11 +145,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { user: userData, networkError: false }
     } catch (error) {
       if (isRequestTimeoutError(error)) {
-        console.warn(buildRequestTimeoutMessage())
+        // Feedback UX propre (et non plus un simple message console), dedoublonne par id.
+        toast.error("Le serveur met trop de temps à répondre. Réessayez dans un instant.", {
+          id: "auth-network",
+        })
         return { user: null, networkError: true }
       }
       if (isNetworkFetchError(error)) {
-        console.warn(buildApiUnavailableMessage())
+        toast.error("Service momentanément indisponible. Vérifiez votre connexion.", {
+          id: "auth-network",
+        })
         return { user: null, networkError: true }
       }
       console.warn(
@@ -275,7 +281,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
 
           if (isTimeout || isNetworkFetchError(error)) {
-            throw new Error("Le serveur backend ne repond pas encore. Attends 2 a 3 secondes puis reessaie.")
+            throw new Error("Le serveur backend ne répond pas encore. Attendez 2 à 3 secondes puis réessayez.")
           }
 
           throw error
