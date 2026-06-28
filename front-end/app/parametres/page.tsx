@@ -174,7 +174,7 @@ export default function ParametresPage() {
       if (!isAuthenticated && !token) {
         bootstrapRequestRef.current = false
         setPageLoading(false)
-        router.push("/login/client?redirect=/parametres")
+        router.push("/login?redirect=/parametres")
         return
       }
 
@@ -283,7 +283,7 @@ export default function ParametresPage() {
       setBlacklistStatus(status)
       setLiftMotif("")
       setShowLiftModal(false)
-      setLiftRequestMessage("Demande envoyee.")
+      setLiftRequestMessage("Demande envoyée.")
     } catch (e) {
       setLiftRequestMessage(e instanceof Error ? e.message : "Impossible d'envoyer la demande.")
     } finally {
@@ -325,7 +325,7 @@ export default function ParametresPage() {
       setPhotoUrl(previousPhotoUrl)
       setErrors((v) => ({
         ...v,
-        photo: err instanceof Error ? err.message : "Le televersement de l'image a echoue. Reessayez dans un instant.",
+        photo: err instanceof Error ? err.message : "Le téléversement de l'image a échoué. Réessayez dans un instant.",
       }))
     } finally {
       URL.revokeObjectURL(previewUrl)

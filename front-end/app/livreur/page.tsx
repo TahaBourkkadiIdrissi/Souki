@@ -1411,7 +1411,7 @@ export default function LivreurPage() {
       }
 
       if (!window.isSecureContext) {
-        const message = "La geolocalisation mobile exige une page HTTPS securisee."
+        const message = "La géolocalisation mobile exige une page HTTPS sécurisée."
         setGpsError(message)
         if (showNoticeOnError) {
           setNotice({ tone: "error", message })
@@ -1498,7 +1498,7 @@ export default function LivreurPage() {
     }
 
     if (!window.isSecureContext) {
-      setGpsError("La geolocalisation mobile exige une page HTTPS securisee.")
+      setGpsError("La géolocalisation mobile exige une page HTTPS sécurisée.")
       return
     }
 
@@ -1559,7 +1559,7 @@ export default function LivreurPage() {
     }
 
     if (!isAuthenticated || !hasLivreurAccess) {
-      router.replace("/login/livreur?redirect=/livreur")
+      router.replace("/login?redirect=/livreur")
     }
   }, [hasLivreurAccess, isAuthenticated, isAuthLoading, router])
 

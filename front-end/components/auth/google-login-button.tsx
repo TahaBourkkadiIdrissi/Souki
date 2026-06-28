@@ -143,7 +143,7 @@ export function GoogleLoginButton({
             cancel_on_tap_outside: true,
             callback: async ({ credential }) => {
               if (!credential) {
-                onErrorRef.current("La connexion Google a ete annulee.")
+                onErrorRef.current("La connexion Google a été annulée.")
                 return
               }
 
@@ -151,7 +151,7 @@ export function GoogleLoginButton({
                 await onCredentialRef.current(credential)
               } catch (error) {
                 const message =
-                  error instanceof Error ? error.message : "La connexion Google a echoue."
+                  error instanceof Error ? error.message : "La connexion Google a échoué."
                 onErrorRef.current(message)
               }
             },
@@ -179,7 +179,7 @@ export function GoogleLoginButton({
         setIsLoading(false)
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : "La connexion Google a echoue."
+          error instanceof Error ? error.message : "La connexion Google a échoué."
         onErrorRef.current(message)
         setIsLoading(false)
       }
