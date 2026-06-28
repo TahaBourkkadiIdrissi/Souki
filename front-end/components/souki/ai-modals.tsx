@@ -8,7 +8,6 @@ import {
   Check,
   ChevronDown,
   Loader2,
-  Mic,
   Minus,
   Plus,
   ShoppingCart,
@@ -18,6 +17,7 @@ import {
 } from "lucide-react"
 
 import { CartLoadingAnimation } from "@/components/cart/CartLoadingAnimation"
+import { VoiceOrb, type VoiceOrbPhase } from "@/components/souki/voice-orb"
 import { useAuth } from "@/hooks/useAuth"
 import { API_BASE_URL } from "@/lib/api"
 import {
@@ -107,6 +107,10 @@ export function AIModals({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const timeoutRef = useRef<number | null>(null)
+  const [voiceStream, setVoiceStream] = useState<MediaStream | null>(null)
+
+  // Derived phase that drives the reactive orb + transitions.
+  const orbPhase: VoiceOrbPhase = isSending ? "processing" : isListening ? "listening" : "idle"
 
   const clearRecordingTimers = () => {
     if (timeoutRef.current) {
@@ -137,6 +141,7 @@ export function AIModals({
     setSmartSelections([])
     setEditedBasket([])
     setCartProgress(0)
+    setVoiceStream(null)
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop()
     }
@@ -195,12 +200,20 @@ export function AIModals({
     router.push(`/checkout?commande_id=${result.commande_id}&cart=${encodedCart}`)
   }
 
+  // Light haptic feedback on supported mobile devices (progressive enhancement).
+  const haptic = (pattern: number | number[]) => {
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(pattern)
+    }
+  }
+
   const stopListening = () => {
     clearRecordingTimers()
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop()
     }
     setIsListening(false)
+    haptic(12)
   }
 
   const handleVoiceInteraction = async () => {
@@ -224,6 +237,7 @@ export function AIModals({
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      setVoiceStream(stream)
       const options =
         typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/webm")
           ? { mimeType: "audio/webm" }
@@ -240,6 +254,7 @@ export function AIModals({
       mediaRecorder.onstop = async () => {
         clearRecordingTimers()
         stream.getTracks().forEach((track) => track.stop())
+        setVoiceStream(null)
         setIsSending(true)
 
         try {
@@ -285,6 +300,7 @@ export function AIModals({
       mediaRecorderRef.current = mediaRecorder
       mediaRecorder.start()
       setIsListening(true)
+      haptic([8, 30, 8])
       timeoutRef.current = window.setTimeout(() => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
           mediaRecorderRef.current.stop()
@@ -435,7 +451,9 @@ export function AIModals({
       <div
         className={cn(
           "relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 shadow-2xl animate-in fade-in zoom-in-95 duration-200",
-          mode === "voice" ? "bg-[#111116] text-white" : "bg-white text-[#264129]"
+          mode === "voice"
+            ? "bg-[radial-gradient(circle_at_50%_28%,#1d2630_0%,#11131a_45%,#070709_100%)] text-white"
+            : "bg-white text-[#264129]"
         )}
       >
         {mode === "voice" && (
@@ -465,51 +483,51 @@ export function AIModals({
               </button>
             </div>
 
-            <div className="border-b border-white/10 py-12 text-center">
-              <div
+            <div className="relative flex flex-col items-center border-b border-white/10 px-6 pb-8 pt-10">
+              {/* The orb itself is the control: tap to start, tap again to stop. */}
+              <button
+                type="button"
+                onClick={handleVoiceInteraction}
+                disabled={isSending || isOrderLocked}
+                aria-label={isListening ? "Arreter l'ecoute" : "Commencer a parler"}
                 className={cn(
-                  "mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full transition-all duration-700",
-                  isSending
-                    ? "bg-gradient-to-tr from-[#F07C00] to-[#FF9421] shadow-[0_0_30px_#F07C00]"
-                    : isListening
-                      ? "bg-gradient-to-tr from-[#1E8A3C] to-[#4CB84A] shadow-[0_0_30px_#1E8A3C]"
-                      : "bg-white/10"
+                  "group relative rounded-full outline-none transition-transform duration-200 active:scale-95",
+                  (isSending || isOrderLocked) ? "cursor-not-allowed" : "cursor-pointer hover:scale-[1.02]"
                 )}
               >
-                {isSending ? (
-                  <Loader2 className="h-6 w-6 animate-spin text-white" />
-                ) : (
-                  <Mic className="h-6 w-6 text-white" />
+                <VoiceOrb phase={orbPhase} stream={voiceStream} size={220} />
+              </button>
+
+              {/* Dynamic status pill — tells the user what the system is doing */}
+              <div
+                className={cn(
+                  "mt-5 flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium transition-all duration-500",
+                  isSending
+                    ? "bg-[#4CB84A]/15 text-[#7FE07C]"
+                    : isListening
+                      ? "bg-[#4CB84A]/10 text-[#9BE99A]"
+                      : "bg-white/5 text-white/50"
                 )}
-              </div>
-
-              <div className="flex h-8 items-center justify-center gap-1">
-                {Array.from({ length: 15 }).map((_, index) => (
-                  <div
-                    key={index}
-                    className={cn(
-                      "w-1.5 rounded-full bg-white/20 transition-all duration-300",
-                      isListening ? "animate-pulse" : "h-2"
-                    )}
-                    style={{
-                      height: isListening ? `${Math.max(8, ((index % 5) + 1) * 6)}px` : "8px",
-                      animationDelay: `${index * 0.1}s`,
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className="p-6 text-center">
-              <p className="text-sm font-medium text-white/85">
+              >
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    isSending
+                      ? "animate-pulse bg-[#4CB84A]"
+                      : isListening
+                        ? "animate-ping bg-[#4CB84A]"
+                        : "bg-white/40"
+                  )}
+                />
                 {isSending
-                  ? "IA-SOUKI analyse votre commande..."
+                  ? "Composition du panier…"
                   : isListening
-                    ? "Parlez maintenant puis recliquez pour arreter."
-                    : "Appuyez sur le micro et decrivez votre panier."}
-              </p>
-              <p className="mt-2 text-[11px] text-white/45">
-                Darija et francais pris en charge.
+                    ? "À l'écoute — touchez la sphère pour arrêter"
+                    : "Touchez la sphère pour parler"}
+              </div>
+
+              <p className="mt-2 text-[11px] text-white/40">
+                Darija et français pris en charge.
               </p>
 
               {isOrderLocked && (
@@ -517,29 +535,6 @@ export function AIModals({
                   {orderLockMessage}
                 </div>
               )}
-
-              <button
-                onClick={handleVoiceInteraction}
-                disabled={isSending || isOrderLocked}
-                className={cn(
-                  "mx-auto mt-8 flex w-full max-w-[220px] flex-col items-center justify-center rounded-3xl bg-white/5 px-6 py-5 transition-all duration-300 hover:bg-white/10",
-                  (isSending || isOrderLocked) && "cursor-not-allowed opacity-50"
-                )}
-              >
-                <div
-                  className={cn(
-                    "mb-3 flex h-16 w-16 items-center justify-center rounded-full",
-                    isListening
-                      ? "bg-gradient-to-tr from-[#1E8A3C] to-[#4CB84A]"
-                      : "bg-gradient-to-tr from-[#1E8A3C]/50 to-[#4CB84A]/50"
-                  )}
-                >
-                  <Mic className="h-6 w-6 text-white" />
-                </div>
-                <span className="text-xs font-medium text-white/70">
-                  {isSending ? "Traitement..." : isListening ? "Arreter" : "Commencer a parler"}
-                </span>
-              </button>
             </div>
 
             {error && (
