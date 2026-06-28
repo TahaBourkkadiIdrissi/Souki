@@ -52,7 +52,7 @@ export default function WalletPage() {
       if (isAuthLoading) return
       if (!isAuthenticated && !token) {
         setPageLoading(false)
-        router.push("/login/client?redirect=/wallet")
+        router.push("/login?redirect=/wallet")
         return
       }
       setPageLoading(true)

@@ -10,6 +10,7 @@ import { PwaInstallPrompt } from "@/components/souki/pwa-install-prompt"
 import { PwaServiceWorker } from "@/components/souki/pwa-service-worker"
 import { RouteGuard } from "@/components/routing/route-guard"
 import { PwaNavShell } from "@/components/souki/pwa-nav-shell"
+import { Toaster } from "@/components/ui/sonner"
 
 const inter = Inter({ 
   subsets: ["latin"],
@@ -93,6 +94,7 @@ export default function RootLayout({
             <PwaNavShell />
             <PwaServiceWorker />
             <PwaInstallPrompt />
+            <Toaster position="top-center" richColors closeButton />
           </ThemeProvider>
         </AuthProvider>
       </body>

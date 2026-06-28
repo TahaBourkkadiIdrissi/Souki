@@ -22,7 +22,7 @@ export default function ParentDashboardPage() {
       return
     }
     if (!isAuthenticated || !can("parent.dashboard.access")) {
-      router.replace("/login/parent?redirect=/parent")
+      router.replace("/login?redirect=/parent")
     }
   }, [can, isAuthenticated, isLoading, router])
 
@@ -89,7 +89,7 @@ export default function ParentDashboardPage() {
             },
             {
               icon: ShieldCheck,
-              title: "Acces securise",
+              title: "Accès sécurisé",
               text: "Les permissions sont verifiees cote serveur puis relayees cote interface.",
             },
           ].map((item) => (
