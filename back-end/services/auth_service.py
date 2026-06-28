@@ -151,7 +151,10 @@ class AuthService:
                 self._assert_target_access(principal, target_role)
                 self._ensure_profile_for_role(db, user, target_role)
                 db.commit()
-                return self._issue_access_token(user, principal, selected_role=target_role)
+                token = self._issue_access_token(user, principal, selected_role=target_role)
+                # On renvoie aussi l'utilisateur complet (construit depuis le principal
+                # deja charge) pour que le front evite un second aller-retour /auth/me.
+                return {"token": token, "user": self._export_current_user(principal, db)}
 
             return None
         finally:
@@ -171,7 +174,8 @@ class AuthService:
                 principal = self._build_principal(db, user)
                 if not principal.has_permission("admin.panel.access"):
                     raise HTTPException(status_code=403, detail="Acces admin refuse.")
-                return self._issue_access_token(user, principal)
+                token = self._issue_access_token(user, principal)
+                return {"token": token, "user": self._export_current_user(principal, db)}
 
             return None
         finally:
@@ -320,7 +324,8 @@ class AuthService:
                 self._assert_target_access(principal, normalized_role)
                 self._ensure_profile_for_role(db, user, normalized_role)
                 db.commit()
-                return self._issue_access_token(user, principal, selected_role=normalized_role)
+                token = self._issue_access_token(user, principal, selected_role=normalized_role)
+                return {"token": token, "user": self._export_current_user(principal, db)}
             finally:
                 db.close()
         except ValueError:

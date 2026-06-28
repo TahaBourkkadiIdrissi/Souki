@@ -1,233 +1,205 @@
-# 🚀 QUICK START - Système d'Authentification SOUKI
+# 🚀 Guide de Démarrage Rapide - Projet Souki
 
-**Pas de temps? Utilisez ce guide simple!** 
+## ✅ Ce qui a été installé
 
----
+### Backend (FastAPI/Python)
+```
+✅ FastAPI, Uvicorn, Pydantic
+✅ SQLAlchemy 2.0.51 (ORM)
+✅ PostgreSQL driver (psycopg2-binary 2.9.12)
+✅ JWT Authentication (python-jose, bcrypt)
+✅ Supabase SDK 2.31.0
+✅ Google Auth & Generative AI
+✅ APScheduler (tâches planifiées)
+```
 
-## ⚡ 5 Minutes - Démarrage
+### Frontend (Next.js)
+```
+✅ Next.js 16.2.4 + Turbopack
+✅ React 19.2.4 + React DOM
+✅ TailwindCSS 4.2.0
+✅ Radix UI (30+ composants accessibles)
+✅ React Hook Form + Zod
+✅ Mapbox GL + react-map-gl
+✅ Recharts (graphiques)
+✅ 216 packages au total
+```
 
-### 1. Démarrer Backend
+### Mobile (Expo)
+```
+✅ Expo ~56.0.4
+✅ React Native 0.85.3
+✅ React Hook Form, Zod
+✅ Supabase JS client
+✅ React Query
+✅ NativeWind (TailwindCSS pour React Native)
+✅ Rnmapbox (cartes)
+✅ 918 packages au total
+```
+
+### Outils
+```
+✅ Node.js v24.17.0 (LTS)
+✅ npm v11.13.0
+✅ pnpm v11.8.0
+```
+
+## 🔧 Configuration de l'Environnement
+
+Les fichiers `.env` ont été créés avec les bonnes valeurs pour:
+- Supabase PostgreSQL
+- Google Authentication
+- Google Gemini API
+- HuggingFace API
+
+**Aucune action requise** pour l'environnement - tout est configuré!
+
+## 🎯 Commandes de Démarrage
+
+### 1️⃣ Backend FastAPI
 ```bash
-cd back-end
-python -m uvicorn main:app --reload
+cd /home/hamzazmarou/Souki/back-end
+python3 -m uvicorn main:app --reload --port 8000
 ```
-✅ Vérifier: `http://localhost:8000/docs` affiche Swagger UI
+📍 Accès: http://localhost:8000
+📚 Docs: http://localhost:8000/docs
 
-### 2. Démarrer Frontend  
+### 2️⃣ Frontend Next.js
 ```bash
-cd front-end
-npm run dev
+export NVM_DIR="$HOME/.var/app/com.visualstudio.code/config/nvm"
+source "$NVM_DIR/nvm.sh"
+cd /home/hamzazmarou/Souki/front-end
+pnpm dev
 ```
-✅ Vérifier: `http://localhost:3000` affiche home page
+📍 Accès: http://localhost:3000
 
-### 3. Tester Authentification
+### 3️⃣ Mobile Expo
 ```bash
-# Option A: Navigateur
-1. Aller http://localhost:3000
-2. Cliquer "Connexion" 
-3. S'inscrire avec email + password
-4. 
-5. ✅ Should be redirected to home with profile icon
+export NVM_DIR="$HOME/.var/app/com.visualstudio.code/config/nvm"
+source "$NVM_DIR/nvm.sh"
+cd /home/hamzazmarou/Souki/mobile
+npm start
 ```
+📱 Scannez le QR code avec Expo Go
+
+## 📊 Vérification de l'Installation
+
+```bash
+# Vérifier Python
+python3 -c "import fastapi, sqlalchemy, supabase; print('✅ Backend OK')"
+
+# Vérifier Node.js
+node --version && npm --version
+
+# Vérifier Frontend
+cd /home/hamzazmarou/Souki/front-end && pnpm list | head
+
+# Vérifier Mobile
+cd /home/hamzazmarou/Souki/mobile && npm list | head
+```
+
+## 📝 Structure du Projet
+
+```
+Souki/
+├── back-end/              # FastAPI Python
+│   ├── main.py           # Point d'entrée
+│   ├── config.py         # Configuration
+│   ├── requirements.txt   # Dépendances Python
+│   ├── controllers/       # Routes API
+│   ├── services/         # Logique métier
+│   └── .env             # Configuration
+│
+├── front-end/             # Next.js
+│   ├── app/             # Routes Next.js
+│   ├── components/      # Composants React
+│   ├── package.json     # Dépendances npm
+│   └── .env.local       # Configuration locale
+│
+├── mobile/                # Expo/React Native
+│   ├── app/             # Écrans de l'app
+│   ├── components/      # Composants RN
+│   ├── package.json     # Dépendances npm
+│   └── .env            # Configuration
+│
+├── prisma/               # ORM Database
+│   └── schema.prisma    # Schéma BD
+│
+└── Documentation/        # Docs du projet
+```
+
+## ⚠️ Notes Importantes
+
+### ML Packages (PyTorch, Transformers)
+Le projet est configuré pour utiliser une **API distante HuggingFace** (`SOUKI_ML_INFERENCE_URL`), donc les packages ML locaux (torch, transformers) ne sont pas nécessaires pour développer localement. Si vous avez besoin d'exécuter l'inférence ML localement, installez:
+```bash
+pip install torch transformers peft accelerate --break-system-packages
+```
+
+### PostgreSQL Local (optionnel)
+Par défaut, le projet utilise **Supabase** (PostgreSQL en cloud). Si vous voulez tester localement:
+```bash
+# Créer une BD PostgreSQL locale
+createdb souki_db
+
+# Mettre à jour back-end/.env
+user=votre_user
+password=votre_password
+host=localhost
+port=5432
+dbname=souki_db
+```
+
+### Prisma Migrations
+```bash
+# Générer les types Prisma
+cd /home/hamzazmarou/Souki
+npx prisma generate
+
+# Appliquer les migrations
+npx prisma migrate dev --name initial
+```
+
+## 🔐 Sécurité
+
+- **JWT_SECRET** en développement = OK pour tester
+- **En production**: Utiliser une clé aléatoire forte (minimum 32 caractères)
+- **API Keys**: Toutes les clés API sont stockées dans `.env` (ne jamais commit)
+
+## 🐛 Troubleshooting
+
+### "Module not found: fastapi"
+```bash
+python3 -m pip install fastapi --break-system-packages
+```
+
+### "Cannot find node"
+```bash
+export NVM_DIR="$HOME/.var/app/com.visualstudio.code/config/nvm"
+source "$NVM_DIR/nvm.sh"
+```
+
+### Erreur de connexion à Supabase
+- Vérifier les credentials dans `back-end/.env`
+- Vérifier la connexion internet
+- Vérifier que les clés API sont valides
+
+### Erreur de TypeScript
+```bash
+cd /home/hamzazmarou/Souki/front-end
+pnpm install
+```
+
+## 📞 Ressources Utiles
+
+- 📖 [FastAPI Docs](https://fastapi.tiangolo.com)
+- 🎨 [Next.js Docs](https://nextjs.org)
+- 📱 [Expo Docs](https://docs.expo.dev)
+- 🗄️ [Prisma Docs](https://www.prisma.io/docs)
+- 🔑 [Supabase Docs](https://supabase.com/docs)
 
 ---
 
-## 📚 Comprendre le Système (15 min)
-
-### Le concept
-1. **User s'inscrit/login** → Backend retourne JWT token
-2. **Frontend sauvegarde token** dans localStorage
-3. **Frontend valide token** avec `GET /auth/me` 
-4. **Navbar affiche profil icon** si connecté
-5. **Actions redirigent login** si pas connecté
-
-### Les 3 fichiers clés
-
-**Backend** - 1 nouveau endpoint:
-```python
-@auth_router.get("/me")
-def get_current_user_profile(user=Depends(get_current_user)):
-    # Retourne les données de l'utilisateur
-```
-
-**Frontend Context** - Gère l'état global:
-```typescript
-const { user, isAuthenticated, login, logout } = useAuth()
-```
-
-**Frontend Component** - Protège les actions:
-```typescript
-if (!isAuthenticated) router.push("/login") // Redirect if not authed
-```
-
----
-
-## 🔧 Utiliser dans mon Code
-
-### Cas 1: Afficher profil utilisateur
-```typescript
-import { useAuth } from "@/hooks/useAuth"
-
-export function Hello() {
-  const { user } = useAuth()
-  return <p>Hello {user?.email}!</p>
-}
-```
-
-### Cas 2: Protéger une action
-```typescript
-import { useAuth } from "@/hooks/useAuth"
-import { useRouter } from "next/navigation"
-
-export function BuyButton() {
-  const { isAuthenticated } = useAuth()
-  const router = useRouter()
-
-  const handleBuy = () => {
-    if (!isAuthenticated) {
-      router.push("/login")
-      return
-    }
-    // Buy now...
-  }
-
-  return <button onClick={handleBuy}>Acheter</button>
-}
-```
-
-### Cas 3: Appel API protégé
-```typescript
-import { useAuth } from "@/hooks/useAuth"
-
-export function UserDashboard() {
-  const { token } = useAuth()
-
-  const fetchData = async () => {
-    const res = await fetch("http://localhost:8000/profile/orders", {
-      headers: {
-        "Authorization": `Bearer ${token}`
-      }
-    })
-    return res.json()
-  }
-}
-```
-
----
-
-## 📁 Fichiers Créés
-
-```
-✅ Nouveau - contexts/auth-context.tsx         (Auth provider)
-✅ Nouveau - hooks/useAuth.ts                  (Hook pour utiliser auth)
-✅ Nouveau - lib/api.ts                        (Client API)
-✅ Nouveau - components/souki/navbar.tsx       (Navbar globale)
-✅ Nouveau - components/souki/profile-dropdown.tsx (Menu profil)
-
-✅ Modifié - app/layout.tsx                    (Ajoute AuthProvider)
-✅ Modifié - app/page.tsx                      (Actions protégées)
-✅ Modifié - app/login/client/page.tsx         (Redirect vers /)
-
-✅ Backend - controllers.py                    (Endpoint GET /auth/me)
-✅ Backend - dal.py                            (Méthode UserDao.read)
-```
-
----
-
-## ✅ Vérifier que tout fonctionne
-
-1. **Backend compile?**
-   ```bash
-   cd back-end && python -c "import controllers; print('OK')"
-   ```
-
-2. **Frontend compile?**
-   ```bash
-   cd front-end && npm run build
-   # Si OK → "✅ Compiled successfully"
-   ```
-
-3. **Tests passent?**
-   ```bash
-   cd back-end && python test_auth.py
-   ```
-
----
-
-## ❓ Problèmes Courants
-
-| Problème | Solution |
-|----------|----------|
-| 401 Unauthorized | Token expiré (7 jours) ou invalid |
-| "useAuth must be used within AuthProvider" | Vérifier `<AuthProvider>` dans layout.tsx |
-| Je veux ajouter une page /profile | Créer `app/profile/page.tsx` avec `useAuth()` check |
-| Un endpoint retourne 401 | Ajouter `Depends(get_current_user)` |
-| Comment ajouter Google OAuth? | Backend OK, ajouter front: GoogleLogin component |
-
----
-
-## 🎯 Prochaines Étapes
-
-1. **Qui utlise quoi?**
-   - Checkout page → protéger avec `useAuth()`
-   - Profile page → créer nouvelle page
-   - API calls → utiliser Bearer token
-   
-2. **À implémenter:**
-   - [ ] Page `/profile`
-   - [ ] Protéger toutes les actions
-   - [ ] Google OAuth frontend
-   - [ ] Appels API avec token
-
-3. **Before Production:**
-   - [ ] Tester tous les cas d'usage (voir TESTING_CHECKLIST.md)
-   - [ ] Configurer CORS
-   - [ ] Migrer vers cookies HttpOnly
-   - [ ] Ajouter refresh tokens
-
----
-
-## 📞 Documentation Complète
-
-Besoin de plus d'infos? Consulter:
-
-- **IMPLEMENTATION_SUMMARY.md** - Qu'est-ce qui a été fait?
-- **AUTHENTICATION_GUIDE.md** - Comment utiliser?
-- **TESTING_CHECKLIST.md** - Comment tester?
-- **INTEGRATION_POINTS.md** - Points d'intégration?
-- **README_AUTH.md** - Index de tout
-
----
-
-## 🎓 Conceptuellement
-
-```
-User says "Connexion" 
-         ↓
-Redirect to /login
-         ↓
-S'inscrire ou Login
-         ↓
-Backend envoie token (JWT)
-         ↓
-Frontend sauvegarde dans localStorage
-         ↓
-Frontend valide token avec GET /auth/me
-         ↓
-AuthContext charge user data
-         ↓
-Navbar affiche profile icon
-         ↓
-User peut faire actions (Add to cart, etc)
-         ↓
-Si clic logout → token supprimé
-         ↓
-Navbar revient à "Connexion" button
-```
-
----
-
-**Prêt à coder? 🚀**
-
-*Utilisez `useAuth()` dans n'importe quel composant pour accéder au système d'authentification.*
-
+**Installation Date**: 2026-06-18
+**Status**: ✅ Prêt pour développement
+**Environment**: Flatpak (Freedesktop SDK 25.08)
