@@ -24,6 +24,7 @@ import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
 import type { CatalogueProduct } from "@/lib/catalogue"
 import {
   fetchCatalogueProducts,
+  FREE_DELIVERY_THRESHOLD,
   getCataloguePresentation,
   loadStoredCart,
   resolveCatalogueImage,
@@ -419,7 +420,7 @@ export default function PwaWelcomePage() {
               <Truck className="h-6 w-6 text-[#F07C00]" />
             </div>
             <div className="flex-1">
-              <p className="text-[15px] font-black text-[#3D3D3D]">Livraison gratuite dès 80 DH</p>
+              <p className="text-[15px] font-black text-[#3D3D3D]">Livraison gratuite dès {FREE_DELIVERY_THRESHOLD} DH</p>
               <p className="mt-0.5 text-[13px] font-medium text-[#3D3D3D]/70">Demain matin, frais et local</p>
             </div>
           </div>

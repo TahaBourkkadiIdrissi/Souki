@@ -89,7 +89,7 @@ class ProductDaoBD(IProductDao):
         session: Session,
         exclude_ids: list[int],
         panier_total: float = 0.0,
-        seuil: float = 80.0,
+        seuil: float = 300.0,
         limit: int = 4,
     ) -> List[Product]:
         reste = max(0, seuil - panier_total)
