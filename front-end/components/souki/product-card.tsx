@@ -54,11 +54,6 @@ export function ProductCard({
 
   const isOutOfStock = typeof stock === "number" && stock <= 0
   const isUnavailable = isOutOfStock || disabled
-  const levelLabel = niveau ? `Niveau ${niveau}` : "Catalogue"
-  const savings =
-    typeof prixKhddarEstime === "number" && prixKhddarEstime > price
-      ? prixKhddarEstime - price
-      : 0
 
   const getUnitHint = () => {
     if (resolvedDisplayUnit === "250g") {
@@ -103,7 +98,8 @@ export function ProductCard({
       <div
         className={cn(
           "relative w-full overflow-hidden bg-[#F4FAF3]",
-          featured ? "h-40 sm:h-52 md:h-56 2xl:h-64" : "h-28 sm:h-44 2xl:h-48"
+          // Visuel carre, proportions homogenes (look e-commerce moderne).
+          featured ? "aspect-square sm:aspect-[4/3]" : "aspect-square"
         )}
       >
         <img
@@ -117,50 +113,33 @@ export function ProductCard({
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
         {isOutOfStock && (
-          <span className="absolute left-4 top-4 rounded-full bg-red-500 px-3 py-1 text-xs font-semibold text-white">
-            Rupture totale
-          </span>
+          <>
+            <span className="absolute left-3 top-3 rounded-full bg-red-500 px-3 py-1 text-xs font-semibold text-white shadow-sm">
+              Rupture
+            </span>
+            <div className="absolute inset-0 bg-white/35" />
+          </>
         )}
-        {!isOutOfStock && (
-          <span
-            className={cn(
-              "absolute left-3 top-3 rounded-full border px-2.5 py-1 text-[11px] font-bold backdrop-blur",
-              niveau === 1 && "border-[#BFE6C4] bg-white/90 text-[#1E8A3C]",
-              niveau === 2 && "border-[#F3D8B2] bg-white/90 text-[#9A5C11]",
-              niveau === 3 && "border-amber-300 bg-white/90 text-amber-700",
-              !niveau && "border-[#DDE7DE] bg-white/90 text-[#607061]"
-            )}
-          >
-            {levelLabel}
-          </span>
-        )}
-        {isOutOfStock && <div className="absolute inset-0 bg-white/35" />}
       </div>
 
       <div className="flex flex-1 flex-col p-2.5 sm:p-3 2xl:p-4">
-        <div className="mb-2 min-w-0 sm:mb-3">
+        <div className="mb-2 min-w-0">
           <h3 className="truncate text-sm font-bold text-[#264129] sm:text-base">{name}</h3>
-          <p className="mt-1 line-clamp-2 min-h-[2rem] text-[11px] leading-4 text-[#6C7E6E] sm:min-h-0 sm:text-xs 2xl:text-sm">
+          <p className="mt-0.5 truncate text-[11px] leading-4 text-[#6C7E6E] sm:text-xs">
             {getUnitHint()}
           </p>
         </div>
 
-        <div className="mb-2 flex flex-col gap-1 sm:mb-3 sm:flex-row sm:items-end sm:justify-between sm:gap-3 2xl:mb-4">
-          <span className="text-base font-black leading-none text-[#F07C00] sm:text-xl 2xl:text-2xl">
+        <div className="mb-2.5 flex items-baseline gap-1">
+          <span className="text-base font-black leading-none text-[#F07C00] sm:text-lg 2xl:text-xl">
             {price.toFixed(2)} DH
           </span>
-          <span className="shrink-0 whitespace-nowrap text-[11px] text-[#6C7E6E] sm:pb-1 sm:text-sm">
+          <span className="shrink-0 whitespace-nowrap text-[11px] text-[#6C7E6E]">
             / {resolvedDisplayUnit}
           </span>
         </div>
 
-        {savings > 0 && (
-          <div className="mb-2 rounded-xl border border-[#E6F0E7] bg-[#F7FCF7] px-2.5 py-2 text-[11px] font-semibold leading-snug text-[#607061] sm:mb-3 sm:px-3 sm:text-xs 2xl:mb-4">
-            Khddar estime {prixKhddarEstime?.toFixed(2)} DH, economie {savings.toFixed(2)} DH
-          </div>
-        )}
-
-        <div className="mb-2 space-y-2 sm:mb-3 2xl:mb-4">
+        <div className="mb-2 space-y-2 sm:mb-2.5">
           <div className="flex w-full items-center overflow-hidden rounded-full border border-[#CDE8D0] bg-[#F7FCF7]">
           <button
               onClick={(event) => {

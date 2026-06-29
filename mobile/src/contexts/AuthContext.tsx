@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  const syncAuthState = async (nextToken: string | null) => {
+  const syncAuthState = async (nextToken: string | null, preloadedUser?: User | null) => {
     if (!nextToken) {
       await deleteSecureItem(TOKEN_KEY)
       setToken(null)
@@ -51,7 +51,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     await setSecureItem(TOKEN_KEY, nextToken)
     setToken(nextToken)
-    const nextUser = normalizeUser(await validateUserToken(nextToken))
+    // Si l'utilisateur est deja fourni (reponse de login), on evite l'appel /auth/me.
+    const nextUser = normalizeUser(preloadedUser ?? (await validateUserToken(nextToken)))
     setUser(nextUser)
     return nextUser
   }
@@ -76,14 +77,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (loginId: string, password: string, role = "CLIENT") => {
     const response = await loginUser(loginId, password, role)
-    const nextUser = await syncAuthState(response.access_token)
+    const nextUser = await syncAuthState(response.access_token, response.user)
     if (!nextUser) throw new Error("Validation du token echouee")
     return nextUser
   }
 
   const adminLogin = async (loginId: string, password: string) => {
     const response = await adminLoginUser(loginId, password)
-    const nextUser = await syncAuthState(response.access_token)
+    const nextUser = await syncAuthState(response.access_token, response.user)
     if (!nextUser) throw new Error("Validation du token echouee")
     return nextUser
   }
