@@ -138,19 +138,9 @@
   * {
     @apply border-border outline-ring/50;
   }
-  html,
-  body {
-    max-width: 100%;
-    overflow-x: clip;
-  }
-
-  @supports not (overflow: clip) {
-    html,
-    body {
-      overflow-x: hidden;
-    }
-  }
-
+  /* Pas d'overflow sur <html>/<body> : cela cassait le scroll vertical du
+     document. Le debordement horizontal est deja contenu par le wrapper de
+     page (`overflow-x-hidden`). */
   body {
     @apply bg-background text-foreground;
   }
@@ -1234,56 +1224,14 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Base state: elements start hidden / offset */
-[data-reveal] {
-  opacity: 0;
-  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: opacity, transform;
-}
-
-/* Reveal direction variants */
-[data-reveal="up"] {
-  transform: translateY(48px);
-}
-
-[data-reveal="scale"] {
-  transform: scale(0.92);
-}
-
-[data-reveal="fade"] {
-  transform: translateY(16px);
-}
-
-[data-reveal="left"] {
-  transform: translateX(-48px);
-}
-
-[data-reveal="right"] {
-  transform: translateX(48px);
-}
-
-/* When element enters viewport (class added by useScrollReveal) */
+/* Le contenu est toujours visible, comme avant : on a retire l'apparition au
+   scroll qui laissait des sections (ex. les produits) masquees (opacity:0) si
+   l'IntersectionObserver ne se declenchait pas. Le `!important` neutralise tout
+   ancien style en cache cote navigateur. */
+[data-reveal],
 [data-reveal].revealed {
-  opacity: 1;
-  transform: translateY(0) translateX(0) scale(1);
-}
-
-/* Stagger delay variants */
-[data-reveal][data-delay="1"] {
-  transition-delay: 0.08s;
-}
-
-[data-reveal][data-delay="2"] {
-  transition-delay: 0.16s;
-}
-
-[data-reveal][data-delay="3"] {
-  transition-delay: 0.24s;
-}
-
-[data-reveal][data-delay="4"] {
-  transition-delay: 0.32s;
+  opacity: 1 !important;
+  transform: none !important;
 }
 
 /* Parallax wrapper for background images */
