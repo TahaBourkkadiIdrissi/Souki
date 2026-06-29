@@ -28,6 +28,14 @@ import {
 } from "@/lib/api"
 
 type Supplier = { user_id: number; shop_name: string; statut: string }
+type PendingAdminAction = {
+  commandeId: number
+  title: string
+  description: string
+  confirmLabel: string
+  tone: "green" | "red"
+  action: () => Promise<unknown>
+}
 
 const REASONS = [
   "JOUR_PRECEDENT",
@@ -62,6 +70,7 @@ export default function AdminCommandesExceptionsPage() {
   const [loading, setLoading] = useState(true)
   const [actingId, setActingId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [pendingAction, setPendingAction] = useState<PendingAdminAction | null>(null)
 
   const load = useCallback(async () => {
     if (!token) return
@@ -112,8 +121,12 @@ export default function AdminCommandesExceptionsPage() {
     }
   }
 
-  const confirmAction = (message: string) =>
-    typeof window === "undefined" || window.confirm(message)
+  const confirmPendingAction = async () => {
+    if (!pendingAction) return
+    const action = pendingAction
+    setPendingAction(null)
+    await runAction(action.commandeId, action.action)
+  }
 
   const renderActions = (item: AdminCommandeException) => (
     <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -157,22 +170,32 @@ export default function AdminCommandesExceptionsPage() {
       </select>
       <button
         disabled={actingId === item.id}
-        onClick={() => {
-          if (confirmAction(`Replanifier la commande #${item.id} ?`)) {
-            void runAction(item.id, () => replanifierAdminCommande(token!, item.id))
-          }
-        }}
+        onClick={() =>
+          setPendingAction({
+            commandeId: item.id,
+            title: `Replanifier la commande #${item.id} ?`,
+            description: "La commande sera replacee dans le flux de planification.",
+            confirmLabel: "Replanifier",
+            tone: "green",
+            action: () => replanifierAdminCommande(token!, item.id),
+          })
+        }
         className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#EAF8EC] px-3 py-2 text-xs font-black text-[#1E8A3C] disabled:opacity-50"
       >
         <RotateCcw className="h-3.5 w-3.5" /> Replanifier
       </button>
       <button
         disabled={actingId === item.id}
-        onClick={() => {
-          if (confirmAction(`Annuler définitivement la commande #${item.id} ?`)) {
-            void runAction(item.id, () => annulerAdminCommande(token!, item.id))
-          }
-        }}
+        onClick={() =>
+          setPendingAction({
+            commandeId: item.id,
+            title: `Annuler definitivement la commande #${item.id} ?`,
+            description: "Cette action annule la commande et doit rester exceptionnelle.",
+            confirmLabel: "Annuler la commande",
+            tone: "red",
+            action: () => annulerAdminCommande(token!, item.id),
+          })
+        }
         className="inline-flex items-center justify-center gap-1 rounded-xl bg-red-50 px-3 py-2 text-xs font-black text-red-600 disabled:opacity-50"
       >
         <XCircle className="h-3.5 w-3.5" /> Annuler
@@ -252,6 +275,38 @@ export default function AdminCommandesExceptionsPage() {
           </div>
         )}
       </div>
+
+      {pendingAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#122018]/55 px-4 py-6 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-[#DDEBDD] bg-white p-5 shadow-[0_30px_90px_rgba(18,32,24,0.25)]">
+            <div className="flex items-start gap-3">
+              <span className={pendingAction.tone === "red" ? "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600" : "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#EAF8EC] text-[#1E8A3C]"}>
+                {pendingAction.tone === "red" ? <XCircle className="h-5 w-5" /> : <RotateCcw className="h-5 w-5" />}
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-black text-[#264129]">{pendingAction.title}</h2>
+                <p className="mt-1 text-sm font-semibold leading-6 text-[#6F8070]">{pendingAction.description}</p>
+              </div>
+            </div>
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setPendingAction(null)}
+                className="rounded-2xl border border-[#DDEBDD] px-5 py-3 text-sm font-bold text-[#607061] hover:bg-[#F7FCF7]"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmPendingAction()}
+                className={pendingAction.tone === "red" ? "rounded-2xl bg-red-600 px-5 py-3 text-sm font-black text-white hover:bg-red-700" : "rounded-2xl bg-[#1E8A3C] px-5 py-3 text-sm font-black text-white hover:bg-[#176B2E]"}
+              >
+                {pendingAction.confirmLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

@@ -136,11 +136,11 @@ export default function HomePage() {
   const handleOpenSmartModal = () => requireAuth(() => setActiveModal("smart"))
 
   return (
-    <div ref={revealRef} className="min-h-screen bg-white pb-24 md:pb-0" suppressHydrationWarning>
+    <div ref={revealRef} className="min-h-screen overflow-x-hidden bg-white pb-24 md:pb-0" suppressHydrationWarning>
       <Navbar />
 
       {/* ===== HERO SECTION ===== */}
-      <section className="relative min-h-[95vh] flex items-center justify-center overflow-hidden">
+      <section className="relative flex min-h-[95vh] w-full items-center justify-center overflow-hidden">
         {/* Background Image with Zoom Animation */}
         <div className="absolute inset-0 z-0">
           <Image
@@ -153,7 +153,7 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-b from-black/85 via-black/45 to-black/75" />
         </div>
 
-        <div className="relative z-10 mx-auto max-w-5xl px-4 py-24 text-center sm:px-6 lg:px-8">
+        <div className="relative z-10 mx-auto w-full max-w-5xl px-4 py-24 text-center sm:px-6 lg:px-8">
           <div className="space-y-10">
             {/* Badge with animation */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 px-4 sm:px-5 py-2 sm:py-2.5 glass-ios26 rounded-2xl mx-auto animate-scale-up w-fit max-w-full">
@@ -182,7 +182,7 @@ export default function HomePage() {
               {/* Primary CTA */}
               <button
                 onClick={() => requireAuth(() => router.push("/catalogue"))}
-                className="group relative inline-flex min-h-14 items-center justify-center gap-3 overflow-hidden rounded-2xl bg-[#1E8A3C] px-10 py-5 text-xl font-black text-white shadow-[0_20px_50px_-10px_rgba(30,138,60,0.5)] transition-all hover:scale-105 hover:bg-[#176B2E] animate-pulse-glow"
+                className="group relative inline-flex min-h-14 w-full max-w-xs items-center justify-center gap-3 overflow-hidden rounded-2xl bg-[#1E8A3C] px-5 py-4 text-base font-black text-white shadow-[0_20px_50px_-10px_rgba(30,138,60,0.5)] transition-all hover:scale-105 hover:bg-[#176B2E] animate-pulse-glow sm:w-auto sm:max-w-none sm:px-10 sm:py-5 sm:text-xl"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
                 Composer mon panier
@@ -190,13 +190,13 @@ export default function HomePage() {
               </button>
 
               {/* Secondary Info */}
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#F5C400]/30 bg-black/30 px-5 py-2 text-xs sm:text-sm font-bold text-white/90 backdrop-blur">
+              <div className="inline-flex max-w-full items-center justify-center gap-2 rounded-full border border-[#F5C400]/30 bg-black/30 px-4 py-2 text-center text-xs font-bold text-white/90 backdrop-blur sm:px-5 sm:text-sm">
                 <Clock className="h-4 w-4 text-[#F5C400]" />
                 Commande avant 20h, livraison dès 8h demain
               </div>
 
               {/* AI Features */}
-              <div className="grid w-full max-w-2xl grid-cols-1 sm:grid-cols-2 gap-3 px-2 sm:gap-4 sm:px-4">
+              <div className="grid w-full max-w-2xl grid-cols-1 gap-3 px-0 sm:grid-cols-2 sm:gap-4 sm:px-4">
                 <button 
                   onClick={handleOpenVoiceModal}
                   className="glass-ios26 group flex min-h-[148px] flex-col items-start justify-between rounded-3xl p-4 text-left text-white transition-all hover:bg-white/20 active:scale-95 sm:min-h-[164px] sm:p-5"
@@ -229,7 +229,7 @@ export default function HomePage() {
             </div>
 
             {/* Trust Badges */}
-            <div className="flex flex-wrap items-center justify-center gap-6 pt-16 animate-slide-up stagger-3">
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-16 animate-slide-up stagger-3 sm:gap-6">
               {[
                 { label: "Livraison dès 8h", icon: Clock },
                 { label: "Prix de gros", icon: Banknote },

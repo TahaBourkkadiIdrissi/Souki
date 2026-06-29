@@ -191,12 +191,82 @@ const getClaimWindowLabel = (order: CommandeHistoriqueDTO) => {
 }
 
 type FarmerExpression = "welcome" | "explain" | "celebrate"
+type FeedbackTone = "success" | "info" | "warning" | "error"
+
+type FeedbackMessage = {
+  tone: FeedbackTone
+  title: string
+  message: string
+}
+
+const feedbackToneStyles: Record<
+  FeedbackTone,
+  { shell: string; icon: string; Icon: LucideIcon }
+> = {
+  success: {
+    shell: "border-[#BFE6C4] bg-[#EAF8EC] text-[#1E8A3C]",
+    icon: "bg-white text-[#1E8A3C]",
+    Icon: BadgeCheck,
+  },
+  info: {
+    shell: "border-[#B9D7F2] bg-[#EEF7FF] text-[#1A5F96]",
+    icon: "bg-white text-[#1A5F96]",
+    Icon: Sparkles,
+  },
+  warning: {
+    shell: "border-[#F3D8B2] bg-[#FFF7EE] text-[#9A5C11]",
+    icon: "bg-white text-[#F07C00]",
+    Icon: AlertCircle,
+  },
+  error: {
+    shell: "border-red-200 bg-red-50 text-red-700",
+    icon: "bg-white text-red-600",
+    Icon: AlertCircle,
+  },
+}
+
+function CatalogueFeedback({
+  feedback,
+  onDismiss,
+}: {
+  feedback: FeedbackMessage
+  onDismiss: () => void
+}) {
+  const tone = feedbackToneStyles[feedback.tone]
+  const Icon = tone.Icon
+
+  return (
+    <div
+      role="status"
+      className={cn(
+        "mb-6 flex items-start gap-3 rounded-2xl border px-4 py-3 shadow-[0_18px_45px_-34px_rgba(30,65,41,0.35)]",
+        tone.shell
+      )}
+    >
+      <span className={cn("mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", tone.icon)}>
+        <Icon className="h-5 w-5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-black leading-tight">{feedback.title}</p>
+        <p className="mt-1 text-sm font-semibold leading-5 opacity-85">{feedback.message}</p>
+      </div>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="rounded-full p-1 opacity-70 transition-colors hover:bg-white/45 hover:opacity-100"
+        aria-label="Fermer le message"
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  )
+}
 
 function RecolteWarmWelcome() {
   return (
-    <div className="pointer-events-none absolute right-3 top-4 z-20 w-24 sm:right-5 sm:w-32 xl:w-40 2xl:w-44">
+    <div className="pointer-events-none hidden xl:absolute xl:right-5 xl:top-5 xl:z-20 xl:block xl:w-36 2xl:w-44">
       <div className="relative pt-7 sm:pt-8">
-        <div className="absolute right-10 top-0 z-30 whitespace-nowrap rounded-2xl border border-[#F3D8B2] bg-white px-2.5 py-1.5 text-center text-[11px] font-black text-[#9A5C11] shadow-[0_12px_30px_-22px_rgba(154,92,17,0.55)] sm:right-16 sm:text-xs xl:right-20 2xl:text-base">
+        <div className="absolute right-12 top-0 z-30 max-w-[10rem] rounded-2xl border border-[#F3D8B2] bg-white px-3 py-1.5 text-center text-[11px] font-black leading-tight text-[#9A5C11] shadow-[0_12px_30px_-22px_rgba(154,92,17,0.55)] 2xl:right-20 2xl:max-w-none 2xl:text-base">
           Ach heb lkhater ?
         </div>
         <FarmerAvatar
@@ -403,6 +473,7 @@ function CatalogueContent() {
   const [historyError, setHistoryError] = useState("")
   const [showOrderHistory, setShowOrderHistory] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
+  const [feedback, setFeedback] = useState<FeedbackMessage | null>(null)
   const [claimOrder, setClaimOrder] = useState<CommandeHistoriqueDTO | null>(null)
   const [claimLineId, setClaimLineId] = useState<number | null>(null)
   const [claimQuantity, setClaimQuantity] = useState("1")
@@ -410,11 +481,16 @@ function CatalogueContent() {
   const [claimError, setClaimError] = useState("")
   const [isSubmittingClaim, setIsSubmittingClaim] = useState(false)
   const [deletingOrderId, setDeletingOrderId] = useState<number | null>(null)
+  const [pendingDeleteOrderId, setPendingDeleteOrderId] = useState<number | null>(null)
   const [pricingSuggestions, setPricingSuggestions] = useState<CatalogueProduct[]>([])
   const [addedSuggestionIds, setAddedSuggestionIds] = useState<number[]>([])
   const [avatarExpression, setAvatarExpression] = useState<FarmerExpression>("welcome")
   const avatarResetTimerRef = useRef<number | null>(null)
   const revealRef = useScrollReveal()
+
+  const showFeedback = useCallback((nextFeedback: FeedbackMessage) => {
+    setFeedback(nextFeedback)
+  }, [])
 
   const triggerAvatarCelebrate = useCallback(() => {
     setAvatarExpression("celebrate")
@@ -800,11 +876,19 @@ function CatalogueContent() {
       (product) => typeof product.ligne_panier_id === "number" && product.quantite_kg > 0
     )
     if (!canClaimOrder(order)) {
-      alert(getClaimWindowLabel(order))
+      showFeedback({
+        tone: "warning",
+        title: "SAV indisponible",
+        message: getClaimWindowLabel(order),
+      })
       return
     }
     if (claimableLines.length === 0) {
-      alert("Cette commande ne contient aucune ligne éligible au SAV.")
+      showFeedback({
+        tone: "warning",
+        title: "Aucun produit eligible",
+        message: "Cette commande ne contient aucune ligne eligible au SAV.",
+      })
       return
     }
     const firstLine = claimableLines[0]
@@ -875,19 +959,22 @@ function CatalogueContent() {
     }
   }
 
-  const handleDeleteOrderHistory = async (commandeId: number) => {
-    const confirmed = window.confirm(
-      `Supprimer la commande N-${commandeId} de votre historique ?`
-    )
-    if (!confirmed) {
+  const handleDeleteOrderHistory = (commandeId: number) => {
+    setPendingDeleteOrderId(commandeId)
+  }
+
+  const confirmDeleteOrderHistory = async () => {
+    if (pendingDeleteOrderId === null) {
       return
     }
 
+    const commandeId = pendingDeleteOrderId
     setDeletingOrderId(commandeId)
     try {
       const result = await deleteOrderFromHistory(commandeId)
       setOrderHistory((currentHistory) => currentHistory.filter((order) => order.id !== commandeId))
       setSuccessMessage(result.message || `Commande N-${commandeId} supprimee de l'historique.`)
+      setPendingDeleteOrderId(null)
     } catch (error) {
       setHistoryError(
         error instanceof Error ? error.message : "Impossible de supprimer cette commande de l'historique."
@@ -900,7 +987,11 @@ function CatalogueContent() {
   const handleCheckout = () => {
     requireAuth("/checkout", async () => {
       if (cart.length === 0) {
-        alert("Votre panier est vide.")
+        showFeedback({
+          tone: "info",
+          title: "Panier vide",
+          message: "Ajoutez au moins un produit frais avant de valider la commande.",
+        })
         return
       }
 
@@ -914,14 +1005,22 @@ function CatalogueContent() {
           // Vider le panier local après succès
           saveStoredCart([])
         } else {
-          alert("Erreur: réponse inattendue du serveur")
+          showFeedback({
+            tone: "error",
+            title: "Commande non creee",
+            message: "Le serveur a repondu sans identifiant de panier. Reessayez dans un instant.",
+          })
         }
       } catch (error: any) {
         const errorMsg = 
           error?.message || 
           error?.detail || 
           "Erreur lors de la création du panier"
-        alert(errorMsg)
+        showFeedback({
+          tone: "error",
+          title: "Commande impossible",
+          message: errorMsg,
+        })
       } finally {
         setIsSubmittingCart(false)
       }
@@ -1335,6 +1434,13 @@ function CatalogueContent() {
             <div className="mb-6 rounded-2xl border border-[#BFE6C4] bg-[#EAF8EC] px-5 py-4 text-sm font-semibold text-[#1E8A3C]">
               {successMessage}
             </div>
+          )}
+
+          {feedback && (
+            <CatalogueFeedback
+              feedback={feedback}
+              onDismiss={() => setFeedback(null)}
+            />
           )}
 
           {isAuthenticated && showOrderHistory && (
@@ -2087,6 +2193,43 @@ function CatalogueContent() {
         products={products}
         onApplySelections={handleApplySelections}
       />
+
+      {pendingDeleteOrderId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#122018]/55 px-4 py-6 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[28px] border border-[#F3D8B2] bg-white p-5 shadow-[0_30px_90px_rgba(18,32,24,0.25)]">
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FFF7EE] text-[#F07C00]">
+                <Trash2 className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-lg font-black text-[#264129]">Supprimer cette commande ?</h3>
+                <p className="mt-1 text-sm font-semibold leading-6 text-[#6F8070]">
+                  La commande N-{pendingDeleteOrderId} sera retiree de votre historique local. Vos donnees de paiement et de livraison ne changent pas.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setPendingDeleteOrderId(null)}
+                disabled={deletingOrderId === pendingDeleteOrderId}
+                className="rounded-2xl border border-[#DDE7DE] px-5 py-3 text-sm font-bold text-[#607061] transition-colors hover:bg-[#F7FCF7] disabled:opacity-60"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmDeleteOrderHistory()}
+                disabled={deletingOrderId === pendingDeleteOrderId}
+                className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-black text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {deletingOrderId === pendingDeleteOrderId ? "Suppression..." : "Supprimer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {claimOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#122018]/55 px-4 py-6 backdrop-blur-sm">

@@ -2350,13 +2350,6 @@ export default function LivreurPage() {
       return
     }
 
-    const confirmed =
-      typeof window === "undefined" ||
-      window.confirm("Êtes-vous sûr de vouloir refuser toutes les commandes de cette tournée ?")
-    if (!confirmed) {
-      return
-    }
-
     setIsRefusingTournee(true)
     try {
       const response = await refuserTourneeLivreur(token, buildTourneeRefusPayload())
@@ -2855,18 +2848,38 @@ export default function LivreurPage() {
                       </span>
                     )}
                     {canRejectEntireTournee && (
-                      <button
-                        type="button"
-                        onClick={handleRejectEntireTournee}
-                        disabled={isRefusingTournee}
-                        title={`Refuser ${pendingAssignmentCount} nouvelle(s) course(s)`}
-                        className="inline-flex max-w-full items-center justify-center gap-1 rounded-full bg-red-600 px-3 py-1 text-[11px] font-bold text-white shadow-sm transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-65"
-                      >
-                        {isRefusingTournee ? <Spinner className="size-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
-                        <span className="truncate">
-                          {isRefusingTournee ? "Refus..." : "Refuser la livraison"}
-                        </span>
-                      </button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            type="button"
+                            disabled={isRefusingTournee}
+                            title={`Refuser ${pendingAssignmentCount} nouvelle(s) course(s)`}
+                            className="inline-flex max-w-full items-center justify-center gap-1 rounded-full bg-red-600 px-3 py-1 text-[11px] font-bold text-white shadow-sm transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-65"
+                          >
+                            {isRefusingTournee ? <Spinner className="size-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+                            <span className="truncate">
+                              {isRefusingTournee ? "Refus..." : "Refuser la livraison"}
+                            </span>
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="rounded-3xl border-[#F3D8B2]">
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Refuser toute la tournee ?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Les {pendingAssignmentCount} nouvelle(s) course(s) seront retirees de votre tournee. Cette action aide Souki a les reassigner rapidement.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Garder la tournee</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => void handleRejectEntireTournee()}
+                              className="bg-red-600 text-white hover:bg-red-700"
+                            >
+                              Confirmer le refus
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     )}
                   </div>
 

@@ -138,6 +138,19 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  @supports not (overflow: clip) {
+    html,
+    body {
+      overflow-x: hidden;
+    }
+  }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -363,8 +376,7 @@
 }
 
 .animate-slow-zoom {
-  /* Zoom unique qui se fige (forwards) : plus d'effet "zoom/dezoom" en boucle. */
-  animation: slow-zoom 14s ease-out forwards;
+  animation: slow-zoom 8s ease-in-out infinite alternate;
   will-change: transform;
 }
 
@@ -1156,8 +1168,7 @@
 }
 
 .animate-slow-zoom {
-  /* Zoom unique qui se fige (forwards) : plus d'effet "zoom/dezoom" en boucle. */
-  animation: slowZoom 18s ease-out forwards;
+  animation: slowZoom 20s ease-in-out infinite alternate;
 }
 
 /* Staggered animations */

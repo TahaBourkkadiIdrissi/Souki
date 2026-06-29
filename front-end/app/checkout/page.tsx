@@ -40,6 +40,7 @@ import {
 } from "@/lib/catalogue"
 import { MapboxLocator } from "@/components/souki/mapbox-locator"
 import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
+import { toast } from "sonner"
 
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&h=300&fit=crop"
 const SEUIL = FREE_DELIVERY_THRESHOLD
@@ -553,14 +554,14 @@ function CheckoutContent() {
 
       if (res.ok) {
         const data = await res.json()
-        alert(`Succès ! Votre commande définitive N°${data.commande_id} a été enregistrée.`)
+        toast.success(`Commande N-${data.commande_id} enregistree avec succes.`)
         router.push(`/catalogue?commande_validee=${data.commande_id}`)
       } else {
         const errData = await res.json().catch(() => ({}))
-        alert(errData.detail || "Erreur lors de la validation de la commande.")
+        toast.error(errData.detail || "Erreur lors de la validation de la commande.")
       }
     } catch (error) {
-      alert("Erreur de connexion au serveur.")
+      toast.error("Erreur de connexion au serveur.")
     } finally {
       setIsSubmitting(false)
     }

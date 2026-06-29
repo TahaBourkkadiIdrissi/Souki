@@ -481,7 +481,6 @@ export async function submitManualBasket(cart: CartItem[]): Promise<ManualBasket
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
   
   const payload = { items }
-  console.log("Sending payload:", payload)
 
   return apiCall("/api/manual-basket", {
     method: "POST",
