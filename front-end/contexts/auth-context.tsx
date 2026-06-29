@@ -117,6 +117,7 @@ function normalizeUser(payload: any): User {
     is_verified: Boolean(payload?.is_verified),
     is_active: payload?.is_active !== false,
     default_dashboard: String(payload?.default_dashboard || "/"),
+    profiles: payload?.profiles && typeof payload.profiles === "object" ? payload.profiles : undefined,
   }
 }
 
@@ -302,9 +303,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const data = await response.json()
-      const newToken = data.access_token
 
-      const nextUser = await syncAuthState(newToken)
+      // Chemin rapide : le backend renvoie desormais l'utilisateur complet dans la
+      // reponse de login. On evite ainsi un second aller-retour /auth/me (cause du
+      // "gel" ressenti pendant plusieurs secondes a la connexion).
+      if (data?.user) {
+        const nextUser = normalizeUser(data.user)
+        setUser(nextUser)
+        setToken(COOKIE_SESSION_SENTINEL)
+        setIsAuthenticated(true)
+        notifyAuthSync()
+        return nextUser
+      }
+
+      // Repli compatibilite (ancienne API sans champ "user") : on valide via /auth/me.
+      const nextUser = await syncAuthState(data.access_token)
       if (!nextUser) {
         throw new Error("Validation du token echouee")
       }

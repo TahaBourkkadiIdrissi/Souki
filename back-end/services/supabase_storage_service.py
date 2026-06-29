@@ -37,6 +37,21 @@ class SupabaseStorageConfigError(SupabaseStorageError):
 class SupabaseStorageService:
     def __init__(self):
         self.bucket = AVATAR_BUCKET
+        # Le bootstrap (colonne + bucket + policies) est idempotent mais couteux :
+        # on ne le rejoue pas a chaque upload une fois reussi dans ce process.
+        self._bootstrapped = False
+
+    def _ensure_bootstrapped(self) -> None:
+        if self._bootstrapped:
+            return
+        try:
+            self.bootstrap_avatar_storage()
+        except Exception as exc:  # noqa: BLE001 - le bootstrap est aussi tente au demarrage
+            # Un echec ici (droits DDL insuffisants, etc.) ne doit pas casser l'upload :
+            # la colonne/bucket sont normalement deja crees au demarrage de l'app.
+            print(f"[Avatar] Bootstrap differe ignore: {exc}")
+        finally:
+            self._bootstrapped = True
 
     @staticmethod
     def _resolve_supabase_url() -> str:
@@ -249,7 +264,7 @@ class SupabaseStorageService:
         if len(content) > MAX_AVATAR_SIZE_BYTES:
             raise SupabaseStorageError("L'image ne doit pas depasser 2 Mo.")
 
-        self.bootstrap_avatar_storage()
+        self._ensure_bootstrapped()
 
         supabase_url = self._resolve_supabase_url()
         service_role_key = self._service_role_key()

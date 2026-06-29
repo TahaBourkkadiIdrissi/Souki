@@ -61,9 +61,10 @@ def register(data: UserRegister, request: Request):
 
 @auth_router.post("/login")
 def login(data: LoginRequest, request: Request, response: Response):
-    token = AuthService().login(data)
-    if not token:
+    result = AuthService().login(data)
+    if not result:
         raise HTTPException(status_code=401, detail="Identifiants incorrects.")
+    token = result["token"]
     _register_session_for_token(token, request)
     _set_auth_cookie(response, token)
     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -73,14 +74,17 @@ def login(data: LoginRequest, request: Request, response: Response):
         "roles": payload.get("roles", []),
         "role": payload.get("role"),
         "default_dashboard": payload.get("default_dashboard", "/"),
+        # Utilisateur complet : permet au front d'eviter un second appel /auth/me.
+        "user": result["user"],
     }
 
 
 @auth_router.post("/admin/login")
 def admin_login(data: AdminLoginRequest, request: Request, response: Response):
-    token = AuthService().admin_login(data)
-    if not token:
+    result = AuthService().admin_login(data)
+    if not result:
         raise HTTPException(status_code=401, detail="Identifiants incorrects.")
+    token = result["token"]
     _register_session_for_token(token, request)
     _set_auth_cookie(response, token)
     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -90,6 +94,7 @@ def admin_login(data: AdminLoginRequest, request: Request, response: Response):
         "roles": payload.get("roles", []),
         "role": payload.get("role"),
         "default_dashboard": payload.get("default_dashboard", "/admin"),
+        "user": result["user"],
     }
 
 
@@ -110,9 +115,10 @@ def resend_otp(data: OTPResendRequest):
 
 @auth_router.post("/google")
 def google_login(data: GoogleLoginRequest, request: Request, response: Response):
-    token = AuthService().google_login(data.token, data.role)
-    if not token:
+    result = AuthService().google_login(data.token, data.role)
+    if not result:
         raise HTTPException(status_code=401, detail="Token Google invalide ou expire.")
+    token = result["token"]
     _register_session_for_token(token, request)
     _set_auth_cookie(response, token)
     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -122,14 +128,16 @@ def google_login(data: GoogleLoginRequest, request: Request, response: Response)
         "roles": payload.get("roles", []),
         "role": payload.get("role"),
         "default_dashboard": payload.get("default_dashboard", "/"),
+        "user": result["user"],
     }
 
 
 @auth_router.post("/google-login")
 def google_login_legacy(data: GoogleLoginRequest, request: Request, response: Response):
-    token = AuthService().google_login(data.token, data.role)
-    if not token:
+    result = AuthService().google_login(data.token, data.role)
+    if not result:
         raise HTTPException(status_code=401, detail="Token Google invalide ou expire.")
+    token = result["token"]
     _register_session_for_token(token, request)
     _set_auth_cookie(response, token)
     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -139,6 +147,7 @@ def google_login_legacy(data: GoogleLoginRequest, request: Request, response: Re
         "roles": payload.get("roles", []),
         "role": payload.get("role"),
         "default_dashboard": payload.get("default_dashboard", "/"),
+        "user": result["user"],
     }
 
 

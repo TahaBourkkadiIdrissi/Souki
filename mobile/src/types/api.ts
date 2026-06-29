@@ -14,6 +14,9 @@ export interface User {
 export interface AuthResponse {
   access_token: string
   token_type?: string
+  // L'utilisateur complet est renvoye par les endpoints de login pour eviter
+  // un second appel /auth/me (connexion instantanee).
+  user?: User
 }
 
 export type ProduitNiveau = 1 | 2 | 3

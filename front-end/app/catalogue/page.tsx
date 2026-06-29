@@ -1907,8 +1907,10 @@ function CatalogueContent() {
 
         <aside
           className={cn(
-            "fixed right-0 top-0 z-50 flex h-[100dvh] w-[min(100vw,22rem)] flex-col border-l border-[#E6F0E7] bg-white transition-transform xl:sticky xl:top-20 xl:h-[calc(100vh-80px)] xl:w-[20rem] xl:translate-x-0 2xl:w-[22rem]",
-            showCart ? "translate-x-0" : "translate-x-full xl:translate-x-0"
+            "fixed right-0 top-0 z-50 flex h-[100dvh] w-[min(100vw,22rem)] flex-col border-l border-[#E6F0E7] bg-white will-change-transform transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] xl:sticky xl:top-20 xl:h-[calc(100vh-80px)] xl:w-[20rem] xl:translate-x-0 2xl:w-[22rem]",
+            showCart
+              ? "translate-x-0 shadow-[0_24px_70px_-20px_rgba(18,32,24,0.4)] xl:shadow-none"
+              : "translate-x-full xl:translate-x-0"
           )}
         >
           <button
@@ -1980,100 +1982,9 @@ function CatalogueContent() {
                   <p className="mt-2 text-right text-[11px] font-semibold text-[#6F8070]">
                     {cartSubtotal.toFixed(2)} / {SEUIL.toFixed(0)} DH
                   </p>
-
-                  {pricingSuggestions.length > 0 && (
-                    <div className="mt-5">
-                      <div className="mb-3 flex items-center gap-3">
-                        <span className="h-px flex-1 bg-gray-200" />
-                        <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
-                          À ne pas manquer
-                        </span>
-                        <span className="h-px flex-1 bg-gray-200" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2.5">
-                        {pricingSuggestions.map((suggestion) => {
-                          const niveau = suggestion.niveau || 2
-                          const isInCart = cart.some((item) => item.id === suggestion.id)
-                          const isFeaturedLevelTwo = niveau === 2 && suggestion.id === firstLevelTwoSuggestionId
-                          const resteSuggestions = Math.max(0, SEUIL - cartSubtotal)
-                          const suffitPourSeuil = resteSuggestions > 0 && suggestion.price >= resteSuggestions
-
-                          return (
-                          <div
-                            key={suggestion.id}
-                            className={cn(
-                              "overflow-hidden rounded-xl border bg-white shadow-sm transition-shadow hover:shadow-md",
-                              niveau === 3
-                                ? "border-2 border-amber-400"
-                                : isFeaturedLevelTwo
-                                  ? "border-2 border-[#1E8A3C]"
-                                  : "border-gray-200"
-                            )}
-                          >
-                            <div className="relative flex h-24 items-center justify-center bg-gray-50 2xl:h-[105px]">
-                              <img
-                                src={suggestion.image}
-                                alt={suggestion.name}
-                                onError={(event) => applyImageFallback(event, suggestion.fallbackImage)}
-                                className="h-full w-full object-cover"
-                              />
-                              <span className={cn(
-                                "absolute left-2 top-2 rounded-full px-2 py-1 text-[10px] font-bold",
-                                suffitPourSeuil
-                                  ? "bg-amber-100 text-amber-700"
-                                  : "hidden"
-                              )}>
-                                Suffit pour livraison gratuite
-                              </span>
-                              {suggestion.prix_khddar_estime && (
-                                <span className="absolute bottom-2 right-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] text-gray-400 line-through">
-                                  {suggestion.prix_khddar_estime.toFixed(2)} DH
-                                </span>
-                              )}
-                            </div>
-                            <div className="p-3">
-                              <p className="truncate text-[13px] font-medium text-[#264129]">
-                                {suggestion.name}
-                              </p>
-                              <p className="mt-1 truncate text-[11px] text-gray-400">
-                                Ajout malin pour compléter ton panier
-                              </p>
-                              <div className="mt-3 flex items-center justify-between gap-2">
-                                <span className="text-[15px] font-medium text-[#1E8A3C]">
-                                  {suggestion.price.toFixed(2)} DH
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleAddSuggestionToCart(suggestion)}
-                                  className={cn(
-                                    "flex h-8 w-8 items-center justify-center rounded-full border text-sm font-bold transition-colors",
-                                    isInCart
-                                      ? "border-[#1E8A3C] bg-[#1E8A3C] text-white"
-                                      : "border-gray-300 bg-white text-[#264129] hover:border-[#1E8A3C] hover:text-[#1E8A3C]"
-                                  )}
-                                  aria-label={`Ajouter ${suggestion.name}`}
-                                >
-                                  {isInCart ? "✓" : "+"}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                          )
-                        })}
-                      </div>
-
-                      {cart.length > 0 && addedSuggestionItems.length > 0 && (
-                        <div className="mt-4 flex items-center gap-3 rounded-xl border border-green-200 bg-[#F0FDF4] px-4 py-3">
-                          <Leaf className="h-5 w-5 shrink-0 text-[#1E8A3C]" />
-                          <p className="text-sm font-semibold text-[#264129]">
-                            Tu économises {suggestionSavings.toFixed(2)} DH vs le khddar sur cette sélection 🌿
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
 
+                {/* Produits deja selectionnes : toujours affiches en premier (haut du panier). */}
                 {cart.map((item) => (
                   <div
                     key={item.id}
@@ -2126,6 +2037,99 @@ function CatalogueContent() {
                     </div>
                   </div>
                 ))}
+
+                {/* Suggestions / upsell : section du bas, apres les produits choisis. */}
+                {pricingSuggestions.length > 0 && (
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 shadow-sm">
+                    <div className="mb-3 flex items-center gap-3">
+                      <span className="h-px flex-1 bg-gray-200" />
+                      <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                        À ne pas manquer
+                      </span>
+                      <span className="h-px flex-1 bg-gray-200" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {pricingSuggestions.map((suggestion) => {
+                        const niveau = suggestion.niveau || 2
+                        const isInCart = cart.some((item) => item.id === suggestion.id)
+                        const isFeaturedLevelTwo = niveau === 2 && suggestion.id === firstLevelTwoSuggestionId
+                        const resteSuggestions = Math.max(0, SEUIL - cartSubtotal)
+                        const suffitPourSeuil = resteSuggestions > 0 && suggestion.price >= resteSuggestions
+
+                        return (
+                        <div
+                          key={suggestion.id}
+                          className={cn(
+                            "overflow-hidden rounded-xl border bg-white shadow-sm transition-shadow hover:shadow-md",
+                            niveau === 3
+                              ? "border-2 border-amber-400"
+                              : isFeaturedLevelTwo
+                                ? "border-2 border-[#1E8A3C]"
+                                : "border-gray-200"
+                          )}
+                        >
+                          <div className="relative flex aspect-square items-center justify-center bg-gray-50">
+                            <img
+                              src={suggestion.image}
+                              alt={suggestion.name}
+                              onError={(event) => applyImageFallback(event, suggestion.fallbackImage)}
+                              className="h-full w-full object-cover"
+                            />
+                            <span className={cn(
+                              "absolute left-2 top-2 rounded-full px-2 py-1 text-[10px] font-bold",
+                              suffitPourSeuil
+                                ? "bg-amber-100 text-amber-700"
+                                : "hidden"
+                            )}>
+                              Suffit pour livraison gratuite
+                            </span>
+                            {suggestion.prix_khddar_estime && (
+                              <span className="absolute bottom-2 right-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] text-gray-400 line-through">
+                                {suggestion.prix_khddar_estime.toFixed(2)} DH
+                              </span>
+                            )}
+                          </div>
+                          <div className="p-3">
+                            <p className="truncate text-[13px] font-medium text-[#264129]">
+                              {suggestion.name}
+                            </p>
+                            <p className="mt-1 truncate text-[11px] text-gray-400">
+                              Ajout malin pour compléter ton panier
+                            </p>
+                            <div className="mt-3 flex items-center justify-between gap-2">
+                              <span className="text-[15px] font-medium text-[#1E8A3C]">
+                                {suggestion.price.toFixed(2)} DH
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleAddSuggestionToCart(suggestion)}
+                                className={cn(
+                                  "flex h-8 w-8 items-center justify-center rounded-full border text-sm font-bold transition-colors",
+                                  isInCart
+                                    ? "border-[#1E8A3C] bg-[#1E8A3C] text-white"
+                                    : "border-gray-300 bg-white text-[#264129] hover:border-[#1E8A3C] hover:text-[#1E8A3C]"
+                                )}
+                                aria-label={`Ajouter ${suggestion.name}`}
+                              >
+                                {isInCart ? "✓" : "+"}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        )
+                      })}
+                    </div>
+
+                    {cart.length > 0 && addedSuggestionItems.length > 0 && (
+                      <div className="mt-4 flex items-center gap-3 rounded-xl border border-green-200 bg-[#F0FDF4] px-4 py-3">
+                        <Leaf className="h-5 w-5 shrink-0 text-[#1E8A3C]" />
+                        <p className="text-sm font-semibold text-[#264129]">
+                          Tu économises {suggestionSavings.toFixed(2)} DH vs le khddar sur cette sélection 🌿
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -2168,7 +2172,7 @@ function CatalogueContent() {
 
       {(showSidebar || showCart) && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 xl:hidden"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[1px] animate-in fade-in duration-300 xl:hidden"
           onClick={() => {
             setShowSidebar(false)
             setShowCart(false)
