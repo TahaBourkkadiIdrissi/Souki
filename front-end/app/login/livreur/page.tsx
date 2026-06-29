@@ -8,6 +8,7 @@ import { API_BASE_URL } from "@/lib/api"
 import { isValidMoroccanPhone, normalizeMoroccanPhone, PHONE_ERROR_MSG } from "@/lib/phoneValidator"
 import { GoogleLoginButton } from "@/components/auth/google-login-button"
 import { PasswordStrength } from "@/components/souki/password-strength"
+import { toast } from "sonner"
 import { 
   Eye, 
   EyeOff, 
@@ -190,7 +191,7 @@ function LivreurLoginContent() {
         router.push(
           `/verify?userId=${data.id}&channel=${data.verification_channel}&target=${encodeURIComponent(data.verification_target || "")}&role=${String(data.role || selectedRole).toLowerCase()}`
         );
-        alert("Compte livreur créé avec succès ! En attente de validation par un administrateur.");
+        toast.success("Compte livreur créé avec succès !", { description: "En attente de validation par un administrateur." });
         setPassword(""); 
         return;
 

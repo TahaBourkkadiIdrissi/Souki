@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import {
   ArrowLeft, Check, ShieldCheck, Sparkles, Wallet, Lock, EyeOff, Eye, Loader2, Copy
 } from "lucide-react"
+import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { useWallet, type WalletState } from "@/hooks/useWallet"
 import { useAuth } from "@/hooks/useAuth"
@@ -226,19 +227,19 @@ export default function WalletPage() {
 
               {/* Quick Actions */}
               <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <button onClick={() => alert("La recharge par carte bancaire sera bientôt disponible ! L'équipe Souki y travaille.")} className="group flex flex-col items-center justify-center gap-3 bg-white border border-gray-100 rounded-3xl p-4 shadow-sm hover:shadow-md transition-all hover:border-[#1E8A3C]/30 hover:-translate-y-1">
+                <button onClick={() => toast("Recharge par carte bancaire", { description: "Bientôt disponible — l'équipe Souki y travaille. 💳", icon: <Sparkles className="h-5 w-5 text-[#1E8A3C]" /> })} className="group flex flex-col items-center justify-center gap-3 bg-white border border-gray-100 rounded-3xl p-4 shadow-sm hover:shadow-md transition-all hover:border-[#1E8A3C]/30 hover:-translate-y-1">
                   <div className="w-12 h-12 bg-[#F0FAF1] rounded-full flex items-center justify-center text-[#1E8A3C] group-hover:scale-110 transition-transform">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
                   </div>
                   <span className="text-sm font-semibold text-[#3D3D3D]">Recharger</span>
                 </button>
-                <button onClick={() => alert("Le transfert entre amis sera disponible dans la prochaine mise à jour !")} className="group flex flex-col items-center justify-center gap-3 bg-white border border-gray-100 rounded-3xl p-4 shadow-sm hover:shadow-md transition-all hover:border-[#F07C00]/30 hover:-translate-y-1">
+                <button onClick={() => toast("Transfert entre amis", { description: "Disponible dans la prochaine mise à jour ! 🤝", icon: <Sparkles className="h-5 w-5 text-[#F07C00]" /> })} className="group flex flex-col items-center justify-center gap-3 bg-white border border-gray-100 rounded-3xl p-4 shadow-sm hover:shadow-md transition-all hover:border-[#F07C00]/30 hover:-translate-y-1">
                   <div className="w-12 h-12 bg-[#FFF7EE] rounded-full flex items-center justify-center text-[#F07C00] group-hover:scale-110 transition-transform">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                   </div>
                   <span className="text-sm font-semibold text-[#3D3D3D]">Envoyer</span>
                 </button>
-                <button onClick={() => alert("Fonctionnalité de demande de fonds en cours de développement.")} className="group flex flex-col items-center justify-center gap-3 bg-white border border-gray-100 rounded-3xl p-4 shadow-sm hover:shadow-md transition-all hover:border-[#1A73E8]/30 hover:-translate-y-1">
+                <button onClick={() => toast("Demande de fonds", { description: "Fonctionnalité en cours de développement. 🚧", icon: <Sparkles className="h-5 w-5 text-[#1A73E8]" /> })} className="group flex flex-col items-center justify-center gap-3 bg-white border border-gray-100 rounded-3xl p-4 shadow-sm hover:shadow-md transition-all hover:border-[#1A73E8]/30 hover:-translate-y-1">
                   <div className="w-12 h-12 bg-[#EAF2FF] rounded-full flex items-center justify-center text-[#1A73E8] group-hover:scale-110 transition-transform">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
                   </div>

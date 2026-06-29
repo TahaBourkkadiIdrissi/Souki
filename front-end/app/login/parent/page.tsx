@@ -8,6 +8,7 @@ import { API_BASE_URL } from "@/lib/api"
 import { isValidMoroccanPhone, normalizeMoroccanPhone, PHONE_ERROR_MSG } from "@/lib/phoneValidator"
 import { GoogleLoginButton } from "@/components/auth/google-login-button"
 import { PasswordStrength } from "@/components/souki/password-strength"
+import { toast } from "sonner"
 import { 
   Eye, 
   EyeOff, 
@@ -194,7 +195,7 @@ function ParentLoginContent() {
         router.push(
           `/verify?userId=${data.id}&channel=${data.verification_channel}&target=${encodeURIComponent(data.verification_target || "")}&role=${String(data.role || selectedRole).toLowerCase()}`
         );
-        alert("Compte parent créé avec succès ! Vous pouvez maintenant vous connecter.");
+        toast.success("Compte parent créé avec succès !", { description: "Vous pouvez maintenant vous connecter." });
         setPassword(""); 
         return;
 

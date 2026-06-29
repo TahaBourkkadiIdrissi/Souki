@@ -9,6 +9,7 @@ import { isValidMoroccanPhone, normalizeMoroccanPhone, PHONE_ERROR_MSG } from "@
 import { GoogleLoginButton } from "@/components/auth/google-login-button"
 import { PasswordStrength } from "@/components/souki/password-strength"
 import { shouldShowOnboarding } from "@/lib/onboarding"
+import { toast } from "sonner"
 import { 
   Eye, 
   EyeOff, 
@@ -171,7 +172,7 @@ function ClientLoginContent() {
         router.push(
           `/verify?userId=${data.id}&channel=${data.verification_channel}&target=${encodeURIComponent(data.verification_target || "")}&role=${String(data.role || selectedRole).toLowerCase()}`
         );
-        alert("Compte créé avec succès ! Vous pouvez maintenant vous connecter.");
+        toast.success("Compte créé avec succès !", { description: "Vous pouvez maintenant vous connecter." });
         return;
 
       } else {
