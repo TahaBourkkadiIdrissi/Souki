@@ -21,6 +21,12 @@ interface ProductCardProps {
   disabled?: boolean
   disabledLabel?: string
   featured?: boolean
+  /**
+   * Affiche le visuel avec les proportions compactes d'origine (bandeau court)
+   * au lieu du carre plein. Utilise sur l'accueil pour retrouver l'ancien rendu
+   * des cartes produits tout en gardant les nouvelles images.
+   */
+  compactImage?: boolean
   onView?: (id: number | string) => void
   onAddToCart?: (id: number | string, quantity: number) => void
 }
@@ -40,6 +46,7 @@ export function ProductCard({
   disabled = false,
   disabledLabel = "Indisponible",
   featured = false,
+  compactImage = false,
   onView,
   onAddToCart,
 }: ProductCardProps) {
@@ -98,8 +105,11 @@ export function ProductCard({
       <div
         className={cn(
           "relative w-full overflow-hidden bg-[#F4FAF3]",
-          // Visuel carre, proportions homogenes (look e-commerce moderne).
-          featured ? "aspect-square sm:aspect-[4/3]" : "aspect-square"
+          // Accueil : proportions compactes d'origine. Sinon : visuel carre
+          // (look e-commerce moderne) conserve pour le catalogue.
+          compactImage
+            ? (featured ? "h-40 sm:h-52 md:h-56 2xl:h-64" : "h-28 sm:h-44 2xl:h-48")
+            : (featured ? "aspect-square sm:aspect-[4/3]" : "aspect-square")
         )}
       >
         <img

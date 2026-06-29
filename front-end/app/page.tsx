@@ -76,34 +76,20 @@ const missionPillars = [
 ]
 
 export default function HomePage() {
-  const { isAuthenticated, validateToken } = useAuth()
+  const { isAuthenticated } = useAuth()
   const router = useRouter()
   const [activeModal, setActiveModal] = useState<"voice" | "smart" | null>(null)
-  const [isPwa, setIsPwa] = useState<boolean | null>(null)
-  const [mounted, setMounted] = useState(false)
   const revealRef = useScrollReveal<HTMLDivElement>()
 
+  // En mode PWA installe (standalone), l'accueil dedie est /pwa-welcome.
+  // On redirige cote client SANS masquer la page : la version web s'affiche
+  // directement, sans ecran de chargement (donc pas de flash ni de souci
+  // d'hydratation pour les visiteurs du navigateur).
   useEffect(() => {
-    setMounted(true)
-    if (typeof window !== "undefined" && isPwaStandalone()) {
+    if (isPwaStandalone()) {
       router.replace("/pwa-welcome")
-    } else {
-      setIsPwa(false)
     }
   }, [router])
-
-  // Block render until hydration completes (prevents hydration mismatch)
-  if (!mounted || isPwa === null) {
-    return (
-      <div className="min-h-dvh bg-[#F5F5F0] flex items-center justify-center px-6">
-        <div className="max-w-md rounded-3xl border border-[#DDE7DE] bg-white px-8 py-10 text-center shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#6E8B73]">SOUKI</p>
-          <h1 className="mt-3 text-2xl font-bold text-[#1E8A3C]">Chargement...</h1>
-          <p className="mt-3 text-sm leading-6 text-[#677669]">Préparation de votre expérience marché</p>
-        </div>
-      </div>
-    )
-  }
 
   // Fonction helper pour protéger les actions
   const requireAuth = (callback: () => void) => {
@@ -349,6 +335,7 @@ export default function HomePage() {
               <div key={product.id} data-reveal="scale" data-delay={String(Math.min((products.indexOf(product) % 3) + 1, 3))} className="min-w-[280px] sm:min-w-[320px] md:min-w-0 snap-start flex-shrink-0 md:flex-shrink glovo-card rounded-2xl">
                 <ProductCard
                   {...product}
+                  compactImage
                   onAddToCart={handleAddToCart}
                 />
               </div>
