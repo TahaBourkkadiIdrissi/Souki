@@ -100,7 +100,7 @@ export default function AbonnementsPage() {
           <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
             
             {/* Solo/Couple Pack */}
-            <div className="bg-white rounded-3xl p-8 shadow-lg border border-gray-100 relative hover:-translate-y-2 transition-transform duration-300">
+            <div className="bg-white rounded-3xl p-8 shadow-lg border border-gray-100 relative hover:-translate-y-2 transition-transform duration-300 animate-fade-in-up">
               <div className="mb-6">
                 <h3 className="text-2xl font-bold text-[#3D3D3D] mb-2">Pack Essentiel</h3>
                 <p className="text-[#8A8A8A]">Parfait pour 1 à 2 personnes</p>
@@ -133,7 +133,7 @@ export default function AbonnementsPage() {
             </div>
 
             {/* Family Pack (Popular) */}
-            <div className="bg-[#1E8A3C] rounded-3xl p-8 shadow-xl shadow-green-900/10 relative hover:-translate-y-2 transition-transform duration-300">
+            <div className="bg-[#1E8A3C] rounded-3xl p-8 shadow-xl shadow-green-900/10 relative hover:-translate-y-2 transition-transform duration-300 animate-fade-in-up-delay-1">
               <div className="absolute top-0 right-8 transform -translate-y-1/2">
                 <span className="bg-[#F5C400] text-[#3D3D3D] font-bold px-4 py-1.5 rounded-full text-sm shadow-sm">
                   LE PLUS POPULAIRE

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -13,6 +13,38 @@ import { generateParrainageCode } from "@/lib/api"
 import { toast } from "sonner"
 
 function dhFromCentimes(c: number) { return `${(c / 100).toFixed(2).replace(".", ",")} DH` }
+
+/* Compte de maniere fluide vers la nouvelle valeur quand le solde change
+   (recharge, gain de parrainage). Pas d'animation au premier rendu ni si
+   l'utilisateur prefere le mouvement reduit. */
+function useAnimatedCentimes(target: number, durationMs = 700) {
+  const [display, setDisplay] = useState(target)
+  const previousRef = useRef(target)
+
+  useEffect(() => {
+    const previous = previousRef.current
+    if (previous === target) return
+    previousRef.current = target
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setDisplay(target)
+      return
+    }
+
+    const start = performance.now()
+    let raf = 0
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - start) / durationMs)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      setDisplay(Math.round(previous + (target - previous) * eased))
+      if (progress < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [target, durationMs])
+
+  return display
+}
 
 const walletPasswordChecks = (value: string) => ({
   minLength: value.length >= 8,
@@ -47,6 +79,8 @@ export default function WalletPage() {
   const [pageLoading, setPageLoading] = useState(true)
 
   const showSaved = () => { setSaved(true); setTimeout(() => setSaved(false), 2000) }
+
+  const animatedBalanceCentimes = useAnimatedCentimes(walletState?.balance_centimes ?? 0)
 
   useEffect(() => {
     const load = async () => {
@@ -210,7 +244,7 @@ export default function WalletPage() {
                 
                 <div className="relative z-10 mb-6">
                   <p className="text-sm font-medium text-white/70 mb-1">Solde disponible</p>
-                  <h3 className="text-4xl font-black tracking-tight">{dhFromCentimes(walletState.balance_centimes || 0)}</h3>
+                  <h3 className="text-4xl font-black tracking-tight souki-tabular-nums">{dhFromCentimes(animatedBalanceCentimes)}</h3>
                 </div>
                 
                 <div className="relative z-10 flex justify-between items-end">
@@ -269,7 +303,7 @@ export default function WalletPage() {
                 </div>
                 
                 {(walletState.transactions || []).length === 0 ? (
-                  <div className="flex flex-col items-center justify-center text-center py-10 px-4 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                  <div className="flex flex-col items-center justify-center text-center py-10 px-4 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200 animate-fade-in-up">
                     <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4 text-gray-300">
                       <Wallet className="w-8 h-8" />
                     </div>
@@ -281,8 +315,12 @@ export default function WalletPage() {
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-                    {walletState.transactions.map((tx) => (
-                      <div key={tx.id} className="group flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-4 py-4 transition-all hover:border-[#1E8A3C]/20 hover:shadow-sm">
+                    {walletState.transactions.map((tx, txIndex) => (
+                      <div
+                        key={tx.id}
+                        className="group flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-4 py-4 transition-all hover:border-[#1E8A3C]/20 hover:shadow-sm animate-cascade"
+                        style={{ "--cascade-i": Math.min(txIndex, 8) } as CSSProperties}
+                      >
                         <div className="flex items-center gap-4">
                           <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", tx.montant_centimes > 0 ? "bg-[#F0FAF1] text-[#1E8A3C]" : "bg-gray-100 text-gray-600")}>
                             {tx.montant_centimes > 0 ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>}

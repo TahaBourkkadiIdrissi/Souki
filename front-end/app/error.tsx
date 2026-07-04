@@ -4,6 +4,8 @@ import { useEffect } from "react"
 import Link from "next/link"
 import { Home, RefreshCw } from "lucide-react"
 
+import { RecolteAvatar } from "@/components/avatar/recolte-avatar"
+
 export default function Error({
   error,
   reset,
@@ -18,7 +20,8 @@ export default function Error({
   return (
     <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center px-6">
       <div className="max-w-md w-full rounded-3xl border border-[#DDE7DE] bg-white px-8 py-10 text-center shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#6E8B73]">SOUKI</p>
+        <RecolteAvatar size="md" expression="curious" className="mx-auto" label="Récolte est désolée, une erreur est survenue" />
+        <p className="mt-4 text-xs font-semibold uppercase tracking-[0.25em] text-[#6E8B73]">SOUKI</p>
         <h1 className="mt-3 text-2xl font-bold text-[#1E8A3C]">Une erreur est survenue</h1>
         <p className="mt-3 text-sm leading-6 text-[#677669]">
           Quelque chose s&apos;est mal passe. Vous pouvez reessayer ou revenir a l&apos;accueil.

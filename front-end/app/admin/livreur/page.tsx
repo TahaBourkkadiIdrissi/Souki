@@ -473,11 +473,11 @@ export default function AdminLivreurPage() {
         )}
 
         {isLoading ? (
-          <div className="flex min-h-[360px] items-center justify-center rounded-[32px] border border-[#DDEBDD] bg-white">
-            <div className="text-center">
-              <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#1E8A3C]" />
-              <p className="mt-3 font-semibold text-[#6F8070]">Chargement des tournees...</p>
-            </div>
+          <div className="min-h-[360px] space-y-4 rounded-[32px] border border-[#DDEBDD] bg-white p-6" role="status" aria-label="Chargement des tournées">
+            <div className="souki-skeleton h-8 w-56 rounded-xl" />
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="souki-skeleton h-24 rounded-2xl" />
+            ))}
           </div>
         ) : !hasDispatchData ? (
           <div className="flex min-h-[360px] items-center justify-center rounded-[32px] border border-[#DDEBDD] bg-white p-8 text-center">
