@@ -123,6 +123,8 @@ function CheckoutContent() {
   const [city, setCity] = useState("")
   const [instructions, setInstructions] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // Commande validee par l'API : declenche l'overlay de celebration avant la redirection.
+  const [confirmedOrderId, setConfirmedOrderId] = useState<number | null>(null)
   const [catalogueImages, setCatalogueImages] = useState<Record<number, string>>({})
   const [cataloguePrices, setCataloguePrices] = useState<Record<number, number>>({})
   const [catalogueProducts, setCatalogueProducts] = useState<CatalogueProduct[]>([])
@@ -554,8 +556,15 @@ function CheckoutContent() {
 
       if (res.ok) {
         const data = await res.json()
-        toast.success(`Commande N-${data.commande_id} enregistree avec succes.`)
-        router.push(`/catalogue?commande_validee=${data.commande_id}`)
+        // L'overlay anime remplace le toast comme feedback immediat ; la
+        // redirection existante est juste differee le temps de la celebration.
+        setConfirmedOrderId(data.commande_id)
+        if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+          navigator.vibrate([15, 40, 20])
+        }
+        window.setTimeout(() => {
+          router.push(`/catalogue?commande_validee=${data.commande_id}`)
+        }, 1600)
       } else {
         const errData = await res.json().catch(() => ({}))
         toast.error(errData.detail || "Erreur lors de la validation de la commande.")
@@ -591,6 +600,37 @@ function CheckoutContent() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F0] pb-24 md:pb-0">
+      {confirmedOrderId !== null && (
+        <div
+          className="fixed inset-0 z-[110] flex flex-col items-center justify-center bg-white/95 backdrop-blur-sm px-6"
+          role="status"
+          aria-live="assertive"
+        >
+          <span className="relative flex h-24 w-24 items-center justify-center">
+            <span className="absolute inset-0 rounded-full bg-[#4CB84A]/30 animate-souki-success-ring" />
+            <span className="absolute -inset-3 rounded-full bg-[#4CB84A]/15 animate-souki-success-ring [animation-delay:0.35s]" />
+            <span className="relative flex h-24 w-24 items-center justify-center rounded-full bg-[#1E8A3C] shadow-xl shadow-[#1E8A3C]/25 animate-souki-success-pop">
+              <svg viewBox="0 0 24 24" className="h-12 w-12" fill="none" aria-hidden="true">
+                <path
+                  d="M6 12.5l4 4 8-9"
+                  pathLength={100}
+                  className="souki-check-draw"
+                  stroke="white"
+                  strokeWidth={2.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+          </span>
+          <p className="mt-6 text-2xl font-bold text-[#233127] animate-fade-in-up">
+            Commande N-{confirmedOrderId} confirmée
+          </p>
+          <p className="mt-2 text-sm text-[#66756B] animate-fade-in-up-delay-1">
+            Vos produits frais arrivent demain matin, du champ au panier.
+          </p>
+        </div>
+      )}
       <header className="sticky top-0 z-10 hidden glass-ios26 border-b border-gray-100 md:block">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-3">

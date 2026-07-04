@@ -280,6 +280,51 @@ function RecolteWarmWelcome() {
   )
 }
 
+/* Compte a rebours vers la cloture JIT de 20h00. Rendu uniquement apres
+   montage (le serveur rend la phrase statique) pour eviter tout mismatch
+   d'hydratation ; une seule ligne dans les deux cas, donc pas de CLS. */
+function JitCutoffBanner() {
+  const [now, setNow] = useState<Date | null>(null)
+
+  useEffect(() => {
+    setNow(new Date())
+    const timer = window.setInterval(() => setNow(new Date()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const cutoff = now ? new Date(now) : null
+  cutoff?.setHours(20, 0, 0, 0)
+  const beforeCutoff = now && cutoff && now < cutoff
+
+  if (!beforeCutoff) {
+    return (
+      <div className="bg-[#F07C00] px-4 py-3 text-center text-sm font-semibold text-white">
+        Paniers ouverts après 20h - Livraison demain, prix recalculés au moment de la validation
+      </div>
+    )
+  }
+
+  const diffMs = cutoff.getTime() - now.getTime()
+  const hours = Math.floor(diffMs / 3_600_000)
+  const minutes = Math.floor((diffMs % 3_600_000) / 60_000)
+  const seconds = Math.floor((diffMs % 60_000) / 1000)
+  const pad = (value: number) => String(value).padStart(2, "0")
+  const urgent = diffMs < 3_600_000
+
+  return (
+    <div className="bg-[#F07C00] px-4 py-3 text-center text-sm font-semibold text-white">
+      Clôture des paniers à 20h00 —{" "}
+      <span
+        className={cn("souki-tabular-nums", urgent && "animate-countdown-urgent")}
+        aria-label={`Temps restant avant la clôture : ${hours} heures ${minutes} minutes`}
+      >
+        {pad(hours)}:{pad(minutes)}:{pad(seconds)}
+      </span>{" "}
+      pour être livré demain matin
+    </div>
+  )
+}
+
 function SoukiGuideAvatar({
   cartCount,
   cartSubtotal,
@@ -1169,9 +1214,7 @@ function CatalogueContent() {
 
   return (
     <div className="min-h-screen bg-[#FBFDF9] pb-24 md:pb-0">
-      <div className="bg-[#F07C00] px-4 py-3 text-center text-sm font-semibold text-white">
-        Paniers ouverts après 20h - Livraison demain, prix recalculés au moment de la validation
-      </div>
+      <JitCutoffBanner />
 
       <nav className="sticky top-0 z-40 hidden glass-ios26 border-b border-[#E7F0E8] md:block">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -1207,7 +1250,11 @@ function CatalogueContent() {
             >
               <ShoppingCart className="h-6 w-6" />
               {cart.length > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#F07C00] text-xs font-bold text-white">
+                // key={cart.length} : remonte le badge a chaque changement pour rejouer le pop
+                <span
+                  key={cart.length}
+                  className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#F07C00] text-xs font-bold text-white animate-badge-pop"
+                >
                   {cart.length}
                 </span>
               )}
@@ -1685,16 +1732,16 @@ function CatalogueContent() {
             <div className="space-y-12">
               {Array.from({ length: 2 }).map((_, sectionIndex) => (
                 <div key={sectionIndex} className="space-y-6">
-                  <div className="h-6 w-40 animate-pulse rounded-xl bg-gradient-to-br from-[#F3F7F3] to-[#EAF3EB]" />
+                  <div className="souki-skeleton h-6 w-40 rounded-xl" />
                   <div className="flex gap-3 overflow-hidden sm:gap-4">
                     {Array.from({ length: 4 }).map((__, index) => (
                       <div
                         key={index}
-                        className="h-[390px] w-[10.5rem] shrink-0 animate-pulse rounded-[28px] bg-gradient-to-br from-[#F3F7F3] to-[#EAF3EB] sm:w-[12rem]"
+                        className="souki-skeleton h-[390px] w-[10.5rem] shrink-0 rounded-[28px] sm:w-[12rem]"
                       />
                     ))}
                   </div>
-                  <div className="h-24 animate-pulse rounded-[1.75rem] bg-gradient-to-br from-[#F3F7F3] to-[#EAF3EB]" />
+                  <div className="souki-skeleton h-24 rounded-[1.75rem]" />
                 </div>
               ))}
             </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, type ReactNode, useCallback, useEffect, useState } from "react"
+import { Fragment, type CSSProperties, type ReactNode, useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import {
   ArrowLeft,
@@ -424,7 +424,7 @@ export default function AdminClientsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {clients.map((client) => {
+                  {clients.map((client, clientIndex) => {
                     const isClientOpen = openClientId === client.client_id
                     const fiche = clientSheets[client.client_id]
                     const ficheError = clientSheetErrors[client.client_id]
@@ -434,7 +434,8 @@ export default function AdminClientsPage() {
                       <Fragment key={client.client_id}>
                         <tr
                           onClick={() => void handleToggleClientSheet(client)}
-                          className={cn("cursor-pointer transition-colors duration-100 hover:bg-gray-50", isClientOpen && "bg-[#F8FBF8]")}
+                          className={cn("cursor-pointer transition-colors duration-100 hover:bg-gray-50 animate-cascade", isClientOpen && "bg-[#F8FBF8]")}
+                          style={{ "--cascade-i": Math.min(clientIndex, 10) } as CSSProperties}
                         >
                           <td className="px-6 py-4 text-sm text-[#3D3D3D]">
                             <div className="flex items-center gap-3">

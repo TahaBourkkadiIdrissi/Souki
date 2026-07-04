@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type CSSProperties } from "react"
 import { useRouter } from "next/navigation"
 import {
   AlertTriangle,
@@ -547,7 +547,7 @@ export function AIModals({
             )}
 
             {result && (
-              <div className="mx-6 mb-6 rounded-3xl border border-white/10 bg-white/5 p-4">
+              <div className="mx-6 mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 animate-slide-in-up">
                 <div className="mb-3 flex items-center gap-2 text-[#4CB84A]">
                   <ShoppingCart className="h-4 w-4" />
                   <h4 className="text-sm font-bold">
@@ -568,12 +568,13 @@ export function AIModals({
                   </div>
                 ) : (
                   <div className="space-y-2 mb-3">
-                    {editedBasket.map((line) => {
+                    {editedBasket.map((line, lineIndex) => {
                       const unit = line.quantite_effective >= 1 ? "kg" : "kg"
                       return (
                         <div
                           key={`${line.product_id}-${line.nom_produit}`}
-                          className="rounded-2xl bg-white/5 p-3 transition-all hover:bg-white/8"
+                          className="rounded-2xl bg-white/5 p-3 transition-all hover:bg-white/8 animate-cascade"
+                          style={{ "--cascade-i": lineIndex } as CSSProperties}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
@@ -831,16 +832,17 @@ export function AIModals({
               )}
 
               {smartPreview.length > 0 && (
-                <div className="rounded-3xl border border-[#F3E2CE] bg-[#FFFBF7] p-4">
+                <div className="rounded-3xl border border-[#F3E2CE] bg-[#FFFBF7] p-4 animate-slide-in-up">
                   <div className="mb-3 flex items-center gap-2 text-[#C96A00]">
                     <Check className="h-4 w-4" />
                     <h4 className="text-sm font-bold">Panier suggere</h4>
                   </div>
                   <div className="space-y-2">
-                    {smartPreview.map((item) => (
+                    {smartPreview.map((item, itemIndex) => (
                       <div
                         key={item.line.product_id}
-                        className="flex items-center justify-between rounded-2xl bg-white p-3"
+                        className="flex items-center justify-between rounded-2xl bg-white p-3 animate-cascade"
+                        style={{ "--cascade-i": itemIndex } as CSSProperties}
                       >
                         <div>
                           <p className="text-sm font-semibold text-[#264129]">{item.name}</p>

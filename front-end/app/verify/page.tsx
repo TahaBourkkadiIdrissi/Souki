@@ -33,6 +33,7 @@ function OTPVerificationForm({
   const [error, setError] = useState("")
   const [message, setMessage] = useState("")
   const [loading, setLoading] = useState(false)
+  const [verified, setVerified] = useState(false)
   const [resending, setResending] = useState(false)
   const [countdown, setCountdown] = useState(RESEND_DELAY_SECONDS)
 
@@ -90,8 +91,10 @@ function OTPVerificationForm({
       }
 
       setMessage(data.message || "Code validé avec succès.")
+      // Laisse le temps au checkmark de se dessiner avant la redirection.
+      setVerified(true)
       const destination = shouldShowOnboarding() ? "/onboarding" : data.default_dashboard || "/"
-      window.setTimeout(() => router.push(destination), 500)
+      window.setTimeout(() => router.push(destination), 900)
     } catch (err: any) {
       setError(err.message || "La vérification a échoué.")
     } finally {
@@ -176,12 +179,17 @@ function OTPVerificationForm({
             className="justify-center"
           >
             <InputOTPGroup className="gap-1.5 sm:gap-2">
-              <InputOTPSlot index={0} className="h-12 w-9 rounded-2xl border border-[#DCE7DE] text-base font-semibold sm:w-12 sm:text-lg" />
-              <InputOTPSlot index={1} className="h-12 w-9 rounded-2xl border border-[#DCE7DE] text-base font-semibold sm:w-12 sm:text-lg" />
-              <InputOTPSlot index={2} className="h-12 w-9 rounded-2xl border border-[#DCE7DE] text-base font-semibold sm:w-12 sm:text-lg" />
-              <InputOTPSlot index={3} className="h-12 w-9 rounded-2xl border border-[#DCE7DE] text-base font-semibold sm:w-12 sm:text-lg" />
-              <InputOTPSlot index={4} className="h-12 w-9 rounded-2xl border border-[#DCE7DE] text-base font-semibold sm:w-12 sm:text-lg" />
-              <InputOTPSlot index={5} className="h-12 w-9 rounded-2xl border border-[#DCE7DE] text-base font-semibold sm:w-12 sm:text-lg" />
+              {[0, 1, 2, 3, 4, 5].map((index) => (
+                <InputOTPSlot
+                  key={index}
+                  index={index}
+                  className={`h-12 w-9 rounded-2xl border text-base font-semibold sm:w-12 sm:text-lg ${
+                    verified
+                      ? "animate-add-bounce border-[#4CB84A] bg-[#F0FAF1] text-[#1E8A3C]"
+                      : "border-[#DCE7DE]"
+                  }`}
+                />
+              ))}
             </InputOTPGroup>
           </InputOTP>
         </div>
@@ -193,10 +201,36 @@ function OTPVerificationForm({
           </div>
         )}
 
-        {message && (
+        {message && !verified && (
           <div className="flex items-start gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
             <ShieldCheck className="mt-0.5 h-4 w-4 flex-shrink-0" />
             <p>{message}</p>
+          </div>
+        )}
+
+        {verified && (
+          <div
+            className="flex items-center justify-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4"
+            role="status"
+            aria-live="polite"
+          >
+            <span className="relative flex h-10 w-10 items-center justify-center">
+              <span className="absolute inset-0 rounded-full bg-[#4CB84A]/40 animate-souki-success-ring" />
+              <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-[#1E8A3C] animate-souki-success-pop">
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
+                  <path
+                    d="M6 12.5l4 4 8-9"
+                    pathLength={100}
+                    className="souki-check-draw"
+                    stroke="white"
+                    strokeWidth={2.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+            </span>
+            <p className="text-sm font-semibold text-emerald-700">{message}</p>
           </div>
         )}
 

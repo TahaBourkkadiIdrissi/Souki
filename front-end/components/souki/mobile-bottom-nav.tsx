@@ -117,7 +117,11 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
             <ShoppingCart className="h-5 w-5" />
             <span>Panier</span>
             {cartCount > 0 && (
-              <span className="absolute right-4 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F07C00] px-1 text-[10px] font-black text-white">
+              // key={cartCount} : rejoue le pop a chaque changement de quantite
+              <span
+                key={cartCount}
+                className="absolute right-4 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F07C00] px-1 text-[10px] font-black text-white animate-badge-pop"
+              >
                 {cartCount}
               </span>
             )}

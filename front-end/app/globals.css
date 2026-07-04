@@ -1367,3 +1367,144 @@ html {
     animation: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════
+   Passe UX 2026-07 : feedback, cascades, skeletons
+   Meme personnalite de mouvement que le reste de l'app :
+   ease "house" cubic-bezier(0.16,1,0.3,1), spring (0.34,1.56,0.64,1).
+   ═══════════════════════════════════════════════════ */
+
+/* Checkmark SVG qui se dessine (succes OTP / checkout).
+   Le path doit avoir pathLength="100". */
+@keyframes souki-check-draw {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 0; }
+}
+
+.souki-check-draw {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: souki-check-draw 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
+}
+
+/* Cercle de succes qui pop derriere le checkmark */
+@keyframes souki-success-pop {
+  0% { opacity: 0; transform: scale(0.4); }
+  70% { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.animate-souki-success-pop {
+  animation: souki-success-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Onde qui s'evanouit autour du cercle de succes */
+@keyframes souki-success-ring {
+  from { opacity: 0.5; transform: scale(0.6); }
+  to { opacity: 0; transform: scale(1.6); }
+}
+
+.animate-souki-success-ring {
+  animation: souki-success-ring 0.9s ease-out 0.2s both;
+}
+
+/* Entree en cascade des listes : chaque item pose --cascade-i.
+   40ms d'ecart, plafonne implicitement par le nombre d'items visibles. */
+@keyframes souki-cascade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-cascade {
+  animation: souki-cascade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--cascade-i, 0) * 40ms);
+}
+
+/* Pop du badge compteur (panier) quand la valeur change */
+@keyframes souki-badge-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+.animate-badge-pop {
+  animation: souki-badge-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Bounce bref de la carte produit a l'ajout au panier */
+@keyframes souki-add-bounce {
+  0% { transform: scale(1); }
+  35% { transform: scale(0.96); }
+  70% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+.animate-add-bounce {
+  animation: souki-add-bounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Skeleton shimmer : balayage lumineux au-dessus du fond pulse */
+@keyframes souki-shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+.souki-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #F3F7F3, #EAF3EB);
+}
+
+.souki-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: souki-shimmer 1.4s ease-in-out infinite;
+}
+
+.dark .souki-skeleton {
+  background: linear-gradient(135deg, #262626, #2e2e2e);
+}
+
+.dark .souki-skeleton::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+}
+
+/* Pulsation douce du compte a rebours JIT quand il reste moins d'une heure */
+@keyframes souki-countdown-urgent {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.animate-countdown-urgent {
+  animation: souki-countdown-urgent 1.6s ease-in-out infinite;
+}
+
+/* Chiffres du countdown / solde : transition douce sans layout shift */
+.souki-tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .souki-check-draw {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .animate-souki-success-pop,
+  .animate-souki-success-ring,
+  .animate-cascade,
+  .animate-badge-pop,
+  .animate-add-bounce,
+  .animate-countdown-urgent {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+
+  .souki-skeleton::after {
+    animation: none;
+  }
+}

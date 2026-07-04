@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useCallback, useEffect, useState } from "react"
+import { Suspense, useCallback, useEffect, useState, type CSSProperties } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import {
@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 
 import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
+import { SoukiEmptyState } from "@/components/souki/empty-state"
 import { useAuth } from "@/hooks/useAuth"
 import type { CommandeHistoriqueDTO } from "@/lib/api"
 import {
@@ -235,17 +236,23 @@ function HistoriqueContent() {
           </div>
 
           {recentProducts.length === 0 ? (
-            <div className="rounded-[24px] border border-[#E6EFE7] bg-white p-8 text-center">
-              <ShoppingBasket className="mx-auto mb-3 h-10 w-10 text-[#B8C9BA]" />
-              <p className="font-semibold text-[#264129]">Aucun produit consulté pour le moment.</p>
-              <Link href="/catalogue" className="mt-4 inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#1E8A3C] px-5 text-sm font-bold text-white">
-                Explorer le catalogue
-              </Link>
-            </div>
+            <SoukiEmptyState
+              icon={ShoppingBasket}
+              title="Aucun produit consulté pour le moment."
+              action={
+                <Link href="/catalogue" className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#1E8A3C] px-5 text-sm font-bold text-white">
+                  Explorer le catalogue
+                </Link>
+              }
+            />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {recentProducts.map((product) => (
-                <article key={product.id} className="overflow-hidden rounded-2xl border border-[#E6F0E7] bg-white shadow-[0_16px_45px_-34px_rgba(30,65,41,0.3)]">
+              {recentProducts.map((product, productIndex) => (
+                <article
+                  key={product.id}
+                  className="overflow-hidden rounded-2xl border border-[#E6F0E7] bg-white shadow-[0_16px_45px_-34px_rgba(30,65,41,0.3)] animate-cascade"
+                  style={{ "--cascade-i": productIndex } as CSSProperties}
+                >
                   <img
                     src={resolveCatalogueImage(product.name, product.image)}
                     alt={product.name}
@@ -293,7 +300,7 @@ function HistoriqueContent() {
           ) : isFetchingOrders ? (
             <div className="grid gap-4 lg:grid-cols-2">
               {Array.from({ length: 2 }).map((_, index) => (
-                <div key={index} className="h-44 animate-pulse rounded-[24px] bg-gradient-to-br from-[#F3F7F3] to-[#EAF3EB]" />
+                <div key={index} className="souki-skeleton h-44 rounded-[24px]" />
               ))}
             </div>
           ) : historyError ? (
@@ -301,14 +308,19 @@ function HistoriqueContent() {
               {historyError}
             </div>
           ) : orderHistory.length === 0 ? (
-            <div className="rounded-[24px] border border-[#E6EFE7] bg-white p-8 text-center">
-              <PackageCheck className="mx-auto mb-3 h-10 w-10 text-[#B8C9BA]" />
-              <p className="font-semibold text-[#264129]">Aucune commande validée pour le moment.</p>
-            </div>
+            <SoukiEmptyState
+              icon={PackageCheck}
+              title="Aucune commande validée pour le moment."
+              description="Votre première commande de produits frais apparaîtra ici."
+            />
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
-              {orderHistory.map((order) => (
-                <article key={order.id} className="overflow-hidden rounded-2xl border border-[#E6F0E7] bg-white shadow-[0_18px_55px_-36px_rgba(30,65,41,0.35)]">
+              {orderHistory.map((order, orderIndex) => (
+                <article
+                  key={order.id}
+                  className="overflow-hidden rounded-2xl border border-[#E6F0E7] bg-white shadow-[0_18px_55px_-36px_rgba(30,65,41,0.35)] animate-cascade"
+                  style={{ "--cascade-i": orderIndex } as CSSProperties}
+                >
                   <div className="h-1.5 bg-gradient-to-r from-[#1E8A3C] via-[#4CB84A] to-[#F07C00]" />
                   <div className="flex flex-wrap items-start justify-between gap-3 p-5">
                     <div>

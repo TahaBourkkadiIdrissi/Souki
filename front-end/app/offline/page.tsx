@@ -2,6 +2,8 @@
 
 import { WifiOff, RefreshCw } from "lucide-react"
 
+import { RecolteAvatar } from "@/components/avatar/recolte-avatar"
+
 export default function OfflinePage() {
   const retry = () => {
     if (typeof window !== "undefined") {
@@ -12,8 +14,11 @@ export default function OfflinePage() {
   return (
     <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center px-6">
       <div className="max-w-md w-full rounded-3xl border border-[#DDE7DE] bg-white px-8 py-10 text-center shadow-sm">
-        <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-[#EAF8EC] text-[#1E8A3C]">
-          <WifiOff className="size-7" aria-hidden="true" />
+        <div className="relative mx-auto w-fit">
+          <RecolteAvatar size="md" expression="curious" label="Récolte cherche le réseau" />
+          <div className="absolute -right-2 -top-1 flex size-8 items-center justify-center rounded-full bg-[#EAF8EC] text-[#1E8A3C] ring-2 ring-white">
+            <WifiOff className="size-4" aria-hidden="true" />
+          </div>
         </div>
         <p className="mt-5 text-xs font-semibold uppercase tracking-[0.25em] text-[#6E8B73]">SOUKI</p>
         <h1 className="mt-2 text-2xl font-bold text-[#1E8A3C]">Vous etes hors ligne</h1>

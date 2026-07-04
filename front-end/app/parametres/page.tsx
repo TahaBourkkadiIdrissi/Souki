@@ -117,6 +117,8 @@ export default function ParametresPage() {
   const [walletState, setWalletState] = useState<WalletState | null>(null)
   const [walletCreate, setWalletCreate] = useState({ password: "", confirm_password: "" })
   const [photoUploading, setPhotoUploading] = useState(false)
+  // Pop bref de l'avatar une fois la photo reellement enregistree cote API.
+  const [photoJustSaved, setPhotoJustSaved] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
   const [blacklistStatus, setBlacklistStatus] = useState<BlacklistStatusDTO | null>(null)
   const [showLiftModal, setShowLiftModal] = useState(false)
@@ -321,6 +323,8 @@ export default function ParametresPage() {
       localStorage.setItem("souki_photo_version", String(v))
       window.dispatchEvent(new CustomEvent("souki:photo-updated", { detail: { version: v } }))
       showSaved()
+      setPhotoJustSaved(true)
+      window.setTimeout(() => setPhotoJustSaved(false), 800)
     } catch (err) {
       setPhotoUrl(previousPhotoUrl)
       setErrors((v) => ({
@@ -456,7 +460,7 @@ export default function ParametresPage() {
         )}
         <div className="flex flex-col lg:flex-row gap-8">
           <aside className="lg:w-64 flex-shrink-0">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-4"><div className="flex items-center gap-4"><div className="relative"><div className="relative w-14 h-14 rounded-xl bg-[#F0FAF1] overflow-hidden flex items-center justify-center font-bold text-[#1E8A3C]">{photoUrl ? <img src={photoUrl} alt={sidebarName} className="w-full h-full object-cover" /> : initialLetter}{photoUploading && <div className="absolute inset-0 bg-black/30 flex items-center justify-center"><Loader2 className="w-5 h-5 animate-spin text-white" /></div>}</div><button onClick={onClickCamera} className="absolute -bottom-1 -right-1 w-6 h-6 bg-[#1E8A3C] rounded-full flex items-center justify-center text-white shadow-sm hover:bg-[#176B2E] transition-colors"><Camera className="w-3 h-3" /></button><input ref={fileInputRef} onChange={onUploadPhoto} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" /></div><div><p className="font-bold text-[#3D3D3D]">{sidebarName}</p><p className="text-sm text-[#8A8A8A]">{personal.email}</p>{emailVerified && <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-[#F0FAF1] text-[#1E8A3C] rounded-full text-xs font-medium"><Check className="w-3 h-3" /> Vérifié</span>}{errors.photo && <p className="text-xs text-red-500">{errors.photo}</p>}</div></div></div>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-4"><div className="flex items-center gap-4"><div className="relative"><div className={`relative w-14 h-14 rounded-xl bg-[#F0FAF1] overflow-hidden flex items-center justify-center font-bold text-[#1E8A3C] ${photoJustSaved ? "animate-souki-success-pop" : ""}`}>{photoUrl ? <img src={photoUrl} alt={sidebarName} className="w-full h-full object-cover" /> : initialLetter}{photoUploading && <div className="absolute inset-0 bg-black/30 flex items-center justify-center"><Loader2 className="w-5 h-5 animate-spin text-white" /></div>}</div><button onClick={onClickCamera} className="absolute -bottom-1 -right-1 w-6 h-6 bg-[#1E8A3C] rounded-full flex items-center justify-center text-white shadow-sm hover:bg-[#176B2E] transition-colors"><Camera className="w-3 h-3" /></button><input ref={fileInputRef} onChange={onUploadPhoto} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" /></div><div><p className="font-bold text-[#3D3D3D]">{sidebarName}</p><p className="text-sm text-[#8A8A8A]">{personal.email}</p>{emailVerified && <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-[#F0FAF1] text-[#1E8A3C] rounded-full text-xs font-medium"><Check className="w-3 h-3" /> Vérifié</span>}{errors.photo && <p className="text-xs text-red-500">{errors.photo}</p>}</div></div></div>
             <nav className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">{([{ id: "compte", icon: User, label: "Compte" }, { id: "notifications", icon: Bell, label: "Notifications" }, { id: "securite", icon: Shield, label: "Sécurité" }, { id: "paiement", icon: CreditCard, label: "Paiement" }] as const).map((item) => <button key={item.id} onClick={() => { setActiveSection(item.id); router.push(`/parametres/${item.id}`) }} className={cn("w-full flex items-center justify-between px-5 py-4 border-b border-gray-50 last:border-0 transition-colors", activeSection === item.id ? "bg-[#F0FAF1] text-[#1E8A3C]" : "text-[#3D3D3D] hover:bg-gray-50")}><div className="flex items-center gap-3"><item.icon className="w-4 h-4" /><span className="font-medium text-sm">{item.label}</span></div><ChevronRight className={cn("w-4 h-4 transition-transform", activeSection === item.id && "rotate-90")} /></button>)}</nav>
           </aside>
           <main className="flex-1 space-y-6">

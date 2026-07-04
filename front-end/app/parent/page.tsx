@@ -92,8 +92,12 @@ export default function ParentDashboardPage() {
               title: "Accès sécurisé",
               text: "Les permissions sont verifiees cote serveur puis relayees cote interface.",
             },
-          ].map((item) => (
-            <article key={item.title} className="rounded-[28px] bg-white border border-[#F3EAAE] p-6 shadow-sm">
+          ].map((item, itemIndex) => (
+            <article
+              key={item.title}
+              className="rounded-[28px] bg-white border border-[#F3EAAE] p-6 shadow-sm animate-cascade"
+              style={{ "--cascade-i": itemIndex } as React.CSSProperties}
+            >
               <div className="w-12 h-12 rounded-2xl bg-[#FFF7CF] flex items-center justify-center text-[#B08B12]">
                 <item.icon className="w-6 h-6" />
               </div>
