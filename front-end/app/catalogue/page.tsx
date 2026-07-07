@@ -1993,8 +1993,17 @@ function CatalogueContent() {
                 </button>
               </div>
             ) : cart.length === 0 ? (
-              <div className="py-10 text-center">
-                <ShoppingCart className="mx-auto mb-3 h-12 w-12 text-[#D6DFD7]" />
+              <div className="py-10 text-center animate-fade-in-up">
+                <img
+                  src="/illustrations/empty-basket.webp"
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  width={144}
+                  height={144}
+                  aria-hidden="true"
+                  className="mx-auto mb-3 h-36 w-36 object-contain animate-gentle-float"
+                />
                 <p className="text-[#6F8070]">Votre panier est vide.</p>
               </div>
             ) : (
