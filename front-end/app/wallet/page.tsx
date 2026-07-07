@@ -304,9 +304,16 @@ export default function WalletPage() {
                 
                 {(walletState.transactions || []).length === 0 ? (
                   <div className="flex flex-col items-center justify-center text-center py-10 px-4 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200 animate-fade-in-up">
-                    <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4 text-gray-300">
-                      <Wallet className="w-8 h-8" />
-                    </div>
+                    <img
+                      src="/illustrations/empty-wallet.webp"
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      width={128}
+                      height={128}
+                      aria-hidden="true"
+                      className="mb-4 h-32 w-32 object-contain animate-gentle-float"
+                    />
                     <h5 className="font-bold text-[#3D3D3D] mb-1">Aucune transaction</h5>
                     <p className="text-sm text-[#8A8A8A] max-w-xs mb-5">Votre portefeuille SOUKI est vide. Commencez par recharger votre compte ou attendez vos gains de parrainage !</p>
                     <button className="text-sm font-semibold text-[#1E8A3C] bg-[#F0FAF1] px-5 py-2.5 rounded-xl transition hover:bg-[#EAF8EC]">

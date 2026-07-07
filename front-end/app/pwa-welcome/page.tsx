@@ -36,6 +36,7 @@ import type { CatalogueProductDTO } from "@/lib/api"
 import { isPwaStandalone } from "@/lib/pwa"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/hooks/useAuth"
+import { useScrollReveal } from "@/hooks/useScrollReveal"
 import { shouldShowOnboarding } from "@/lib/onboarding"
 
 type SuggestionLevel = {
@@ -77,6 +78,9 @@ export default function PwaWelcomePage() {
   const [hintIndex, setHintIndex] = useState(0)
   const [scrollY, setScrollY] = useState(0)
   const heroRef = useRef<HTMLDivElement>(null)
+  // Reveal au scroll des sections sous la ligne de flottaison (fail-safe :
+  // le contenu reste visible si l'observer ne se declenche pas).
+  const revealRef = useScrollReveal<HTMLElement>()
 
   // PWA standalone check
   useEffect(() => {
@@ -230,7 +234,7 @@ export default function PwaWelcomePage() {
   }
 
   return (
-    <main className="min-h-dvh bg-[#F2F6F3] text-[#3D3D3D] font-sans">
+    <main ref={revealRef} className="min-h-dvh bg-[#F2F6F3] text-[#3D3D3D] font-sans">
       <section className="mx-auto flex min-h-dvh w-full max-w-md flex-col pb-24 md:pb-0">
 
         {/* ===== HEADER CINEMATIQUE (safe-area + theme nature) ===== */}
@@ -414,7 +418,7 @@ export default function PwaWelcomePage() {
         </div>
 
         {/* ===== BANNIERE LIVRAISON GRATUITE ===== */}
-        <div className="mt-6 px-4 animate-slide-in-up">
+        <div className="mt-6 px-4" data-reveal="up">
           <div className="flex items-center gap-4 rounded-3xl bg-gradient-to-r from-[#FFF9EB] to-[#FFF3D6] p-4 border border-[#FFC244]/40 shadow-sm">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#FFC244]/25">
               <Truck className="h-6 w-6 text-[#F07C00]" />
@@ -470,17 +474,17 @@ export default function PwaWelcomePage() {
         {/* ===== SKELETON DE CHARGEMENT ===== */}
         {isFetching && (
           <div className="mt-6 px-4">
-            <div className="mb-3 h-5 w-40 animate-pulse rounded-full bg-white" />
+            <div className="souki-skeleton mb-3 h-5 w-40 rounded-full" />
             <div className="flex gap-3 overflow-hidden">
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-44 w-36 shrink-0 animate-pulse rounded-3xl bg-white" />
+                <div key={i} className="souki-skeleton h-44 w-36 shrink-0 rounded-3xl" />
               ))}
             </div>
           </div>
         )}
 
         {/* ===== DEVENIR FOURNISSEUR ===== */}
-        <div className="mt-7 px-4">
+        <div className="mt-7 px-4" data-reveal="up">
           <button
             type="button"
             onClick={() => router.push("/devenir-fournisseur")}
@@ -516,7 +520,7 @@ function CarouselSection({
   children: React.ReactNode
 }) {
   return (
-    <section className="mt-7 animate-slide-in-up">
+    <section className="mt-7" data-reveal="up">
       <div className="flex items-end justify-between px-4">
         <div>
           <h2 className="text-[18px] font-black leading-tight text-[#3D3D3D]">{title}</h2>

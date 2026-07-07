@@ -629,6 +629,15 @@ function CheckoutContent() {
           <p className="mt-2 text-sm text-[#66756B] animate-fade-in-up-delay-1">
             Vos produits frais arrivent demain matin, du champ au panier.
           </p>
+          <img
+            src="/illustrations/checkout-celebration.webp"
+            alt=""
+            decoding="async"
+            width={144}
+            height={144}
+            aria-hidden="true"
+            className="mt-4 h-36 w-36 object-contain animate-fade-in-up-delay-2"
+          />
         </div>
       )}
       <header className="sticky top-0 z-10 hidden glass-ios26 border-b border-gray-100 md:block">

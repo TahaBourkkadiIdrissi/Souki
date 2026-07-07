@@ -17,6 +17,7 @@ import {
 import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
 import { SoukiEmptyState } from "@/components/souki/empty-state"
 import { useAuth } from "@/hooks/useAuth"
+import { useScrollReveal } from "@/hooks/useScrollReveal"
 import type { CommandeHistoriqueDTO } from "@/lib/api"
 import {
   fetchCatalogueProducts,
@@ -86,6 +87,7 @@ const getOrderStatusLabel = (status?: string | null) => {
 function HistoriqueContent() {
   const searchParams = useSearchParams()
   const { isAuthenticated, isLoading } = useAuth()
+  const revealRef = useScrollReveal<HTMLDivElement>()
   const [recentProducts, setRecentProducts] = useState<RecentProduct[]>([])
   const [catalogueImages, setCatalogueImages] = useState<Record<string, string>>({})
   const [orderHistory, setOrderHistory] = useState<CommandeHistoriqueDTO[]>([])
@@ -173,7 +175,7 @@ function HistoriqueContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FBFDF9] pb-24 md:pb-0">
+    <div ref={revealRef} className="min-h-screen bg-[#FBFDF9] pb-24 md:pb-0">
       <header className="sticky top-0 z-40 hidden glass-ios26 border-b border-[#E7F0E8] md:block">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link href="/catalogue" className="inline-flex items-center gap-2 rounded-2xl bg-[#F0FAF1] px-4 py-3 text-sm font-bold text-[#1E8A3C]">
@@ -224,7 +226,7 @@ function HistoriqueContent() {
           </div>
         </section>
 
-        <section className="mb-8">
+        <section className="mb-8" data-reveal="up">
           <div className="mb-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-[#1E8A3C]">
               <Leaf className="h-5 w-5" />
@@ -246,27 +248,30 @@ function HistoriqueContent() {
               }
             />
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            // Tuiles carrees cote a cote, defilement horizontal avec snap
+            <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory [-webkit-overflow-scrolling:touch] sm:gap-4">
               {recentProducts.map((product, productIndex) => (
                 <article
                   key={product.id}
-                  className="overflow-hidden rounded-2xl border border-[#E6F0E7] bg-white shadow-[0_16px_45px_-34px_rgba(30,65,41,0.3)] animate-cascade"
+                  className="w-36 shrink-0 snap-start overflow-hidden rounded-2xl border border-[#E6F0E7] bg-white shadow-[0_16px_45px_-34px_rgba(30,65,41,0.3)] animate-cascade sm:w-40"
                   style={{ "--cascade-i": productIndex } as CSSProperties}
                 >
                   <img
                     src={resolveCatalogueImage(product.name, product.image)}
                     alt={product.name}
-                    className="h-36 w-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                    className="aspect-square w-full object-cover"
                   />
-                  <div className="p-4">
-                    <h3 className="truncate text-base font-black text-[#264129]">{product.name}</h3>
-                    <div className="mt-2 flex items-center justify-between gap-3">
-                      <p className="font-black text-[#F07C00]">{formatDh(product.price)}</p>
-                      <span className="text-xs font-semibold text-[#6F8070]">/ {product.displayUnit || product.unit}</span>
+                  <div className="p-3">
+                    <h3 className="truncate text-sm font-black text-[#264129]">{product.name}</h3>
+                    <div className="mt-1 flex items-baseline justify-between gap-2">
+                      <p className="text-sm font-black text-[#F07C00]">{formatDh(product.price)}</p>
+                      <span className="truncate text-[11px] font-semibold text-[#6F8070]">/ {product.displayUnit || product.unit}</span>
                     </div>
-                    <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-[#7B8B7D]">
-                      <Clock className="h-4 w-4" />
-                      {formatOrderDate(product.viewedAt)}
+                    <div className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-[#7B8B7D]">
+                      <Clock className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{formatOrderDate(product.viewedAt)}</span>
                     </div>
                   </div>
                 </article>
@@ -275,7 +280,7 @@ function HistoriqueContent() {
           )}
         </section>
 
-        <section>
+        <section data-reveal="up">
           <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div className="flex items-center gap-2 text-[#1E8A3C]">
               <ReceiptText className="h-5 w-5" />
@@ -310,6 +315,7 @@ function HistoriqueContent() {
           ) : orderHistory.length === 0 ? (
             <SoukiEmptyState
               icon={PackageCheck}
+              illustrationSrc="/illustrations/empty-orders.webp"
               title="Aucune commande validée pour le moment."
               description="Votre première commande de produits frais apparaîtra ici."
             />

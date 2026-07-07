@@ -1224,14 +1224,71 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Le contenu est toujours visible, comme avant : on a retire l'apparition au
-   scroll qui laissait des sections (ex. les produits) masquees (opacity:0) si
-   l'IntersectionObserver ne se declenchait pas. Le `!important` neutralise tout
-   ancien style en cache cote navigateur. */
-[data-reveal],
+/* Scroll-reveal "fail-safe" : contrairement a l'ancienne version (elements
+   caches en opacity:0 qui restaient invisibles si l'IntersectionObserver ne
+   se declenchait pas), le contenu est TOUJOURS visible par defaut. La classe
+   `.revealed`, posee par useScrollReveal a l'entree dans le viewport, ne fait
+   que rejouer une animation d'apparition. Observer absent => pas d'animation,
+   mais jamais de contenu masque. */
+[data-reveal] {
+  opacity: 1;
+}
+
+@keyframes souki-reveal-up {
+  from { opacity: 0; transform: translateY(22px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes souki-reveal-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes souki-reveal-scale {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes souki-reveal-left {
+  from { opacity: 0; transform: translateX(-26px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes souki-reveal-right {
+  from { opacity: 0; transform: translateX(26px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
 [data-reveal].revealed {
-  opacity: 1 !important;
-  transform: none !important;
+  animation: souki-reveal-up 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+[data-reveal="fade"].revealed {
+  animation-name: souki-reveal-fade;
+}
+
+[data-reveal="scale"].revealed {
+  animation-name: souki-reveal-scale;
+  animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+[data-reveal="left"].revealed {
+  animation-name: souki-reveal-left;
+}
+
+[data-reveal="right"].revealed {
+  animation-name: souki-reveal-right;
+}
+
+[data-delay="1"].revealed { animation-delay: 80ms; }
+[data-delay="2"].revealed { animation-delay: 160ms; }
+[data-delay="3"].revealed { animation-delay: 240ms; }
+[data-delay="4"].revealed { animation-delay: 320ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal].revealed {
+    animation: none !important;
+  }
 }
 
 /* Parallax wrapper for background images */
