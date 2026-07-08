@@ -1,3 +1,5 @@
+import os
+
 from datetime import datetime, time
 from typing import Optional
 from zoneinfo import ZoneInfo
@@ -23,7 +25,15 @@ ORDER_CUTOFF_END = time(8, 0)
 ORDER_CUTOFF_MESSAGE = (
     "Les commandes restent enregistrees en attente pour la livraison du lendemain."
 )
-ORDER_CUTOFF_ENABLED = False
+# Garde-fou metier (BUG-001) : le cutoff backend est actif par defaut. Il ne peut etre
+# desactive que par decision explicite d'exploitation (SOUKI_ORDER_CUTOFF_ENABLED=0),
+# jamais par un changement de code silencieux.
+ORDER_CUTOFF_ENABLED = os.getenv("SOUKI_ORDER_CUTOFF_ENABLED", "1").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 
 def is_order_cutoff_active(now: Optional[datetime] = None) -> bool:
@@ -106,8 +116,11 @@ class CheckoutService(ICheckoutService):
                 details=delivery_instructions,
             )
 
-            product_ids = [item.product_id for item in payload.items]
-            products = self.checkout_dao.get_products_by_ids(session, product_ids)
+            # Verrouillage pessimiste des produits (SELECT ... FOR UPDATE, ordre stable
+            # par id) : deux checkouts concurrents ne peuvent plus lire le meme stock
+            # puis le decrementer chacun de leur cote (VULN-006, anti-survente).
+            product_ids = sorted({item.product_id for item in payload.items})
+            products = self.checkout_dao.get_products_by_ids(session, product_ids, for_update=True)
             products_by_id = {int(product.id): product for product in products} # type: ignore
 
             if len(products_by_id) != len(set(product_ids)):

@@ -73,9 +73,13 @@ class PanierDaoBD(IPanierDao):
         session.flush()
         return ligne
 
-    def get_panier_by_id(self, session: Session, panier_id: int) -> Optional[Panier]:
-        """Récupère un panier par son ID"""
-        return session.query(Panier).filter(Panier.id == panier_id).first()
+    def get_panier_by_id(self, session: Session, panier_id: int, user_id: int) -> Optional[Panier]:
+        """Récupère un panier par son ID et son propriétaire (anti-IDOR)"""
+        return (
+            session.query(Panier)
+            .filter(Panier.id == panier_id, Panier.user_id == user_id)
+            .first()
+        )
 
     def get_lignes_panier(self, session: Session, panier_id: int) -> List[LignePanier]:
         """Récupère toutes les lignes d'un panier"""

@@ -478,16 +478,13 @@ export async function submitManualBasket(cart: CartItem[]): Promise<ManualBasket
     prix_unitaire: item.price,
   }))
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-  
+  // VULN-010 : authentification via cookie httpOnly (envoye par apiCall avec
+  // credentials: "include"), plus aucun token lu depuis le localStorage.
   const payload = { items }
 
   return apiCall("/api/manual-basket", {
     method: "POST",
-    headers: { 
-      "Content-Type": "application/json",
-      ...(token ? { "Authorization": `Bearer ${token}` } : {})
-    },
+    headers: { "Content-Type": "application/json" },
     body: payload,  // ← PAS de JSON.stringify! apiCall le fera
   }) as Promise<ManualBasketResponse>
 }
@@ -504,31 +501,20 @@ export async function generateSmartPanier(
 }
 
 export async function fetchPanierDetails(panierId: number): Promise<PanierDetailsResponse> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-  return apiCall(`/api/paniers/${panierId}`, {
-    ...(token ? { token } : {}),
-  }) as Promise<PanierDetailsResponse>
+  return apiCall(`/api/paniers/${panierId}`) as Promise<PanierDetailsResponse>
 }
 
 export async function fetchCommandeCheckout(commandeId: number): Promise<CommandeCheckoutResponse> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-  return apiCall(`/api/commandes/${commandeId}`, {
-    ...(token ? { token } : {}),
-  }) as Promise<CommandeCheckoutResponse>
+  return apiCall(`/api/commandes/${commandeId}`) as Promise<CommandeCheckoutResponse>
 }
 
 export async function fetchOrderHistory(): Promise<CommandeHistoriqueDTO[]> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-  return apiCall("/api/commandes/historique", {
-    ...(token ? { token } : {}),
-  }) as Promise<CommandeHistoriqueDTO[]>
+  return apiCall("/api/commandes/historique") as Promise<CommandeHistoriqueDTO[]>
 }
 
 export async function deleteOrderFromHistory(commandeId: number): Promise<{ success: boolean; message?: string }> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
   return apiCall(`/api/commandes/historique/${commandeId}`, {
     method: "DELETE",
-    ...(token ? { token } : {}),
   }) as Promise<{ success: boolean; message?: string }>
 }
 
@@ -556,10 +542,8 @@ export interface ClaimResponse {
 }
 
 export async function submitClaim(payload: ClaimCreatePayload): Promise<ClaimResponse> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
   return apiCall("/api/v1/claims", {
     method: "POST",
-    ...(token ? { token } : {}),
     body: payload,
   }) as Promise<ClaimResponse>
 }

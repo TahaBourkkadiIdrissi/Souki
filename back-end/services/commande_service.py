@@ -128,9 +128,10 @@ class CommandeVocaleService(ICommandeVocaleService):
             commande_id=commande_entity.id if commande_entity else None # type: ignore
         )
     
-    def get_commande_checkout(self, commande_id: int) -> Optional[CommandeCheckoutDTO]:
+    def get_commande_checkout(self, commande_id: int, user_id: int) -> Optional[CommandeCheckoutDTO]:
         # Le Service ne sait pas d'où vient self.session, il l'utilise juste.
-        data_brutes = self.commande_dao.get_details_for_checkout(self.session, commande_id) # type: ignore
+        # Le user_id est propage jusqu'au DAO pour filtrer par proprietaire (anti-IDOR).
+        data_brutes = self.commande_dao.get_details_for_checkout(self.session, commande_id, user_id) # type: ignore
         
         if not data_brutes:
             return None

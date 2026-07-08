@@ -29,8 +29,8 @@ class ICommandeVocaleService(ABC):
         pass
 
     @abstractmethod
-    def get_commande_checkout(self, commande_id: int) -> Optional[CommandeCheckoutDTO]:
-        """Récupère le détail d'une commande pour le checkout."""
+    def get_commande_checkout(self, commande_id: int, user_id: int) -> Optional[CommandeCheckoutDTO]:
+        """Récupère le détail d'une commande du client connecté pour le checkout (anti-IDOR)."""
         pass
 
     @abstractmethod

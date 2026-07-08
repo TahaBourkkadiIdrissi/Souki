@@ -201,11 +201,15 @@ class PanierService(IPanierService):
         except Exception as e:
             raise ValueError(f"Erreur lors de la création du panier: {str(e)}")
 
-    def get_panier_details(self, panier_id: int) -> PanierDetailsDTO:
-        """Récupère les détails complets d'un panier pour affichage"""
+    def get_panier_details(self, panier_id: int, user_id: int) -> PanierDetailsDTO:
+        """Récupère les détails complets d'un panier pour affichage.
+
+        Le panier n'est retourné que s'il appartient à `user_id` (anti-IDOR) :
+        le panier d'un autre utilisateur est traité comme introuvable.
+        """
         session = self._ensure_session()
 
-        panier = self.panier_dao.get_panier_by_id(session, panier_id)
+        panier = self.panier_dao.get_panier_by_id(session, panier_id, user_id)
         if not panier:
             raise ValueError(f"Panier {panier_id} non trouvé.")
 

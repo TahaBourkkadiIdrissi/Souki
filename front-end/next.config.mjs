@@ -9,10 +9,42 @@ const backendTarget = (
   "http://127.0.0.1:8000"
 ).replace(/\/$/, "");
 
+// En-tetes de securite globaux (RISK-003) : CSP, nosniff, Referrer-Policy,
+// Permissions-Policy et HSTS (ce dernier n'a d'effet qu'en HTTPS).
+const securityHeaders = [
+  {
+    key: "Content-Security-Policy",
+    value: [
+      "default-src 'self'",
+      // Next.js injecte des scripts/styles inline ; Mapbox utilise blob: et workers.
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://accounts.google.com https://api.mapbox.com",
+      "style-src 'self' 'unsafe-inline' https://accounts.google.com https://api.mapbox.com",
+      "img-src 'self' data: blob: https:",
+      "font-src 'self' data:",
+      "connect-src 'self' https: wss: blob:",
+      "worker-src 'self' blob:",
+      "frame-src https://accounts.google.com",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+    ].join("; "),
+  },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(self), geolocation=(self), payment=()",
+  },
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+  { key: "X-Frame-Options", value: "DENY" },
+]
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   typescript: {
-    ignoreBuildErrors: true,
+    // BUG-003 : les erreurs TypeScript bloquent le build (plus d'ignore).
+    ignoreBuildErrors: false,
   },
   images: {
     unoptimized: true,
@@ -49,6 +81,10 @@ const nextConfig = {
   },
   async headers() {
     return [
+      {
+        source: "/:path*",
+        headers: securityHeaders,
+      },
       {
         source: "/sw.js",
         headers: [

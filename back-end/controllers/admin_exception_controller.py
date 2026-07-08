@@ -33,7 +33,6 @@ def get_commandes_exceptions(
     page_size: int = Query(default=20, ge=1, le=100),
     principal=Depends(require_permission("admin.panel.access")),
 ):
-    _ = principal
     session = LocalSession()
     try:
         return AdminExceptionService(session).list_exceptions(
@@ -57,7 +56,6 @@ def rattacher_fournisseur(
     payload: RattacherFournisseurDTO,
     principal=Depends(require_permission("admin.panel.access")),
 ):
-    _ = principal
     session = LocalSession()
     try:
         return AdminExceptionService(session).rattacher_fournisseur(
@@ -99,7 +97,6 @@ def reassigner_commande(
     principal=Depends(require_permission("admin.panel.access")),
     dispatch_service: IDispatchService = Depends(get_dispatch_service),
 ):
-    _ = principal
     try:
         with dispatch_service:
             return dispatch_service.reassign_commande(

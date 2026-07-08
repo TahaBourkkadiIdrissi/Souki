@@ -96,3 +96,18 @@ def require_permission(*expected_permissions: str, match: str = "all"):
 
 def require_admin(principal=Depends(require_permission("admin.panel.access"))):
     return principal
+
+
+def ensure_resource_owner(principal, resource_owner_id: Optional[int]) -> None:
+    """Verification reutilisable de propriete d'une ressource (anti-IDOR).
+
+    Standard du projet (voir Documentation/STANDARD_AUTORISATIONS.md) :
+    - le filtre par proprietaire doit etre applique au niveau DAO quand c'est
+      possible (`WHERE id = :id AND user_id = :user_id`) ;
+    - quand la ressource est deja chargee, appeler cette fonction AVANT de la
+      retourner ou de la modifier ;
+    - la reponse est 404 (pas 403) pour ne pas reveler l'existence de la
+      ressource d'un autre utilisateur.
+    """
+    if resource_owner_id is None or int(resource_owner_id) != int(principal.user_id):
+        raise HTTPException(status_code=404, detail="Ressource introuvable.")

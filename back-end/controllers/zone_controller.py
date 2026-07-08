@@ -43,7 +43,6 @@ def _as_zone_dto(payload: ZoneAdminPayload) -> ZoneJITDTO:
 def list_admin_zones(
     principal=Depends(require_permission("admin.panel.access")),
 ):
-    _ = principal
     session = LocalSession()
     try:
         return ZoneJITDaoBD().get_all_zones(session)
@@ -60,7 +59,6 @@ def create_admin_zone(
     payload: ZoneAdminPayload,
     principal=Depends(require_permission("admin.panel.access")),
 ):
-    _ = principal
     session = LocalSession()
     try:
         _validate_supplier(session, payload.fournisseur_id)
@@ -85,7 +83,6 @@ def update_admin_zone(
     payload: ZoneAdminPayload,
     principal=Depends(require_permission("admin.panel.access")),
 ):
-    _ = principal
     session = LocalSession()
     try:
         _validate_supplier(session, payload.fournisseur_id)
@@ -109,7 +106,6 @@ def deactivate_admin_zone(
     zone_id: int,
     principal=Depends(require_permission("admin.panel.access")),
 ):
-    _ = principal
     session = LocalSession()
     try:
         zone = ZoneJITDaoBD().deactivate_zone(session, zone_id)

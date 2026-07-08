@@ -50,7 +50,10 @@ def upload_profile_photo(
 ):
     if file.content_type not in ALLOWED_AVATAR_MIME_TYPES:
         raise HTTPException(status_code=400, detail="Choisissez une image JPG, PNG ou WEBP.")
-    content = file.file.read()
+    # RISK-001 : lecture bornee (limite + 1 octet) -> 413 avant lecture complete.
+    # La signature reelle est ensuite verifiee et l'image reencodee (metadonnees
+    # supprimees) par SupabaseStorageService.upload_avatar.
+    content = file.file.read(MAX_AVATAR_SIZE_BYTES + 1)
     if len(content) > MAX_AVATAR_SIZE_BYTES:
         raise HTTPException(status_code=413, detail="L'image ne doit pas depasser 2 Mo.")
 

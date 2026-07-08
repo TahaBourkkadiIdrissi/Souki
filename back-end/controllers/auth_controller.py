@@ -26,6 +26,11 @@ from dto.user_dto import (
 )
 from services.auth_service import AuthService
 from services.client_ip import extract_client_ip
+from services.rate_limit_service import (
+    ADMIN_LOGIN_POLICY,
+    USER_LOGIN_POLICY,
+    login_rate_limiter,
+)
 from services.user_session_service import UserSessionService
 
 auth_router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -61,9 +66,15 @@ def register(data: UserRegister, request: Request):
 
 @auth_router.post("/login")
 def login(data: LoginRequest, request: Request, response: Response):
+    # Anti brute force (VULN-009) : limite par IP et par identifiant, delai
+    # progressif apres echecs, reponse 429 generique (pas de fuite d'existence).
+    client_ip = extract_client_ip(request)
+    login_rate_limiter.ensure_can_attempt("user", USER_LOGIN_POLICY, client_ip, data.login_id)
     result = AuthService().login(data)
     if not result:
+        login_rate_limiter.register_failure("user", USER_LOGIN_POLICY, client_ip, data.login_id)
         raise HTTPException(status_code=401, detail="Identifiants incorrects.")
+    login_rate_limiter.register_success("user", client_ip, data.login_id)
     token = result["token"]
     _register_session_for_token(token, request)
     _set_auth_cookie(response, token)
@@ -81,9 +92,20 @@ def login(data: LoginRequest, request: Request, response: Response):
 
 @auth_router.post("/admin/login")
 def admin_login(data: AdminLoginRequest, request: Request, response: Response):
-    result = AuthService().admin_login(data)
+    # Limite plus stricte pour l'espace admin + alerte de securite apres echecs.
+    client_ip = extract_client_ip(request)
+    login_rate_limiter.ensure_can_attempt("admin", ADMIN_LOGIN_POLICY, client_ip, data.login_id)
+    try:
+        result = AuthService().admin_login(data)
+    except HTTPException as exc:
+        if exc.status_code == 403:
+            # Un compte non-admin qui sonde l'espace admin compte comme un echec.
+            login_rate_limiter.register_failure("admin", ADMIN_LOGIN_POLICY, client_ip, data.login_id)
+        raise
     if not result:
+        login_rate_limiter.register_failure("admin", ADMIN_LOGIN_POLICY, client_ip, data.login_id)
         raise HTTPException(status_code=401, detail="Identifiants incorrects.")
+    login_rate_limiter.register_success("admin", client_ip, data.login_id)
     token = result["token"]
     _register_session_for_token(token, request)
     _set_auth_cookie(response, token)

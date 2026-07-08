@@ -28,9 +28,10 @@ from services.zone_resolver import haversine
 
 DISPATCH_TARGET_STATUS = "EN_ATTENTE_LIVREUR"
 LOCKED_DISPATCH_STATUS = "VERROUILLEE"
+# Garde-fou metier (BUG-004) : seules les commandes validees par le JIT (VERROUILLEE)
+# ou en reprise apres refus livreur peuvent entrer dans une tournee. Les statuts
+# EN_ATTENTE et CONFIRMEE ne sont PAS dispatchables.
 DISPATCH_STATUS_PROGRESSIONS = {
-    "EN_ATTENTE": ("CONFIRMEE", "VERROUILLEE", DISPATCH_TARGET_STATUS),
-    "CONFIRMEE": ("VERROUILLEE", DISPATCH_TARGET_STATUS),
     "VERROUILLEE": (DISPATCH_TARGET_STATUS,),
     "REFUS_LIVREUR": (DISPATCH_TARGET_STATUS,),
 }

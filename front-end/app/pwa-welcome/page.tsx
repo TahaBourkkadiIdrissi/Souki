@@ -68,7 +68,7 @@ const CATEGORY_TILES = [
 
 export default function PwaWelcomePage() {
   const router = useRouter()
-  const { user, token, isAuthenticated } = useAuth()
+  const { user, token, isAuthenticated, isLoading } = useAuth()
   const [isReady, setIsReady] = useState(false)
   const [products, setProducts] = useState<CatalogueProduct[]>([])
   const [favorites, setFavorites] = useState<CatalogueProduct[]>([])
@@ -94,6 +94,15 @@ export default function PwaWelcomePage() {
 
     setIsReady(true)
   }, [router])
+
+  // Session guard : sans session active, l'entree PWA affiche la page de choix
+  // de profil (/login) au lieu de l'accueil. On attend la fin de la resolution
+  // de session (isLoading) pour ne pas ejecter un utilisateur connecte.
+  useEffect(() => {
+    if (isReady && !isLoading && !isAuthenticated) {
+      router.replace("/login?redirect=/pwa-welcome")
+    }
+  }, [isReady, isLoading, isAuthenticated, router])
 
   // Onboarding guard: redirect authenticated first-time users to onboarding
   useEffect(() => {
@@ -223,7 +232,9 @@ export default function PwaWelcomePage() {
     return null
   }, [user])
 
-  if (!isReady) {
+  // Splash tant que le mode standalone ou la session ne sont pas confirmes :
+  // l'accueil PWA ne doit jamais apparaitre sans session (redirection /login).
+  if (!isReady || isLoading || !isAuthenticated) {
     return (
       <main className="min-h-dvh bg-[#F5F5F0]" aria-label="Chargement">
         <div className="flex min-h-dvh items-center justify-center">

@@ -13,7 +13,9 @@ from entities.product_entity import Product
 class ICheckoutDao(ABC):
 
     @abstractmethod
-    def get_products_by_ids(self, session: Session, product_ids: List[int]) -> List[Product]:
+    def get_products_by_ids(
+        self, session: Session, product_ids: List[int], for_update: bool = False
+    ) -> List[Product]:
         pass
 
     @abstractmethod
