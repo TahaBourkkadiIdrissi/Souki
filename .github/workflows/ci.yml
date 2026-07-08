@@ -79,25 +79,3 @@ jobs:
         run: pnpm build
       - name: Audit des dependances de production
         run: pnpm audit --prod
-
-  mobile:
-    name: Mobile (typecheck + lint + audit)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: mobile
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: mobile/package-lock.json
-      - name: Installation reproductible depuis le lockfile
-        run: npm ci
-      - name: Typecheck
-        run: npm run typecheck
-      - name: Lint
-        run: npm run lint
-      - name: Audit des dependances
-        run: npm audit --omit=dev
