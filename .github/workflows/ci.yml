@@ -6,7 +6,7 @@ name: CI
 
 on:
   push:
-    branches: ["main", "AUDIT_CYBERSECURITE_DEBUG"]
+    branches: ["main", "AUDIT_CYBERSECURITE_DEBUG", "fix/pillow-cve-security-update"]
   pull_request:
 
 jobs:
