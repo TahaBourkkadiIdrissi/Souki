@@ -1,3 +1,4 @@
+
 # Dependances directes uniquement : pip resout les transitives
 # (starlette, pydantic-core, anyio, click, h11, ecdsa, rsa, six, etc.).
 # Des bornes basses (>=) evitent les erreurs "No matching distribution found"
@@ -31,3 +32,4 @@ python-dotenv>=1.0.1
 # --- Tests ---
 pytest>=8.3.0
 httpx>=0.27.0              # requis par fastapi.testclient.TestClient
+
