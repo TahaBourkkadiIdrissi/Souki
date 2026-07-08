@@ -1,42 +1,35 @@
-annotated-doc==0.0.4
-annotated-types==0.7.0
-anyio==4.13.0
-apscheduler==3.10.4
-bcrypt==3.2.2
-cffi==2.0.0
-click==8.3.2
-colorama==0.4.6
-ecdsa==0.19.2
-email-validator>=2.0.0
-fastapi==0.135.3
-greenlet==3.4.0
-h11==0.16.0
-idna==3.11
-pyasn1==0.6.3
-pycparser==3.0
-pydantic==2.13.0
-pydantic-core==2.46.0
-python-jose==3.5.0
-python-dotenv==1.0.0
-google-auth==2.38.0
-google-genai==0.2.0
-google-auth-httplib2==0.2.0
-psycopg2-binary==2.9.12
-rsa==4.9.1
-six==1.17.0
-SQLAlchemy==2.0.49
-starlette==1.0.0
-typing-inspection==0.4.2
-typing_extensions==4.15.0
-uvicorn==0.44.0
-supabase
-python-multipart
-transformers>=5.7.0
-protobuf>=7.35.1
-peft>=0.19.1
-accelerate>=1.13.0
-torch>=2.11.0
-bitsandbytes>=0.49.2
-phonenumbers
-pytest==9.1.1
-pillow>=12.2.0
+
+# Dependances directes uniquement : pip resout les transitives
+# (starlette, pydantic-core, anyio, click, h11, ecdsa, rsa, six, etc.).
+# Des bornes basses (>=) evitent les erreurs "No matching distribution found"
+# que provoquaient les pins exacts de versions inexistantes.
+
+# --- API ---
+fastapi>=0.115.0
+uvicorn>=0.34.0
+python-multipart>=0.0.18   # uploads/formulaires FastAPI ; <0.0.18 vulnerable (CVE-2024-53981)
+email-validator>=2.0.0     # requis par pydantic EmailStr
+pydantic>=2.10.0
+
+# --- Base de donnees ---
+SQLAlchemy>=2.0.36
+psycopg2-binary>=2.9.10    # 2.9.10 = premiere version avec wheels Python 3.13
+greenlet>=3.1.0            # requis par SQLAlchemy
+
+# --- Auth / securite ---
+python-jose>=3.4.0         # >=3.4.0 corrige CVE-2024-33663 / CVE-2024-33664
+bcrypt>=4.2.0
+google-auth>=2.38.0        # verification des id_token Google (login OAuth)
+requests>=2.32.4           # requis par google.auth.transport.requests
+
+# --- Services ---
+google-genai>=2.0.0,<3.0   # SDK Gemini (api/algorithms.py) ; 0.2.0 exigeait pillow<12 (conflit CVE)
+apscheduler>=3.10.4,<4.0
+phonenumbers>=8.13.0
+pillow>=12.2.0             # re-encodage des images uploadees ; >=12.2 corrige les CVE 2026
+python-dotenv>=1.0.1
+
+# --- Tests ---
+pytest>=8.3.0
+httpx>=0.27.0              # requis par fastapi.testclient.TestClient
+
