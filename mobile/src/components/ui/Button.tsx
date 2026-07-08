@@ -6,13 +6,15 @@ export function Button({
   onPress,
   variant = "primary",
   disabled,
-  loading
+  loading,
+  className = ""
 }: {
   children: ReactNode
   onPress?: () => void
   variant?: "primary" | "accent" | "outline" | "ghost" | "danger"
   disabled?: boolean
   loading?: boolean
+  className?: string
 }) {
   const variants = {
     primary: "bg-primary",
@@ -36,7 +38,7 @@ export function Button({
       onPress={onPress}
       className={`min-h-12 items-center justify-center rounded-xl px-5 py-3 ${variants[variant]} ${
         disabled || loading ? "opacity-60" : "active:opacity-80"
-      }`}
+      } ${className}`}
     >
       {loading ? (
         <ActivityIndicator color={variant === "outline" || variant === "ghost" ? "#1E8A3C" : "#FFFFFF"} />

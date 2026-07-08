@@ -58,8 +58,8 @@ class IPanierDao(ABC):
         pass
 
     @abstractmethod
-    def get_panier_by_id(self, session: Session, panier_id: int) -> Optional[any]:
-        """Récupère un panier par ID"""
+    def get_panier_by_id(self, session: Session, panier_id: int, user_id: int) -> Optional[any]:
+        """Récupère un panier par ID et propriétaire (anti-IDOR)"""
         pass
 
     @abstractmethod

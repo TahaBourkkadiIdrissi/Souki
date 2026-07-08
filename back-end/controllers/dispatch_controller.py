@@ -36,7 +36,6 @@ def get_dispatch_tournees(
     principal=Depends(require_permission("admin.panel.access")),
     service: IDispatchService = Depends(get_dispatch_service),
 ):
-    _ = principal
     target_date = today_morocco()
     try:
         with service:
@@ -52,7 +51,6 @@ def reassign_dispatch_commande(
     principal=Depends(require_permission("admin.panel.access")),
     service: IDispatchService = Depends(get_dispatch_service),
 ):
-    _ = principal
     try:
         with service:
             return service.reassign_commande(

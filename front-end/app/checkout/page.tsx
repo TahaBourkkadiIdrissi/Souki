@@ -40,6 +40,8 @@ import {
 } from "@/lib/catalogue"
 import { MapboxLocator } from "@/components/souki/mapbox-locator"
 import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
+import { useAuth } from "@/hooks/useAuth"
+import { useOrderLock } from "@/hooks/useOrderLock"
 import { toast } from "sonner"
 
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&h=300&fit=crop"
@@ -135,7 +137,11 @@ function CheckoutContent() {
   const [liftMotif, setLiftMotif] = useState("")
   const [isSendingLiftRequest, setIsSendingLiftRequest] = useState(false)
   const [liftRequestMessage, setLiftRequestMessage] = useState("")
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+  // VULN-010 : plus aucun JWT dans le localStorage. `token` est un simple marqueur
+  // de session non secret ; l'authentification reelle passe par le cookie httpOnly.
+  const { token } = useAuth()
+  // Verrou de commande restaure (BUG-004), aligne sur le cutoff backend.
+  const { isLocked: isOrderCutoffActive, message: orderLockMessage } = useOrderLock()
 
   const isGenericImage = (imageUrl: string) =>
     imageUrl.includes("photo-1542838132-92c53300491e")
@@ -476,6 +482,7 @@ function CheckoutContent() {
     !isAddressMissing &&
     !isCityMissing &&
     !(isCodBlocked && selectedPayment === "cod") &&
+    !isOrderCutoffActive &&
     !isSubmitting
 
   const submitLiftRequest = async () => {
@@ -543,14 +550,11 @@ function CheckoutContent() {
         panier_id: panierId ? parseInt(panierId) : null
       }
 
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-
+      // Authentification par cookie httpOnly (credentials: "include"), plus de JWT cote JS.
       const res = await fetch(`${API_BASE_URL}/api/checkout`, {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          ...(token ? { "Authorization": `Bearer ${token}` } : {})
-        },
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(payload)
       })
 
@@ -1041,6 +1045,11 @@ function CheckoutContent() {
             </div>
 
             <div className="space-y-4 rounded-2xl bg-white p-5 shadow-sm sm:p-6">
+              {isOrderCutoffActive && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
+                  {orderLockMessage}
+                </div>
+              )}
               <label className="flex items-start gap-3 cursor-pointer">
                 <div onClick={() => setAcceptTerms(!acceptTerms)} className={cn("w-5 h-5 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0 mt-0.5", acceptTerms ? "bg-[#1E8A3C] border-[#1E8A3C]" : "border-gray-300")}>
                   {acceptTerms && <Check className="w-3 h-3 text-white" />}

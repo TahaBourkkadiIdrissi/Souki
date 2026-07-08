@@ -80,7 +80,6 @@ def get_pending_supplier_requests(
     principal=Depends(require_permission("admin.panel.access")),
     service: IFournisseurService = Depends(get_fournisseur_service),
 ):
-    _ = principal
     with service:
         return service.get_pending_requests()
 
@@ -95,7 +94,6 @@ def get_all_fournisseurs(
     principal=Depends(require_permission("admin.panel.access")),
     service: IFournisseurService = Depends(get_fournisseur_service),
 ):
-    _ = principal
     with service:
         return service.get_all_fournisseurs(
             statut=statut,

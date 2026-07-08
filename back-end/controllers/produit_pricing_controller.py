@@ -13,6 +13,7 @@ from dto.produit_pricing_dto import (
 )
 from interfaces.produit_pricing_service_interface import IProduitPricingService
 from services.supabase_storage_service import (
+    MAX_PRODUCT_IMAGE_SIZE_BYTES,
     SupabaseStorageConfigError,
     SupabaseStorageError,
     avatar_storage_service,
@@ -51,7 +52,6 @@ def create_produit(
     principal=Depends(require_permission("admin.panel.access")),
     service: IProduitPricingService = Depends(get_produit_pricing_service),
 ):
-    _ = principal
     session = LocalSession()
     try:
         return service.create_product(session, data)
@@ -64,7 +64,6 @@ def get_produits_pricing(
     principal=Depends(require_permission("admin.panel.access")),
     service: IProduitPricingService = Depends(get_produit_pricing_service),
 ):
-    _ = principal
     session = LocalSession()
     try:
         return service.get_all(session)
@@ -79,7 +78,6 @@ def update_produit_pricing(
     principal=Depends(require_permission("admin.panel.access")),
     service: IProduitPricingService = Depends(get_produit_pricing_service),
 ):
-    _ = principal
     session = LocalSession()
     try:
         return service.update_pricing(session, produit_id, data)
@@ -93,7 +91,6 @@ def deactivate_produit(
     principal=Depends(require_permission("admin.panel.access")),
     service: IProduitPricingService = Depends(get_produit_pricing_service),
 ):
-    _ = principal
     session = LocalSession()
     try:
         service.deactivate_product(session, produit_id)
@@ -109,8 +106,10 @@ async def upload_produit_image(
     principal=Depends(require_permission("admin.panel.access")),
     service: IProduitPricingService = Depends(get_produit_pricing_service),
 ):
-    _ = principal
-    content = await file.read()
+    # RISK-001 : lecture bornee (limite + 1 octet) -> 413 avant lecture complete.
+    content = await file.read(MAX_PRODUCT_IMAGE_SIZE_BYTES + 1)
+    if len(content) > MAX_PRODUCT_IMAGE_SIZE_BYTES:
+        raise HTTPException(status_code=413, detail="Image trop grande. Maximum 2 Mo.")
     try:
         image_url = avatar_storage_service.upload_product_image(
             content,
@@ -137,7 +136,6 @@ def update_produit_image_url(
     principal=Depends(require_permission("admin.panel.access")),
     service: IProduitPricingService = Depends(get_produit_pricing_service),
 ):
-    _ = principal
     image_url = _validate_image_url(data.image_url)
     session = LocalSession()
     try:
@@ -151,7 +149,6 @@ def recalculer_produits_pricing(
     principal=Depends(require_permission("admin.panel.access")),
     service: IProduitPricingService = Depends(get_produit_pricing_service),
 ):
-    _ = principal
     session = LocalSession()
     try:
         return service.recalculer_tous(session)

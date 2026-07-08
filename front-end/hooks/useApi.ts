@@ -16,13 +16,14 @@ export function useApi() {
       setLoading(true)
       setError(null)
       try {
+        // VULN-010 : l'authentification passe par le cookie httpOnly
+        // (credentials: "include" ci-dessous). Plus aucun JWT dans le localStorage.
         const headers: Record<string, string> = {}
-        const authToken = token || (typeof window !== "undefined" ? localStorage.getItem("token") : null)
         if (!isFormData) {
           headers["Content-Type"] = "application/json"
         }
-        if (authToken) {
-          headers.Authorization = `Bearer ${authToken}`
+        if (token) {
+          headers.Authorization = `Bearer ${token}`
         }
         const res = await fetch(`${API_BASE_URL}${path}`, {
           method,

@@ -2,24 +2,20 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from auth_dependencies import require_permission
 from config import LocalSession
-from controllers.auth_controller import get_current_user
 from dao.jit_dao import JITDaoBD
 from dao.zone_jit_dao import ZoneJITDaoBD
 from dto.jit_dto import JITLogDTO, ResultatAgregationJIT, ZoneJITDTO
+from services.business_errors import internal_error_http
 from services.jit_service import JITAlreadyExecutedError, JITService
 
 
 router_jit = APIRouter(prefix="/api/jit", tags=["JIT-Aggregation"])
 
-
-def get_admin_user(user=Depends(get_current_user)):
-    if not user or user.primary_role != "ADMIN":
-        raise HTTPException(
-            status_code=403,
-            detail="Accès refusé. Seul l'administrateur peut accéder à ce endpoint."
-        )
-    return user
+# Standard unique d'autorisation (voir Documentation/STANDARD_AUTORISATIONS.md) :
+# permission RBAC via require_permission, plus de verification manuelle de role.
+get_admin_user = require_permission("admin.panel.access")
 
 
 def get_jit_service():
@@ -38,7 +34,7 @@ async def get_zones(admin_user=Depends(get_admin_user)):
         dao = ZoneJITDaoBD()
         return dao.get_all_zones(session)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+        raise internal_error_http("jit.zones.list", e)
     finally:
         session.close()
 
@@ -68,7 +64,7 @@ async def create_zone(
         raise
     except Exception as e:
         session.rollback()
-        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+        raise internal_error_http("jit.zones.create", e)
     finally:
         session.close()
 
@@ -99,7 +95,7 @@ async def update_zone(
         raise
     except Exception as e:
         session.rollback()
-        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+        raise internal_error_http("jit.zones.update", e)
     finally:
         session.close()
 
@@ -122,7 +118,7 @@ async def toggle_zone(
         raise
     except Exception as e:
         session.rollback()
-        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+        raise internal_error_http("jit.zones.toggle", e)
     finally:
         session.close()
 
@@ -140,13 +136,14 @@ async def agreger_commandes(
     Agrège toutes les commandes confirmées (test, sans zone).
     ADMIN ONLY.
     """
+    session = LocalSession()
     try:
-        session = LocalSession()
-        resultat = service.agreger_commandes(session)
-        session.close()
-        return resultat
+        return service.agreger_commandes(session)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur d'agrégation: {str(e)}")
+        session.rollback()
+        raise internal_error_http("jit.agreguer", e)
+    finally:
+        session.close()
 
 
 @router_jit.post("/executer")
@@ -168,7 +165,7 @@ async def executer_job_jit(
     except JITAlreadyExecutedError as e:
         raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur lors de l'exécution JIT: {str(e)}")
+        raise internal_error_http("jit.executer", e)
 
 
 @router_jit.post("/executer/{zone_id}", response_model=JITLogDTO)
@@ -187,7 +184,7 @@ async def executer_job_jit_zone(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur lors de l'exécution JIT zone: {str(e)}")
+        raise internal_error_http("jit.executer.zone", e)
 
 
 @router_jit.post("/deverrouiller")
@@ -216,7 +213,7 @@ async def deverrouiller_commandes_jit(
         }
     except Exception as e:
         session.rollback()
-        raise HTTPException(status_code=500, detail=f"Erreur lors du déverrouillage JIT: {str(e)}")
+        raise internal_error_http("jit.deverrouiller", e)
     finally:
         session.close()
 
@@ -247,7 +244,7 @@ async def get_dernier_log(admin_user=Depends(get_admin_user)):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+        raise internal_error_http("jit.logs.dernier", e)
     finally:
         session.close()
 
@@ -270,6 +267,6 @@ async def get_logs_par_plage(
         logs = jit_dao.get_logs_by_date_range(session, date_debut, date_fin, zone_nom=zone)
         return {"logs": logs, "nombre": len(logs)}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+        raise internal_error_http("jit.logs.plage", e)
     finally:
         session.close()
