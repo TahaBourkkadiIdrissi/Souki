@@ -14,13 +14,21 @@ from interfaces.checkout_dao_interface import ICheckoutDao
 
 class CheckoutDaoBD(ICheckoutDao):
 
-    def get_products_by_ids(self, session: Session, product_ids: List[int]) -> List[Product]:
-        return (
+    def get_products_by_ids(
+        self, session: Session, product_ids: List[int], for_update: bool = False
+    ) -> List[Product]:
+        # L'ordre stable par id garantit un ordre d'acquisition des verrous identique
+        # pour tous les checkouts concurrents (anti-deadlock, VULN-006).
+        query = (
             session.query(Product)
             .filter(Product.id.in_(product_ids))
             .order_by(Product.id.asc())
-            .all()
         )
+        if for_update:
+            # SELECT ... FOR UPDATE : lecture du stock, validation et decrementation
+            # se font sous verrou de ligne, dans la meme transaction.
+            query = query.with_for_update()
+        return query.all()
 
     def get_or_create_client(self, session: Session, user_id: int) -> Client:
         client = session.query(Client).filter(Client.user_id == user_id).first()

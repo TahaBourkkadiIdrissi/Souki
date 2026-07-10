@@ -138,6 +138,9 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Pas d'overflow sur <html>/<body> : cela cassait le scroll vertical du
+     document. Le debordement horizontal est deja contenu par le wrapper de
+     page (`overflow-x-hidden`). */
   body {
     @apply bg-background text-foreground;
   }
@@ -953,6 +956,26 @@
 .delivery-sheet-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(26, 115, 232, 0.45) transparent;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.delivery-sheet-toggle {
+  min-height: clamp(2.5rem, 6dvh, 3rem);
+  padding-block: clamp(0.5rem, 1.5dvh, 0.75rem);
+}
+
+.delivery-sheet-handle {
+  width: clamp(2.75rem, 14vw, 4rem);
+  height: clamp(0.3rem, 1.2vw, 0.375rem);
+  flex: none;
+}
+
+.delivery-sheet-toggle-icon {
+  width: clamp(1rem, 4.5vw, 1.25rem);
+  height: clamp(1rem, 4.5vw, 1.25rem);
+  flex: none;
 }
 
 .delivery-sheet-scroll::-webkit-scrollbar {
@@ -1201,56 +1224,71 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Base state: elements start hidden / offset */
+/* Scroll-reveal "fail-safe" : contrairement a l'ancienne version (elements
+   caches en opacity:0 qui restaient invisibles si l'IntersectionObserver ne
+   se declenchait pas), le contenu est TOUJOURS visible par defaut. La classe
+   `.revealed`, posee par useScrollReveal a l'entree dans le viewport, ne fait
+   que rejouer une animation d'apparition. Observer absent => pas d'animation,
+   mais jamais de contenu masque. */
 [data-reveal] {
-  opacity: 0;
-  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: opacity, transform;
-}
-
-/* Reveal direction variants */
-[data-reveal="up"] {
-  transform: translateY(48px);
-}
-
-[data-reveal="scale"] {
-  transform: scale(0.92);
-}
-
-[data-reveal="fade"] {
-  transform: translateY(16px);
-}
-
-[data-reveal="left"] {
-  transform: translateX(-48px);
-}
-
-[data-reveal="right"] {
-  transform: translateX(48px);
-}
-
-/* When element enters viewport (class added by useScrollReveal) */
-[data-reveal].revealed {
   opacity: 1;
-  transform: translateY(0) translateX(0) scale(1);
 }
 
-/* Stagger delay variants */
-[data-reveal][data-delay="1"] {
-  transition-delay: 0.08s;
+@keyframes souki-reveal-up {
+  from { opacity: 0; transform: translateY(22px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-[data-reveal][data-delay="2"] {
-  transition-delay: 0.16s;
+@keyframes souki-reveal-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-[data-reveal][data-delay="3"] {
-  transition-delay: 0.24s;
+@keyframes souki-reveal-scale {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
 }
 
-[data-reveal][data-delay="4"] {
-  transition-delay: 0.32s;
+@keyframes souki-reveal-left {
+  from { opacity: 0; transform: translateX(-26px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes souki-reveal-right {
+  from { opacity: 0; transform: translateX(26px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+[data-reveal].revealed {
+  animation: souki-reveal-up 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+[data-reveal="fade"].revealed {
+  animation-name: souki-reveal-fade;
+}
+
+[data-reveal="scale"].revealed {
+  animation-name: souki-reveal-scale;
+  animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+[data-reveal="left"].revealed {
+  animation-name: souki-reveal-left;
+}
+
+[data-reveal="right"].revealed {
+  animation-name: souki-reveal-right;
+}
+
+[data-delay="1"].revealed { animation-delay: 80ms; }
+[data-delay="2"].revealed { animation-delay: 160ms; }
+[data-delay="3"].revealed { animation-delay: 240ms; }
+[data-delay="4"].revealed { animation-delay: 320ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal].revealed {
+    animation: none !important;
+  }
 }
 
 /* Parallax wrapper for background images */
@@ -1335,6 +1373,42 @@ html {
   animation: avatar-celebrate-pop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+/* ─── Animations d'entree de l'accueil PWA (etaient referencees sans etre definies) ─── */
+@keyframes slide-in-down {
+  from { opacity: 0; transform: translateY(-14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes bounce-in {
+  0% { opacity: 0; transform: scale(0.6); }
+  60% { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.animate-slide-in-down { animation: slide-in-down 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-slide-in-up { animation: slide-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-bounce-in { animation: bounce-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+/* Placeholder de recherche qui defile (style marketplace) */
+@keyframes search-hint-cycle {
+  0%, 18% { opacity: 1; transform: translateY(0); }
+  25%, 100% { opacity: 0; transform: translateY(-8px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-in-down,
+  .animate-slide-in-up,
+  .animate-bounce-in {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
 /* ─── Transition de page (fondu natif a chaque navigation) ─── */
 @keyframes pageEnter {
   from { opacity: 0; }
@@ -1347,6 +1421,147 @@ html {
 
 @media (prefers-reduced-motion: reduce) {
   .page-enter {
+    animation: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   Passe UX 2026-07 : feedback, cascades, skeletons
+   Meme personnalite de mouvement que le reste de l'app :
+   ease "house" cubic-bezier(0.16,1,0.3,1), spring (0.34,1.56,0.64,1).
+   ═══════════════════════════════════════════════════ */
+
+/* Checkmark SVG qui se dessine (succes OTP / checkout).
+   Le path doit avoir pathLength="100". */
+@keyframes souki-check-draw {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 0; }
+}
+
+.souki-check-draw {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: souki-check-draw 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
+}
+
+/* Cercle de succes qui pop derriere le checkmark */
+@keyframes souki-success-pop {
+  0% { opacity: 0; transform: scale(0.4); }
+  70% { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.animate-souki-success-pop {
+  animation: souki-success-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Onde qui s'evanouit autour du cercle de succes */
+@keyframes souki-success-ring {
+  from { opacity: 0.5; transform: scale(0.6); }
+  to { opacity: 0; transform: scale(1.6); }
+}
+
+.animate-souki-success-ring {
+  animation: souki-success-ring 0.9s ease-out 0.2s both;
+}
+
+/* Entree en cascade des listes : chaque item pose --cascade-i.
+   40ms d'ecart, plafonne implicitement par le nombre d'items visibles. */
+@keyframes souki-cascade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-cascade {
+  animation: souki-cascade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--cascade-i, 0) * 40ms);
+}
+
+/* Pop du badge compteur (panier) quand la valeur change */
+@keyframes souki-badge-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+.animate-badge-pop {
+  animation: souki-badge-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Bounce bref de la carte produit a l'ajout au panier */
+@keyframes souki-add-bounce {
+  0% { transform: scale(1); }
+  35% { transform: scale(0.96); }
+  70% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+.animate-add-bounce {
+  animation: souki-add-bounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Skeleton shimmer : balayage lumineux au-dessus du fond pulse */
+@keyframes souki-shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+.souki-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #F3F7F3, #EAF3EB);
+}
+
+.souki-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: souki-shimmer 1.4s ease-in-out infinite;
+}
+
+.dark .souki-skeleton {
+  background: linear-gradient(135deg, #262626, #2e2e2e);
+}
+
+.dark .souki-skeleton::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+}
+
+/* Pulsation douce du compte a rebours JIT quand il reste moins d'une heure */
+@keyframes souki-countdown-urgent {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.animate-countdown-urgent {
+  animation: souki-countdown-urgent 1.6s ease-in-out infinite;
+}
+
+/* Chiffres du countdown / solde : transition douce sans layout shift */
+.souki-tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .souki-check-draw {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .animate-souki-success-pop,
+  .animate-souki-success-ring,
+  .animate-cascade,
+  .animate-badge-pop,
+  .animate-add-bounce,
+  .animate-countdown-urgent {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+
+  .souki-skeleton::after {
     animation: none;
   }
 }

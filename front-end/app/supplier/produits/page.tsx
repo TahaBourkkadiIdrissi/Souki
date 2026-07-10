@@ -242,9 +242,16 @@ export default function SupplierProduitsPage() {
             {offres.length === 0 ? (
               <Empty className="min-h-80 rounded-3xl border border-dashed border-[#DDEBDD] bg-background dark:border-border dark:bg-card">
                 <EmptyHeader>
-                  <EmptyMedia variant="icon" className="h-14 w-14 rounded-2xl bg-[#EAF8EC] text-primary dark:bg-primary/10">
-                    <Package />
-                  </EmptyMedia>
+                  <img
+                    src="/illustrations/empty-supplier.webp"
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    width={144}
+                    height={144}
+                    aria-hidden="true"
+                    className="mx-auto h-36 w-36 object-contain animate-gentle-float"
+                  />
                   <EmptyTitle className="text-[#264129] dark:text-foreground">Aucun produit proposé</EmptyTitle>
                   <EmptyDescription>
                     Ajoutez vos premiers produits depuis le catalogue disponible.

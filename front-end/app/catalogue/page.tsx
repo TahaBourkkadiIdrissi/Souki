@@ -38,6 +38,7 @@ import type { CommandeHistoriqueDTO, ProduitSuggestionDTO } from "@/lib/api"
 import { getCatalogueSuggestions } from "@/lib/api"
 import {
   BasketSelection,
+  CatalogueCategory,
   CatalogueProduct,
   ClaimReason,
   CartItem,
@@ -190,12 +191,82 @@ const getClaimWindowLabel = (order: CommandeHistoriqueDTO) => {
 }
 
 type FarmerExpression = "welcome" | "explain" | "celebrate"
+type FeedbackTone = "success" | "info" | "warning" | "error"
+
+type FeedbackMessage = {
+  tone: FeedbackTone
+  title: string
+  message: string
+}
+
+const feedbackToneStyles: Record<
+  FeedbackTone,
+  { shell: string; icon: string; Icon: LucideIcon }
+> = {
+  success: {
+    shell: "border-[#BFE6C4] bg-[#EAF8EC] text-[#1E8A3C]",
+    icon: "bg-white text-[#1E8A3C]",
+    Icon: BadgeCheck,
+  },
+  info: {
+    shell: "border-[#B9D7F2] bg-[#EEF7FF] text-[#1A5F96]",
+    icon: "bg-white text-[#1A5F96]",
+    Icon: Sparkles,
+  },
+  warning: {
+    shell: "border-[#F3D8B2] bg-[#FFF7EE] text-[#9A5C11]",
+    icon: "bg-white text-[#F07C00]",
+    Icon: AlertCircle,
+  },
+  error: {
+    shell: "border-red-200 bg-red-50 text-red-700",
+    icon: "bg-white text-red-600",
+    Icon: AlertCircle,
+  },
+}
+
+function CatalogueFeedback({
+  feedback,
+  onDismiss,
+}: {
+  feedback: FeedbackMessage
+  onDismiss: () => void
+}) {
+  const tone = feedbackToneStyles[feedback.tone]
+  const Icon = tone.Icon
+
+  return (
+    <div
+      role="status"
+      className={cn(
+        "mb-6 flex items-start gap-3 rounded-2xl border px-4 py-3 shadow-[0_18px_45px_-34px_rgba(30,65,41,0.35)]",
+        tone.shell
+      )}
+    >
+      <span className={cn("mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", tone.icon)}>
+        <Icon className="h-5 w-5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-black leading-tight">{feedback.title}</p>
+        <p className="mt-1 text-sm font-semibold leading-5 opacity-85">{feedback.message}</p>
+      </div>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="rounded-full p-1 opacity-70 transition-colors hover:bg-white/45 hover:opacity-100"
+        aria-label="Fermer le message"
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  )
+}
 
 function RecolteWarmWelcome() {
   return (
-    <div className="pointer-events-none absolute right-3 top-4 z-20 w-24 sm:right-5 sm:w-32 xl:w-40 2xl:w-44">
+    <div className="pointer-events-none hidden xl:absolute xl:right-5 xl:top-5 xl:z-20 xl:block xl:w-36 2xl:w-44">
       <div className="relative pt-7 sm:pt-8">
-        <div className="absolute right-10 top-0 z-30 whitespace-nowrap rounded-2xl border border-[#F3D8B2] bg-white px-2.5 py-1.5 text-center text-[11px] font-black text-[#9A5C11] shadow-[0_12px_30px_-22px_rgba(154,92,17,0.55)] sm:right-16 sm:text-xs xl:right-20 2xl:text-base">
+        <div className="absolute right-12 top-0 z-30 max-w-[10rem] rounded-2xl border border-[#F3D8B2] bg-white px-3 py-1.5 text-center text-[11px] font-black leading-tight text-[#9A5C11] shadow-[0_12px_30px_-22px_rgba(154,92,17,0.55)] 2xl:right-20 2xl:max-w-none 2xl:text-base">
           Ach heb lkhater ?
         </div>
         <FarmerAvatar
@@ -205,6 +276,51 @@ function RecolteWarmWelcome() {
           label="Souki farmer guide greets customers"
         />
       </div>
+    </div>
+  )
+}
+
+/* Compte a rebours vers la cloture JIT de 20h00. Rendu uniquement apres
+   montage (le serveur rend la phrase statique) pour eviter tout mismatch
+   d'hydratation ; une seule ligne dans les deux cas, donc pas de CLS. */
+function JitCutoffBanner() {
+  const [now, setNow] = useState<Date | null>(null)
+
+  useEffect(() => {
+    setNow(new Date())
+    const timer = window.setInterval(() => setNow(new Date()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const cutoff = now ? new Date(now) : null
+  cutoff?.setHours(20, 0, 0, 0)
+  const beforeCutoff = now && cutoff && now < cutoff
+
+  if (!beforeCutoff) {
+    return (
+      <div className="bg-[#F07C00] px-4 py-3 text-center text-sm font-semibold text-white">
+        Paniers ouverts après 20h - Livraison demain, prix recalculés au moment de la validation
+      </div>
+    )
+  }
+
+  const diffMs = cutoff.getTime() - now.getTime()
+  const hours = Math.floor(diffMs / 3_600_000)
+  const minutes = Math.floor((diffMs % 3_600_000) / 60_000)
+  const seconds = Math.floor((diffMs % 60_000) / 1000)
+  const pad = (value: number) => String(value).padStart(2, "0")
+  const urgent = diffMs < 3_600_000
+
+  return (
+    <div className="bg-[#F07C00] px-4 py-3 text-center text-sm font-semibold text-white">
+      Clôture des paniers à 20h00 —{" "}
+      <span
+        className={cn("souki-tabular-nums", urgent && "animate-countdown-urgent")}
+        aria-label={`Temps restant avant la clôture : ${hours} heures ${minutes} minutes`}
+      >
+        {pad(hours)}:{pad(minutes)}:{pad(seconds)}
+      </span>{" "}
+      pour être livré demain matin
     </div>
   )
 }
@@ -387,6 +503,10 @@ function CatalogueContent() {
     useState<(typeof categories)[number]["id"]>("tous")
   const [sortBy, setSortBy] = useState<(typeof sortOptions)[number]["id"]>("popular")
   const [searchQuery, setSearchQuery] = useState("")
+  // Categorie ciblee depuis l'accueil PWA : on garde TOUS les produits affiches
+  // (pas de filtre) et on regroupe par categorie pour scroller vers la bonne.
+  const [categoryFocus, setCategoryFocus] = useState<CatalogueCategory | null>(null)
+  const hasScrolledToFocusRef = useRef(false)
   const [showSidebar, setShowSidebar] = useState(false)
   const [showCart, setShowCart] = useState(false)
   const [activeModal, setActiveModal] = useState<"voice" | "smart" | null>(null)
@@ -398,6 +518,7 @@ function CatalogueContent() {
   const [historyError, setHistoryError] = useState("")
   const [showOrderHistory, setShowOrderHistory] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
+  const [feedback, setFeedback] = useState<FeedbackMessage | null>(null)
   const [claimOrder, setClaimOrder] = useState<CommandeHistoriqueDTO | null>(null)
   const [claimLineId, setClaimLineId] = useState<number | null>(null)
   const [claimQuantity, setClaimQuantity] = useState("1")
@@ -405,11 +526,16 @@ function CatalogueContent() {
   const [claimError, setClaimError] = useState("")
   const [isSubmittingClaim, setIsSubmittingClaim] = useState(false)
   const [deletingOrderId, setDeletingOrderId] = useState<number | null>(null)
+  const [pendingDeleteOrderId, setPendingDeleteOrderId] = useState<number | null>(null)
   const [pricingSuggestions, setPricingSuggestions] = useState<CatalogueProduct[]>([])
   const [addedSuggestionIds, setAddedSuggestionIds] = useState<number[]>([])
   const [avatarExpression, setAvatarExpression] = useState<FarmerExpression>("welcome")
   const avatarResetTimerRef = useRef<number | null>(null)
   const revealRef = useScrollReveal()
+
+  const showFeedback = useCallback((nextFeedback: FeedbackMessage) => {
+    setFeedback(nextFeedback)
+  }, [])
 
   const triggerAvatarCelebrate = useCallback(() => {
     setAvatarExpression("celebrate")
@@ -591,6 +717,23 @@ function CatalogueContent() {
       setActiveModal(assistantMode)
     }
   }, [isAuthenticated, isLoading, searchParams])
+
+  // Deep-link depuis l'accueil PWA.
+  // - ?q=   : recherche
+  // - ?focus= : categorie ciblee, SANS filtrer (tous les produits restent visibles),
+  //            on regroupe par categorie et on scrolle vers la section choisie.
+  useEffect(() => {
+    const query = searchParams.get("q")
+    if (query) setSearchQuery(query)
+
+    const focus = searchParams.get("focus")
+    if (focus === "legumes" || focus === "fruits" || focus === "herbes") {
+      setCategoryFocus(focus)
+      hasScrolledToFocusRef.current = false
+    } else {
+      setCategoryFocus(null)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     const panierIdParam = searchParams.get("panier_id")
@@ -778,11 +921,19 @@ function CatalogueContent() {
       (product) => typeof product.ligne_panier_id === "number" && product.quantite_kg > 0
     )
     if (!canClaimOrder(order)) {
-      alert(getClaimWindowLabel(order))
+      showFeedback({
+        tone: "warning",
+        title: "SAV indisponible",
+        message: getClaimWindowLabel(order),
+      })
       return
     }
     if (claimableLines.length === 0) {
-      alert("Cette commande ne contient aucune ligne éligible au SAV.")
+      showFeedback({
+        tone: "warning",
+        title: "Aucun produit eligible",
+        message: "Cette commande ne contient aucune ligne eligible au SAV.",
+      })
       return
     }
     const firstLine = claimableLines[0]
@@ -853,19 +1004,22 @@ function CatalogueContent() {
     }
   }
 
-  const handleDeleteOrderHistory = async (commandeId: number) => {
-    const confirmed = window.confirm(
-      `Supprimer la commande N-${commandeId} de votre historique ?`
-    )
-    if (!confirmed) {
+  const handleDeleteOrderHistory = (commandeId: number) => {
+    setPendingDeleteOrderId(commandeId)
+  }
+
+  const confirmDeleteOrderHistory = async () => {
+    if (pendingDeleteOrderId === null) {
       return
     }
 
+    const commandeId = pendingDeleteOrderId
     setDeletingOrderId(commandeId)
     try {
       const result = await deleteOrderFromHistory(commandeId)
       setOrderHistory((currentHistory) => currentHistory.filter((order) => order.id !== commandeId))
       setSuccessMessage(result.message || `Commande N-${commandeId} supprimee de l'historique.`)
+      setPendingDeleteOrderId(null)
     } catch (error) {
       setHistoryError(
         error instanceof Error ? error.message : "Impossible de supprimer cette commande de l'historique."
@@ -878,7 +1032,11 @@ function CatalogueContent() {
   const handleCheckout = () => {
     requireAuth("/checkout", async () => {
       if (cart.length === 0) {
-        alert("Votre panier est vide.")
+        showFeedback({
+          tone: "info",
+          title: "Panier vide",
+          message: "Ajoutez au moins un produit frais avant de valider la commande.",
+        })
         return
       }
 
@@ -892,14 +1050,22 @@ function CatalogueContent() {
           // Vider le panier local après succès
           saveStoredCart([])
         } else {
-          alert("Erreur: réponse inattendue du serveur")
+          showFeedback({
+            tone: "error",
+            title: "Commande non creee",
+            message: "Le serveur a repondu sans identifiant de panier. Reessayez dans un instant.",
+          })
         }
       } catch (error: any) {
         const errorMsg = 
           error?.message || 
           error?.detail || 
           "Erreur lors de la création du panier"
-        alert(errorMsg)
+        showFeedback({
+          tone: "error",
+          title: "Commande impossible",
+          message: errorMsg,
+        })
       } finally {
         setIsSubmittingCart(false)
       }
@@ -935,7 +1101,20 @@ function CatalogueContent() {
       return left.id - right.id
     })
 
+  // Vue ciblee par categorie (depuis l'accueil) : tous les produits restent
+  // visibles, regroupes par categorie. Prioritaire sur le regroupement par niveau.
+  const productsByCategory = useMemo(() => {
+    if (!categoryFocus) return null
+    if (searchQuery.trim() !== "" || selectedCategory !== "tous") return null
+    return {
+      legumes: filteredProducts.filter((p) => p.category === "legumes"),
+      fruits: filteredProducts.filter((p) => p.category === "fruits"),
+      herbes: filteredProducts.filter((p) => p.category === "herbes"),
+    }
+  }, [categoryFocus, filteredProducts, searchQuery, selectedCategory])
+
   const productsByLevel = useMemo(() => {
+    if (categoryFocus) return null // la vue par categorie prend le dessus
     const hasSearchOrFilter = searchQuery.trim() !== "" || selectedCategory !== "tous"
     if (hasSearchOrFilter) return null // skip level grouping when filtering
     return {
@@ -943,7 +1122,18 @@ function CatalogueContent() {
       level2: filteredProducts.filter((p) => p.niveau === 2),
       level3: filteredProducts.filter((p) => p.niveau === 3),
     }
-  }, [filteredProducts, searchQuery, selectedCategory])
+  }, [categoryFocus, filteredProducts, searchQuery, selectedCategory])
+
+  // Scroll doux vers la section de la categorie choisie une fois les produits charges.
+  useEffect(() => {
+    if (!categoryFocus || isFetching || hasScrolledToFocusRef.current) return
+    const target = document.getElementById(`catalogue-cat-${categoryFocus}`)
+    if (!target) return
+    hasScrolledToFocusRef.current = true
+    window.requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: "smooth", block: "start" })
+    })
+  }, [categoryFocus, isFetching, productsByCategory])
 
   const cartSubtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const reste = Math.max(0, SEUIL - cartSubtotal)
@@ -1024,9 +1214,7 @@ function CatalogueContent() {
 
   return (
     <div className="min-h-screen bg-[#FBFDF9] pb-24 md:pb-0">
-      <div className="bg-[#F07C00] px-4 py-3 text-center text-sm font-semibold text-white">
-        Paniers ouverts après 20h - Livraison demain, prix recalculés au moment de la validation
-      </div>
+      <JitCutoffBanner />
 
       <nav className="sticky top-0 z-40 hidden glass-ios26 border-b border-[#E7F0E8] md:block">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -1062,7 +1250,11 @@ function CatalogueContent() {
             >
               <ShoppingCart className="h-6 w-6" />
               {cart.length > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#F07C00] text-xs font-bold text-white">
+                // key={cart.length} : remonte le badge a chaque changement pour rejouer le pop
+                <span
+                  key={cart.length}
+                  className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#F07C00] text-xs font-bold text-white animate-badge-pop"
+                >
                   {cart.length}
                 </span>
               )}
@@ -1171,7 +1363,7 @@ function CatalogueContent() {
                 <div className="mb-4 flex flex-wrap items-center gap-3 pr-24 sm:pr-32 xl:pr-0">
                   <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-[#1E8A3C] ring-1 ring-[#D7EBD9]">
                     <Leaf className="h-4 w-4" />
-                    Catalogue du jour
+                    Produits du jour
                   </span>
                   <span className="inline-flex items-center gap-2 rounded-full bg-[#FFF7EE] px-3 py-1.5 text-xs font-bold text-[#9A5C11] ring-1 ring-[#F3D8B2]">
                     <Sparkles className="h-4 w-4" />
@@ -1212,7 +1404,7 @@ function CatalogueContent() {
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-black leading-tight">Commander moi-même</span>
                       <span className="mt-0.5 block text-[11px] font-semibold leading-snug text-[#6F8070]">
-                        Parcours le catalogue et choisis tes produits librement.
+                        Parcours les produits et choisis librement.
                       </span>
                     </span>
                     <ArrowRight className="h-4 w-4 shrink-0 text-[#9AB49C] transition-transform group-hover:translate-x-1" />
@@ -1291,13 +1483,20 @@ function CatalogueContent() {
             </div>
           )}
 
+          {feedback && (
+            <CatalogueFeedback
+              feedback={feedback}
+              onDismiss={() => setFeedback(null)}
+            />
+          )}
+
           {isAuthenticated && showOrderHistory && (
             <div className="mb-6 flex items-center gap-2 border-b border-[#DDEBDD]">
               <button
                 onClick={() => setShowOrderHistory(false)}
                 className="rounded-t-2xl border border-b-0 border-[#DDEBDD] bg-[#F7FCF7] px-4 py-3 text-sm font-bold text-[#607061] transition-colors hover:bg-white"
               >
-                Catalogue
+                Produits
               </button>
               <div className="flex items-center gap-3 rounded-t-2xl border border-b-0 border-[#1E8A3C] bg-[#1E8A3C] px-4 py-3 text-sm font-bold text-white">
                 <span className="inline-flex items-center gap-2">
@@ -1533,16 +1732,16 @@ function CatalogueContent() {
             <div className="space-y-12">
               {Array.from({ length: 2 }).map((_, sectionIndex) => (
                 <div key={sectionIndex} className="space-y-6">
-                  <div className="h-6 w-40 animate-pulse rounded-xl bg-gradient-to-br from-[#F3F7F3] to-[#EAF3EB]" />
+                  <div className="souki-skeleton h-6 w-40 rounded-xl" />
                   <div className="flex gap-3 overflow-hidden sm:gap-4">
                     {Array.from({ length: 4 }).map((__, index) => (
                       <div
                         key={index}
-                        className="h-[390px] w-[10.5rem] shrink-0 animate-pulse rounded-[28px] bg-gradient-to-br from-[#F3F7F3] to-[#EAF3EB] sm:w-[12rem]"
+                        className="souki-skeleton h-[390px] w-[10.5rem] shrink-0 rounded-[28px] sm:w-[12rem]"
                       />
                     ))}
                   </div>
-                  <div className="h-24 animate-pulse rounded-[1.75rem] bg-gradient-to-br from-[#F3F7F3] to-[#EAF3EB]" />
+                  <div className="souki-skeleton h-24 rounded-[1.75rem]" />
                 </div>
               ))}
             </div>
@@ -1556,7 +1755,70 @@ function CatalogueContent() {
 
           {!showOrderHistory && !isFetching && !error && (
             <>
-              {productsByLevel ? (
+              {productsByCategory ? (
+                <div
+                  ref={revealRef}
+                  id="catalogue-products"
+                  className="space-y-12 scroll-mt-28"
+                >
+                  {([
+                    { key: "legumes" as const, label: "Légumes", subtitle: "Frais du marché de gros" },
+                    { key: "fruits" as const, label: "Fruits", subtitle: "Sucrés et de saison" },
+                    { key: "herbes" as const, label: "Herbes", subtitle: "Aromates et fraîcheur" },
+                  ] as const).map((section, sectionIndex) => {
+                    const items = productsByCategory[section.key]
+                    if (items.length === 0) return null
+                    return (
+                      <section key={section.key} id={`catalogue-cat-${section.key}`} className="scroll-mt-28">
+                        <div
+                          data-reveal="up"
+                          data-delay={String((sectionIndex % 4) + 1)}
+                          className="mb-4 flex items-end justify-between"
+                        >
+                          <div>
+                            <h3 className="text-lg font-bold text-[#264129]">{section.label}</h3>
+                            <p className="text-sm text-[#6F8070]">{section.subtitle}</p>
+                          </div>
+                          <span className="rounded-full bg-[#F0FAF1] px-3 py-1 text-xs font-bold text-[#1E8A3C]">
+                            {items.length} produit{items.length > 1 ? "s" : ""}
+                          </span>
+                        </div>
+                        <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-3 scrollbar-none sm:gap-4">
+                          {items.map((product, index) => (
+                            <div
+                              key={product.id}
+                              data-reveal="scale"
+                              data-delay={String(((sectionIndex * 3 + index) % 4) + 1)}
+                              className="w-[10.5rem] shrink-0 snap-start sm:w-[12rem]"
+                            >
+                              <ProductCard
+                                id={product.id}
+                                name={product.name}
+                                image={product.image}
+                                price={product.price}
+                                prixKhddarEstime={product.prix_khddar_estime}
+                                niveau={product.niveau}
+                                unit={product.unit}
+                                displayUnit={product.displayUnit}
+                                quantityStep={product.quantityStep}
+                                stock={product.stock}
+                                onView={handleProductView}
+                                onAddToCart={handleAddToCart}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    )
+                  })}
+
+                  {filteredProducts.length === 0 && (
+                    <div className="rounded-[28px] border border-[#E6EFE7] bg-white p-12 text-center">
+                      <p className="text-[#6F8070]">Aucun produit disponible pour le moment.</p>
+                    </div>
+                  )}
+                </div>
+              ) : productsByLevel ? (
                 <div
                   ref={revealRef}
                   id="catalogue-products"
@@ -1692,8 +1954,10 @@ function CatalogueContent() {
 
         <aside
           className={cn(
-            "fixed right-0 top-0 z-50 flex h-[100dvh] w-[min(100vw,22rem)] flex-col border-l border-[#E6F0E7] bg-white transition-transform xl:sticky xl:top-20 xl:h-[calc(100vh-80px)] xl:w-[20rem] xl:translate-x-0 2xl:w-[22rem]",
-            showCart ? "translate-x-0" : "translate-x-full xl:translate-x-0"
+            "fixed right-0 top-0 z-50 flex h-[100dvh] w-[min(100vw,22rem)] flex-col border-l border-[#E6F0E7] bg-white will-change-transform transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] xl:sticky xl:top-20 xl:h-[calc(100vh-80px)] xl:w-[20rem] xl:translate-x-0 2xl:w-[22rem]",
+            showCart
+              ? "translate-x-0 shadow-[0_24px_70px_-20px_rgba(18,32,24,0.4)] xl:shadow-none"
+              : "translate-x-full xl:translate-x-0"
           )}
         >
           <button
@@ -1729,8 +1993,17 @@ function CatalogueContent() {
                 </button>
               </div>
             ) : cart.length === 0 ? (
-              <div className="py-10 text-center">
-                <ShoppingCart className="mx-auto mb-3 h-12 w-12 text-[#D6DFD7]" />
+              <div className="py-10 text-center animate-fade-in-up">
+                <img
+                  src="/illustrations/empty-basket.webp"
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  width={144}
+                  height={144}
+                  aria-hidden="true"
+                  className="mx-auto mb-3 h-36 w-36 object-contain animate-gentle-float"
+                />
                 <p className="text-[#6F8070]">Votre panier est vide.</p>
               </div>
             ) : (
@@ -1765,100 +2038,9 @@ function CatalogueContent() {
                   <p className="mt-2 text-right text-[11px] font-semibold text-[#6F8070]">
                     {cartSubtotal.toFixed(2)} / {SEUIL.toFixed(0)} DH
                   </p>
-
-                  {pricingSuggestions.length > 0 && (
-                    <div className="mt-5">
-                      <div className="mb-3 flex items-center gap-3">
-                        <span className="h-px flex-1 bg-gray-200" />
-                        <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
-                          À ne pas manquer
-                        </span>
-                        <span className="h-px flex-1 bg-gray-200" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2.5">
-                        {pricingSuggestions.map((suggestion) => {
-                          const niveau = suggestion.niveau || 2
-                          const isInCart = cart.some((item) => item.id === suggestion.id)
-                          const isFeaturedLevelTwo = niveau === 2 && suggestion.id === firstLevelTwoSuggestionId
-                          const resteSuggestions = Math.max(0, SEUIL - cartSubtotal)
-                          const suffitPourSeuil = resteSuggestions > 0 && suggestion.price >= resteSuggestions
-
-                          return (
-                          <div
-                            key={suggestion.id}
-                            className={cn(
-                              "overflow-hidden rounded-xl border bg-white shadow-sm transition-shadow hover:shadow-md",
-                              niveau === 3
-                                ? "border-2 border-amber-400"
-                                : isFeaturedLevelTwo
-                                  ? "border-2 border-[#1E8A3C]"
-                                  : "border-gray-200"
-                            )}
-                          >
-                            <div className="relative flex h-24 items-center justify-center bg-gray-50 2xl:h-[105px]">
-                              <img
-                                src={suggestion.image}
-                                alt={suggestion.name}
-                                onError={(event) => applyImageFallback(event, suggestion.fallbackImage)}
-                                className="h-full w-full object-cover"
-                              />
-                              <span className={cn(
-                                "absolute left-2 top-2 rounded-full px-2 py-1 text-[10px] font-bold",
-                                suffitPourSeuil
-                                  ? "bg-amber-100 text-amber-700"
-                                  : "hidden"
-                              )}>
-                                Suffit pour livraison gratuite
-                              </span>
-                              {suggestion.prix_khddar_estime && (
-                                <span className="absolute bottom-2 right-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] text-gray-400 line-through">
-                                  {suggestion.prix_khddar_estime.toFixed(2)} DH
-                                </span>
-                              )}
-                            </div>
-                            <div className="p-3">
-                              <p className="truncate text-[13px] font-medium text-[#264129]">
-                                {suggestion.name}
-                              </p>
-                              <p className="mt-1 truncate text-[11px] text-gray-400">
-                                Ajout malin pour compléter ton panier
-                              </p>
-                              <div className="mt-3 flex items-center justify-between gap-2">
-                                <span className="text-[15px] font-medium text-[#1E8A3C]">
-                                  {suggestion.price.toFixed(2)} DH
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleAddSuggestionToCart(suggestion)}
-                                  className={cn(
-                                    "flex h-8 w-8 items-center justify-center rounded-full border text-sm font-bold transition-colors",
-                                    isInCart
-                                      ? "border-[#1E8A3C] bg-[#1E8A3C] text-white"
-                                      : "border-gray-300 bg-white text-[#264129] hover:border-[#1E8A3C] hover:text-[#1E8A3C]"
-                                  )}
-                                  aria-label={`Ajouter ${suggestion.name}`}
-                                >
-                                  {isInCart ? "✓" : "+"}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                          )
-                        })}
-                      </div>
-
-                      {cart.length > 0 && addedSuggestionItems.length > 0 && (
-                        <div className="mt-4 flex items-center gap-3 rounded-xl border border-green-200 bg-[#F0FDF4] px-4 py-3">
-                          <Leaf className="h-5 w-5 shrink-0 text-[#1E8A3C]" />
-                          <p className="text-sm font-semibold text-[#264129]">
-                            Tu économises {suggestionSavings.toFixed(2)} DH vs le khddar sur cette sélection 🌿
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
 
+                {/* Produits deja selectionnes : toujours affiches en premier (haut du panier). */}
                 {cart.map((item) => (
                   <div
                     key={item.id}
@@ -1911,6 +2093,99 @@ function CatalogueContent() {
                     </div>
                   </div>
                 ))}
+
+                {/* Suggestions / upsell : section du bas, apres les produits choisis. */}
+                {pricingSuggestions.length > 0 && (
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 shadow-sm">
+                    <div className="mb-3 flex items-center gap-3">
+                      <span className="h-px flex-1 bg-gray-200" />
+                      <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                        À ne pas manquer
+                      </span>
+                      <span className="h-px flex-1 bg-gray-200" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {pricingSuggestions.map((suggestion) => {
+                        const niveau = suggestion.niveau || 2
+                        const isInCart = cart.some((item) => item.id === suggestion.id)
+                        const isFeaturedLevelTwo = niveau === 2 && suggestion.id === firstLevelTwoSuggestionId
+                        const resteSuggestions = Math.max(0, SEUIL - cartSubtotal)
+                        const suffitPourSeuil = resteSuggestions > 0 && suggestion.price >= resteSuggestions
+
+                        return (
+                        <div
+                          key={suggestion.id}
+                          className={cn(
+                            "overflow-hidden rounded-xl border bg-white shadow-sm transition-shadow hover:shadow-md",
+                            niveau === 3
+                              ? "border-2 border-amber-400"
+                              : isFeaturedLevelTwo
+                                ? "border-2 border-[#1E8A3C]"
+                                : "border-gray-200"
+                          )}
+                        >
+                          <div className="relative flex aspect-square items-center justify-center bg-gray-50">
+                            <img
+                              src={suggestion.image}
+                              alt={suggestion.name}
+                              onError={(event) => applyImageFallback(event, suggestion.fallbackImage)}
+                              className="h-full w-full object-cover"
+                            />
+                            <span className={cn(
+                              "absolute left-2 top-2 rounded-full px-2 py-1 text-[10px] font-bold",
+                              suffitPourSeuil
+                                ? "bg-amber-100 text-amber-700"
+                                : "hidden"
+                            )}>
+                              Suffit pour livraison gratuite
+                            </span>
+                            {suggestion.prix_khddar_estime && (
+                              <span className="absolute bottom-2 right-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] text-gray-400 line-through">
+                                {suggestion.prix_khddar_estime.toFixed(2)} DH
+                              </span>
+                            )}
+                          </div>
+                          <div className="p-3">
+                            <p className="truncate text-[13px] font-medium text-[#264129]">
+                              {suggestion.name}
+                            </p>
+                            <p className="mt-1 truncate text-[11px] text-gray-400">
+                              Ajout malin pour compléter ton panier
+                            </p>
+                            <div className="mt-3 flex items-center justify-between gap-2">
+                              <span className="text-[15px] font-medium text-[#1E8A3C]">
+                                {suggestion.price.toFixed(2)} DH
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleAddSuggestionToCart(suggestion)}
+                                className={cn(
+                                  "flex h-8 w-8 items-center justify-center rounded-full border text-sm font-bold transition-colors",
+                                  isInCart
+                                    ? "border-[#1E8A3C] bg-[#1E8A3C] text-white"
+                                    : "border-gray-300 bg-white text-[#264129] hover:border-[#1E8A3C] hover:text-[#1E8A3C]"
+                                )}
+                                aria-label={`Ajouter ${suggestion.name}`}
+                              >
+                                {isInCart ? "✓" : "+"}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        )
+                      })}
+                    </div>
+
+                    {cart.length > 0 && addedSuggestionItems.length > 0 && (
+                      <div className="mt-4 flex items-center gap-3 rounded-xl border border-green-200 bg-[#F0FDF4] px-4 py-3">
+                        <Leaf className="h-5 w-5 shrink-0 text-[#1E8A3C]" />
+                        <p className="text-sm font-semibold text-[#264129]">
+                          Tu économises {suggestionSavings.toFixed(2)} DH vs le khddar sur cette sélection 🌿
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1953,7 +2228,7 @@ function CatalogueContent() {
 
       {(showSidebar || showCart) && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 xl:hidden"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[1px] animate-in fade-in duration-300 xl:hidden"
           onClick={() => {
             setShowSidebar(false)
             setShowCart(false)
@@ -1974,6 +2249,43 @@ function CatalogueContent() {
         products={products}
         onApplySelections={handleApplySelections}
       />
+
+      {pendingDeleteOrderId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#122018]/55 px-4 py-6 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[28px] border border-[#F3D8B2] bg-white p-5 shadow-[0_30px_90px_rgba(18,32,24,0.25)]">
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FFF7EE] text-[#F07C00]">
+                <Trash2 className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-lg font-black text-[#264129]">Supprimer cette commande ?</h3>
+                <p className="mt-1 text-sm font-semibold leading-6 text-[#6F8070]">
+                  La commande N-{pendingDeleteOrderId} sera retiree de votre historique local. Vos donnees de paiement et de livraison ne changent pas.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setPendingDeleteOrderId(null)}
+                disabled={deletingOrderId === pendingDeleteOrderId}
+                className="rounded-2xl border border-[#DDE7DE] px-5 py-3 text-sm font-bold text-[#607061] transition-colors hover:bg-[#F7FCF7] disabled:opacity-60"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmDeleteOrderHistory()}
+                disabled={deletingOrderId === pendingDeleteOrderId}
+                className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-black text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {deletingOrderId === pendingDeleteOrderId ? "Suppression..." : "Supprimer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {claimOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#122018]/55 px-4 py-6 backdrop-blur-sm">

@@ -54,9 +54,10 @@ def get_panier_checkout(
     principal=Depends(require_auth),
     service: IPanierService = Depends(get_panier_service),
 ):
-    _ = principal
+    # Anti-IDOR (VULN-004) : le panier est charge avec le proprietaire courant ;
+    # le panier d'un autre utilisateur renvoie 404 (aucune fuite d'existence).
     try:
         with service:
-            return service.get_panier_details(panier_id)
+            return service.get_panier_details(panier_id, principal.user_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

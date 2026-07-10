@@ -51,11 +51,13 @@ export function OrderTimeline({
             {/* Vertical layout */}
             {vertical && (
               <div className="flex flex-col items-center">
+                {/* key={status} : rejoue le pop quand l'etape passe a "completed" */}
                 <div
+                  key={step.status}
                   className={cn(
                     "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all",
                     step.status === "completed" &&
-                      "bg-[#1E8A3C] border-[#1E8A3C] text-white",
+                      "bg-[#1E8A3C] border-[#1E8A3C] text-white animate-souki-success-pop",
                     step.status === "active" &&
                       "bg-[#F07C00] border-[#F07C00] text-white animate-pulse",
                     step.status === "pending" &&
@@ -84,10 +86,11 @@ export function OrderTimeline({
               {!vertical && (
                 <>
                   <div
+                    key={step.status}
                     className={cn(
                       "w-10 h-10 mx-auto rounded-full flex items-center justify-center border-2 transition-all mb-2",
                       step.status === "completed" &&
-                        "bg-[#1E8A3C] border-[#1E8A3C] text-white",
+                        "bg-[#1E8A3C] border-[#1E8A3C] text-white animate-souki-success-pop",
                       step.status === "active" &&
                         "bg-[#F07C00] border-[#F07C00] text-white animate-pulse",
                       step.status === "pending" &&

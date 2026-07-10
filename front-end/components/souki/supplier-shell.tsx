@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { ChevronDown, ClipboardList, LayoutDashboard, LogOut, Package, ShoppingCart, Store } from "lucide-react"
+import { ChevronDown, ClipboardList, Home, LayoutDashboard, Leaf, LogOut, Package, ShoppingCart, Store } from "lucide-react"
 
 import {
   DropdownMenu,
@@ -32,6 +32,13 @@ const supplierNav = [
   { href: "/supplier/produits", label: "Mes produits", shortLabel: "Produits", icon: Package },
   { href: "/supplier/commandes", label: "Commandes", shortLabel: "Commandes", icon: ShoppingCart },
   { href: "/supplier/profil", label: "Ma boutique", shortLabel: "Boutique", icon: Store },
+]
+
+// Liens vers l'espace client : le fournisseur peut revenir a l'accueil / au
+// catalogue depuis son portail (web comme PWA standalone).
+const customerNav = [
+  { href: "/", label: "Accueil", icon: Home },
+  { href: "/catalogue", label: "Catalogue", icon: Leaf },
 ]
 
 const statusLabels: Record<string, string> = {
@@ -202,6 +209,26 @@ export function SupplierShell({ children }: { children: ReactNode }) {
               </Link>
             )
           })}
+
+          <div className="my-3 border-t border-[#EAF8EC] dark:border-border" />
+          <p className="px-3.5 pb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+            Espace client
+          </p>
+          {customerNav.map((item) => {
+            const Icon = item.icon
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="group flex min-h-12 items-center gap-3 rounded-2xl px-3.5 text-sm font-bold text-[#607061] transition-all hover:bg-[#EAF8EC] hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F0FAF1] text-primary transition-colors group-hover:bg-white dark:bg-muted">
+                  <Icon className="h-4 w-4" />
+                </span>
+                {item.label}
+              </Link>
+            )
+          })}
         </nav>
 
         <div className="m-4 space-y-3">
@@ -310,6 +337,23 @@ export function SupplierShell({ children }: { children: ReactNode }) {
                               : "bg-[#F0FAF1] text-primary dark:bg-muted",
                           )}
                         >
+                          <Icon className="h-4 w-4" />
+                        </span>
+                        {item.label}
+                      </Link>
+                    </DropdownMenuItem>
+                  )
+                })}
+                <DropdownMenuSeparator className="my-1.5 bg-[#EAF8EC] dark:bg-muted" />
+                {customerNav.map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <DropdownMenuItem key={item.href} asChild>
+                      <Link
+                        href={item.href}
+                        className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#607061] transition-colors hover:bg-[#EAF8EC] hover:text-primary focus-visible:outline-none dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground"
+                      >
+                        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F0FAF1] text-primary dark:bg-muted">
                           <Icon className="h-4 w-4" />
                         </span>
                         {item.label}

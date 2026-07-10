@@ -7,8 +7,10 @@ import { AuthProvider } from '@/contexts/auth-context'
 import { ThemeProvider } from "@/components/theme-provider"
 import { MobilePullToRefresh } from "@/components/souki/mobile-pull-to-refresh"
 import { PwaInstallPrompt } from "@/components/souki/pwa-install-prompt"
+import { PwaServiceWorker } from "@/components/souki/pwa-service-worker"
 import { RouteGuard } from "@/components/routing/route-guard"
 import { PwaNavShell } from "@/components/souki/pwa-nav-shell"
+import { Toaster } from "@/components/ui/sonner"
 
 const inter = Inter({ 
   subsets: ["latin"],
@@ -73,6 +75,14 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="SOUKI" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />
+        {/* Ecrans de demarrage iOS (sinon le lancement standalone affiche un ecran blanc). */}
+        <link rel="apple-touch-startup-image" href="/splash/apple-splash-1290-2796.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+        <link rel="apple-touch-startup-image" href="/splash/apple-splash-1179-2556.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+        <link rel="apple-touch-startup-image" href="/splash/apple-splash-1170-2532.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+        <link rel="apple-touch-startup-image" href="/splash/apple-splash-1125-2436.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+        <link rel="apple-touch-startup-image" href="/splash/apple-splash-828-1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+        <link rel="apple-touch-startup-image" href="/splash/apple-splash-750-1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+        <link rel="apple-touch-startup-image" href="/splash/apple-splash-640-1136.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
       </head>
       <body className={`${inter.variable} ${poppins.variable} font-sans antialiased overflow-x-hidden`}>
         <AuthProvider>
@@ -82,7 +92,9 @@ export default function RootLayout({
               <RouteGuard>{children}</RouteGuard>
             </Suspense>
             <PwaNavShell />
+            <PwaServiceWorker />
             <PwaInstallPrompt />
+            <Toaster position="top-center" richColors closeButton />
           </ThemeProvider>
         </AuthProvider>
       </body>

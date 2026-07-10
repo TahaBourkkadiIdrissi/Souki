@@ -33,6 +33,7 @@ function OTPVerificationForm({
   const [error, setError] = useState("")
   const [message, setMessage] = useState("")
   const [loading, setLoading] = useState(false)
+  const [verified, setVerified] = useState(false)
   const [resending, setResending] = useState(false)
   const [countdown, setCountdown] = useState(RESEND_DELAY_SECONDS)
 
@@ -64,6 +65,8 @@ function OTPVerificationForm({
       const response = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // Indispensable pour que le navigateur stocke le cookie httpOnly renvoye.
+        credentials: "include",
         body: JSON.stringify({
           user_id: userId,
           channel,
@@ -78,7 +81,8 @@ function OTPVerificationForm({
       }
 
       if (data.access_token) {
-        localStorage.setItem("token", data.access_token)
+        // Le token vit desormais dans un cookie httpOnly (pose par le backend), plus
+        // dans le localStorage. On notifie juste le contexte d'auth de se rafraichir.
         window.dispatchEvent(
           new CustomEvent("auth-token-changed", {
             detail: { token: data.access_token },
@@ -87,8 +91,10 @@ function OTPVerificationForm({
       }
 
       setMessage(data.message || "Code validé avec succès.")
+      // Laisse le temps au checkmark de se dessiner avant la redirection.
+      setVerified(true)
       const destination = shouldShowOnboarding() ? "/onboarding" : data.default_dashboard || "/"
-      window.setTimeout(() => router.push(destination), 500)
+      window.setTimeout(() => router.push(destination), 900)
     } catch (err: any) {
       setError(err.message || "La vérification a échoué.")
     } finally {
@@ -128,7 +134,7 @@ function OTPVerificationForm({
   }
 
   return (
-    <div className="rounded-[28px] border border-[#E4EAE5] bg-white p-6 shadow-xl shadow-[#1E8A3C]/5 sm:p-8">
+    <div className="rounded-[28px] border border-[#E4EAE5] bg-white p-4 shadow-xl shadow-[#1E8A3C]/5 sm:p-8">
       <div className="mb-6 flex items-start gap-4">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F0FAF1] text-[#1E8A3C]">
           <ShieldCheck className="h-7 w-7" />
@@ -169,16 +175,21 @@ function OTPVerificationForm({
               if (error) setError("")
             }}
             pattern={REGEXP_ONLY_DIGITS}
-            containerClassName="gap-2"
+            containerClassName="gap-1.5 sm:gap-2"
             className="justify-center"
           >
-            <InputOTPGroup className="gap-2">
-              <InputOTPSlot index={0} className="h-12 w-12 rounded-2xl border border-[#DCE7DE] text-lg font-semibold" />
-              <InputOTPSlot index={1} className="h-12 w-12 rounded-2xl border border-[#DCE7DE] text-lg font-semibold" />
-              <InputOTPSlot index={2} className="h-12 w-12 rounded-2xl border border-[#DCE7DE] text-lg font-semibold" />
-              <InputOTPSlot index={3} className="h-12 w-12 rounded-2xl border border-[#DCE7DE] text-lg font-semibold" />
-              <InputOTPSlot index={4} className="h-12 w-12 rounded-2xl border border-[#DCE7DE] text-lg font-semibold" />
-              <InputOTPSlot index={5} className="h-12 w-12 rounded-2xl border border-[#DCE7DE] text-lg font-semibold" />
+            <InputOTPGroup className="gap-1.5 sm:gap-2">
+              {[0, 1, 2, 3, 4, 5].map((index) => (
+                <InputOTPSlot
+                  key={index}
+                  index={index}
+                  className={`h-12 w-9 rounded-2xl border text-base font-semibold sm:w-12 sm:text-lg ${
+                    verified
+                      ? "animate-add-bounce border-[#4CB84A] bg-[#F0FAF1] text-[#1E8A3C]"
+                      : "border-[#DCE7DE]"
+                  }`}
+                />
+              ))}
             </InputOTPGroup>
           </InputOTP>
         </div>
@@ -190,10 +201,36 @@ function OTPVerificationForm({
           </div>
         )}
 
-        {message && (
+        {message && !verified && (
           <div className="flex items-start gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
             <ShieldCheck className="mt-0.5 h-4 w-4 flex-shrink-0" />
             <p>{message}</p>
+          </div>
+        )}
+
+        {verified && (
+          <div
+            className="flex items-center justify-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4"
+            role="status"
+            aria-live="polite"
+          >
+            <span className="relative flex h-10 w-10 items-center justify-center">
+              <span className="absolute inset-0 rounded-full bg-[#4CB84A]/40 animate-souki-success-ring" />
+              <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-[#1E8A3C] animate-souki-success-pop">
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
+                  <path
+                    d="M6 12.5l4 4 8-9"
+                    pathLength={100}
+                    className="souki-check-draw"
+                    stroke="white"
+                    strokeWidth={2.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+            </span>
+            <p className="text-sm font-semibold text-emerald-700">{message}</p>
           </div>
         )}
 
@@ -274,7 +311,7 @@ function VerifyContent() {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col justify-center bg-[#FCFDFC] px-6 py-12 lg:px-12 xl:px-20">
+      <div className="flex-1 flex flex-col justify-center bg-[#FCFDFC] px-4 py-12 sm:px-6 lg:px-12 xl:px-20">
         <div className="mx-auto w-full max-w-xl">
           <div className="lg:hidden mb-8">
             <Link href="/" className="flex items-center gap-2">

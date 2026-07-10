@@ -1,19 +1,39 @@
 from typing import Optional
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 
-from config import ALGORITHM, LocalSession, SECRET_KEY
+from config import ACCESS_TOKEN_COOKIE_NAME, ALGORITHM, LocalSession, SECRET_KEY
 from entities.user_entity import User
 from services.authorization_service import AuthorizationService
 from services.user_session_service import UserSessionService
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+# auto_error=False : on tolere l'absence de l'en-tete Authorization pour pouvoir
+# retomber sur le cookie httpOnly.
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
 
 
-def require_auth(token: str = Depends(oauth2_scheme)):
+def resolve_access_token(
+    request: Request,
+    header_token: Optional[str] = Depends(oauth2_scheme),
+) -> str:
+    """Recupere le token JWT depuis le cookie httpOnly EN PRIORITE, sinon l'en-tete.
+
+    Le cookie est prioritaire pour le web : pendant la migration, certains composants
+    envoient encore un en-tete Authorization potentiellement perime ("Bearer null" apres
+    un rechargement). Le cookie first-party fait foi. Les clients sans cookie (app mobile)
+    continuent d'utiliser l'en-tete Bearer.
+    """
+    cookie_token = request.cookies.get(ACCESS_TOKEN_COOKIE_NAME)
+    token = cookie_token or header_token
+    if not token:
+        raise HTTPException(status_code=401, detail="Session expiree ou token invalide")
+    return token
+
+
+def require_auth(token: str = Depends(resolve_access_token)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id = int(payload["sub"])
@@ -76,3 +96,18 @@ def require_permission(*expected_permissions: str, match: str = "all"):
 
 def require_admin(principal=Depends(require_permission("admin.panel.access"))):
     return principal
+
+
+def ensure_resource_owner(principal, resource_owner_id: Optional[int]) -> None:
+    """Verification reutilisable de propriete d'une ressource (anti-IDOR).
+
+    Standard du projet (voir Documentation/STANDARD_AUTORISATIONS.md) :
+    - le filtre par proprietaire doit etre applique au niveau DAO quand c'est
+      possible (`WHERE id = :id AND user_id = :user_id`) ;
+    - quand la ressource est deja chargee, appeler cette fonction AVANT de la
+      retourner ou de la modifier ;
+    - la reponse est 404 (pas 403) pour ne pas reveler l'existence de la
+      ressource d'un autre utilisateur.
+    """
+    if resource_owner_id is None or int(resource_owner_id) != int(principal.user_id):
+        raise HTTPException(status_code=404, detail="Ressource introuvable.")

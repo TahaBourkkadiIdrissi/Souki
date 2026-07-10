@@ -1,6 +1,11 @@
 ### Variables
+# Aucune valeur secrete dans ce fichier (VULN-001).
+# Renseignez vos identifiants de test dans un fichier http-client.private.env.json
+# (ignore par Git) ou via les variables d'environnement de votre client REST.
 @BASE_URL = http://localhost:8000
-@token = VOTRE_TOKEN_JWT_ICI
+@token = {{$dotenv TEST_JWT}}
+@ADMIN_EMAIL = {{$dotenv TEST_ADMIN_EMAIL}}
+@ADMIN_PASSWORD = {{$dotenv TEST_ADMIN_PASSWORD}}
 
 ### ─────────────────────────────────────────────
 ### 🔐 AUTHENTIFICATION & SÉCURITÉ DES RÔLES
@@ -91,7 +96,7 @@ POST {{BASE_URL}}/auth/google-login
 Content-Type: application/json
 
 {
-    "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImIzZDk1Yjk1ZmE0OGQxODBiODVmZmU4MDgyZmNmYTIxNzRiMDQ2NjciLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJhenAiOiI0MDc0MDg3MTgxOTIuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJhdWQiOiI0MDc0MDg3MTgxOTIuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJzdWIiOiIxMTU5NDA0NDI1MzQ4MDQxOTUzMDEiLCJoZCI6ImVzaXNhLmFjLm1hIiwiZW1haWwiOiJoLnptYXJvdUBlc2lzYS5hYy5tYSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJhdF9oYXNoIjoieUNncjR3eG51bm4wLUg3M1Zham45QSIsImlhdCI6MTc3NjUzNzEwNSwiZXhwIjoxNzc2NTQwNzA1fQ.IvcaYO5zuYSPPmq4ozdIEIqz2Kl0_VufkEFvjoeEiG2nBHsRes8GPsLhTcsCgzMP-XvgfQTABLdvhXkLt0ysFMZc-cKFpv5Np95ULQ0SjpNK5L2Ih5BWr77V9in6WgpfhoJs6-AJoRR3NdNVAaaS_D-3XWY9lgNUSNyH1ZfpvmZKgAwB_NOgrWeVj1iQJYM7sjCOZCssJNXgk86HrU1oAwgX8pVykQg94OFUjL94Wf-rw1uddUPnWseNgZUK9SeXUoBYEfbS_UckRIIBji34W5sJJidnmT5V4POqAXTG8Ohus8Q9XFmdBFGrfEVRgME6qcRnSOgixO6p5WYlb1djFw"
+    "token": "REMPLACEZ_PAR_UN_JETON_GOOGLE_DE_TEST"
 }
 
 ### 9. Connexion via Google (Cas d'échec : Token invalide ou falsifié)
@@ -99,7 +104,7 @@ POST {{BASE_URL}}/auth/google-login
 Content-Type: application/json
 
 {
-    "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImZhbHNpZmll..."
+    "token": "REMPLACEZ_PAR_UN_JETON_GOOGLE_DE_TEST"
 }
 
 
@@ -170,9 +175,9 @@ POST {{BASE_URL}}/auth/register
 Content-Type: application/json
 
 {
-  "email": "admin@souki.local",
-  "phone": "+212699999911",
-  "password": "Admin123456",
+  "email": "{{ADMIN_EMAIL}}",
+  "phone": "+212600000000",
+  "password": "{{ADMIN_PASSWORD}}",
   "role": "ADMIN"
 }
 
@@ -182,11 +187,11 @@ POST {{BASE_URL}}/auth/admin/login
 Content-Type: application/json
 
 {
-  "login_id": "admin@souki.local",
-  "password": "Admin123456"
+  "login_id": "{{ADMIN_EMAIL}}",
+  "password": "{{ADMIN_PASSWORD}}"
 }
 
-@admin_token =eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2NCIsInJvbGUiOiJBRE1JTiIsImxlZ2FjeV9yb2xlIjoiQURNSU4iLCJkZWZhdWx0X2Rhc2hib2FyZCI6Ii9hZG1pbiIsImV4cCI6MTc3NzQwMzk4MX0.OGxgFuEkuK1bm5mveJVRbvROG9jCVqrvl-DW3B43TYE
+@admin_token = {{admin_login.response.body.access_token}}
 
 ### ─────────────────────────────────────────────
 ### 📋 TÂCHE 1: Atomicité des transactions

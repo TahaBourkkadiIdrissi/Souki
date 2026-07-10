@@ -23,17 +23,18 @@ class IPanierService(ABC):
         pass
 
     @abstractmethod
-    def get_panier_details(self, panier_id: int) -> PanierDetailsDTO:
+    def get_panier_details(self, panier_id: int, user_id: int) -> PanierDetailsDTO:
         """
-        Récupère les détails complets d'un panier.
-        
+        Récupère les détails complets d'un panier appartenant à l'utilisateur.
+
         Args:
             panier_id: ID du panier
-            
+            user_id: ID du propriétaire attendu (anti-IDOR)
+
         Returns:
             PanierDetailsDTO avec toutes les lignes
-            
+
         Raises:
-            ValueError: Si le panier n'existe pas
+            ValueError: Si le panier n'existe pas ou n'appartient pas à l'utilisateur
         """
         pass

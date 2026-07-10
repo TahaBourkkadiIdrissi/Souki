@@ -4,78 +4,51 @@ import { useEffect, useState } from "react"
 import { Download, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 import { isPwaStandalone } from "@/lib/pwa"
+import { useAuth } from "@/hooks/useAuth"
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>
 }
 
+// Seul l'admin ne voit PAS la banniere d'installation. Tous les autres profils
+// (client, fournisseur, livreur, parent) et les visiteurs anonymes peuvent installer l'app.
+const EXCLUDED_ROLES = ["ADMIN"]
+
 export function PwaInstallPrompt() {
+  const { user } = useAuth()
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
-  const [isVisible, setIsVisible] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const [isStandalone, setIsStandalone] = useState(true)
+  const [dismissed, setDismissed] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
 
+  // Detection mobile + standalone (cote client uniquement). Tant que l'effet
+  // n'a pas tourne, isMobile=false / isStandalone=true => rien ne s'affiche
+  // (pas de flash au rendu serveur).
   useEffect(() => {
-    if (isPwaStandalone()) {
-      setIsStandalone(true)
-      setIsVisible(false)
-      return
-    }
+    const mediaQuery = window.matchMedia("(max-width: 767px)")
+    const updateIsMobile = () => setIsMobile(mediaQuery.matches)
+    updateIsMobile()
+    mediaQuery.addEventListener("change", updateIsMobile)
 
-    setIsStandalone(false)
-    setIsVisible(true)
+    setIsStandalone(isPwaStandalone())
 
-    if (!("serviceWorker" in navigator)) {
-      return
-    }
-
-    navigator.serviceWorker
-      .register("/sw.js", { scope: "/" })
-      .then((registration) => {
-        registration.update()
-
-        registration.addEventListener("updatefound", () => {
-          const newWorker = registration.installing
-
-          newWorker?.addEventListener("statechange", () => {
-            if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-              newWorker.postMessage({ type: "SKIP_WAITING" })
-            }
-          })
-        })
-      })
-      .catch(() => undefined)
-
-    const updateWhenVisible = () => {
-      if (document.visibilityState === "visible") {
-        navigator.serviceWorker.getRegistration().then((registration) => registration?.update())
-      }
-    }
-
-    document.addEventListener("visibilitychange", updateWhenVisible)
-
-    return () => {
-      document.removeEventListener("visibilitychange", updateWhenVisible)
-    }
+    return () => mediaQuery.removeEventListener("change", updateIsMobile)
   }, [])
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (event: Event) => {
+      // On capture l'evenement pour declencher l'installation au clic.
       event.preventDefault()
-
-      if (isPwaStandalone()) {
-        return
-      }
-
+      if (isPwaStandalone()) return
       setInstallPrompt(event as BeforeInstallPromptEvent)
-      setIsVisible(true)
     }
 
     const handleAppInstalled = () => {
       setInstallPrompt(null)
-      setIsVisible(false)
+      setDismissed(true)
     }
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt)
@@ -87,87 +60,45 @@ export function PwaInstallPrompt() {
     }
   }, [])
 
-  const installApp = async () => {
-    if (!installPrompt) {
+  // Masquee uniquement pour l'admin ; visible pour tous les autres profils.
+  const isExcludedUser =
+    !!user &&
+    [user.role, user.legacy_role, ...(user.roles ?? [])]
+      .filter(Boolean)
+      .map((role) => String(role).toUpperCase())
+      .some((role) => EXCLUDED_ROLES.includes(role))
+
+  const handleDownload = async () => {
+    if (installPrompt) {
+      await installPrompt.prompt()
+      await installPrompt.userChoice
+      setInstallPrompt(null)
+      setDismissed(true)
       return
     }
-
-    await installPrompt.prompt()
-    await installPrompt.userChoice
-
-    setInstallPrompt(null)
-    setIsVisible(false)
+    // Pas de prompt natif disponible (iOS, ou criteres pas encore remplis) :
+    // on deplie les instructions manuelles.
+    setShowHelp((value) => !value)
   }
 
-  const dismiss = () => {
-    setIsVisible(false)
-  }
-
-  if (!isVisible || !installPrompt) {
-    if (!isVisible || isStandalone) {
-      return null
-    }
-
-    return (
-      <div
-        className={cn(
-          "fixed inset-x-3 bottom-24 z-[70] mx-auto max-w-md rounded-lg border border-green-market/20 bg-white p-3 shadow-2xl shadow-black/15",
-          "md:bottom-5 md:right-5 md:left-auto md:mx-0",
-          "dark:border-green-fresh/25 dark:bg-card",
-        )}
-        role="status"
-        aria-live="polite"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-green-market text-white">
-            <Download className="size-5" aria-hidden="true" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-foreground">Installer SOUKI</p>
-            <p className="text-xs leading-5 text-muted-foreground">
-              Ajoutez SOUKI a votre ecran d'accueil pour l'ouvrir comme une application.
-            </p>
-          </div>
-          <Button
-            type="button"
-            size="icon-sm"
-            variant="ghost"
-            className="shrink-0"
-            onClick={dismiss}
-            aria-label="Masquer l'installation"
-          >
-            <X className="size-4" aria-hidden="true" />
-          </Button>
-        </div>
-        <p className="mt-3 rounded-md bg-green-market/10 px-3 py-2 text-xs font-medium leading-5 text-green-market">
-          Si le bouton natif n'apparait pas, ouvrez le menu du navigateur puis choisissez Ajouter a l'ecran d'accueil.
-        </p>
-      </div>
-    )
-  }
-
-  if (!isVisible || isStandalone) {
+  if (isStandalone || !isMobile || isExcludedUser || dismissed) {
     return null
   }
 
   return (
     <div
-      className={cn(
-        "fixed inset-x-3 bottom-24 z-[70] mx-auto max-w-md rounded-lg border border-green-market/20 bg-white p-3 shadow-2xl shadow-black/15",
-        "md:bottom-5 md:right-5 md:left-auto md:mx-0",
-        "dark:border-green-fresh/25 dark:bg-card",
-      )}
+      className="fixed inset-x-3 bottom-24 z-[70] mx-auto max-w-md rounded-2xl border border-[#1E8A3C]/20 bg-white p-3 shadow-2xl shadow-black/15"
       role="status"
       aria-live="polite"
     >
       <div className="flex items-center gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-green-market text-white">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#1E8A3C] text-white">
           <Download className="size-5" aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-foreground">Installer SOUKI</p>
-          <p className="text-xs leading-5 text-muted-foreground">
-            Ajoutez SOUKI a votre ecran d'accueil pour l'ouvrir comme une application.
+          <p className="text-sm font-semibold text-[#264129]">Télécharger SOUKI</p>
+          <p className="text-xs leading-5 text-[#6F8070]">
+            Installez l&apos;application pour un accès rapide, en plein écran.
           </p>
         </div>
         <Button
@@ -175,16 +106,28 @@ export function PwaInstallPrompt() {
           size="icon-sm"
           variant="ghost"
           className="shrink-0"
-          onClick={dismiss}
+          onClick={() => setDismissed(true)}
           aria-label="Masquer l'installation"
         >
           <X className="size-4" aria-hidden="true" />
         </Button>
       </div>
-      <Button type="button" className="mt-3 w-full bg-orange-cta text-white hover:bg-orange-cta/90" onClick={installApp}>
+
+      <Button
+        type="button"
+        className="mt-3 w-full bg-[#F07C00] text-white hover:bg-[#D66B00]"
+        onClick={handleDownload}
+      >
         <Download className="size-4" aria-hidden="true" />
-        Installer l'application SOUKI
+        Télécharger l&apos;application
       </Button>
+
+      {showHelp && (
+        <p className="mt-3 rounded-xl bg-[#1E8A3C]/10 px-3 py-2 text-xs font-medium leading-5 text-[#1E8A3C]">
+          Sur iPhone : appuyez sur <strong>Partager</strong> puis « Sur l&apos;écran d&apos;accueil ».
+          Sur Android : menu <strong>⋮</strong> puis « Installer l&apos;application ».
+        </p>
+      )}
     </div>
   )
 }

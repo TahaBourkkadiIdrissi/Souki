@@ -3,10 +3,9 @@ from datetime import datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
-from jose import JWTError, jwt
 
 from auth_dependencies import require_permission
-from config import ALGORITHM, LocalSession, SECRET_KEY
+from config import LocalSession
 from dao.livreur_dao import LivreurDaoBD
 from dependencies import (
     get_blacklist_service,
@@ -28,7 +27,10 @@ from dto.dashboard_dto import DashboardDTO
 from interfaces.client_admin_service_interface import IClientAdminService
 from interfaces.client_blacklist_service_interface import IClientBlacklistService
 from interfaces.dashboard_service_interface import IDashboardService
+from entities.user_entity import User
 from services.authorization_service import AuthorizationService
+from services.user_session_service import UserSessionService
+from services.ws_ticket_service import WS_TICKET_TTL_SECONDS, ws_ticket_service
 
 admin_router = APIRouter(prefix="/admin", tags=["Admin"])
 api_admin_router = APIRouter(prefix="/api/admin", tags=["Admin"])
@@ -53,16 +55,27 @@ def _serialize_delivery_change(change: dict) -> dict:
     return serialized
 
 
-def _authorize_delivery_stream(token: str):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id = int(payload["sub"])
-    except (JWTError, KeyError, TypeError, ValueError) as exc:
-        raise HTTPException(status_code=401, detail="Session expiree ou token invalide") from exc
+def _authorize_delivery_stream(ticket: str):
+    """Autorise l'ouverture du flux via un ticket opaque a usage unique (VULN-007).
+
+    Le ticket est emis par POST /admin/ws-ticket (route HTTP protegee). A la
+    connexion, on reverifie que la session emettrice est toujours active, que le
+    compte est actif et que les permissions sont toujours presentes : un ticket
+    emis avant une deconnexion/revocation est refuse.
+    """
+    claims = ws_ticket_service.consume_ticket(ticket)
+    if claims is None:
+        raise HTTPException(status_code=401, detail="Ticket invalide ou expire")
+
+    if claims.session_id is not None and not UserSessionService().is_session_active(claims.session_id):
+        raise HTTPException(status_code=401, detail="Session expiree ou invalidee")
 
     db = LocalSession()
     try:
-        principal = AuthorizationService(db).build_principal(user_id)
+        user = db.query(User).filter(User.id == claims.user_id).first()
+        if not user or not user.is_active:
+            raise HTTPException(status_code=401, detail="Compte indisponible")
+        principal = AuthorizationService(db).build_principal(claims.user_id)
     finally:
         db.close()
 
@@ -70,6 +83,23 @@ def _authorize_delivery_stream(token: str):
         raise HTTPException(status_code=403, detail="Permission insuffisante")
 
     return principal
+
+
+@admin_router.post("/ws-ticket")
+def create_delivery_stream_ticket(
+    principal=Depends(require_permission("admin.panel.access", "deliveries.read")),
+):
+    """Emet un ticket WebSocket opaque (30 s, usage unique).
+
+    require_permission passe par require_auth : session active et compte actif
+    sont donc verifies AVANT l'emission. Le JWT principal ne transite jamais
+    dans l'URL du WebSocket.
+    """
+    ticket = ws_ticket_service.issue_ticket(
+        user_id=principal.user_id,
+        session_id=getattr(principal, "session_id", None),
+    )
+    return {"ticket": ticket, "expires_in_seconds": WS_TICKET_TTL_SECONDS}
 
 
 @admin_router.get("/session")
@@ -93,7 +123,6 @@ def get_admin_dashboard_context(
     principal=Depends(require_permission("admin.panel.access")),
     service: IDashboardService = Depends(get_dashboard_service),
 ):
-    _ = principal
     session = LocalSession()
     try:
         return service.get_dashboard(session, periode, date_custom)
@@ -106,7 +135,6 @@ def get_admin_parrainages(
     principal=Depends(require_permission("admin.panel.access")),
     service: IParrainageService = Depends(get_parrainage_service),
 ):
-    _ = principal
     session = LocalSession()
     try:
         return service.get_admin_overview(session)
@@ -138,7 +166,6 @@ def get_blacklisted_clients(
     principal=Depends(require_permission("admin.panel.access", "clients.blacklist")),
     service: IClientBlacklistService = Depends(get_blacklist_service),
 ):
-    _ = principal
     session = LocalSession()
     try:
         return service.get_blacklisted_clients(session)
@@ -154,7 +181,6 @@ def get_admin_clients(
     principal=Depends(require_permission("admin.panel.access", "clients.read")),
     service: IClientAdminService = Depends(get_client_admin_service),
 ):
-    _ = principal
     session = LocalSession()
     try:
         return service.get_clients_page(
@@ -174,7 +200,6 @@ def get_monthly_report(
     principal=Depends(require_permission("admin.panel.access", "clients.blacklist")),
     service: IClientBlacklistService = Depends(get_blacklist_service),
 ):
-    _ = principal
     session = LocalSession()
     try:
         return service.get_monthly_report(session, year, month)
@@ -187,7 +212,6 @@ def get_blacklist_lift_requests(
     principal=Depends(require_permission("admin.panel.access", "clients.blacklist")),
     service: IClientBlacklistService = Depends(get_blacklist_service),
 ):
-    _ = principal
     session = LocalSession()
     try:
         return service.get_pending_lift_requests(session)
@@ -242,13 +266,15 @@ def lift_blacklist(
 
 @admin_router.websocket("/ws/deliveries")
 async def stream_delivery_changes(websocket: WebSocket):
-    token = websocket.query_params.get("token")
-    if not token:
-        await websocket.close(code=4401, reason="Token requis")
+    # Le JWT principal n'est plus accepte dans la query string : uniquement le
+    # ticket opaque emis par POST /admin/ws-ticket (usage unique, 30 s).
+    ticket = websocket.query_params.get("ticket")
+    if not ticket:
+        await websocket.close(code=4401, reason="Ticket requis")
         return
 
     try:
-        _authorize_delivery_stream(token)
+        _authorize_delivery_stream(ticket)
         since = _parse_since_cursor(websocket.query_params.get("since"))
     except HTTPException as exc:
         close_code = 4403 if exc.status_code == 403 else 4401

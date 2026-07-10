@@ -151,7 +151,10 @@ class AuthService:
                 self._assert_target_access(principal, target_role)
                 self._ensure_profile_for_role(db, user, target_role)
                 db.commit()
-                return self._issue_access_token(user, principal, selected_role=target_role)
+                token = self._issue_access_token(user, principal, selected_role=target_role)
+                # On renvoie aussi l'utilisateur complet (construit depuis le principal
+                # deja charge) pour que le front evite un second aller-retour /auth/me.
+                return {"token": token, "user": self._export_current_user(principal, db)}
 
             return None
         finally:
@@ -171,7 +174,8 @@ class AuthService:
                 principal = self._build_principal(db, user)
                 if not principal.has_permission("admin.panel.access"):
                     raise HTTPException(status_code=403, detail="Acces admin refuse.")
-                return self._issue_access_token(user, principal)
+                token = self._issue_access_token(user, principal)
+                return {"token": token, "user": self._export_current_user(principal, db)}
 
             return None
         finally:
@@ -320,7 +324,8 @@ class AuthService:
                 self._assert_target_access(principal, normalized_role)
                 self._ensure_profile_for_role(db, user, normalized_role)
                 db.commit()
-                return self._issue_access_token(user, principal, selected_role=normalized_role)
+                token = self._issue_access_token(user, principal, selected_role=normalized_role)
+                return {"token": token, "user": self._export_current_user(principal, db)}
             finally:
                 db.close()
         except ValueError:
@@ -415,26 +420,57 @@ class AuthService:
         return f"{value[:4]}{'*' * max(1, len(value) - 6)}{value[-2:]}"
 
     def _send_otp(self, user: User, channel: str, code: str):
+        """Envoie le code OTP via le canal demande.
+
+        Regles de securite (VULN-002) :
+        - le code OTP et sa destination (email/telephone) ne sont JAMAIS journalises ;
+        - seuls l'identifiant interne de l'utilisateur et le canal apparaissent dans les logs ;
+        - un canal non configure echoue proprement (503) au lieu d'afficher le code.
+        Les tests utilisent un faux fournisseur injecte via `otp_provider` (jamais en prod).
+        """
         destination = user.email if channel == "email" else user.phone
-        
-        # CRITICAL: Use logging with ERROR level to ensure immediate output
-        logger.error("\n" + "=" * 64)
-        logger.error("SOUKI OTP CODE - TEST LOCAL")
-        logger.error(f"Canal       : {channel}")
-        logger.error(f"Destination : {destination}")
-        logger.error(f"Code OTP    : {code}")
-        logger.error("=" * 64 + "\n")
+        if not destination:
+            raise HTTPException(status_code=400, detail="Aucun moyen de contact disponible pour cet utilisateur.")
 
+        logger.info("[OTP] Envoi d'un code via %s pour user_id=%s", channel, user.id)
+
+        provider = self._resolve_otp_provider(channel)
+        if provider is None:
+            logger.error("[OTP] Canal %s non configure pour user_id=%s", channel, user.id)
+            raise HTTPException(
+                status_code=503,
+                detail="L'envoi du code de verification est indisponible pour ce canal. Contactez le support.",
+            )
+
+        try:
+            provider(destination, code)
+            logger.info("[OTP] Code envoye via %s pour user_id=%s", channel, user.id)
+        except Exception as exc:
+            # On ne journalise que le type d'erreur : jamais le code ni la destination.
+            logger.error(
+                "[OTP] Echec d'envoi via %s pour user_id=%s (%s)",
+                channel,
+                user.id,
+                type(exc).__name__,
+            )
+            raise HTTPException(
+                status_code=503,
+                detail="L'envoi du code de verification a echoue. Reessayez dans quelques instants.",
+            ) from exc
+
+    def _resolve_otp_provider(self, channel: str):
+        """Retourne le fournisseur d'envoi pour le canal, ou None si non configure.
+
+        `self.otp_provider` peut etre injecte par les tests (faux fournisseur) ;
+        il n'existe aucun mecanisme d'activation d'un faux fournisseur en production.
+        """
+        injected = getattr(self, "otp_provider", None)
+        if injected is not None:
+            return injected
         if channel == "email":
-            try:
-                _email_service.send_otp_email(destination, code)
-                logger.info(f"[SMTP] Email OTP envoye avec succes vers {destination}")
-            except Exception as exc:
-                logger.warning(f"[SMTP] Envoi email impossible: {exc}")
-                logger.warning("[SMTP] Le code reste visible ci-dessus pour les tests locaux.")
-            return
-
-        logger.warning(f"[OTP:{channel}] Envoi reel non configure pour ce canal, utilisez le code affiche dans le terminal.")
+            return _email_service.send_otp_email
+        # Aucun fournisseur SMS configure a ce jour.
+        return None
 
     def _has_google_provider(self, provider: Optional[str]) -> bool:
         return bool(provider and "google" in provider.split(","))

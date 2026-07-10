@@ -27,8 +27,8 @@ class ICommandeVocaleDao(ABC):
         pass
 
     @abstractmethod
-    def get_details_for_checkout(self, session: Session, commande_id: int) -> Optional[dict]:
-        """Recupere les donnees formatees pour le checkout."""
+    def get_details_for_checkout(self, session: Session, commande_id: int, user_id: int) -> Optional[dict]:
+        """Recupere les donnees formatees pour le checkout, filtrees par proprietaire (anti-IDOR)."""
         pass
 
     @abstractmethod

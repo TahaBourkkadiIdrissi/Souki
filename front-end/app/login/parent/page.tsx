@@ -8,6 +8,7 @@ import { API_BASE_URL } from "@/lib/api"
 import { isValidMoroccanPhone, normalizeMoroccanPhone, PHONE_ERROR_MSG } from "@/lib/phoneValidator"
 import { GoogleLoginButton } from "@/components/auth/google-login-button"
 import { PasswordStrength } from "@/components/souki/password-strength"
+import { toast } from "sonner"
 import { 
   Eye, 
   EyeOff, 
@@ -142,6 +143,14 @@ function ParentLoginContent() {
     
     if (Object.keys(fieldErrors).length > 0) return;
 
+    // ── Strict email format validation (prevents malformed input & injection) ──
+    const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/
+    const trimmedId = loginId.trim()
+    if (trimmedId.includes("@") && !EMAIL_REGEX.test(trimmedId)) {
+      setGeneralError("Format d'email invalide. Veuillez saisir une adresse email correcte.")
+      return
+    }
+
     const validationErrors = validateForm();
     if (Object.keys(validationErrors).length > 0) {
       setFieldErrors(validationErrors);
@@ -186,7 +195,7 @@ function ParentLoginContent() {
         router.push(
           `/verify?userId=${data.id}&channel=${data.verification_channel}&target=${encodeURIComponent(data.verification_target || "")}&role=${String(data.role || selectedRole).toLowerCase()}`
         );
-        alert("Compte parent créé avec succès ! Vous pouvez maintenant vous connecter.");
+        toast.success("Compte parent cree avec succes. Vous pouvez maintenant vous connecter.")
         setPassword(""); 
         return;
 
@@ -629,7 +638,7 @@ function ParentLoginContent() {
                       CGU
                     </Link>{" "}
                     et la{" "}
-                    <Link href="/privacy" className="text-[#D97706] hover:underline">
+                    <Link href="/politique-confidentialite" className="text-[#D97706] hover:underline">
                       Politique de Confidentialité
                     </Link>
                   </span>

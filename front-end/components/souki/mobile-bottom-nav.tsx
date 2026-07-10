@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
+  Crown,
   Home,
   Leaf,
   Menu,
@@ -35,17 +36,24 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
 
   const linkItems = [
     { label: "Accueil", href: "/", icon: Home },
-    { label: "Catalogue", href: "/catalogue", icon: Leaf },
+    { label: "Produits", href: "/catalogue", icon: Leaf },
   ]
 
   const secondaryItems = [
     { label: "Historique", href: "/historique", icon: PackageCheck },
+    { label: "Abonnements", href: "/abonnements", icon: Crown },
     { label: "Mon Wallet", href: "/wallet", icon: Wallet },
     { label: "Mon profil", href: "/parametres/compte", icon: User },
     { label: "Paramètres", href: "/parametres/notifications", icon: Settings },
+    ...(!isFournisseur ? [{ label: "Devenir fournisseur", href: "/devenir-fournisseur", icon: Store }] : [])
   ]
 
   const gridCols = isFournisseur ? "grid-cols-5" : "grid-cols-4"
+
+  // Actif si la route correspond exactement ("/") ou en prefixe (sous-routes,
+  // query string). Sans cela, "/catalogue?..." n'allumait jamais l'onglet.
+  const isActiveLink = (href: string) =>
+    href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`)
 
   const openDrawer = () => {
     if (onMenuClick) {
@@ -64,7 +72,7 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
         <div className={cn("mx-auto grid max-w-md gap-1", gridCols)}>
           {linkItems.map((item) => {
             const Icon = item.icon
-            const isActive = pathname === item.href
+            const isActive = isActiveLink(item.href)
             return (
               <Link
                 key={item.href}
@@ -109,7 +117,11 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
             <ShoppingCart className="h-5 w-5" />
             <span>Panier</span>
             {cartCount > 0 && (
-              <span className="absolute right-4 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F07C00] px-1 text-[10px] font-black text-white">
+              // key={cartCount} : rejoue le pop a chaque changement de quantite
+              <span
+                key={cartCount}
+                className="absolute right-4 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F07C00] px-1 text-[10px] font-black text-white animate-badge-pop"
+              >
                 {cartCount}
               </span>
             )}

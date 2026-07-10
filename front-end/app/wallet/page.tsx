@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -10,8 +10,41 @@ import { cn } from "@/lib/utils"
 import { useWallet, type WalletState } from "@/hooks/useWallet"
 import { useAuth } from "@/hooks/useAuth"
 import { generateParrainageCode } from "@/lib/api"
+import { toast } from "sonner"
 
 function dhFromCentimes(c: number) { return `${(c / 100).toFixed(2).replace(".", ",")} DH` }
+
+/* Compte de maniere fluide vers la nouvelle valeur quand le solde change
+   (recharge, gain de parrainage). Pas d'animation au premier rendu ni si
+   l'utilisateur prefere le mouvement reduit. */
+function useAnimatedCentimes(target: number, durationMs = 700) {
+  const [display, setDisplay] = useState(target)
+  const previousRef = useRef(target)
+
+  useEffect(() => {
+    const previous = previousRef.current
+    if (previous === target) return
+    previousRef.current = target
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setDisplay(target)
+      return
+    }
+
+    const start = performance.now()
+    let raf = 0
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - start) / durationMs)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      setDisplay(Math.round(previous + (target - previous) * eased))
+      if (progress < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [target, durationMs])
+
+  return display
+}
 
 const walletPasswordChecks = (value: string) => ({
   minLength: value.length >= 8,
@@ -47,12 +80,14 @@ export default function WalletPage() {
 
   const showSaved = () => { setSaved(true); setTimeout(() => setSaved(false), 2000) }
 
+  const animatedBalanceCentimes = useAnimatedCentimes(walletState?.balance_centimes ?? 0)
+
   useEffect(() => {
     const load = async () => {
       if (isAuthLoading) return
       if (!isAuthenticated && !token) {
         setPageLoading(false)
-        router.push("/login/client?redirect=/wallet")
+        router.push("/login?redirect=/wallet")
         return
       }
       setPageLoading(true)
@@ -209,7 +244,7 @@ export default function WalletPage() {
                 
                 <div className="relative z-10 mb-6">
                   <p className="text-sm font-medium text-white/70 mb-1">Solde disponible</p>
-                  <h3 className="text-4xl font-black tracking-tight">{dhFromCentimes(walletState.balance_centimes || 0)}</h3>
+                  <h3 className="text-4xl font-black tracking-tight souki-tabular-nums">{dhFromCentimes(animatedBalanceCentimes)}</h3>
                 </div>
                 
                 <div className="relative z-10 flex justify-between items-end">
@@ -226,19 +261,19 @@ export default function WalletPage() {
 
               {/* Quick Actions */}
               <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <button onClick={() => alert("La recharge par carte bancaire sera bientôt disponible ! L'équipe Souki y travaille.")} className="group flex flex-col items-center justify-center gap-3 bg-white border border-gray-100 rounded-3xl p-4 shadow-sm hover:shadow-md transition-all hover:border-[#1E8A3C]/30 hover:-translate-y-1">
+                <button onClick={() => toast.info("La recharge par carte bancaire sera bientot disponible. L'equipe Souki y travaille.")} className="group flex flex-col items-center justify-center gap-3 bg-white border border-gray-100 rounded-3xl p-4 shadow-sm hover:shadow-md transition-all hover:border-[#1E8A3C]/30 hover:-translate-y-1">
                   <div className="w-12 h-12 bg-[#F0FAF1] rounded-full flex items-center justify-center text-[#1E8A3C] group-hover:scale-110 transition-transform">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
                   </div>
                   <span className="text-sm font-semibold text-[#3D3D3D]">Recharger</span>
                 </button>
-                <button onClick={() => alert("Le transfert entre amis sera disponible dans la prochaine mise à jour !")} className="group flex flex-col items-center justify-center gap-3 bg-white border border-gray-100 rounded-3xl p-4 shadow-sm hover:shadow-md transition-all hover:border-[#F07C00]/30 hover:-translate-y-1">
+                <button onClick={() => toast.info("Le transfert entre amis sera disponible dans la prochaine mise a jour.")} className="group flex flex-col items-center justify-center gap-3 bg-white border border-gray-100 rounded-3xl p-4 shadow-sm hover:shadow-md transition-all hover:border-[#F07C00]/30 hover:-translate-y-1">
                   <div className="w-12 h-12 bg-[#FFF7EE] rounded-full flex items-center justify-center text-[#F07C00] group-hover:scale-110 transition-transform">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                   </div>
                   <span className="text-sm font-semibold text-[#3D3D3D]">Envoyer</span>
                 </button>
-                <button onClick={() => alert("Fonctionnalité de demande de fonds en cours de développement.")} className="group flex flex-col items-center justify-center gap-3 bg-white border border-gray-100 rounded-3xl p-4 shadow-sm hover:shadow-md transition-all hover:border-[#1A73E8]/30 hover:-translate-y-1">
+                <button onClick={() => toast.info("La demande de fonds est en cours de developpement.")} className="group flex flex-col items-center justify-center gap-3 bg-white border border-gray-100 rounded-3xl p-4 shadow-sm hover:shadow-md transition-all hover:border-[#1A73E8]/30 hover:-translate-y-1">
                   <div className="w-12 h-12 bg-[#EAF2FF] rounded-full flex items-center justify-center text-[#1A73E8] group-hover:scale-110 transition-transform">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
                   </div>
@@ -268,10 +303,17 @@ export default function WalletPage() {
                 </div>
                 
                 {(walletState.transactions || []).length === 0 ? (
-                  <div className="flex flex-col items-center justify-center text-center py-10 px-4 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
-                    <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4 text-gray-300">
-                      <Wallet className="w-8 h-8" />
-                    </div>
+                  <div className="flex flex-col items-center justify-center text-center py-10 px-4 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200 animate-fade-in-up">
+                    <img
+                      src="/illustrations/empty-wallet.webp"
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      width={128}
+                      height={128}
+                      aria-hidden="true"
+                      className="mb-4 h-32 w-32 object-contain animate-gentle-float"
+                    />
                     <h5 className="font-bold text-[#3D3D3D] mb-1">Aucune transaction</h5>
                     <p className="text-sm text-[#8A8A8A] max-w-xs mb-5">Votre portefeuille SOUKI est vide. Commencez par recharger votre compte ou attendez vos gains de parrainage !</p>
                     <button className="text-sm font-semibold text-[#1E8A3C] bg-[#F0FAF1] px-5 py-2.5 rounded-xl transition hover:bg-[#EAF8EC]">
@@ -280,8 +322,12 @@ export default function WalletPage() {
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-                    {walletState.transactions.map((tx) => (
-                      <div key={tx.id} className="group flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-4 py-4 transition-all hover:border-[#1E8A3C]/20 hover:shadow-sm">
+                    {walletState.transactions.map((tx, txIndex) => (
+                      <div
+                        key={tx.id}
+                        className="group flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-4 py-4 transition-all hover:border-[#1E8A3C]/20 hover:shadow-sm animate-cascade"
+                        style={{ "--cascade-i": Math.min(txIndex, 8) } as CSSProperties}
+                      >
                         <div className="flex items-center gap-4">
                           <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", tx.montant_centimes > 0 ? "bg-[#F0FAF1] text-[#1E8A3C]" : "bg-gray-100 text-gray-600")}>
                             {tx.montant_centimes > 0 ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>}

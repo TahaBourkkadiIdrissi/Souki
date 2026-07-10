@@ -40,6 +40,9 @@ import {
 } from "@/lib/catalogue"
 import { MapboxLocator } from "@/components/souki/mapbox-locator"
 import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
+import { useAuth } from "@/hooks/useAuth"
+import { useOrderLock } from "@/hooks/useOrderLock"
+import { toast } from "sonner"
 
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&h=300&fit=crop"
 const SEUIL = FREE_DELIVERY_THRESHOLD
@@ -122,6 +125,8 @@ function CheckoutContent() {
   const [city, setCity] = useState("")
   const [instructions, setInstructions] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // Commande validee par l'API : declenche l'overlay de celebration avant la redirection.
+  const [confirmedOrderId, setConfirmedOrderId] = useState<number | null>(null)
   const [catalogueImages, setCatalogueImages] = useState<Record<number, string>>({})
   const [cataloguePrices, setCataloguePrices] = useState<Record<number, number>>({})
   const [catalogueProducts, setCatalogueProducts] = useState<CatalogueProduct[]>([])
@@ -132,7 +137,11 @@ function CheckoutContent() {
   const [liftMotif, setLiftMotif] = useState("")
   const [isSendingLiftRequest, setIsSendingLiftRequest] = useState(false)
   const [liftRequestMessage, setLiftRequestMessage] = useState("")
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+  // VULN-010 : plus aucun JWT dans le localStorage. `token` est un simple marqueur
+  // de session non secret ; l'authentification reelle passe par le cookie httpOnly.
+  const { token } = useAuth()
+  // Verrou de commande restaure (BUG-004), aligne sur le cutoff backend.
+  const { isLocked: isOrderCutoffActive, message: orderLockMessage } = useOrderLock()
 
   const isGenericImage = (imageUrl: string) =>
     imageUrl.includes("photo-1542838132-92c53300491e")
@@ -473,6 +482,7 @@ function CheckoutContent() {
     !isAddressMissing &&
     !isCityMissing &&
     !(isCodBlocked && selectedPayment === "cod") &&
+    !isOrderCutoffActive &&
     !isSubmitting
 
   const submitLiftRequest = async () => {
@@ -495,7 +505,7 @@ function CheckoutContent() {
       setBlacklistStatus(status)
       setLiftMotif("")
       setShowLiftModal(false)
-      setLiftRequestMessage("Demande envoyee.")
+      setLiftRequestMessage("Demande envoyée.")
     } catch (error) {
       setLiftRequestMessage(error instanceof Error ? error.message : "Impossible d'envoyer la demande.")
     } finally {
@@ -540,27 +550,31 @@ function CheckoutContent() {
         panier_id: panierId ? parseInt(panierId) : null
       }
 
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-
+      // Authentification par cookie httpOnly (credentials: "include"), plus de JWT cote JS.
       const res = await fetch(`${API_BASE_URL}/api/checkout`, {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          ...(token ? { "Authorization": `Bearer ${token}` } : {})
-        },
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(payload)
       })
 
       if (res.ok) {
         const data = await res.json()
-        alert(`Succès ! Votre commande définitive N°${data.commande_id} a été enregistrée.`)
-        router.push(`/catalogue?commande_validee=${data.commande_id}`)
+        // L'overlay anime remplace le toast comme feedback immediat ; la
+        // redirection existante est juste differee le temps de la celebration.
+        setConfirmedOrderId(data.commande_id)
+        if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+          navigator.vibrate([15, 40, 20])
+        }
+        window.setTimeout(() => {
+          router.push(`/catalogue?commande_validee=${data.commande_id}`)
+        }, 1600)
       } else {
         const errData = await res.json().catch(() => ({}))
-        alert(errData.detail || "Erreur lors de la validation de la commande.")
+        toast.error(errData.detail || "Erreur lors de la validation de la commande.")
       }
     } catch (error) {
-      alert("Erreur de connexion au serveur.")
+      toast.error("Erreur de connexion au serveur.")
     } finally {
       setIsSubmitting(false)
     }
@@ -590,6 +604,46 @@ function CheckoutContent() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F0] pb-24 md:pb-0">
+      {confirmedOrderId !== null && (
+        <div
+          className="fixed inset-0 z-[110] flex flex-col items-center justify-center bg-white/95 backdrop-blur-sm px-6"
+          role="status"
+          aria-live="assertive"
+        >
+          <span className="relative flex h-24 w-24 items-center justify-center">
+            <span className="absolute inset-0 rounded-full bg-[#4CB84A]/30 animate-souki-success-ring" />
+            <span className="absolute -inset-3 rounded-full bg-[#4CB84A]/15 animate-souki-success-ring [animation-delay:0.35s]" />
+            <span className="relative flex h-24 w-24 items-center justify-center rounded-full bg-[#1E8A3C] shadow-xl shadow-[#1E8A3C]/25 animate-souki-success-pop">
+              <svg viewBox="0 0 24 24" className="h-12 w-12" fill="none" aria-hidden="true">
+                <path
+                  d="M6 12.5l4 4 8-9"
+                  pathLength={100}
+                  className="souki-check-draw"
+                  stroke="white"
+                  strokeWidth={2.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+          </span>
+          <p className="mt-6 text-2xl font-bold text-[#233127] animate-fade-in-up">
+            Commande N-{confirmedOrderId} confirmée
+          </p>
+          <p className="mt-2 text-sm text-[#66756B] animate-fade-in-up-delay-1">
+            Vos produits frais arrivent demain matin, du champ au panier.
+          </p>
+          <img
+            src="/illustrations/checkout-celebration.webp"
+            alt=""
+            decoding="async"
+            width={144}
+            height={144}
+            aria-hidden="true"
+            className="mt-4 h-36 w-36 object-contain animate-fade-in-up-delay-2"
+          />
+        </div>
+      )}
       <header className="sticky top-0 z-10 hidden glass-ios26 border-b border-gray-100 md:block">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-3">
@@ -991,6 +1045,11 @@ function CheckoutContent() {
             </div>
 
             <div className="space-y-4 rounded-2xl bg-white p-5 shadow-sm sm:p-6">
+              {isOrderCutoffActive && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
+                  {orderLockMessage}
+                </div>
+              )}
               <label className="flex items-start gap-3 cursor-pointer">
                 <div onClick={() => setAcceptTerms(!acceptTerms)} className={cn("w-5 h-5 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0 mt-0.5", acceptTerms ? "bg-[#1E8A3C] border-[#1E8A3C]" : "border-gray-300")}>
                   {acceptTerms && <Check className="w-3 h-3 text-white" />}

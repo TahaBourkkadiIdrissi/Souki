@@ -37,6 +37,21 @@ class SupabaseStorageConfigError(SupabaseStorageError):
 class SupabaseStorageService:
     def __init__(self):
         self.bucket = AVATAR_BUCKET
+        # Le bootstrap (colonne + bucket + policies) est idempotent mais couteux :
+        # on ne le rejoue pas a chaque upload une fois reussi dans ce process.
+        self._bootstrapped = False
+
+    def _ensure_bootstrapped(self) -> None:
+        if self._bootstrapped:
+            return
+        try:
+            self.bootstrap_avatar_storage()
+        except Exception as exc:  # noqa: BLE001 - le bootstrap est aussi tente au demarrage
+            # Un echec ici (droits DDL insuffisants, etc.) ne doit pas casser l'upload :
+            # la colonne/bucket sont normalement deja crees au demarrage de l'app.
+            print(f"[Avatar] Bootstrap differe ignore: {exc}")
+        finally:
+            self._bootstrapped = True
 
     @staticmethod
     def _resolve_supabase_url() -> str:
@@ -243,26 +258,37 @@ class SupabaseStorageService:
         ]
 
     def upload_avatar(self, user_id: int, content: bytes, content_type: str) -> str:
+        """Televerse un avatar apres validation profonde (RISK-001).
+
+        - le MIME declare ne suffit pas : la signature reelle est verifiee via Pillow ;
+        - l'image est decodee puis reencodee en JPEG (supprime metadonnees EXIF et
+          charge utile eventuelle) ;
+        - le nom d'objet est aleatoire (pas de collision/ecrasement previsible).
+        """
         extension = ALLOWED_AVATAR_MIME_TYPES.get(content_type)
         if not extension:
             raise SupabaseStorageError("Choisissez une image JPG, PNG ou WEBP.")
         if len(content) > MAX_AVATAR_SIZE_BYTES:
             raise SupabaseStorageError("L'image ne doit pas depasser 2 Mo.")
 
-        self.bootstrap_avatar_storage()
+        clean_content = self._reencode_image(content, ALLOWED_PRODUCT_IMAGE_FORMATS)
+        if len(clean_content) > MAX_AVATAR_SIZE_BYTES:
+            raise SupabaseStorageError("L'image ne doit pas depasser 2 Mo apres optimisation.")
+
+        self._ensure_bootstrapped()
 
         supabase_url = self._resolve_supabase_url()
         service_role_key = self._service_role_key()
-        object_path = f"{user_id}/profile.{extension}"
+        object_path = f"{user_id}/{uuid.uuid4().hex}.jpg"
         encoded_object_path = parse.quote(object_path, safe="/.")
 
         upload_request = request.Request(
             url=f"{supabase_url}/storage/v1/object/{self.bucket}/{encoded_object_path}",
-            data=content,
+            data=clean_content,
             headers={
                 "Authorization": f"Bearer {service_role_key}",
                 "apikey": service_role_key,
-                "Content-Type": content_type,
+                "Content-Type": "image/jpeg",
                 "x-upsert": "true",
                 "cache-control": "3600",
             },
@@ -278,11 +304,43 @@ class SupabaseStorageService:
         except error.URLError as exc:
             raise SupabaseStorageError("Impossible de joindre Supabase Storage pour le moment.") from exc
 
-        return self.public_avatar_url(user_id, extension)
+        return self.public_avatar_url(object_path)
 
-    def public_avatar_url(self, user_id: int, extension: str) -> str:
-        object_path = parse.quote(f"{user_id}/profile.{extension}", safe="/.")
-        return f"{self._resolve_supabase_url()}/storage/v1/object/public/{self.bucket}/{object_path}"
+    def public_avatar_url(self, object_path: str) -> str:
+        encoded_object_path = parse.quote(object_path, safe="/.")
+        return f"{self._resolve_supabase_url()}/storage/v1/object/public/{self.bucket}/{encoded_object_path}"
+
+    @staticmethod
+    def _reencode_image(content: bytes, allowed_formats: set[str]) -> bytes:
+        """Valide la signature reelle puis reencode l'image en JPEG propre.
+
+        Le reencodage supprime les metadonnees (EXIF/GPS) et neutralise tout
+        contenu non-image embarque dans un faux JPEG/PNG/WEBP.
+        """
+        try:
+            image = Image.open(io.BytesIO(content))
+            image.verify()
+        except (UnidentifiedImageError, OSError, ValueError) as exc:
+            raise SupabaseStorageError(
+                "Fichier invalide. Image JPEG, PNG ou WEBP uniquement."
+            ) from exc
+
+        try:
+            image = Image.open(io.BytesIO(content))
+            if image.format not in allowed_formats:
+                raise SupabaseStorageError(
+                    "Format non autorise. Formats acceptes : JPEG, PNG, WEBP."
+                )
+
+            output = io.BytesIO()
+            image.convert("RGB").save(output, format="JPEG", quality=85, optimize=True)
+            return output.getvalue()
+        except SupabaseStorageError:
+            raise
+        except (OSError, ValueError) as exc:
+            raise SupabaseStorageError(
+                "Fichier invalide. Image JPEG, PNG ou WEBP uniquement."
+            ) from exc
 
     def upload_product_image(
         self,
@@ -298,31 +356,7 @@ class SupabaseStorageService:
         if normalized_content_type not in ALLOWED_PRODUCT_IMAGE_MIME_TYPES:
             raise SupabaseStorageError("Choisissez une image JPG, PNG ou WEBP.")
 
-        try:
-            image = Image.open(io.BytesIO(content))
-            image.verify()
-        except (UnidentifiedImageError, OSError, ValueError) as exc:
-            raise SupabaseStorageError(
-                "Fichier invalide. Image JPEG, PNG ou WEBP uniquement."
-            ) from exc
-
-        try:
-            image = Image.open(io.BytesIO(content))
-            if image.format not in ALLOWED_PRODUCT_IMAGE_FORMATS:
-                raise SupabaseStorageError(
-                    "Format non autorise. Formats acceptes : JPEG, PNG, WEBP."
-                )
-
-            output = io.BytesIO()
-            image_clean = image.convert("RGB")
-            image_clean.save(output, format="JPEG", quality=85, optimize=True)
-            clean_content = output.getvalue()
-        except SupabaseStorageError:
-            raise
-        except (OSError, ValueError) as exc:
-            raise SupabaseStorageError(
-                "Fichier invalide. Image JPEG, PNG ou WEBP uniquement."
-            ) from exc
+        clean_content = self._reencode_image(content, ALLOWED_PRODUCT_IMAGE_FORMATS)
 
         if len(clean_content) > MAX_PRODUCT_IMAGE_SIZE_BYTES:
             raise SupabaseStorageError("Image trop grande apres optimisation. Maximum 2 Mo.")

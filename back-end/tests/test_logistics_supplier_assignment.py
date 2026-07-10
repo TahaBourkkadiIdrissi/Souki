@@ -1,6 +1,6 @@
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 from dto.jit_dto import ZoneJITDTO
 from services.fournisseur_resolver import resoudre_fournisseur_pour_commande
@@ -58,7 +58,7 @@ class FournisseurResolverTests(unittest.TestCase):
 class JITAssignmentTests(unittest.TestCase):
     def test_verrouillage_pose_le_fournisseur(self):
         commande = SimpleNamespace(id=7, client_id=42, statut="CONFIRMEE", fournisseur_id=None)
-        session = Mock()
+        session = MagicMock()
         zone_dao = Mock()
         zone_dao.get_zones_actives.return_value = [SimpleNamespace(fournisseur_id=99)]
         service = JITService(Mock(), zone_dao)
@@ -80,7 +80,7 @@ class JITAssignmentTests(unittest.TestCase):
 
     def test_commande_non_resolue_reste_non_verrouillee(self):
         commande = SimpleNamespace(id=8, client_id=42, statut="CONFIRMEE", fournisseur_id=None)
-        session = Mock()
+        session = MagicMock()
         zone_dao = Mock()
         zone_dao.get_zones_actives.return_value = []
         service = JITService(Mock(), zone_dao)

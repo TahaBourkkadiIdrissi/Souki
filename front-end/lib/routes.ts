@@ -86,6 +86,13 @@ export const ROUTES: RouteConfig[] = [
     blockedPermissions: ["admin.panel.access", "livreur.dashboard.access"],
   },
   {
+    path: "/abonnements",
+    label: "Abonnements",
+    authRequired: false,
+    allowedRoles: ["PUBLIC", "CLIENT", "PARENT", "FOURNISSEUR"],
+    blockedPermissions: ["admin.panel.access", "livreur.dashboard.access"],
+  },
+  {
     path: "/checkout",
     label: "Checkout",
     authRequired: true,
@@ -313,13 +320,13 @@ export function canAccessRoute({
   isAuthenticated: boolean
   isLoading: boolean
 }): RouteAccessDecision {
-  if (isLoading) {
-    return { allowed: false, reason: "loading" }
-  }
-
   const route = getRouteConfig(pathname)
   if (!route) {
     return { allowed: true }
+  }
+
+  if (isLoading && route.authRequired) {
+    return { allowed: false, reason: "loading", route }
   }
 
   const hasAuthIntent =

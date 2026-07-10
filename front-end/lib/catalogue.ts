@@ -73,8 +73,10 @@ export interface SmartBasketResponse {
 export const CART_STORAGE_KEY = "souki-cart"
 export const FREE_DELIVERY_THRESHOLD = 300
 export const DELIVERY_FEE = 15
-export const POTATO_IMAGE_URL =
-  "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=800&h=600&fit=crop"
+const VEGETABLE_IMAGE_DIRECTORY = "/images/legumes"
+const vegetableImage = (filename: string) => `${VEGETABLE_IMAGE_DIRECTORY}/${filename}.png`
+
+export const POTATO_IMAGE_URL = vegetableImage("pomme-de-terre")
 
 const productPresentation: Record<
   string,
@@ -86,31 +88,31 @@ const productPresentation: Record<
   },
   "Oignons rouge": {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=800&h=600&fit=crop",
+    image: vegetableImage("oignon"),
   },
   Tomates: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&h=600&fit=crop",
+    image: vegetableImage("tomate"),
   },
   Carottes: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=800&h=600&fit=crop",
+    image: vegetableImage("carotte"),
   },
   Courgettes: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1768405741410-71317eceb565?w=800&h=600&fit=crop&auto=format",
+    image: vegetableImage("courgette"),
   },
   Piments: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1583119022894-919a68a3d0e3?w=800&h=600&fit=crop",
+    image: vegetableImage("piment"),
   },
   Aubergines: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1639428134238-b548770d4b77?w=800&h=600&fit=crop&auto=format",
+    image: vegetableImage("aubergine"),
   },
   Concombres: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1449300079323-02e209d9d3a6?w=800&h=600&fit=crop",
+    image: vegetableImage("concombre"),
   },
   "Menthe fraiche": {
     category: "herbes",
@@ -140,55 +142,55 @@ const productPresentation: Record<
   },
   Poivrons: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=800&h=600&fit=crop",
+    image: vegetableImage("poivron-rouge"),
   },
   "Haricots verts": {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1567375698348-5d9d5ae99de0?w=800&h=600&fit=crop",
+    image: vegetableImage("haricot-vert"),
   },
   Laitue: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1691546327195-01ac1055a870?w=800&h=600&fit=crop&auto=format",
+    image: vegetableImage("laitue"),
     displayUnit: "lot",
     quantityStep: 1,
   },
   Epinards: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=800&h=600&fit=crop",
+    image: vegetableImage("epinard"),
   },
   Ail: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1620574387735-3624d75b2dbc?w=800&h=600&fit=crop",
+    image: vegetableImage("ail"),
     displayUnit: "250g",
     quantityStep: 1,
   },
   Betteraves: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1639402480805-ea8ef529e028?w=800&h=600&fit=crop",
+    image: vegetableImage("betterave"),
   },
   Radis: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1638116282510-128dd635bbf7?w=800&h=600&fit=crop",
+    image: vegetableImage("radis"),
   },
   Navets: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1615485020845-601a6d2971a5?w=800&h=600&fit=crop",
+    image: vegetableImage("navet"),
   },
   Celeri: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1760368104744-bca7a41e0315?w=800&h=600&fit=crop&auto=format",
+    image: vegetableImage("celeri"),
   },
   Brocoli: {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1459411621453-7b03977f4bfc?w=800&h=600&fit=crop",
+    image: vegetableImage("brocoli"),
   },
   "Chou-fleur": {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1613743983303-b3e89f8a2b80?w=800&h=600&fit=crop",
+    image: vegetableImage("chou-fleur"),
   },
   "Petit pois": {
     category: "legumes",
-    image: "https://images.unsplash.com/photo-1567375698348-5d9d5ae99de0?w=800&h=600&fit=crop",
+    image: vegetableImage("petit-pois"),
   },
 }
 
@@ -281,7 +283,7 @@ export function getCataloguePresentation(name: string) {
 
 export function resolveCatalogueImage(name: string, imageUrl?: string | null) {
   const presentation = getCataloguePresentation(name)
-  if (normalizeProductName(name) === "pommes de terre") {
+  if (presentation.image.startsWith(`${VEGETABLE_IMAGE_DIRECTORY}/`)) {
     return presentation.image
   }
   return imageUrl || presentation.image
@@ -476,17 +478,13 @@ export async function submitManualBasket(cart: CartItem[]): Promise<ManualBasket
     prix_unitaire: item.price,
   }))
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-  
+  // VULN-010 : authentification via cookie httpOnly (envoye par apiCall avec
+  // credentials: "include"), plus aucun token lu depuis le localStorage.
   const payload = { items }
-  console.log("Sending payload:", payload)
 
   return apiCall("/api/manual-basket", {
     method: "POST",
-    headers: { 
-      "Content-Type": "application/json",
-      ...(token ? { "Authorization": `Bearer ${token}` } : {})
-    },
+    headers: { "Content-Type": "application/json" },
     body: payload,  // ← PAS de JSON.stringify! apiCall le fera
   }) as Promise<ManualBasketResponse>
 }
@@ -503,31 +501,20 @@ export async function generateSmartPanier(
 }
 
 export async function fetchPanierDetails(panierId: number): Promise<PanierDetailsResponse> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-  return apiCall(`/api/paniers/${panierId}`, {
-    ...(token ? { token } : {}),
-  }) as Promise<PanierDetailsResponse>
+  return apiCall(`/api/paniers/${panierId}`) as Promise<PanierDetailsResponse>
 }
 
 export async function fetchCommandeCheckout(commandeId: number): Promise<CommandeCheckoutResponse> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-  return apiCall(`/api/commandes/${commandeId}`, {
-    ...(token ? { token } : {}),
-  }) as Promise<CommandeCheckoutResponse>
+  return apiCall(`/api/commandes/${commandeId}`) as Promise<CommandeCheckoutResponse>
 }
 
 export async function fetchOrderHistory(): Promise<CommandeHistoriqueDTO[]> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-  return apiCall("/api/commandes/historique", {
-    ...(token ? { token } : {}),
-  }) as Promise<CommandeHistoriqueDTO[]>
+  return apiCall("/api/commandes/historique") as Promise<CommandeHistoriqueDTO[]>
 }
 
 export async function deleteOrderFromHistory(commandeId: number): Promise<{ success: boolean; message?: string }> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
   return apiCall(`/api/commandes/historique/${commandeId}`, {
     method: "DELETE",
-    ...(token ? { token } : {}),
   }) as Promise<{ success: boolean; message?: string }>
 }
 
@@ -555,10 +542,8 @@ export interface ClaimResponse {
 }
 
 export async function submitClaim(payload: ClaimCreatePayload): Promise<ClaimResponse> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
   return apiCall("/api/v1/claims", {
     method: "POST",
-    ...(token ? { token } : {}),
     body: payload,
   }) as Promise<ClaimResponse>
 }

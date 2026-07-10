@@ -1,5 +1,7 @@
-const DEFAULT_API_BASE_URL =
-  process.env.NODE_ENV === "development" ? "http://localhost:8000" : "/backend"
+// On passe TOUJOURS par le proxy same-origin /backend (dev comme prod). Cela rend le
+// cookie d'authentification httpOnly first-party (envoye automatiquement par le navigateur,
+// SameSite=Lax sans contrainte HTTPS en dev) et supprime tout host code en dur.
+const DEFAULT_API_BASE_URL = "/backend"
 
 export const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_BASE_URL
@@ -27,6 +29,16 @@ export class ApiError extends Error {
 export interface TourneeItem {
   commande_id: number
   ordre_passage?: number | null
+  fournisseur_id?: number | null
+  fournisseur_nom?: string | null
+  fournisseur_shop_name?: string | null
+  fournisseur_address?: string | null
+  fournisseur_ville?: string | null
+  fournisseur_phone?: string | null
+  fournisseur_latitude?: number | null
+  fournisseur_longitude?: number | null
+  pickup_lat?: number | null
+  pickup_lng?: number | null
   client_phone: string | null
   client_label: string
   street: string | null
@@ -232,6 +244,22 @@ export interface JITLogDTO {
   message_alerte?: string | null
 }
 
+export interface JITZoneExecutionResult {
+  statut: string
+  log_id?: number | null
+  volume_total_kg?: number
+  nombre_commandes?: number
+  nombre_verrouillees?: number
+  montant_total?: number
+  message?: string | null
+}
+
+export interface JITExecutionResponse {
+  statut: string
+  zones: Record<string, JITZoneExecutionResult>
+  nombre_zones: number
+}
+
 export interface JITDeverrouillerResponse {
   nombre_commandes?: number
   nombre_deverrouillees?: number
@@ -250,6 +278,12 @@ export interface JITCommandeDeverrouillee {
 export interface JITLogsParPlageResponse {
   logs: JITLogDTO[]
   nombre: number
+}
+
+export interface JITDernierLogResponse {
+  logs: JITLogDTO[]
+  nombre: number
+  mode: "regional" | "global"
 }
 
 export interface DeliveryEventRequest {
@@ -714,6 +748,8 @@ export async function apiCall<T = any>(endpoint: string, options: ApiOptions = {
     headers,
     signal: options.signal,
     cache: options.cache,
+    // Envoie le cookie httpOnly d'authentification.
+    credentials: "include",
   }
 
   if (options.body !== undefined) {
@@ -824,10 +860,23 @@ export async function validerPaiementCodLivreur(token: string, commandeId: strin
 }
 
 export async function jitExecuter(token: string) {
-  return apiCall<JITLogDTO>("/api/jit/executer", {
-    method: "POST",
-    token,
-  })
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), 30000)
+
+  try {
+    return await apiCall<JITExecutionResponse>("/api/jit/executer", {
+      method: "POST",
+      token,
+      signal: controller.signal,
+    })
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new ApiError(408, "Le backend ne répond pas pour le lancement JIT. Vérifiez que l'API est démarrée et accessible.")
+    }
+    throw error
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
 }
 
 export async function jitDeverrouiller(token: string) {
@@ -838,7 +887,19 @@ export async function jitDeverrouiller(token: string) {
 }
 
 export async function jitDernierLog(token: string) {
-  return apiCall<JITLogDTO>("/api/jit/logs/dernier", { token })
+  const response = await apiCall<JITDernierLogResponse>("/api/jit/logs/dernier", { token })
+  const logs = [...(response.logs || [])]
+  logs.sort((a, b) => {
+    const dateA = a.date_execution ? new Date(a.date_execution).getTime() : 0
+    const dateB = b.date_execution ? new Date(b.date_execution).getTime() : 0
+    return dateB - dateA
+  })
+
+  if (!logs[0]) {
+    throw new ApiError(404, "Aucun log JIT trouvé")
+  }
+
+  return logs[0]
 }
 
 export async function jitLogsParPlage(token: string, dateDebut: string, dateFin: string) {

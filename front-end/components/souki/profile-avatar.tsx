@@ -5,7 +5,8 @@ import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import { useProfile } from "@/hooks/useProfile"
 
-const HIDE_ON_ROUTES = ["/pwa-welcome", "/login", "/verify", "/onboarding"]
+// Routes sans avatar flottant : accueil (avatar dedie), parcours d'auth, et page Parametres (exigence : masque uniquement sur Reglages).
+const HIDE_ON_ROUTES = ["/pwa-welcome", "/login", "/verify", "/onboarding", "/parametres"]
 
 export function ProfileAvatar() {
   const pathname = usePathname()

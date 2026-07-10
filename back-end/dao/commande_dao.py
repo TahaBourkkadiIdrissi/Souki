@@ -1,3 +1,5 @@
+import logging
+
 from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 from sqlalchemy import func, update as sqlalchemy_update
@@ -30,6 +32,8 @@ from entities.user_session_entity import UserSession
 
 
 DISPATCHABLE_COMMANDE_STATUSES = ("VERROUILLEE",)
+
+logger = logging.getLogger("souki.dao.commande")
 
 
 class CommandeVocaleDaoBD(ICommandeVocaleDao):
@@ -65,8 +69,14 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
         session.flush()
         return True
         
-    def get_details_for_checkout(self, session: Session, commande_id: int) -> Optional[dict]:
-        cmd = session.query(CommandeVocale).filter(CommandeVocale.id == commande_id).first()
+    def get_details_for_checkout(self, session: Session, commande_id: int, user_id: int) -> Optional[dict]:
+        # Filtre par commande ET proprietaire (anti-IDOR) : la commande d'un autre
+        # client est traitee comme introuvable.
+        cmd = (
+            session.query(CommandeVocale)
+            .filter(CommandeVocale.id == commande_id, CommandeVocale.user_id == user_id)
+            .first()
+        )
         if not cmd:
             return None
         
@@ -283,7 +293,8 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                 )
                 for commande_vocale in commandes_vocales
             ]
-        except Exception:
+        except Exception as exc:
+            logger.warning("Fiche client: section commandes_vocales indisponible (%s)", type(exc).__name__)
             commandes_vocales_dto = []
 
         sessions_dto = []
@@ -306,7 +317,8 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                 )
                 for user_session in sessions
             ]
-        except Exception:
+        except Exception as exc:
+            logger.warning("Fiche client: section sessions indisponible (%s)", type(exc).__name__)
             sessions_dto = []
 
         notifications_dto = None
@@ -325,7 +337,8 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                     promotions=bool(notifications.promotions) if notifications.promotions is not None else None,
                     newsletter=bool(notifications.newsletter) if notifications.newsletter is not None else None,
                 )
-        except Exception:
+        except Exception as exc:
+            logger.warning("Fiche client: section notifications indisponible (%s)", type(exc).__name__)
             notifications_dto = None
 
         abonnement_dto = None
@@ -343,7 +356,8 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                     montant_mensuel=float(abonnement.montant_mensuel) if abonnement.montant_mensuel is not None else None,
                     actif=bool(abonnement.actif) if abonnement.actif is not None else None,
                 )
-        except Exception:
+        except Exception as exc:
+            logger.warning("Fiche client: section abonnement indisponible (%s)", type(exc).__name__)
             abonnement_dto = None
 
         adresses_dto = []
@@ -365,7 +379,8 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                 )
                 for adresse in adresses
             ]
-        except Exception:
+        except Exception as exc:
+            logger.warning("Fiche client: section adresses indisponible (%s)", type(exc).__name__)
             adresses_dto = []
 
         return FicheClientDTO(
@@ -595,53 +610,6 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
         commande.tournee_id = None
         commande.ordre_passage = None
         session.flush()
-
-    def _build_commande_historique_dto(self, commande: Commande) -> CommandeHistoriqueDTO:
-        produits = []
-        if commande.panier:
-            for ligne in commande.panier.lignes:
-                produit = ligne.produit
-                produits.append(
-                    ProduitCommandeJourDTO(
-                        ligne_panier_id=int(ligne.id) if ligne.id is not None else None,
-                        product_id=int(ligne.produit_id) if ligne.produit_id is not None else None,
-                        nom_fr=str(produit.nom_fr) if produit else "Produit supprime",
-                        quantite_kg=float(ligne.quantite_kg or 0.0),
-                        sous_total=float(ligne.sous_total) if ligne.sous_total is not None else None,
-                    )
-                )
-
-        paiement = commande.paiement
-        paiement_dto = None
-        if paiement:
-            paiement_dto = PaiementDTO(
-                methode=str(paiement.methode) if paiement.methode else None,
-                montant=float(paiement.montant) if paiement.montant is not None else None,
-                valide=bool(paiement.valide) if paiement.valide is not None else None,
-                frais_cmi=float(paiement.frais_cmi) if paiement.frais_cmi is not None else None,
-                montant_net=float(paiement.montant_net) if paiement.montant_net is not None else None,
-            )
-
-        payment_validated = bool(commande.payment_validated or (paiement and paiement.valide))
-        mode_paiement = str(commande.mode_paiement) if commande.mode_paiement else None
-        montant_total = float(commande.montant_total or 0.0)
-        montant_a_encaisser = montant_total if self._is_cod_mode(mode_paiement) and not payment_validated else 0.0
-
-        return CommandeHistoriqueDTO(
-            id=int(commande.id),  # type: ignore
-            date_commande=commande.date_commande,  # type: ignore
-            statut=str(commande.statut) if commande.statut else None,
-            montant_total=montant_total,
-            mode_paiement=mode_paiement,
-            payment_validated=payment_validated,
-            montant_a_encaisser=montant_a_encaisser,
-            creneau_livraison=str(commande.creneau_livraison) if commande.creneau_livraison else None,
-            enroute_at=commande.enroute_at,  # type: ignore
-            delivered_at=commande.delivered_at,  # type: ignore
-            absent_at=commande.absent_at,  # type: ignore
-            produits=produits,
-            paiement=paiement_dto,
-        )
 
     def _is_cod_mode(self, mode_paiement: Optional[str]) -> bool:
         normalized_mode = (mode_paiement or "").strip().casefold()

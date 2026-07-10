@@ -185,7 +185,7 @@ function variation(current: number, previous: number) {
 }
 
 function SkeletonBlock({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded-xl border border-[#E5E7EB] bg-white shadow-sm", className)} />
+  return <div className={cn("souki-skeleton rounded-xl border border-[#E5E7EB] shadow-sm", className)} />
 }
 
 function graphTitle(periode: DashboardPeriod, customDate: string) {

@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import sys
 import time
 from collections.abc import Callable, Iterable
@@ -21,7 +22,7 @@ logging.basicConfig(
 )
 
 import entities
-from config import Base, engine
+from config import ACCESS_TOKEN_COOKIE_NAME, Base, engine
 from controllers.admin_controller import admin_router, api_admin_router
 from controllers.admin_exception_controller import router_admin_exceptions
 from controllers.auth_controller import auth_router
@@ -218,10 +219,23 @@ async def lifespan(app: FastAPI):
     print("[SHUTDOWN] Application SOUKI arretee\n")
 
 
+def is_production_environment() -> bool:
+    return os.getenv("SOUKI_ENV", os.getenv("APP_ENV", "development")).strip().lower() in {
+        "prod",
+        "production",
+    }
+
+
 def get_allowed_origins() -> list[str]:
     configured_origins = os.getenv("FRONTEND_ORIGINS")
     if configured_origins:
         return [origin.strip() for origin in configured_origins.split(",") if origin.strip()]
+
+    # RISK-004 : en production, la liste d'origines doit etre explicite.
+    if is_production_environment():
+        raise RuntimeError(
+            "FRONTEND_ORIGINS est obligatoire en production (liste d'origines separees par des virgules)."
+        )
 
     return [
         "http://localhost:3000",
@@ -231,11 +245,19 @@ def get_allowed_origins() -> list[str]:
     ]
 
 
-def get_allowed_origin_regex() -> str:
+def get_allowed_origin_regex() -> str | None:
     configured_regex = os.getenv("FRONTEND_ORIGIN_REGEX")
     if configured_regex:
         return configured_regex
+    # RISK-004 : la regex localhost "tous ports" est reservee au developpement.
+    if is_production_environment():
+        return None
     return r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+
+
+# Methodes et en-tetes effectivement utilises par le front et le mobile.
+CORS_ALLOWED_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+CORS_ALLOWED_HEADERS = ["Authorization", "Content-Type", "Cache-Control", "Pragma"]
 
 
 def configure_cors(fastapi_app: FastAPI) -> None:
@@ -244,9 +266,40 @@ def configure_cors(fastapi_app: FastAPI) -> None:
         allow_origins=get_allowed_origins(),
         allow_origin_regex=get_allowed_origin_regex(),
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=CORS_ALLOWED_METHODS,
+        allow_headers=CORS_ALLOWED_HEADERS,
     )
+
+
+def register_csrf_protection(fastapi_app: FastAPI) -> None:
+    """Protection CSRF des ecritures authentifiees par cookie (VULN-010).
+
+    Quand l'authentification vient du cookie httpOnly, un site tiers peut forcer
+    le navigateur a envoyer ce cookie. On refuse donc toute methode d'ecriture
+    dont l'en-tete Origin (toujours envoye par les navigateurs sur les requetes
+    cross-site) ne correspond pas a une origine frontend declaree. Les clients
+    sans cookie (app mobile en Authorization: Bearer) ne sont pas concernes.
+    """
+    unsafe_methods = {"POST", "PUT", "PATCH", "DELETE"}
+    allowed_origins = set(get_allowed_origins())
+    origin_regex = get_allowed_origin_regex()
+    compiled_regex = re.compile(origin_regex) if origin_regex else None
+
+    @fastapi_app.middleware("http")
+    async def csrf_origin_check(request: Request, call_next):
+        if (
+            request.method in unsafe_methods
+            and request.cookies.get(ACCESS_TOKEN_COOKIE_NAME)
+        ):
+            origin = request.headers.get("origin")
+            if origin and origin not in allowed_origins and not (
+                compiled_regex and compiled_regex.match(origin)
+            ):
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "Origine non autorisee."},
+                )
+        return await call_next(request)
 
 
 def register_exception_handlers(fastapi_app: FastAPI) -> None:
@@ -287,6 +340,7 @@ def register_routers(fastapi_app: FastAPI) -> None:
 def create_app() -> FastAPI:
     fastapi_app = FastAPI(title="Fes Delivery Professional API", lifespan=lifespan)
     configure_cors(fastapi_app)
+    register_csrf_protection(fastapi_app)
     register_exception_handlers(fastapi_app)
     register_performance_middleware(fastapi_app)
     register_routers(fastapi_app)

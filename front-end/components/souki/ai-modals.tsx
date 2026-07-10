@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type CSSProperties } from "react"
 import { useRouter } from "next/navigation"
 import {
   AlertTriangle,
@@ -8,7 +8,6 @@ import {
   Check,
   ChevronDown,
   Loader2,
-  Mic,
   Minus,
   Plus,
   ShoppingCart,
@@ -17,6 +16,8 @@ import {
   Zap,
 } from "lucide-react"
 
+import { CartLoadingAnimation } from "@/components/cart/CartLoadingAnimation"
+import { VoiceOrb, type VoiceOrbPhase } from "@/components/souki/voice-orb"
 import { useAuth } from "@/hooks/useAuth"
 import { API_BASE_URL } from "@/lib/api"
 import {
@@ -99,12 +100,17 @@ export function AIModals({
   const [profile, setProfile] = useState<SmartBasketProfile>("equilibre")
   const [smartResult, setSmartResult] = useState<SmartBasketResponse | null>(null)
   const [isGeneratingSmart, setIsGeneratingSmart] = useState(false)
+  const [cartProgress, setCartProgress] = useState(0)
   const [smartSelections, setSmartSelections] = useState<BasketSelection[]>([])
   const [editedBasket, setEditedBasket] = useState<LigneCommandeDTO[]>([])
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const timeoutRef = useRef<number | null>(null)
+  const [voiceStream, setVoiceStream] = useState<MediaStream | null>(null)
+
+  // Derived phase that drives the reactive orb + transitions.
+  const orbPhase: VoiceOrbPhase = isSending ? "processing" : isListening ? "listening" : "idle"
 
   const clearRecordingTimers = () => {
     if (timeoutRef.current) {
@@ -134,6 +140,8 @@ export function AIModals({
     setSmartResult(null)
     setSmartSelections([])
     setEditedBasket([])
+    setCartProgress(0)
+    setVoiceStream(null)
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop()
     }
@@ -192,12 +200,20 @@ export function AIModals({
     router.push(`/checkout?commande_id=${result.commande_id}&cart=${encodedCart}`)
   }
 
+  // Light haptic feedback on supported mobile devices (progressive enhancement).
+  const haptic = (pattern: number | number[]) => {
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(pattern)
+    }
+  }
+
   const stopListening = () => {
     clearRecordingTimers()
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop()
     }
     setIsListening(false)
+    haptic(12)
   }
 
   const handleVoiceInteraction = async () => {
@@ -221,6 +237,7 @@ export function AIModals({
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      setVoiceStream(stream)
       const options =
         typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/webm")
           ? { mimeType: "audio/webm" }
@@ -237,6 +254,7 @@ export function AIModals({
       mediaRecorder.onstop = async () => {
         clearRecordingTimers()
         stream.getTracks().forEach((track) => track.stop())
+        setVoiceStream(null)
         setIsSending(true)
 
         try {
@@ -254,6 +272,10 @@ export function AIModals({
             headers: {
               Authorization: `Bearer ${token}`,
             },
+            // Le JWT reel vit dans le cookie httpOnly : il faut l'envoyer.
+            // (token vaut ici le sentinelle "cookie-session", non decodable cote back ;
+            // le backend privilegie le cookie.)
+            credentials: "include",
             body: formData,
           })
 
@@ -278,6 +300,7 @@ export function AIModals({
       mediaRecorderRef.current = mediaRecorder
       mediaRecorder.start()
       setIsListening(true)
+      haptic([8, 30, 8])
       timeoutRef.current = window.setTimeout(() => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
           mediaRecorderRef.current.stop()
@@ -315,9 +338,21 @@ export function AIModals({
     }
 
     setIsGeneratingSmart(true)
+    setCartProgress(0)
     setError(null)
     setSmartResult(null)
     setSmartSelections([])
+
+    // Simulate incremental progress while the API call is in flight.
+    // Progress rises quickly to ~85 % then slows, so the last jump to 100 %
+    // feels satisfying when the call resolves.
+    const progressIntervalId = window.setInterval(() => {
+      setCartProgress((prev) => {
+        if (prev >= 85) return prev + 0.5   // slow crawl near the end
+        return prev + 3                      // fast progress at the start
+      })
+    }, 120)
+
     try {
       const data = await generateSmartPanier(
         {
@@ -328,6 +363,12 @@ export function AIModals({
         },
         token
       )
+      // Jump to 100 % to signal completion
+      window.clearInterval(progressIntervalId)
+      setCartProgress(100)
+      // Small delay so the user sees 100 % before the result renders
+      await new Promise((resolve) => window.setTimeout(resolve, 800))
+
       setSmartResult(data)
       setSmartSelections(
         data.lignes_panier.map((line) => ({
@@ -335,7 +376,23 @@ export function AIModals({
           quantity: line.quantite_kg,
         }))
       )
+
+      // Auto redirect to checkout
+      const checkoutCart = data.lignes_panier.map((line) => ({
+        id: String(line.product_id),
+        name: line.nom_produit,
+        price: line.prix_unitaire,
+        quantity: line.quantite_kg,
+        unit: line.unite,
+        image: line.image,
+      }))
+      const encodedCart = encodeURIComponent(JSON.stringify(checkoutCart))
+      const panierQuery = data.panier_id ? `&panier_id=${data.panier_id}` : ""
+      closeModal()
+      router.push(`/checkout?source=smart${panierQuery}&cart=${encodedCart}`)
     } catch (generationError) {
+      window.clearInterval(progressIntervalId)
+      setCartProgress(0)
       setError(
         generationError instanceof Error
           ? generationError.message
@@ -394,7 +451,9 @@ export function AIModals({
       <div
         className={cn(
           "relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 shadow-2xl animate-in fade-in zoom-in-95 duration-200",
-          mode === "voice" ? "bg-[#111116] text-white" : "bg-white text-[#264129]"
+          mode === "voice"
+            ? "bg-[radial-gradient(circle_at_50%_28%,#1d2630_0%,#11131a_45%,#070709_100%)] text-white"
+            : "bg-white text-[#264129]"
         )}
       >
         {mode === "voice" && (
@@ -424,51 +483,51 @@ export function AIModals({
               </button>
             </div>
 
-            <div className="border-b border-white/10 py-12 text-center">
-              <div
+            <div className="relative flex flex-col items-center border-b border-white/10 px-6 pb-8 pt-10">
+              {/* The orb itself is the control: tap to start, tap again to stop. */}
+              <button
+                type="button"
+                onClick={handleVoiceInteraction}
+                disabled={isSending || isOrderLocked}
+                aria-label={isListening ? "Arreter l'ecoute" : "Commencer a parler"}
                 className={cn(
-                  "mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full transition-all duration-700",
-                  isSending
-                    ? "bg-gradient-to-tr from-[#F07C00] to-[#FF9421] shadow-[0_0_30px_#F07C00]"
-                    : isListening
-                      ? "bg-gradient-to-tr from-[#1E8A3C] to-[#4CB84A] shadow-[0_0_30px_#1E8A3C]"
-                      : "bg-white/10"
+                  "group relative rounded-full outline-none transition-transform duration-200 active:scale-95",
+                  (isSending || isOrderLocked) ? "cursor-not-allowed" : "cursor-pointer hover:scale-[1.02]"
                 )}
               >
-                {isSending ? (
-                  <Loader2 className="h-6 w-6 animate-spin text-white" />
-                ) : (
-                  <Mic className="h-6 w-6 text-white" />
+                <VoiceOrb phase={orbPhase} stream={voiceStream} size={220} />
+              </button>
+
+              {/* Dynamic status pill — tells the user what the system is doing */}
+              <div
+                className={cn(
+                  "mt-5 flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium transition-all duration-500",
+                  isSending
+                    ? "bg-[#4CB84A]/15 text-[#7FE07C]"
+                    : isListening
+                      ? "bg-[#4CB84A]/10 text-[#9BE99A]"
+                      : "bg-white/5 text-white/50"
                 )}
-              </div>
-
-              <div className="flex h-8 items-center justify-center gap-1">
-                {Array.from({ length: 15 }).map((_, index) => (
-                  <div
-                    key={index}
-                    className={cn(
-                      "w-1.5 rounded-full bg-white/20 transition-all duration-300",
-                      isListening ? "animate-pulse" : "h-2"
-                    )}
-                    style={{
-                      height: isListening ? `${Math.max(8, ((index % 5) + 1) * 6)}px` : "8px",
-                      animationDelay: `${index * 0.1}s`,
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className="p-6 text-center">
-              <p className="text-sm font-medium text-white/85">
+              >
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    isSending
+                      ? "animate-pulse bg-[#4CB84A]"
+                      : isListening
+                        ? "animate-ping bg-[#4CB84A]"
+                        : "bg-white/40"
+                  )}
+                />
                 {isSending
-                  ? "IA-SOUKI analyse votre commande..."
+                  ? "Composition du panier…"
                   : isListening
-                    ? "Parlez maintenant puis recliquez pour arreter."
-                    : "Appuyez sur le micro et decrivez votre panier."}
-              </p>
-              <p className="mt-2 text-[11px] text-white/45">
-                Darija et francais pris en charge.
+                    ? "À l'écoute — touchez la sphère pour arrêter"
+                    : "Touchez la sphère pour parler"}
+              </div>
+
+              <p className="mt-2 text-[11px] text-white/40">
+                Darija et français pris en charge.
               </p>
 
               {isOrderLocked && (
@@ -476,29 +535,6 @@ export function AIModals({
                   {orderLockMessage}
                 </div>
               )}
-
-              <button
-                onClick={handleVoiceInteraction}
-                disabled={isSending || isOrderLocked}
-                className={cn(
-                  "mx-auto mt-8 flex w-full max-w-[220px] flex-col items-center justify-center rounded-3xl bg-white/5 px-6 py-5 transition-all duration-300 hover:bg-white/10",
-                  (isSending || isOrderLocked) && "cursor-not-allowed opacity-50"
-                )}
-              >
-                <div
-                  className={cn(
-                    "mb-3 flex h-16 w-16 items-center justify-center rounded-full",
-                    isListening
-                      ? "bg-gradient-to-tr from-[#1E8A3C] to-[#4CB84A]"
-                      : "bg-gradient-to-tr from-[#1E8A3C]/50 to-[#4CB84A]/50"
-                  )}
-                >
-                  <Mic className="h-6 w-6 text-white" />
-                </div>
-                <span className="text-xs font-medium text-white/70">
-                  {isSending ? "Traitement..." : isListening ? "Arreter" : "Commencer a parler"}
-                </span>
-              </button>
             </div>
 
             {error && (
@@ -511,7 +547,7 @@ export function AIModals({
             )}
 
             {result && (
-              <div className="mx-6 mb-6 rounded-3xl border border-white/10 bg-white/5 p-4">
+              <div className="mx-6 mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 animate-slide-in-up">
                 <div className="mb-3 flex items-center gap-2 text-[#4CB84A]">
                   <ShoppingCart className="h-4 w-4" />
                   <h4 className="text-sm font-bold">
@@ -532,12 +568,13 @@ export function AIModals({
                   </div>
                 ) : (
                   <div className="space-y-2 mb-3">
-                    {editedBasket.map((line) => {
+                    {editedBasket.map((line, lineIndex) => {
                       const unit = line.quantite_effective >= 1 ? "kg" : "kg"
                       return (
                         <div
                           key={`${line.product_id}-${line.nom_produit}`}
-                          className="rounded-2xl bg-white/5 p-3 transition-all hover:bg-white/8"
+                          className="rounded-2xl bg-white/5 p-3 transition-all hover:bg-white/8 animate-cascade"
+                          style={{ "--cascade-i": lineIndex } as CSSProperties}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
@@ -639,6 +676,12 @@ export function AIModals({
 
         {mode === "smart" && (
           <div className="flex max-h-[90vh] flex-col overflow-y-auto">
+            {/* ── Cart-loading animation overlay ── */}
+            {isGeneratingSmart && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-3xl bg-white/95 backdrop-blur-sm">
+                <CartLoadingAnimation progress={cartProgress} />
+              </div>
+            )}
             <div className="flex items-center justify-between border-b border-gray-100 p-6">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#F07C00] to-[#FF9421] text-white shadow-lg shadow-orange-500/20">
@@ -766,7 +809,19 @@ export function AIModals({
                 {isOrderLocked
                   ? orderLockMessage
                   : isGeneratingSmart
-                    ? "Le modele compose votre panier. Cela peut prendre quelques secondes."
+                    ? (
+                      <div className="space-y-3">
+                        <p className="font-semibold">Generation de votre panier en cours...</p>
+                        <div className="h-4 w-full overflow-hidden rounded-full bg-[#FFE8CC]">
+                          <div
+                            className="h-full bg-[#F07C00] transition-all duration-300 ease-out flex items-center justify-end px-2"
+                            style={{ width: `${Math.min(cartProgress, 100)}%` }}
+                          >
+                          </div>
+                        </div>
+                        <p className="text-right text-xs font-bold text-[#F07C00]">{Math.round(Math.min(cartProgress, 100))}%</p>
+                      </div>
+                    )
                     : "IA-SOUKI compose un panier avec le modele ML entraine sur les compositions SOUKI."}
               </div>
 
@@ -777,16 +832,17 @@ export function AIModals({
               )}
 
               {smartPreview.length > 0 && (
-                <div className="rounded-3xl border border-[#F3E2CE] bg-[#FFFBF7] p-4">
+                <div className="rounded-3xl border border-[#F3E2CE] bg-[#FFFBF7] p-4 animate-slide-in-up">
                   <div className="mb-3 flex items-center gap-2 text-[#C96A00]">
                     <Check className="h-4 w-4" />
                     <h4 className="text-sm font-bold">Panier suggere</h4>
                   </div>
                   <div className="space-y-2">
-                    {smartPreview.map((item) => (
+                    {smartPreview.map((item, itemIndex) => (
                       <div
                         key={item.line.product_id}
-                        className="flex items-center justify-between rounded-2xl bg-white p-3"
+                        className="flex items-center justify-between rounded-2xl bg-white p-3 animate-cascade"
+                        style={{ "--cascade-i": itemIndex } as CSSProperties}
                       >
                         <div>
                           <p className="text-sm font-semibold text-[#264129]">{item.name}</p>

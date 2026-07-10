@@ -61,3 +61,33 @@ class UserSessionService:
             )
         finally:
             db.close()
+
+    def is_session_active(self, session_id: int) -> bool:
+        """Verifie qu'une session (par id) est toujours active (non revoquee)."""
+        db = LocalSession()
+        try:
+            session = (
+                db.query(UserSession)
+                .filter(UserSession.id == session_id, UserSession.is_active.is_(True))
+                .first()
+            )
+            return session is not None
+        finally:
+            db.close()
+
+    def invalidate_token_session(self, token: str) -> bool:
+        """Desactive la session correspondant au token (deconnexion)."""
+        db = LocalSession()
+        try:
+            session = (
+                db.query(UserSession)
+                .filter(UserSession.token_hash == self._hash_token(token), UserSession.is_active.is_(True))
+                .first()
+            )
+            if not session:
+                return False
+            session.is_active = False
+            db.commit()
+            return True
+        finally:
+            db.close()

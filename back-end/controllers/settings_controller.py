@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
-from auth_dependencies import oauth2_scheme, require_auth
+from auth_dependencies import require_auth
 from dto.settings_dto import (
     AddressUpdateDTO,
     ChangePasswordDTO,
@@ -16,7 +16,6 @@ from services.supabase_storage_service import (
     SupabaseStorageConfigError,
     SupabaseStorageError,
 )
-from services.user_session_service import UserSessionService
 
 settings_router = APIRouter(prefix="/api/user", tags=["UserSettings"])
 _service = SettingsService()
@@ -28,9 +27,9 @@ def get_profile(principal=Depends(require_auth)):
 
 
 @settings_router.get("/bootstrap")
-def get_settings_bootstrap(token: str = Depends(oauth2_scheme), principal=Depends(require_auth)):
-    current = UserSessionService().validate_token_session(token)
-    current_session_id = current.id if current else None
+def get_settings_bootstrap(principal=Depends(require_auth)):
+    # require_auth attache deja l'id de la session courante au principal.
+    current_session_id = getattr(principal, "session_id", None)
     return _service.get_settings_bootstrap(principal.user_id, current_session_id)
 
 
@@ -51,7 +50,10 @@ def upload_profile_photo(
 ):
     if file.content_type not in ALLOWED_AVATAR_MIME_TYPES:
         raise HTTPException(status_code=400, detail="Choisissez une image JPG, PNG ou WEBP.")
-    content = file.file.read()
+    # RISK-001 : lecture bornee (limite + 1 octet) -> 413 avant lecture complete.
+    # La signature reelle est ensuite verifiee et l'image reencodee (metadonnees
+    # supprimees) par SupabaseStorageService.upload_avatar.
+    content = file.file.read(MAX_AVATAR_SIZE_BYTES + 1)
     if len(content) > MAX_AVATAR_SIZE_BYTES:
         raise HTTPException(status_code=413, detail="L'image ne doit pas depasser 2 Mo.")
 
@@ -79,9 +81,8 @@ def change_password(data: ChangePasswordDTO, principal=Depends(require_auth)):
 
 
 @settings_router.get("/sessions")
-def get_sessions(token: str = Depends(oauth2_scheme), principal=Depends(require_auth)):
-    current = UserSessionService().validate_token_session(token)
-    current_session_id = current.id if current else None
+def get_sessions(principal=Depends(require_auth)):
+    current_session_id = getattr(principal, "session_id", None)
     return _service.get_sessions(principal.user_id, current_session_id)
 
 

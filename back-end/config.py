@@ -54,7 +54,17 @@ Base = declarative_base()
 # Security Config
 SECRET_KEY = _get_required_env("SECRET_KEY")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 7 jours
+# Duree reduite de 7 jours a 24 h (VULN-010) ; surchargeable via l'environnement.
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", str(60 * 24)))
+
+# Cookie d'authentification httpOnly (migration depuis le localStorage cote front).
+# Le token reste lisible depuis l'en-tete Authorization (retrocompatible), mais il est
+# desormais aussi pose dans un cookie httpOnly inaccessible au JavaScript (anti-XSS).
+ACCESS_TOKEN_COOKIE_NAME = "access_token"
+# secure=True exige HTTPS : on l'active en prod via COOKIE_SECURE=1, desactive en dev (http://localhost).
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "0").lower() in ("1", "true", "yes")
+# Lax suffit ici : le front passe par le proxy same-origin /backend, donc le cookie est first-party.
+COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax")
 
 
 # Dans config.py
