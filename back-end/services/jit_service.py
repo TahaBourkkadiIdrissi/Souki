@@ -17,7 +17,7 @@ from interfaces.jit_service_interface import IJITService
 from interfaces.zone_jit_dao_interface import IZoneJITDao
 from services.commande_state_machine import changer_statut
 from services.date_utils import today_morocco
-from services.fournisseur_resolver import resoudre_fournisseur_pour_commande
+from services.fournisseur_resolver import resoudre_fournisseur_pour_adresse
 from services.notification_jit_service import notifier_fournisseur
 from services.zone_resolver import resoudre_zone
 
@@ -55,6 +55,56 @@ class JITService(IJITService):
             .count()
         )
 
+    def _get_default_geolocated_addresses(
+        self,
+        session: Session,
+        client_ids: List[int],
+    ) -> dict[int, Address]:
+        normalized_ids = sorted({int(client_id) for client_id in client_ids if client_id is not None})
+        if not normalized_ids:
+            return {}
+
+        addresses = (
+            session.query(Address)
+            .filter(
+                Address.user_id.in_(normalized_ids),
+                Address.is_default == True,
+                Address.latitude.isnot(None),
+                Address.longitude.isnot(None),
+            )
+            .order_by(Address.user_id.asc(), Address.id.asc())
+            .all()
+        )
+
+        addresses_by_client: dict[int, Address] = {}
+        for address in addresses:
+            client_id = int(address.user_id)
+            if client_id not in addresses_by_client:
+                addresses_by_client[client_id] = address
+        return addresses_by_client
+
+    def _filter_commandes_by_zone(
+        self,
+        commandes: List[Commande],
+        zone: ZoneJITDTO,
+        addresses_by_client: dict[int, Address],
+        *,
+        allow_unlocated_fallback: bool = False,
+    ) -> List[Commande]:
+        dans_zone = []
+        for commande in commandes:
+            client_id = int(commande.client_id) if commande.client_id is not None else None
+            addr = addresses_by_client.get(client_id) if client_id is not None else None
+            if addr and resoudre_zone(float(addr.latitude), float(addr.longitude), [zone]):  # type: ignore
+                dans_zone.append(commande)
+            elif (
+                not addr
+                and allow_unlocated_fallback
+                and getattr(zone, "fournisseur_id", None) is not None
+            ):
+                dans_zone.append(commande)
+        return dans_zone
+
     def _get_commandes_du_jour(
         self,
         session: Session,
@@ -76,27 +126,16 @@ class JITService(IJITService):
         if zone is None:
             return commandes
 
-        dans_zone = []
-        for commande in commandes:
-            addr = (
-                session.query(Address)
-                .filter(
-                    Address.user_id == commande.client_id,
-                    Address.is_default == True,
-                    Address.latitude.isnot(None),
-                    Address.longitude.isnot(None),
-                )
-                .first()
-            )
-            if addr and resoudre_zone(float(addr.latitude), float(addr.longitude), [zone]):  # type: ignore
-                dans_zone.append(commande)
-            elif (
-                not addr
-                and allow_unlocated_fallback
-                and getattr(zone, "fournisseur_id", None) is not None
-            ):
-                dans_zone.append(commande)
-        return dans_zone
+        addresses_by_client = self._get_default_geolocated_addresses(
+            session,
+            [int(commande.client_id) for commande in commandes if commande.client_id is not None],
+        )
+        return self._filter_commandes_by_zone(
+            commandes,
+            zone,
+            addresses_by_client,
+            allow_unlocated_fallback=allow_unlocated_fallback,
+        )
 
     def agreger_commandes(
         self,
@@ -226,6 +265,10 @@ class JITService(IJITService):
                 if self.zone_jit_dao
                 else []
             )
+            addresses_by_client = self._get_default_geolocated_addresses(
+                session,
+                [int(commande.client_id) for commande in commandes if commande.client_id is not None],
+            )
 
             nombre_verrouillees = 0
             for commande in commandes:
@@ -234,11 +277,9 @@ class JITService(IJITService):
                 # des autres commandes du jour.
                 try:
                     with session.begin_nested():
-                        fournisseur_id = resoudre_fournisseur_pour_commande(
-                            session,
-                            commande,
-                            zones,
-                        )
+                        client_id = int(commande.client_id) if commande.client_id is not None else None
+                        adresse = addresses_by_client.get(client_id) if client_id is not None else None
+                        fournisseur_id = resoudre_fournisseur_pour_adresse(adresse, zones)
 
                         # Conserver la logique HEAD de fallback.
                         if (
@@ -313,22 +354,15 @@ class JITService(IJITService):
                     else None
                 )
                 if zone_dto:
-                    commandes_a_ouvrir = []
-                    for c in commandes_raw:
-                        addr = (
-                            session.query(Address)
-                            .filter(
-                                Address.user_id == c.client_id,
-                                Address.is_default == True,
-                                Address.latitude.isnot(None),
-                                Address.longitude.isnot(None),
-                            )
-                            .first()
-                        )
-                        if addr and resoudre_zone(
-                            float(addr.latitude), float(addr.longitude), [zone_dto]  # type: ignore
-                        ):
-                            commandes_a_ouvrir.append(c)
+                    addresses_by_client = self._get_default_geolocated_addresses(
+                        session,
+                        [int(c.client_id) for c in commandes_raw if c.client_id is not None],
+                    )
+                    commandes_a_ouvrir = self._filter_commandes_by_zone(
+                        commandes_raw,
+                        zone_dto,
+                        addresses_by_client,
+                    )
                 else:
                     commandes_a_ouvrir = commandes_raw
             else:

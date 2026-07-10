@@ -176,3 +176,5 @@ mobile/*.log
 # Secrets locaux des clients REST (VULN-001) : jamais versionnes
 http-client.private.env.json
 http-client.env.json
+
+bug_hunt_report.html
