@@ -121,7 +121,7 @@ class TestExecuterJobJITRegional:
 
         service = self._build_service(jit_dao, zone_dao)
 
-        def agreger_side_effect(session, zone=None):
+        def agreger_side_effect(session, zone=None, **kwargs):
             if zone and zone.nom_ville == "meknes":
                 raise RuntimeError("Erreur DB Meknès simulée")
             return _make_resultat()
@@ -152,6 +152,7 @@ class TestExecuterJobJITRegional:
         mock_session_cls.return_value = MagicMock()
 
         service = self._build_service(jit_dao, zone_dao)
+        service._count_locked_commandes_today = MagicMock(return_value=5)
         service.agreger_commandes = MagicMock()
 
         resultats = service.executer_job_jit_regional(actor_id=1)
@@ -187,8 +188,8 @@ class TestExecuterJobJITRegional:
         service.verrouiller_commandes.assert_not_called()
 
     @patch("services.jit_service.LocalSession")
-    def test_sans_zones_retourne_vide(self, mock_session_cls):
-        """Sans zones actives, retourne un dict vide."""
+    def test_sans_zones_leve_erreur(self, mock_session_cls):
+        """Sans zones actives, signale une configuration JIT invalide."""
         jit_dao = MagicMock()
         zone_dao = MagicMock()
         zone_dao.get_zones_actives.return_value = []
@@ -197,9 +198,8 @@ class TestExecuterJobJITRegional:
 
         service = self._build_service(jit_dao, zone_dao)
 
-        resultats = service.executer_job_jit_regional(actor_id=1)
-
-        assert resultats == {}
+        with pytest.raises(RuntimeError, match="Aucune zone JIT active"):
+            service.executer_job_jit_regional(actor_id=1)
 
 
 # ============================================================

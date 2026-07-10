@@ -7,6 +7,22 @@ from entities.commande_entity import Commande
 from services.zone_resolver import resoudre_zone
 
 
+def resoudre_fournisseur_pour_adresse(
+    adresse: Address | None,
+    zones: Sequence[Any],
+) -> Optional[int]:
+    if not adresse or not zones:
+        return None
+
+    zone = resoudre_zone(
+        float(adresse.latitude),
+        float(adresse.longitude),
+        list(zones),
+    )
+    fournisseur_id = getattr(zone, "fournisseur_id", None) if zone else None
+    return int(fournisseur_id) if fournisseur_id is not None else None
+
+
 def resoudre_fournisseur_pour_commande(
     session: Session,
     commande: Commande,
@@ -28,10 +44,4 @@ def resoudre_fournisseur_pour_commande(
     if not adresse:
         return None
 
-    zone = resoudre_zone(
-        float(adresse.latitude),
-        float(adresse.longitude),
-        list(zones),
-    )
-    fournisseur_id = getattr(zone, "fournisseur_id", None) if zone else None
-    return int(fournisseur_id) if fournisseur_id is not None else None
+    return resoudre_fournisseur_pour_adresse(adresse, zones)
