@@ -17,7 +17,7 @@ from interfaces.jit_service_interface import IJITService
 from interfaces.zone_jit_dao_interface import IZoneJITDao
 from services.commande_state_machine import changer_statut
 from services.date_utils import today_morocco
-from services.fournisseur_resolver import resoudre_fournisseur_pour_adresse
+from services.fournisseur_resolver import resoudre_fournisseur_pour_commande
 from services.notification_jit_service import notifier_fournisseur
 from services.zone_resolver import resoudre_zone
 
@@ -265,11 +265,6 @@ class JITService(IJITService):
                 if self.zone_jit_dao
                 else []
             )
-            addresses_by_client = self._get_default_geolocated_addresses(
-                session,
-                [int(commande.client_id) for commande in commandes if commande.client_id is not None],
-            )
-
             nombre_verrouillees = 0
             for commande in commandes:
                 # Savepoint par commande : une commande qui échoue (statut inattendu,
@@ -277,11 +272,8 @@ class JITService(IJITService):
                 # des autres commandes du jour.
                 try:
                     with session.begin_nested():
-                        client_id = int(commande.client_id) if commande.client_id is not None else None
-                        adresse = addresses_by_client.get(client_id) if client_id is not None else None
-                        fournisseur_id = resoudre_fournisseur_pour_adresse(adresse, zones)
+                        fournisseur_id = resoudre_fournisseur_pour_commande(session, commande, zones)
 
-                        # Conserver la logique HEAD de fallback.
                         if (
                             fournisseur_id is None
                             and allow_unlocated_fallback
