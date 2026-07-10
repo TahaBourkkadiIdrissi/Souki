@@ -26,6 +26,7 @@ requests>=2.32.4           # requis par google.auth.transport.requests
 google-genai>=2.0.0,<3.0   # SDK Gemini (api/algorithms.py) ; 0.2.0 exigeait pillow<12 (conflit CVE)
 apscheduler>=3.10.4,<4.0
 phonenumbers>=8.13.0
+resend>=2.10.0             # envoi des emails OTP (supporte les cles d'idempotence)
 pillow>=12.2.0             # re-encodage des images uploadees ; >=12.2 corrige les CVE 2026
 python-dotenv>=1.0.1
 
