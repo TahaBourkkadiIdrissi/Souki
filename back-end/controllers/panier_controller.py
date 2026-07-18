@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from auth_dependencies import require_auth, require_permission
-from dependencies import get_ml_panier_service, get_panier_service
+from dependencies import get_dish_composition_service, get_ml_panier_service, get_panier_service
 from dto.panier_dto import (
+    DishCompositionResponseDTO,
+    DishSummaryDTO,
     ManualBasketRequestDTO,
     ManualBasketResponseDTO,
     PanierDetailsDTO,
@@ -10,7 +12,12 @@ from dto.panier_dto import (
     PanierResponseDTO,
 )
 from interfaces.panier_service_interface import IPanierService
-from services.ml_panier_service import MLModelUnavailableError, MLPanierService
+from services.dish_composition_service import DishCompositionService
+from services.ml_panier_service import (
+    BasketGenerationError,
+    MLModelUnavailableError,
+    MLPanierService,
+)
 
 
 router_panier = APIRouter(prefix="/api", tags=["Panier"])
@@ -39,6 +46,12 @@ def generer_panier_intelligent(
         return service.generer_panier(payload, principal.user_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except BasketGenerationError:
+        raise HTTPException(
+            status_code=503,
+            detail="La generation du panier est momentanement indisponible. "
+            "Veuillez reessayer ou composer votre panier manuellement.",
+        )
     except MLModelUnavailableError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
@@ -46,6 +59,33 @@ def generer_panier_intelligent(
             status_code=500,
             detail=f"Erreur lors de la generation du panier intelligent: {str(e)}",
         )
+
+
+# NB: routes declarees avant /paniers/{panier_id} pour que "plats" ne soit pas
+# capture par le parametre de chemin entier.
+@router_panier.get("/paniers/plats", response_model=list[DishSummaryDTO])
+def list_dish_compositions(
+    principal=Depends(require_permission("client.dashboard.access", "parent.dashboard.access", match="any")),
+    service: DishCompositionService = Depends(get_dish_composition_service),
+):
+    _ = principal
+    # Dropdown du panier IA: seuls les plats ayant au moins un ingredient
+    # disponible au catalogue sont proposes (la voix garde les 100 plats).
+    return service.list_dishes(only_with_available_ingredients=True)
+
+
+@router_panier.get("/paniers/plats/{dish_id}", response_model=DishCompositionResponseDTO)
+def get_dish_composition(
+    dish_id: str,
+    personnes: int = Query(4, ge=1, le=8),
+    principal=Depends(require_permission("client.dashboard.access", "parent.dashboard.access", match="any")),
+    service: DishCompositionService = Depends(get_dish_composition_service),
+):
+    _ = principal
+    composition = service.resolve_composition(dish_id, personnes)
+    if composition is None:
+        raise HTTPException(status_code=404, detail="Plat introuvable.")
+    return composition
 
 
 @router_panier.get("/paniers/{panier_id}", response_model=PanierDetailsDTO)

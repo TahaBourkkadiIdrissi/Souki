@@ -46,7 +46,7 @@ from services.delivery_schema_sync_service import DeliverySchemaSyncService
 from services.dispatch_schema_sync_service import DispatchSchemaSyncService
 from services.jit_schema_sync_service import JITSchemaSyncService
 from services.logistics_schema_sync_service import LogisticsSchemaSyncService
-from services.ml_panier_service import ml_panier_service
+from services.perf_index_sync_service import PerfIndexSyncService
 from services.rbac_bootstrap_service import RBACBootstrapService
 from services.scheduler_service import start_scheduler, stop_scheduler
 from services.supplier_schema_sync_service import SupplierSchemaSyncService
@@ -113,6 +113,7 @@ def sync_database_schema() -> None:
             AppTask("logistics schema sync", LogisticsSchemaSyncService.sync),
             AppTask("fournisseur produits schema sync", FournisseurProduitSchemaSyncService.sync),
             AppTask("jit schema sync", JITSchemaSyncService.sync),
+            AppTask("perf index sync", PerfIndexSyncService.sync),
             AppTask("avatar column sync", avatar_storage_service.ensure_avatar_column),
         ),
         "STARTUP",
@@ -158,32 +159,8 @@ def initialize_application() -> None:
         avatar_storage_service.bootstrap_avatar_storage()
 
 
-def preload_ml_panier_model() -> None:
-    ml_panier_service.load_model()
-    ml_panier_service.warmup_remote_model()
-    if ml_panier_service.load_error:
-        if env_flag("SOUKI_ML_REQUIRE_REMOTE", False):
-            message = (
-                "Panier intelligent indisponible: le modele Hugging Face distant est requis, "
-                f"mais le prechargement a echoue. Detail: {ml_panier_service.load_error}"
-            )
-            if env_flag("SOUKI_ML_FAIL_STARTUP_ON_REMOTE_ERROR", False):
-                raise RuntimeError(message)
-            print(f"[STARTUP] {message}")
-            return
-        print("[STARTUP] Panier intelligent disponible via fallback local")
-        print(f"[STARTUP] Detail HF panier: {ml_panier_service.load_error}")
-    else:
-        print("[STARTUP] Modele panier intelligent precharge")
-
-
 def get_startup_tasks() -> tuple[AppTask, ...]:
     tasks: list[AppTask] = [AppTask("initialisation application", initialize_application)]
-
-    if env_flag("SOUKI_ML_PRELOAD_MODEL", False):
-        tasks.append(AppTask("prechargement modele panier", preload_ml_panier_model))
-    else:
-        print("[STARTUP] Prechargement ML ignore. Active avec SOUKI_ML_PRELOAD_MODEL=1")
 
     if env_flag("SOUKI_ENABLE_SCHEDULER", True):
         tasks.append(AppTask("scheduler", start_scheduler))
@@ -198,9 +175,6 @@ def get_shutdown_tasks() -> tuple[AppTask, ...]:
 
     if env_flag("SOUKI_ENABLE_SCHEDULER", True):
         tasks.append(AppTask("scheduler", stop_scheduler))
-
-    if ml_panier_service.is_loaded:
-        tasks.append(AppTask("dechargement modele panier", ml_panier_service.unload_model))
 
     return tuple(tasks)
 

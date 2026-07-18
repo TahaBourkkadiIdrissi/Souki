@@ -58,14 +58,16 @@ class FournisseurResolverTests(unittest.TestCase):
 class JITAssignmentTests(unittest.TestCase):
     def test_verrouillage_pose_le_fournisseur(self):
         commande = SimpleNamespace(id=7, client_id=42, statut="CONFIRMEE", fournisseur_id=None)
+        adresse = SimpleNamespace(latitude=33.5731, longitude=-7.5898)
         session = MagicMock()
         zone_dao = Mock()
         zone_dao.get_zones_actives.return_value = [SimpleNamespace(fournisseur_id=99)]
         service = JITService(Mock(), zone_dao)
         service._get_commandes_du_jour = Mock(return_value=[commande])
+        service._get_default_geolocated_addresses = Mock(return_value={42: adresse})
 
         with (
-            patch("services.jit_service.resoudre_fournisseur_pour_commande", return_value=99),
+            patch("services.jit_service.resoudre_fournisseur_pour_adresse", return_value=99),
             patch("services.jit_service.changer_statut") as changer_statut_mock,
         ):
             count = service.verrouiller_commandes(session, actor_id=1)
@@ -85,9 +87,10 @@ class JITAssignmentTests(unittest.TestCase):
         zone_dao.get_zones_actives.return_value = []
         service = JITService(Mock(), zone_dao)
         service._get_commandes_du_jour = Mock(return_value=[commande])
+        service._get_default_geolocated_addresses = Mock(return_value={})
 
         with (
-            patch("services.jit_service.resoudre_fournisseur_pour_commande", return_value=None),
+            patch("services.jit_service.resoudre_fournisseur_pour_adresse", return_value=None),
             patch("services.jit_service.changer_statut") as changer_statut_mock,
         ):
             count = service.verrouiller_commandes(session, actor_id=1)

@@ -870,25 +870,25 @@ def validate_stock(product_ids: List[int], quantities: List[float]) → bool
 ### 3. ML Panier Service (`ml_panier_service.py`)
 
 **Responsibilities**:
-- Load fine-tuned Gemma-2-2B model from Hugging Face
-- Generate intelligent basket compositions from text/voice
-- Fallback to local 200-compositions.json if HF unavailable
-- Handle model warmup and timeout handling
+- Generate intelligent basket compositions via prompt engineering (Groq / Llama)
+- Build a system prompt from the live product catalogue + a strict JSON schema
+- Validate Groq's JSON output against the catalogue; retry once then raise on failure
+- Enforce a 1/2/3 price-level basket and cache results per criteria
 
 **Technology**:
-- Model: Google Gemma-2-2B (2.6B parameters)
-- Fine-tuning: QLoRA with LoRA rank=16
-- Training: SFTTrainer on composition examples
-- Expected Perplexity: 4.5-10
-- JSON Validation: 95%+ valid output
+- Provider: Groq API (OpenAI-compatible `/chat/completions`, JSON mode)
+- Model: `llama-3.3-70b-versatile` (default; `llama-3.1-8b-instant` as a faster option)
+- No training, no fine-tuning, no Hugging Face endpoint, no internal dataset
 
 **Key Methods**:
 ```python
-def load_model() → None
-def warmup_remote_model() → None
-def generate_composition_json(text: str) → dict
-def clean_json_output(text: str) → dict
+def generer_panier(payload: PanierRequestDTO, user_id: int | None) → PanierResponseDTO
+def build_system_prompt(products: list[Product]) → str
+def call_groq(system_prompt: str, user_input: str) → dict
+def generate_composition_json(payload, products) → dict
+def validate_composition(data: dict, products) → bool
 ```
+_On repeated Groq failure, `BasketGenerationError` is raised and surfaced as HTTP 503._
 
 ### 4. Dispatch Service (`dispatch_service.py`)
 

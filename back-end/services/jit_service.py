@@ -3,7 +3,7 @@ from datetime import date, datetime, time
 from typing import Dict, List, Optional
 
 from sqlalchemy import text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import func
 
 from config import LocalSession
@@ -11,13 +11,14 @@ from dto.jit_dto import DetailProduitJIT, JITLogDTO, ResultatAgregationJIT, Zone
 from entities.abonnement_entity import Abonnement
 from entities.address_entity import Address
 from entities.commande_entity import Commande
+from entities.ligne_panier_entity import LignePanier
 from entities.panier_entity import Panier
 from interfaces.jit_dao_interface import IJITDao
 from interfaces.jit_service_interface import IJITService
 from interfaces.zone_jit_dao_interface import IZoneJITDao
 from services.commande_state_machine import changer_statut
 from services.date_utils import today_morocco
-from services.fournisseur_resolver import resoudre_fournisseur_pour_commande
+from services.fournisseur_resolver import resoudre_fournisseur_pour_adresse
 from services.notification_jit_service import notifier_fournisseur
 from services.zone_resolver import resoudre_zone
 
@@ -156,8 +157,26 @@ class JITService(IJITService):
             allow_unlocated_fallback=allow_unlocated_fallback,
         )
 
+        # Paniers + lignes + produits charges en 3 requetes pour tout le lot,
+        # au lieu d'une requete panier puis lazy-load par commande (anti N+1).
+        panier_ids = [
+            int(commande.panier_id) for commande in commandes if commande.panier_id is not None
+        ]
+        paniers_by_id: Dict[int, Panier] = {}
+        if panier_ids:
+            paniers = (
+                session.query(Panier)
+                .options(selectinload(Panier.lignes).joinedload(LignePanier.produit))
+                .filter(Panier.id.in_(panier_ids))
+                .all()
+            )
+            paniers_by_id = {int(panier.id): panier for panier in paniers}
         for commande in commandes:
-            panier = session.query(Panier).filter(Panier.id == commande.panier_id).first()
+            panier = (
+                paniers_by_id.get(int(commande.panier_id))
+                if commande.panier_id is not None
+                else None
+            )
             if not panier:
                 continue
 
@@ -265,6 +284,12 @@ class JITService(IJITService):
                 if self.zone_jit_dao
                 else []
             )
+            # Adresses par defaut chargees en une requete pour tout le lot,
+            # au lieu d'une requete par commande dans la boucle (anti N+1).
+            addresses_by_client = self._get_default_geolocated_addresses(
+                session,
+                [int(c.client_id) for c in commandes if c.client_id is not None],
+            )
             nombre_verrouillees = 0
             for commande in commandes:
                 # Savepoint par commande : une commande qui échoue (statut inattendu,
@@ -272,7 +297,12 @@ class JITService(IJITService):
                 # des autres commandes du jour.
                 try:
                     with session.begin_nested():
-                        fournisseur_id = resoudre_fournisseur_pour_commande(session, commande, zones)
+                        adresse = (
+                            addresses_by_client.get(int(commande.client_id))
+                            if commande.client_id is not None
+                            else None
+                        )
+                        fournisseur_id = resoudre_fournisseur_pour_adresse(adresse, zones)
 
                         if (
                             fournisseur_id is None

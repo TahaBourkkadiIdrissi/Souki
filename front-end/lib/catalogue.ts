@@ -30,23 +30,13 @@ export interface BasketSelection {
   quantity: number
 }
 
-export type SmartBasketProfile =
-  | "aromates_herbes"
-  | "cuisine_couscous"
-  | "cuisine_tajine"
-  | "equilibre"
-  | "fruits_dominant"
-  | "legumes_base"
-  | "legumes_verts"
-  | "racines_tubercules"
-  | "salade_fraicheur"
-  | "soupe_hiver"
-
 export interface SmartBasketRequest {
   budget: number
   personnes: number
   duree: number
-  profil: SmartBasketProfile
+  // Sélection: dish_id d'un plat marocain, ou "equilibre"/undefined pour un
+  // panier équilibré (tous fruits & légumes). Les deux passent par l'IA Groq.
+  plat?: string
 }
 
 export interface SmartBasketLine {
@@ -366,13 +356,25 @@ export function mergeSelectionsIntoCart(
   products: CatalogueProduct[],
   selections: BasketSelection[]
 ) {
-  return selections.reduce((nextCart, selection) => {
-    const product = products.find((item) => item.id === selection.productId)
+  // Maps produits/panier construites une fois : un seul passage sur les sélections
+  // au lieu de products.find + réécriture du panier pour chacune.
+  const productsById = new Map(products.map((product) => [product.id, product]))
+  const cartById = new Map(currentCart.map((item) => [item.id, item]))
+
+  for (const selection of selections) {
+    const product = productsById.get(selection.productId)
     if (!product) {
-      return nextCart
+      continue
     }
-    return upsertCartItem(nextCart, product, selection.quantity)
-  }, currentCart)
+    const existing = cartById.get(product.id)
+    if (existing) {
+      cartById.set(product.id, { ...existing, quantity: existing.quantity + selection.quantity })
+    } else {
+      cartById.set(product.id, { ...product, quantity: selection.quantity })
+    }
+  }
+
+  return [...cartById.values()]
 }
 
 export function buildSmartBasket(
@@ -498,6 +500,41 @@ export async function generateSmartPanier(
     token,
     body: payload,
   }) as Promise<SmartBasketResponse>
+}
+
+export interface DishSummary {
+  dish_id: string
+  name_fr: string
+  name_darija: string
+  category: string
+}
+
+export interface DishCompositionResponse {
+  status: string
+  dish_id: string
+  name_fr: string
+  name_darija: string
+  category: string
+  personnes: number
+  default_servings: number
+  lignes_panier: SmartBasketLine[]
+  ingredients_manquants: string[]
+  total_dh: number
+  nombre_articles: number
+}
+
+export async function fetchDishList(token: string): Promise<DishSummary[]> {
+  return apiCall("/api/paniers/plats", { token }) as Promise<DishSummary[]>
+}
+
+export async function fetchDishComposition(
+  dishId: string,
+  personnes: number,
+  token: string
+): Promise<DishCompositionResponse> {
+  return apiCall(`/api/paniers/plats/${encodeURIComponent(dishId)}?personnes=${personnes}`, {
+    token,
+  }) as Promise<DishCompositionResponse>
 }
 
 export async function fetchPanierDetails(panierId: number): Promise<PanierDetailsResponse> {

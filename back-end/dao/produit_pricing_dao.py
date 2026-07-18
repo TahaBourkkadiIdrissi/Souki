@@ -1,5 +1,7 @@
 from typing import List, Optional
 
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from fastapi import HTTPException
@@ -106,6 +108,51 @@ class ProduitPricingDaoBD(IProduitPricingDao):
         session.add(product)
         session.flush()
         return product
+
+    def get_product_by_nom_darija(self, session: Session, nom_darija: str) -> Optional[Product]:
+        """Cherche par nom darija (contrainte UNIQUE en base), actif ou non."""
+        return session.query(Product).filter(Product.nom_darija == nom_darija).first()
+
+    def reactivate_product(self, session: Session, product: Product, data: ProductCreateDTO) -> Product:
+        """Reactive un produit soft-supprime en lui appliquant les donnees du formulaire,
+        comme une creation (l'id et l'historique de commandes sont conserves)."""
+        product.nom_fr = data.nom_fr
+        product.nom_darija = data.nom_darija
+        product.prix_kg = data.prix_kg
+        product.unite = data.unite
+        product.stock = 999.0
+        product.is_active = True
+        product.niveau = data.niveau or 2
+        product.marge_cible = data.marge_cible or 0.25
+        product.coussin_securite = data.coussin_securite or 0.10
+        product.volatilite = data.volatilite or "STABLE"
+        product.prix_gros_saisi = data.prix_gros_saisi
+        product.prix_khddar_reel = data.prix_khddar_reel
+        product.prix_vente_manuel = data.prix_vente_manuel
+        session.flush()
+        return product
+
+    def try_hard_delete_product(self, session: Session, produit_id: int) -> bool:
+        """Tente la suppression definitive. Retourne False si le produit est reference
+        par des lignes de commande/panier/offres fournisseur (contraintes FK) —
+        dans ce cas la ligne est conservee et l'appelant bascule en soft delete.
+
+        DELETE en SQL brut volontairement: session.delete() passerait par l'ORM,
+        qui met a NULL le produit_id des lignes enfants (FK nullable) au lieu de
+        laisser Postgres lever l'erreur FK — ce qui corromprait l'historique."""
+        product = session.query(Product).filter(Product.id == produit_id).first()
+        if not product:
+            raise HTTPException(status_code=404, detail="Produit non trouve")
+        try:
+            with session.begin_nested():
+                session.execute(
+                    text('DELETE FROM "T_Product" WHERE id = :produit_id'),
+                    {"produit_id": produit_id},
+                )
+            session.expire_all()
+            return True
+        except IntegrityError:
+            return False
 
     def deactivate_product(self, session: Session, produit_id: int) -> None:
         product = (

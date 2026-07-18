@@ -63,6 +63,7 @@ from services.dispatch_service import DispatchService
 from services.fournisseur_service import FournisseurService
 from services.fournisseur_produit_service import FournisseurProduitService
 from services.livreur_service import LivreurService
+from services.dish_composition_service import DishCompositionService, dish_composition_service
 from services.ml_panier_service import MLPanierService, ml_panier_service
 from services.notification_outbox_service import NotificationOutboxService
 from services.panier_service import PanierService
@@ -252,6 +253,13 @@ def get_ml_panier_service(
 ) -> MLPanierService:
     ml_panier_service.configure_panier_dao(panier_dao)
     return ml_panier_service
+
+
+def get_dish_composition_service(
+    product_dao: IProductDao = Depends(get_product_dao),
+) -> DishCompositionService:
+    dish_composition_service.product_dao = product_dao
+    return dish_composition_service
 
 
 def get_souki_wallet_service(

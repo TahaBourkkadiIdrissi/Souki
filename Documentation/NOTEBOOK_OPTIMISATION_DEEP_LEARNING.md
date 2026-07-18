@@ -1,5 +1,12 @@
 # 🚀 Optimisation du Notebook Souki - Fine-tuning Gemma-2-2B avec QLoRA
 
+> ⚠️ **DOCUMENT HISTORIQUE — PIPELINE ABANDONNÉ.** L'approche fine-tuning (Gemma-2-2B
+> + QLoRA + endpoint Hugging Face) décrite ci-dessous **n'est plus utilisée**. La
+> génération de panier IA repose désormais sur du **prompt engineering avec l'API Groq
+> (modèles Llama)** dans `back-end/services/ml_panier_service.py` — aucun entraînement,
+> aucun fine-tuning, aucun appel Hugging Face. Ce document est conservé à titre
+> d'archive et ne décrit pas le système actuel.
+
 ## 📋 Résumé des Modifications
 
 Ce document détaille les améliorations apportées au notebook `notebook-panier.ipynb` pour optimiser l'entraînement du modèle **Google Gemma-2-2B** avec **QLoRA (4-bit quantization + LoRA)** via **SFTTrainer** de la librairie **TRL**.

@@ -17,6 +17,14 @@
 
 ## Intégration du Service ML Hugging Face
 
+> ⚠️ **SECTION HISTORIQUE — MIGRÉE VERS GROQ.** Le service de panier IA n'utilise plus
+> Hugging Face ni le modèle fine-tuné Gemma-2-2B ni le fallback `200-compositions.json`.
+> Il repose désormais sur du **prompt engineering avec l'API Groq (Llama, mode JSON)** :
+> `build_system_prompt` (catalogue live + schéma JSON) → `call_groq` → `validate_composition`,
+> avec un retry puis `BasketGenerationError` (HTTP 503) en cas d'échec. Le champ `source`
+> de la réponse vaut désormais `"groq_llama"`. Les descriptions Hugging Face ci-dessous
+> sont conservées à titre d'archive.
+
 ### 📋 Vue d'ensemble
 
 Le service de génération intelligente de paniers a été complètement intégré dans le backend SOUKI, permettant une génération automatique de compositions de produits basées sur les profils utilisateur.

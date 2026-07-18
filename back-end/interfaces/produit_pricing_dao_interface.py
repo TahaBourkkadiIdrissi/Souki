@@ -39,5 +39,17 @@ class IProduitPricingDao(ABC):
         pass
 
     @abstractmethod
+    def get_product_by_nom_darija(self, session: Session, nom_darija: str) -> Optional[Product]:
+        pass
+
+    @abstractmethod
+    def reactivate_product(self, session: Session, product: Product, data: ProductCreateDTO) -> Product:
+        pass
+
+    @abstractmethod
+    def try_hard_delete_product(self, session: Session, produit_id: int) -> bool:
+        pass
+
+    @abstractmethod
     def update_image_url(self, session: Session, produit_id: int, image_url: str) -> None:
         pass

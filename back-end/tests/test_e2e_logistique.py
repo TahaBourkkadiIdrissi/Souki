@@ -147,18 +147,15 @@ def test_chaine_logistique_deux_fournisseurs_deux_zones():
     zone_dao.get_zones_actives.return_value = zones
     jit = JITService(MagicMock(), zone_dao)
     jit._get_commandes_du_jour = MagicMock(return_value=commands)
+    # La map d'adresses est prechargee en batch par le service ; le resolver
+    # geographique reel (haversine) tourne sur ces adresses.
+    jit._get_default_geolocated_addresses = MagicMock(
+        return_value={
+            command.client_id: command.client.user.addresses[0] for command in commands
+        }
+    )
 
-    def resolve_supplier(_session, command, _zones):
-        if command.id in {1, 2}:
-            return 10
-        if command.id == 3:
-            return 20
-        return None
-
-    with (
-        patch("services.jit_service.resoudre_fournisseur_pour_commande", side_effect=resolve_supplier),
-        patch("services.jit_service.changer_statut", side_effect=apply_status),
-    ):
+    with patch("services.jit_service.changer_statut", side_effect=apply_status):
         assert jit.verrouiller_commandes(jit_session, actor_id=999) == 3
 
     assert [command.fournisseur_id for command in commands] == [10, 10, 20, None]

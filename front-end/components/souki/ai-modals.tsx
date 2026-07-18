@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   ArrowRight,
   Check,
-  ChevronDown,
   Loader2,
   Minus,
   Plus,
@@ -17,16 +16,18 @@ import {
 } from "lucide-react"
 
 import { CartLoadingAnimation } from "@/components/cart/CartLoadingAnimation"
+import { SoukiSelect, type SoukiSelectOption } from "@/components/souki/souki-select"
 import { VoiceOrb, type VoiceOrbPhase } from "@/components/souki/voice-orb"
 import { useAuth } from "@/hooks/useAuth"
 import { API_BASE_URL } from "@/lib/api"
 import {
   BasketSelection,
   CatalogueProduct,
+  DishSummary,
+  fetchDishList,
   formatQuantity,
   generateSmartPanier,
   SmartBasketLine,
-  SmartBasketProfile,
   SmartBasketResponse,
 } from "@/lib/catalogue"
 import { cn } from "@/lib/utils"
@@ -64,20 +65,34 @@ interface AIModalsProps {
 
 const AUDIO_TIMEOUT_MS = 15000
 const MIN_AUDIO_BYTES = 5000
+// Génération via Groq (rapide, ~1-3 s). ETA affiché quand la barre atteint 100 %
+// avant que la réponse n'arrive — évite l'impression de gel.
+const SMART_GENERATION_ETA_SECONDS = 8
+const EQUILIBRE_VALUE = "equilibre"
 const personOptions = [1, 2, 3, 4, 5, 6, 7, 8]
 const durationOptions = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
-const profileOptions: Array<{ id: SmartBasketProfile; label: string; helper: string }> = [
-  { id: "equilibre", label: "Equilibre", helper: "Panier varie pour la semaine" },
-  { id: "legumes_base", label: "Legumes de base", helper: "Essentiels du quotidien" },
-  { id: "salade_fraicheur", label: "Salade fraicheur", helper: "Crudites et produits frais" },
-  { id: "soupe_hiver", label: "Soupe hiver", helper: "Legumes pour soupes" },
-  { id: "cuisine_tajine", label: "Cuisine tajine", helper: "Selection pour plats marocains" },
-  { id: "cuisine_couscous", label: "Cuisine couscous", helper: "Profil couscous complet" },
-  { id: "fruits_dominant", label: "Fruits dominant", helper: "Plus de fruits dans le panier" },
-  { id: "legumes_verts", label: "Legumes verts", helper: "Produits verts et legers" },
-  { id: "racines_tubercules", label: "Racines & tubercules", helper: "Pommes de terre, carottes..." },
-  { id: "aromates_herbes", label: "Aromates & herbes", helper: "Menthe, persil, coriandre..." },
-]
+
+const personSelectOptions: SoukiSelectOption[] = personOptions.map((option) => ({
+  value: String(option),
+  label: `${option} personne${option > 1 ? "s" : ""}`,
+}))
+const durationSelectOptions: SoukiSelectOption[] = durationOptions.map((option) => ({
+  value: String(option),
+  label: `${option} jours`,
+}))
+
+const dishCategoryLabels: Record<string, string> = {
+  tajine: "Tajines",
+  couscous: "Couscous",
+  soupe: "Soupes",
+  salade: "Salades",
+  jus: "Jus & boissons",
+  plat_mijote: "Plats mijotes",
+  grillade: "Grillades",
+  poisson: "Poissons",
+  pain_patisserie: "Pains & patisseries",
+  autre: "Autres",
+}
 
 export function AIModals({
   isOpen,
@@ -97,10 +112,15 @@ export function AIModals({
   const [budget, setBudget] = useState("150")
   const [people, setPeople] = useState("3")
   const [duration, setDuration] = useState("7")
-  const [profile, setProfile] = useState<SmartBasketProfile>("equilibre")
+  // Sélection unique: "equilibre" (panier auto) ou un dish_id de plat marocain.
+  const [selectedPlat, setSelectedPlat] = useState<string>(EQUILIBRE_VALUE)
   const [smartResult, setSmartResult] = useState<SmartBasketResponse | null>(null)
   const [isGeneratingSmart, setIsGeneratingSmart] = useState(false)
+  const [dishes, setDishes] = useState<DishSummary[]>([])
   const [cartProgress, setCartProgress] = useState(0)
+  // Secondes restantes estimées, affichées quand la barre atteint 100 % alors que
+  // la génération ML tourne encore (~26 s à froid) — évite l'impression de gel.
+  const [smartEta, setSmartEta] = useState<number | null>(null)
   const [smartSelections, setSmartSelections] = useState<BasketSelection[]>([])
   const [editedBasket, setEditedBasket] = useState<LigneCommandeDTO[]>([])
 
@@ -111,6 +131,39 @@ export function AIModals({
 
   // Derived phase that drives the reactive orb + transitions.
   const orbPhase: VoiceOrbPhase = isSending ? "processing" : isListening ? "listening" : "idle"
+
+  // Charge la liste des plats marocains a l'ouverture du panier intelligent.
+  useEffect(() => {
+    if (!isOpen || mode !== "smart" || !token || dishes.length > 0) return
+    fetchDishList(token)
+      .then(setDishes)
+      .catch(() => setDishes([]))
+  }, [isOpen, mode, token, dishes.length])
+
+  // Un plat est un repas unique: la durée en jours ne s'applique qu'au panier
+  // équilibré (approvisionnement sur plusieurs jours).
+  const isDishSelected = selectedPlat !== EQUILIBRE_VALUE
+
+  // Sélecteur unifié: "Équilibré" en tête, puis les plats groupés par catégorie
+  // (le nom darija en sous-titre). La génération passe toujours par l'IA Groq.
+  const platOptions: SoukiSelectOption[] = [
+    {
+      value: EQUILIBRE_VALUE,
+      label: "Équilibré",
+      subtitle: "Tous fruits & légumes variés",
+      group: "Panier automatique",
+    },
+    ...Object.entries(dishCategoryLabels).flatMap(([category, label]) =>
+      dishes
+        .filter((dish) => dish.category === category)
+        .map((dish) => ({
+          value: dish.dish_id,
+          label: dish.name_fr,
+          subtitle: dish.name_darija,
+          group: label,
+        }))
+    ),
+  ]
 
   const clearRecordingTimers = () => {
     if (timeoutRef.current) {
@@ -140,7 +193,9 @@ export function AIModals({
     setSmartResult(null)
     setSmartSelections([])
     setEditedBasket([])
+    setSelectedPlat(EQUILIBRE_VALUE)
     setCartProgress(0)
+    setSmartEta(null)
     setVoiceStream(null)
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop()
@@ -315,7 +370,10 @@ export function AIModals({
 
   const handleSmartGeneration = async () => {
     const parsedBudget = Number(budget)
-    if (!Number.isFinite(parsedBudget) || parsedBudget <= 0) {
+    // Pour un plat, le budget est ignoré (quantités selon le nombre de personnes):
+    // on envoie une valeur neutre haute pour ne jamais contraindre la composition.
+    const effectiveBudget = isDishSelected ? 5000 : parsedBudget
+    if (!isDishSelected && (!Number.isFinite(parsedBudget) || parsedBudget <= 0)) {
       setError("Entrez un budget valide pour generer le panier.")
       setSmartSelections([])
       setSmartResult(null)
@@ -353,18 +411,29 @@ export function AIModals({
       })
     }, 120)
 
+    // Compte à rebours estimé : quand la barre plafonne à 100 % alors que le
+    // modèle ML calcule encore, on affiche le temps restant au lieu d'un écran figé.
+    const generationStartedAt = Date.now()
+    setSmartEta(SMART_GENERATION_ETA_SECONDS)
+    const etaIntervalId = window.setInterval(() => {
+      const elapsedSeconds = (Date.now() - generationStartedAt) / 1000
+      setSmartEta(Math.max(0, Math.ceil(SMART_GENERATION_ETA_SECONDS - elapsedSeconds)))
+    }, 1000)
+
     try {
       const data = await generateSmartPanier(
         {
-          budget: parsedBudget,
+          budget: effectiveBudget,
           personnes: parsedPeople,
           duree: parsedDuration,
-          profil: profile,
+          plat: selectedPlat,
         },
         token
       )
-      // Jump to 100 % to signal completion
+      // Jump to 100 % to signal completion (le compte à rebours disparaît : terminé)
       window.clearInterval(progressIntervalId)
+      window.clearInterval(etaIntervalId)
+      setSmartEta(null)
       setCartProgress(100)
       // Small delay so the user sees 100 % before the result renders
       await new Promise((resolve) => window.setTimeout(resolve, 800))
@@ -392,6 +461,8 @@ export function AIModals({
       router.push(`/checkout?source=smart${panierQuery}&cart=${encodedCart}`)
     } catch (generationError) {
       window.clearInterval(progressIntervalId)
+      window.clearInterval(etaIntervalId)
+      setSmartEta(null)
       setCartProgress(0)
       setError(
         generationError instanceof Error
@@ -679,7 +750,7 @@ export function AIModals({
             {/* ── Cart-loading animation overlay ── */}
             {isGeneratingSmart && (
               <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-3xl bg-white/95 backdrop-blur-sm">
-                <CartLoadingAnimation progress={cartProgress} />
+                <CartLoadingAnimation progress={cartProgress} remainingSeconds={smartEta} />
               </div>
             )}
             <div className="flex items-center justify-between border-b border-gray-100 p-6">
@@ -702,7 +773,12 @@ export function AIModals({
 
             <div className="space-y-6 p-6">
               <div>
-                <label className="mb-2 block text-sm font-semibold text-[#264129]">
+                <label
+                  className={cn(
+                    "mb-2 block text-sm font-semibold",
+                    isDishSelected ? "text-[#9AA79B]" : "text-[#264129]"
+                  )}
+                >
                   Quel est votre budget ?
                 </label>
                 <div className="relative">
@@ -710,99 +786,83 @@ export function AIModals({
                     type="number"
                     value={budget}
                     onChange={(event) => setBudget(event.target.value)}
-                    className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 pr-14 text-[#264129] outline-none transition-all focus:border-[#F07C00]"
+                    disabled={isDishSelected}
+                    className={cn(
+                      "w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 pr-14 text-[#264129] outline-none transition-all focus:border-[#F07C00]",
+                      isDishSelected && "cursor-not-allowed opacity-60"
+                    )}
                     placeholder="Ex: 150"
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-[#6C7E6E]">
                     DH
                   </span>
                 </div>
+                {isDishSelected && (
+                  <p className="mt-1 text-[11px] text-[#9AA79B]">
+                    Non applicable pour un plat — quantites selon le nombre de personnes
+                  </p>
+                )}
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#264129]">
-                  Nombre de personnes
-                </label>
-                <div className="relative">
-                  <select
-                    value={people}
-                    onChange={(event) => setPeople(event.target.value)}
-                    className="w-full appearance-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 pr-10 text-[#264129] outline-none transition-all focus:border-[#F07C00]"
-                  >
-                    {personOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option} personne{option > 1 ? "s" : ""}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#6C7E6E]" />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#264129]">
-                  Pour quelle duree ?
-                </label>
-                <div className="relative">
-                  <select
-                    value={duration}
-                    onChange={(event) => setDuration(event.target.value)}
-                    className="w-full appearance-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 pr-10 text-[#264129] outline-none transition-all focus:border-[#F07C00]"
-                  >
-                    {durationOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option} jours
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#6C7E6E]" />
-                </div>
-              </div>
-
-              <div>
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <label className="block text-sm font-semibold text-[#264129]">
-                    Profil du panier
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-[#264129]">
+                    Personnes
                   </label>
-                  <span className="rounded-full bg-[#FFF5EB] px-3 py-1 text-xs font-bold text-[#C96A00]">
-                    {profileOptions.length} profils
-                  </span>
+                  <SoukiSelect
+                    value={people}
+                    onChange={setPeople}
+                    options={personSelectOptions}
+                    ariaLabel="Nombre de personnes"
+                  />
                 </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {profileOptions.map((option) => {
-                    const selected = profile === option.id
-                    return (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() => setProfile(option.id)}
-                        className={cn(
-                          "min-h-[72px] rounded-2xl border p-3 text-left transition-all",
-                          selected
-                            ? "border-[#F07C00] bg-[#FFF5EB] shadow-sm"
-                            : "border-gray-200 bg-gray-50 hover:border-[#F5D4AE] hover:bg-white"
-                        )}
-                        aria-pressed={selected}
-                      >
-                        <span className="flex items-start justify-between gap-3">
-                          <span className="min-w-0">
-                            <span className="block text-sm font-bold text-[#264129]">
-                              {option.label}
-                            </span>
-                            <span className="mt-1 block text-xs font-medium leading-4 text-[#6C7E6E]">
-                              {option.helper}
-                            </span>
-                          </span>
-                          {selected && (
-                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#F07C00] text-white">
-                              <Check className="h-3.5 w-3.5" />
-                            </span>
-                          )}
-                        </span>
-                      </button>
-                    )
-                  })}
+
+                <div>
+                  <label
+                    className={cn(
+                      "mb-2 block text-sm font-semibold",
+                      isDishSelected ? "text-[#9AA79B]" : "text-[#264129]"
+                    )}
+                  >
+                    Duree
+                  </label>
+                  <SoukiSelect
+                    value={duration}
+                    onChange={setDuration}
+                    options={durationSelectOptions}
+                    disabled={isDishSelected}
+                    ariaLabel="Duree du panier"
+                  />
+                  {isDishSelected && (
+                    <p className="mt-1 text-[11px] text-[#9AA79B]">Non applicable pour un plat</p>
+                  )}
                 </div>
+              </div>
+
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <label className="block text-sm font-semibold text-[#264129]">
+                    Que voulez-vous preparer ?
+                  </label>
+                  {dishes.length > 0 && (
+                    <span className="rounded-full bg-[#FFF5EB] px-3 py-1 text-xs font-bold text-[#C96A00]">
+                      {dishes.length} plats
+                    </span>
+                  )}
+                </div>
+                <SoukiSelect
+                  value={selectedPlat}
+                  onChange={setSelectedPlat}
+                  options={platOptions}
+                  loading={dishes.length === 0}
+                  ariaLabel="Choix du panier ou du plat marocain"
+                  leadingIcon={<Sparkles className="h-4 w-4" />}
+                />
+                <p className="mt-2 text-xs text-[#6C7E6E]">
+                  {selectedPlat === EQUILIBRE_VALUE
+                    ? "Panier equilibre : l'IA choisit des fruits & legumes varies selon vos criteres."
+                    : "L'IA compose le panier autour de ce plat, adapte aux personnes, a la duree et au budget."}
+                </p>
               </div>
 
               <div className="rounded-2xl bg-[#FFF5EB] p-4 text-sm text-[#C96A00]">
@@ -819,10 +879,16 @@ export function AIModals({
                           >
                           </div>
                         </div>
-                        <p className="text-right text-xs font-bold text-[#F07C00]">{Math.round(Math.min(cartProgress, 100))}%</p>
+                        <p className="text-right text-xs font-bold text-[#F07C00]">
+                          {cartProgress >= 100 && smartEta !== null
+                            ? smartEta > 0
+                              ? `Finalisation par l'IA… ~${smartEta}s`
+                              : "Encore quelques instants…"
+                            : `${Math.round(Math.min(cartProgress, 100))}%`}
+                        </p>
                       </div>
                     )
-                    : "IA-SOUKI compose un panier avec le modele ML entraine sur les compositions SOUKI."}
+                    : "IA-SOUKI compose votre panier avec l'IA Groq selon vos criteres et votre choix."}
               </div>
 
               {error && (

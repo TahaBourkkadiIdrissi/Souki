@@ -93,8 +93,7 @@ def deactivate_produit(
 ):
     session = LocalSession()
     try:
-        service.deactivate_product(session, produit_id)
-        return {"success": True, "message": "Produit masque du catalogue."}
+        return service.delete_product(session, produit_id)
     finally:
         session.close()
 

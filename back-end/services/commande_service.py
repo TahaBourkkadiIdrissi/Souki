@@ -39,6 +39,27 @@ class CommandeVocaleService(ICommandeVocaleService):
 
     # ── Méthodes publiques ────────────────────────────────────────────────────
     def traiter_texte(self, user_id: int, texte: str) -> VoiceBasketResponseDTO:
+        # Pre-check deterministe (couche plats marocains): si le texte designe un
+        # plat connu, la composition est resolue localement sans appeler Gemini.
+        dish_match = self._match_dish(texte)
+        if dish_match is not None:
+            return self._traiter_commande(
+                user_id,
+                texte_transcrit=texte,
+                json_brut_gemini=json.dumps(
+                    {
+                        "items": dish_match["items"],
+                        "transcription": texte,
+                        "langue_detectee": "fr",
+                        "source": "plat_marocain",
+                        "dish_id": dish_match["dish"]["dish_id"],
+                    },
+                    ensure_ascii=False,
+                ),
+                langue="fr",
+                produits_indisponibles_extra=dish_match["ingredients_manquants"],
+            )
+
         parts = build_text_parts(texte)
         gemini_result = call_gemini(parts)
         return self._traiter_commande(
@@ -48,11 +69,45 @@ class CommandeVocaleService(ICommandeVocaleService):
             langue=gemini_result.get("langue_detectee", "inconnu")
         )
 
+    def _match_dish(self, texte: str):
+        try:
+            from services.dish_composition_service import dish_composition_service
+
+            if dish_composition_service.product_dao is None:
+                dish_composition_service.product_dao = self.product_dao
+            return dish_composition_service.items_for_text(texte)
+        except Exception:
+            # La couche plats ne doit jamais casser le flux vocal existant.
+            return None
+
     def traiter_audio(self, user_id: int, audio_b64: str, mime_type: str) -> VoiceBasketResponseDTO:
         self._validate_audio_payload(audio_b64)
         parts = build_audio_parts(audio_b64, mime_type)
         gemini_result = call_gemini(parts)
         self._validate_gemini_audio_result(gemini_result)
+
+        # Pre-check plats marocains sur la transcription: composition deterministe
+        # prioritaire sur l'extraction Gemini quand un plat connu est reconnu.
+        transcription = str(gemini_result.get("transcription") or "")
+        dish_match = self._match_dish(transcription) if transcription else None
+        if dish_match is not None:
+            return self._traiter_commande(
+                user_id,
+                texte_transcrit=transcription,
+                json_brut_gemini=json.dumps(
+                    {
+                        "items": dish_match["items"],
+                        "transcription": transcription,
+                        "langue_detectee": gemini_result.get("langue_detectee", "inconnu"),
+                        "source": "plat_marocain",
+                        "dish_id": dish_match["dish"]["dish_id"],
+                    },
+                    ensure_ascii=False,
+                ),
+                langue=gemini_result.get("langue_detectee", "inconnu"),
+                produits_indisponibles_extra=dish_match["ingredients_manquants"],
+            )
+
         return self._traiter_commande(
             user_id,
             texte_transcrit=gemini_result.get("transcription", ""),
@@ -89,7 +144,8 @@ class CommandeVocaleService(ICommandeVocaleService):
 
     # ── Méthode privée ────────────────────────────────────────────────────────
     def _traiter_commande(
-        self, user_id: int, texte_transcrit: str, json_brut_gemini: str, langue: str
+        self, user_id: int, texte_transcrit: str, json_brut_gemini: str, langue: str,
+        produits_indisponibles_extra: Optional[List[str]] = None,
     ) -> VoiceBasketResponseDTO:
         commande_entity = self.commande_dao.create_commande(
             self.session, user_id, texte_transcrit, json_brut_gemini, langue # type: ignore
@@ -98,7 +154,7 @@ class CommandeVocaleService(ICommandeVocaleService):
         print("🛠️ RÉPONSE BRUTE DE GEMINI :")
         print(json_brut_gemini)
         print("🛠️ FIN DE RÉPONSE")
-        produits_non_disponibles, lignes_panier_dto, total = [], [], 0.0
+        produits_non_disponibles, lignes_panier_dto, total = list(produits_indisponibles_extra or []), [], 0.0
 
         for item in items_gemini:
             ligne_dto, nom_manquant = self.catalogue_service.valider_et_ajuster_item(item) # type: ignore

@@ -1,5 +1,5 @@
 from typing import Optional, List
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from entities.panier_entity import Panier
 from entities.ligne_panier_entity import LignePanier
@@ -82,9 +82,10 @@ class PanierDaoBD(IPanierDao):
         )
 
     def get_lignes_panier(self, session: Session, panier_id: int) -> List[LignePanier]:
-        """Récupère toutes les lignes d'un panier"""
+        """Récupère toutes les lignes d'un panier avec leur produit (anti N+1)"""
         return (
             session.query(LignePanier)
+            .options(joinedload(LignePanier.produit))
             .filter(LignePanier.panier_id == panier_id)
             .all()
         )

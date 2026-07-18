@@ -2,11 +2,9 @@ import json
 import os
 import re
 import threading
+import time
 import unicodedata
-from pathlib import Path
 from typing import Any
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
 from sqlalchemy.exc import IntegrityError
 
@@ -14,225 +12,164 @@ from config import LocalSession
 from dto.panier_dto import LignePanierResponseDTO, PanierRequestDTO, PanierResponseDTO
 from entities.product_entity import Product
 from interfaces.panier_dao_interface import IPanierDao
+from services.dish_composition_service import dish_composition_service
 from services.panier_service import DELIVERY_FEE, SEUIL_LIVRAISON_GRATUITE, get_product_image
 
+try:  # pragma: no cover - depend de l'environnement
+    from groq import Groq
+except ImportError:  # pragma: no cover
+    Groq = None  # type: ignore[assignment]
 
-DEFAULT_HF_REPO_ID = "TahaBDI/gemma-2-2b-panier-merged"
+
+DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
 VALID_LEVELS = (1, 2, 3)
 
 
 class MLModelUnavailableError(RuntimeError):
-    """Raised when neither the HF model nor the local fallback can produce a basket."""
+    """Raised when the basket service cannot run at all (no DAO, empty catalogue)."""
+
+
+class BasketGenerationError(RuntimeError):
+    """Raised when Groq cannot produce a valid basket composition after a retry."""
 
 
 class MLPanierService:
-    """Service d'inference pour le panier intelligent SOUKI."""
+    """Service de generation du panier intelligent SOUKI via Groq (Llama).
+
+    Le panier est genere par prompt engineering: un prompt systeme decrivant le
+    catalogue produit en direct + un schema JSON strict est envoye a l'API Groq
+    (mode JSON), puis la composition retournee est validee contre le catalogue et
+    convertie en lignes de panier. Aucun modele n'est entraine ou fine-tune, et
+    aucune base de compositions interne n'est lue.
+    """
 
     def __init__(self, panier_dao: IPanierDao | None = None) -> None:
         self._lock = threading.Lock()
-        self._loaded = False
-        self._load_error: str | None = None
         self.panier_dao = panier_dao
-        self._fallback_compositions: list[dict[str, Any]] = []
 
-        repo_root = Path(__file__).resolve().parents[2]
-        self._fallback_path = Path(
-            os.getenv("SOUKI_ML_COMPOSITIONS_PATH", repo_root / "200-compositions.json")
-        )
-        self._repo_id = os.getenv("SOUKI_ML_REPO_ID", DEFAULT_HF_REPO_ID)
-        self._inference_url = os.getenv(
-            "SOUKI_ML_INFERENCE_URL",
-            f"https://router.huggingface.co/hf-inference/models/{self._repo_id}",
-        )
-        self._timeout_seconds = float(os.getenv("SOUKI_ML_TIMEOUT_SECONDS", "120"))
-        self._preload_timeout_seconds = float(
-            os.getenv("SOUKI_ML_PRELOAD_TIMEOUT_SECONDS", str(max(self._timeout_seconds, 180)))
-        )
-
-    @property
-    def is_loaded(self) -> bool:
-        return self._loaded
-
-    @property
-    def load_error(self) -> str | None:
-        return self._load_error
-
-    def load_model(self) -> None:
-        """Prepare the HF remote inference configuration and local fallback."""
-        with self._lock:
-            if self._loaded:
-                return
-
-            self._load_fallback_compositions()
-            if os.getenv("SOUKI_ML_DISABLE_MODEL", "0") == "1":
-                self._load_error = "Chargement HF desactive par SOUKI_ML_DISABLE_MODEL."
-            elif not self._get_hf_token():
-                self._load_error = "HF_TOKEN manquant pour appeler le modele Hugging Face prive."
-            else:
-                self._load_error = None
-            self._loaded = True
-
-    def warmup_remote_model(self) -> None:
-        """Call the remote inference service once so a Space loads the model at startup."""
-        if not self._loaded:
-            self.load_model()
-
-        if os.getenv("SOUKI_ML_DISABLE_MODEL", "0") == "1":
-            return
-
-        token = self._get_hf_token()
-        if not token:
-            self._load_error = "HF_TOKEN manquant pour precharger le modele Hugging Face."
-            return
-
-        body = {
-            "inputs": (
-                "Retourne uniquement ce JSON valide: "
-                '{"composition":[{"produit_id":1,"nom_fr":"Tomates","quantite":1}]}'
-            ),
-            "parameters": {
-                "max_new_tokens": 64,
-                "do_sample": False,
-                "return_full_text": False,
-            },
-            "options": {
-                "wait_for_model": True,
-                "use_cache": False,
-            },
-        }
-        request = Request(
-            self._inference_url,
-            data=json.dumps(body).encode("utf-8"),
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-            },
-            method="POST",
-        )
-
-        try:
-            with urlopen(request, timeout=self._preload_timeout_seconds) as response:
-                response.read()
-            self._load_error = None
-        except HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="ignore")
-            self._load_error = self._format_hf_error("Prechargement HF", exc.code, detail)
-        except (TimeoutError, URLError) as exc:
-            self._load_error = f"Prechargement HF indisponible: {exc}"
-        except Exception as exc:
-            self._load_error = f"Prechargement HF indisponible: {exc}"
-
-    def unload_model(self) -> None:
-        with self._lock:
-            self._loaded = False
+        self._model = os.getenv("GROQ_MODEL", DEFAULT_GROQ_MODEL)
+        self._timeout_seconds = float(os.getenv("GROQ_TIMEOUT_SECONDS", "30"))
+        self._cache_ttl_seconds = float(os.getenv("SOUKI_PANIER_CACHE_TTL_SECONDS", "600"))
+        self._composition_cache: dict[tuple[float, int, int, str], tuple[float, dict[str, Any]]] = {}
+        self._client: Any = None
 
     def configure_panier_dao(self, panier_dao: IPanierDao) -> None:
         self.panier_dao = panier_dao
 
-    def generer_panier(self, payload: PanierRequestDTO, user_id: int | None = None) -> PanierResponseDTO:
-        if not self._loaded:
-            self.load_model()
+    # ── Client Groq ────────────────────────────────────────────────────────────
+    def _get_client(self) -> Any:
+        if self._client is not None:
+            return self._client
+        if Groq is None:
+            raise BasketGenerationError(
+                "Le SDK Groq n'est pas installe (pip install groq)."
+            )
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise BasketGenerationError("GROQ_API_KEY manquant pour la generation du panier.")
+        with self._lock:
+            if self._client is None:
+                self._client = Groq(api_key=api_key, timeout=self._timeout_seconds)
+        return self._client
 
+    # ── Point d'entree public (contrat inchange) ───────────────────────────────
+    def generer_panier(self, payload: PanierRequestDTO, user_id: int | None = None) -> PanierResponseDTO:
         if self.panier_dao is None:
-            raise MLModelUnavailableError("DAO panier non configure pour la generation ML.")
+            raise MLModelUnavailableError("DAO panier non configure pour la generation.")
+
+        dish = self._resolve_dish(payload)
 
         with LocalSession() as session:
             products = self.panier_dao.get_active_products_for_ml(session)
             if not products:
                 raise MLModelUnavailableError("Le catalogue produit est vide.")
 
-            generated = self._generate_with_hugging_face(payload, products)
-            source = "huggingface_inference"
+            generated = self._cached_composition(payload)
             if generated is None:
-                if self._is_remote_required():
-                    raise MLModelUnavailableError(
-                        self._load_error
-                        or "Modele Hugging Face requis, mais aucune reponse exploitable n'a ete recue."
-                    )
-                generated = self._generate_from_fallback(payload)
-                source = "dataset_fallback"
+                generated = self.generate_composition_json(payload, products, dish)
+                self._store_composition(payload, generated)
 
-            lignes = self._build_response_lines(generated, products, payload)
+            # En mode plat, on garde strictement la composition du plat (pas de
+            # rééquilibrage 1/2/3 qui ajouterait des produits hors sujet). Le
+            # rééquilibrage n'a de sens que pour le panier « équilibré ».
+            lignes = self._build_response_lines(
+                generated, products, payload, balance_levels=(dish is None)
+            )
             if not lignes:
-                raise MLModelUnavailableError("Aucun produit exploitable n'a ete genere.")
+                raise BasketGenerationError("Aucun produit exploitable n'a ete genere.")
 
             panier_id = self._persist_panier(session, user_id, lignes) if user_id else None
             sous_total = round(sum(line.sous_total for line in lignes), 2)
-            warning = self._load_error if source == "dataset_fallback" else None
             return PanierResponseDTO(
                 status="success",
-                source=source,
+                source="groq_llama",
                 panier_id=panier_id,
                 criteres={
                     "budget": payload.budget,
                     "personnes": payload.personnes,
                     "duree": payload.duree,
-                    "profil": payload.profil,
+                    "plat": dish["dish_id"] if dish else "equilibre",
                     "niveaux": list(VALID_LEVELS),
                 },
                 lignes_panier=lignes,
                 total_dh=sous_total,
                 nombre_articles=len(lignes),
-                model_warning=warning,
+                model_warning=None,
             )
 
-    def _get_hf_token(self) -> str | None:
-        return os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACEHUB_API_TOKEN")
+    def _resolve_dish(self, payload: PanierRequestDTO) -> dict[str, Any] | None:
+        """Résout le plat marocain choisi (None => panier équilibré).
 
-    def _is_remote_required(self) -> bool:
-        return os.getenv("SOUKI_ML_REQUIRE_REMOTE", "0").strip().lower() in {"1", "true", "yes", "on"}
+        Un plat inconnu ou "equilibre" retombe sur le mode équilibré.
+        """
+        plat = (payload.plat or "").strip()
+        if not plat or plat.lower() == "equilibre":
+            return None
+        return dish_composition_service.get_dish(plat)
 
-    def _generate_with_hugging_face(
+    # ── Pipeline Groq ──────────────────────────────────────────────────────────
+    def generate_composition_json(
         self,
         payload: PanierRequestDTO,
         products: list[Product],
-    ) -> dict[str, Any] | None:
-        if os.getenv("SOUKI_ML_DISABLE_MODEL", "0") == "1":
-            return None
+        dish: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Construit le prompt, appelle Groq et valide la composition.
 
-        token = self._get_hf_token()
-        if not token:
-            return None
+        `dish` (None => panier équilibré) porte le plat marocain choisi et guide la
+        composition. En cas d'echec (appel, JSON invalide ou validation semantique
+        KO), reessaie une fois avec un court backoff, puis leve BasketGenerationError.
+        """
+        system_prompt = self.build_system_prompt(products)
+        user_input = self._build_user_input(payload, dish)
 
-        prompt = self._build_prompt(payload, products)
-        body = {
-            "inputs": prompt,
-            "parameters": {
-                "max_new_tokens": 700,
-                "do_sample": False,
-                "return_full_text": False,
-            },
-            "options": {
-                "wait_for_model": True,
-                "use_cache": False,
-            },
-        }
-        request = Request(
-            self._inference_url,
-            data=json.dumps(body).encode("utf-8"),
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-            },
-            method="POST",
+        last_error: Exception | None = None
+        for attempt in range(2):
+            try:
+                data = self.call_groq(system_prompt, user_input)
+            except BasketGenerationError as exc:
+                last_error = exc
+            else:
+                # La contrainte de répartition 1/2/3 ne s'applique qu'au panier
+                # équilibré: un plat/jus peut légitimement tenir sur un seul niveau.
+                if self.validate_composition(data, products, require_levels=(dish is None)):
+                    return data
+                last_error = BasketGenerationError(
+                    "Composition Groq invalide (validation semantique echouee)."
+                )
+            if attempt == 0:
+                time.sleep(0.5)
+
+        raise BasketGenerationError(
+            f"Generation du panier impossible apres nouvelle tentative: {last_error}"
         )
 
-        try:
-            with urlopen(request, timeout=self._timeout_seconds) as response:
-                raw = response.read().decode("utf-8")
-            return self._extract_json_from_hf_response(raw)
-        except HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="ignore")
-            self._load_error = self._format_hf_error("Inference HF", exc.code, detail)
-        except (TimeoutError, URLError) as exc:
-            self._load_error = f"Inference HF indisponible: {exc}"
-        except Exception as exc:
-            self._load_error = f"Inference HF indisponible: {exc}"
-        return None
+    def build_system_prompt(self, products: list[Product]) -> str:
+        """Assemble instructions + catalogue produit en direct + schema JSON strict.
 
-    def _build_prompt(self, payload: PanierRequestDTO, products: list[Product]) -> str:
+        Aucun exemple few-shot ni contenu de dataset interne: le prompt s'appuie
+        uniquement sur les instructions, le catalogue vivant et le schema.
+        """
         catalogue = [
             {
                 "produit_id": int(product.id),  # type: ignore[arg-type]
@@ -240,151 +177,214 @@ class MLPanierService:
                 "nom_darija": str(product.nom_darija),
                 "niveau": int(product.niveau or 2),
                 "prix": self._unit_price(product),
-                "stock": float(product.stock or 0),
                 "unite": str(product.unite),
+                "stock": float(product.stock or 0),
             }
             for product in products
-            if int(product.niveau or 0) in VALID_LEVELS
+            if int(product.niveau or 0) in VALID_LEVELS and float(product.stock or 0) > 0
         ]
         return (
-            "Tu es le modele SOUKI de generation de panier automatique.\n"
-            "Retourne uniquement un JSON valide, sans markdown, au format:\n"
-            '{"composition":[{"produit_id":1,"nom_fr":"Tomates","quantite":1.5}]}\n'
-            "Regles strictes: choisir seulement des produits du catalogue, respecter le budget autant "
-            "que possible, utiliser les niveaux 1, 2 et 3 si disponibles, quantites positives.\n"
-            f"Criteres client: {json.dumps(self._payload_for_model(payload), ensure_ascii=False)}\n"
-            f"Catalogue: {json.dumps(catalogue, ensure_ascii=False)}"
+            "Tu es le generateur de panier automatique de SOUKI, une epicerie de fruits et legumes.\n"
+            "Ta mission: composer un panier a partir UNIQUEMENT du catalogue fourni, selon les criteres du client.\n"
+            "\n"
+            "Tu dois repondre STRICTEMENT en JSON valide (un seul json object), sans texte ni markdown autour.\n"
+            "Schema JSON attendu:\n"
+            '{"composition": [{"produit_id": <entier present dans le catalogue>, '
+            '"nom_fr": "<nom exact du catalogue>", "quantite": <nombre positif>}]}\n'
+            "\n"
+            "Regles strictes:\n"
+            "- N'utilise QUE des produits presents dans le catalogue (produit_id valide). N'invente jamais de produit.\n"
+            "- Budget: la somme des prix*quantite ne doit PAS depasser le budget (au plus ~10% au-dessus). Reste realiste.\n"
+            "- quantite strictement positive par PALIERS selon l'unite: en kg, minimum 0.5 et multiples de "
+            "0.5 (0.5, 1, 1.5, 2, ...); pour les unites (250g) et les lots, des nombres ENTIERS avec minimum 1.\n"
+            "- Echelle par personnes d'abord; la duree n'augmente que moderement les produits qui se conservent "
+            "(legumes racines, fruits). NE multiplie PAS par le nombre de jours les herbes, aromates et l'ail: "
+            "garde-les proches de leur quantite de base (ex. 1 a 2 lots/unites max).\n"
+            "- Les noms peuvent etre reconnus en francais (nom_fr) ou en darija (nom_darija).\n"
+            "- Le message utilisateur precise le mode: soit 'panier_equilibre' (varier legumes ET fruits, sur les "
+            "niveaux 1/2/3 disponibles), soit 'plat_marocain' avec des ingredients de base a inclure en priorite "
+            "et a adapter (n'ajoute alors que des produits vraiment coherents avec ce plat).\n"
+            f"\nCatalogue des produits disponibles: {json.dumps(catalogue, ensure_ascii=False)}"
         )
 
-    def _payload_for_model(self, payload: PanierRequestDTO) -> dict[str, Any]:
-        return {
-            "prix_selectionne": payload.budget,
+    def _build_user_input(self, payload: PanierRequestDTO, dish: dict[str, Any] | None = None) -> str:
+        criteres = {
+            "budget_dh": payload.budget,
             "nombre_de_personnes": payload.personnes,
-            "duree_panier": payload.duree,
-            "profil_panier": payload.profil,
+            "duree_jours": payload.duree,
+        }
+        if dish is None:
+            return json.dumps(
+                {
+                    "mode": "panier_equilibre",
+                    "consigne": (
+                        "Compose un panier equilibre et varie couvrant a la fois des legumes ET des "
+                        "fruits du catalogue, reparti sur les niveaux 1, 2 et 3. IMPORTANT: vise a "
+                        "UTILISER la majeure partie du budget (cible ~85-100% du budget_dh), sans "
+                        "jamais le depasser. Un budget eleve => panier plus grand et plus varie: "
+                        "ajoute DAVANTAGE de produits differents du catalogue et augmente les "
+                        "quantites de facon realiste pour t'approcher du budget. N'envoie pas un "
+                        "petit panier quand le budget est grand. Adapte au nombre de personnes et a "
+                        "la duree (plus de jours => plus de quantite)."
+                    ),
+                    **criteres,
+                },
+                ensure_ascii=False,
+            )
+
+        base_ingredients = [
+            {
+                "produit_id": int(ingredient["catalog_product_id"]),
+                "nom": str(ingredient["product_reference"]),
+                "quantite_base": float(ingredient["quantity"]),
+                "unite": str(ingredient.get("unit", "kg")),
+            }
+            for ingredient in dish.get("ingredients", [])
+            if not ingredient.get("missing_from_catalog") and ingredient.get("catalog_product_id")
+        ]
+        return json.dumps(
+            {
+                "mode": "plat_marocain",
+                "plat": {
+                    "nom_fr": dish["name_fr"],
+                    "nom_darija": dish["name_darija"],
+                    "categorie": dish["category"],
+                    "portions_de_base": int(dish.get("default_servings", 4)),
+                },
+                "ingredients_de_base_du_plat": base_ingredients,
+                "consigne": (
+                    "Compose le panier STRICTEMENT a partir de ingredients_de_base_du_plat: n'utilise QUE "
+                    "ces produits, sans AUCUN produit etranger au plat. Les quantite_base valent pour "
+                    "portions_de_base personnes: la SEULE variable est le nombre de personnes — mets a "
+                    "l'echelle chaque quantite par le ratio (nombre_de_personnes / portions_de_base). "
+                    "Ni le budget ni la duree ne s'appliquent a un plat: vise des quantites justes pour le "
+                    "nombre de personnes. Exemple: pour un jus d'orange, uniquement des oranges (+ un peu "
+                    "de citron), jamais de pomme de terre, salade, persil ou autre produit sans rapport."
+                ),
+                # Un plat ne dépend que du nombre de personnes (ni budget ni durée).
+                "nombre_de_personnes": payload.personnes,
+            },
+            ensure_ascii=False,
+        )
+
+    def call_groq(self, system_prompt: str, user_input: str) -> dict[str, Any]:
+        """Appelle l'endpoint chat/completions de Groq en mode JSON."""
+        client = self._get_client()
+        try:
+            response = client.chat.completions.create(
+                model=self._model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_input},
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.2,
+            )
+            content = response.choices[0].message.content
+        except Exception as exc:  # erreurs reseau/API/SDK Groq
+            raise BasketGenerationError(f"Appel Groq echoue: {exc}") from exc
+
+        try:
+            data = json.loads(content or "")
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise BasketGenerationError(f"Reponse Groq non parsable en JSON: {exc}") from exc
+        if not isinstance(data, dict):
+            raise BasketGenerationError("Reponse Groq inattendue (JSON non-objet).")
+        return data
+
+    def validate_composition(
+        self,
+        data: dict[str, Any],
+        products: list[Product],
+        require_levels: bool = True,
+    ) -> bool:
+        """Valide la sortie Groq contre le catalogue en direct.
+
+        Verifie la structure, la validite des produits references et les quantites
+        positives. Avec require_levels=True (panier équilibré), exige aussi une
+        répartition sur au moins deux niveaux; en mode plat, un seul niveau suffit.
+        Ne lit aucun dataset interne.
+        """
+        composition = data.get("composition")
+        if not isinstance(composition, list) or not composition:
+            return False
+
+        products_by_id = {int(product.id): product for product in products}  # type: ignore[arg-type]
+        products_by_name = {self._normalize(str(product.nom_fr)): product for product in products}
+        products_by_name.update(
+            {self._normalize(str(product.nom_darija)): product for product in products}
+        )
+        available_levels = {
+            int(product.niveau or 0)
+            for product in products
+            if int(product.niveau or 0) in VALID_LEVELS and float(product.stock or 0) > 0
         }
 
-    def _extract_json_from_hf_response(self, raw_response: str) -> dict[str, Any] | None:
-        try:
-            parsed_response = json.loads(raw_response)
-        except json.JSONDecodeError:
-            parsed_response = raw_response
-
-        if isinstance(parsed_response, list):
-            text = " ".join(
-                str(item.get("generated_text", item)) if isinstance(item, dict) else str(item)
-                for item in parsed_response
+        seen_levels: set[int] = set()
+        valid_items = 0
+        for item in composition:
+            if not isinstance(item, dict):
+                continue
+            product = self._resolve_product(item, products_by_id, products_by_name)
+            if product is None:
+                continue
+            quantity = self._positive_float(
+                item.get("quantite") or item.get("quantite_kg") or item.get("quantity")
             )
-        elif isinstance(parsed_response, dict):
-            text = str(
-                parsed_response.get("generated_text")
-                or parsed_response.get("text")
-                or parsed_response
-            )
-        else:
-            text = str(parsed_response)
+            if quantity is None:
+                continue
+            valid_items += 1
+            seen_levels.add(int(product.niveau or 0))
 
-        return self._extract_json(text)
+        if valid_items == 0:
+            return False
 
-    def _format_hf_error(self, context: str, code: int, detail: str) -> str:
-        if "protobuf" in detail.lower():
-            if self._is_remote_required():
-                return (
-                    f"{context} indisponible ({code}): dependance protobuf manquante cote service Hugging Face. "
-                    "Modele distant requis, fallback refuse."
-                )
-            return (
-                f"{context} indisponible ({code}): dependance protobuf manquante cote service Hugging Face. "
-                "Fallback local actif."
-            )
-        if "'list' object has no attribute 'keys'" in detail:
-            return (
-                f"{context} indisponible ({code}): version transformers incompatible cote Space Hugging Face. "
-                "Le tokenizer du modele utilise le format transformers v5; mets transformers>=5.12.1 dans le Space."
-            )
-        return f"{context} indisponible ({code}): {detail[:240]}"
+        # Distribution: au moins deux niveaux representes quand le catalogue en
+        # propose au moins deux (le backfill garantit ensuite le troisieme niveau).
+        # Ignorée en mode plat: un plat/jus peut tenir sur un seul niveau.
+        if require_levels:
+            required_levels = min(len(available_levels & set(VALID_LEVELS)), 2)
+            if len(seen_levels & set(VALID_LEVELS)) < required_levels:
+                return False
+        return True
 
-    def _load_fallback_compositions(self) -> None:
-        if not self._fallback_path.exists():
-            self._fallback_compositions = []
+    # ── Cache TTL des compositions ─────────────────────────────────────────────
+    def _cache_key(self, payload: PanierRequestDTO) -> tuple[float, int, int, str]:
+        plat = (payload.plat or "equilibre").strip() or "equilibre"
+        return (float(payload.budget), int(payload.personnes), int(payload.duree), plat)
+
+    def _cached_composition(self, payload: PanierRequestDTO) -> dict[str, Any] | None:
+        if self._cache_ttl_seconds <= 0:
+            return None
+        with self._lock:
+            entry = self._composition_cache.get(self._cache_key(payload))
+            if entry is None:
+                return None
+            stored_at, composition = entry
+            if time.monotonic() - stored_at > self._cache_ttl_seconds:
+                self._composition_cache.pop(self._cache_key(payload), None)
+                return None
+            return composition
+
+    def _store_composition(self, payload: PanierRequestDTO, composition: dict[str, Any]) -> None:
+        if self._cache_ttl_seconds <= 0:
             return
-        try:
-            self._fallback_compositions = json.loads(
-                self._fallback_path.read_text(encoding="utf-8")
-            )
-        except Exception:
-            self._fallback_compositions = []
+        now = time.monotonic()
+        with self._lock:
+            self._composition_cache = {
+                key: (stored_at, value)
+                for key, (stored_at, value) in self._composition_cache.items()
+                if now - stored_at <= self._cache_ttl_seconds
+            }
+            self._composition_cache[self._cache_key(payload)] = (now, composition)
 
-    def _generate_from_fallback(self, payload: PanierRequestDTO) -> dict[str, Any]:
-        if not self._fallback_compositions:
-            raise MLModelUnavailableError(
-                self._load_error or "Aucun fallback de compositions disponible."
-            )
-
-        candidates = [
-            item
-            for item in self._fallback_compositions
-            if item.get("profil_panier") == payload.profil
-        ] or self._fallback_compositions
-
-        def score(item: dict[str, Any]) -> float:
-            return (
-                abs(float(item.get("prix_selectionne", 0)) - payload.budget)
-                + abs(int(item.get("nombre_de_personnes", 0)) - payload.personnes) * 15
-                + abs(int(item.get("duree_panier", 0)) - payload.duree) * 8
-            )
-
-        return min(candidates, key=score)
-
-    def _extract_json(self, generated_text: str) -> dict[str, Any] | None:
-        candidates = self._json_object_candidates(generated_text)
-        for candidate in reversed(candidates):
-            try:
-                parsed = json.loads(candidate)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(parsed, dict) and "composition" in parsed:
-                return parsed
-        return None
-
-    def _json_object_candidates(self, value: str) -> list[str]:
-        candidates: list[str] = []
-        depth = 0
-        start = -1
-        in_string = False
-        escaped = False
-
-        for index, char in enumerate(value):
-            if in_string:
-                if escaped:
-                    escaped = False
-                elif char == "\\":
-                    escaped = True
-                elif char == '"':
-                    in_string = False
-                continue
-
-            if char == '"':
-                in_string = True
-                continue
-
-            if char == "{":
-                if depth == 0:
-                    start = index
-                depth += 1
-            elif char == "}" and depth > 0:
-                depth -= 1
-                if depth == 0 and start >= 0:
-                    candidates.append(value[start : index + 1])
-                    start = -1
-
-        return candidates
-
+    # ── Construction des lignes de panier ──────────────────────────────────────
     def _build_response_lines(
         self,
         generated: dict[str, Any],
         products: list[Product],
         payload: PanierRequestDTO,
+        balance_levels: bool = True,
     ) -> list[LignePanierResponseDTO]:
         products_by_id = {int(product.id): product for product in products}  # type: ignore[arg-type]
         products_by_name = {self._normalize(str(product.nom_fr)): product for product in products}
@@ -420,12 +420,109 @@ class MLPanierService:
                 lines_by_product_id[line.product_id] = line
 
         lines = list(lines_by_product_id.values())
-        return self._ensure_three_level_basket(lines, products, payload)
+        if not balance_levels:
+            return sorted(
+                lines,
+                key=lambda line: (
+                    int(getattr(products_by_id.get(line.product_id), "niveau", 2) or 2),
+                    line.product_id,
+                ),
+            )
+        lines = self._ensure_three_level_basket(lines, products, products_by_id, payload)
+        # Mode équilibré: le budget est une cible d'achat. On complète le panier
+        # (variété puis quantités) pour s'approcher du budget si Groq est resté en
+        # dessous, en respectant stock et paliers.
+        lines = self._fill_to_budget(lines, products, products_by_id, payload)
+        return sorted(
+            lines,
+            key=lambda line: (
+                int(getattr(products_by_id.get(line.product_id), "niveau", 2) or 2),
+                line.product_id,
+            ),
+        )
+
+    # Part minimale du budget qu'un panier équilibré doit viser à atteindre.
+    _BUDGET_FILL_TARGET = 0.85
+    # Facteur d'échelle maximal (garde-fou anti-emballement; la cible budget borne déjà).
+    _BUDGET_FILL_MAX_FACTOR = 8.0
+
+    def _fill_to_budget(
+        self,
+        lines: list[LignePanierResponseDTO],
+        products: list[Product],
+        products_by_id: dict[int, Product],
+        payload: PanierRequestDTO,
+    ) -> list[LignePanierResponseDTO]:
+        target = max(float(payload.budget), 0.0)
+        floor = target * self._BUDGET_FILL_TARGET
+
+        def total() -> float:
+            return sum(line.sous_total for line in lines)
+
+        # Déjà dans la fourchette acceptable [~85%, 100%] du budget: on respecte les
+        # quantités du modèle sans rien retoucher.
+        if target <= 0 or floor <= total() <= target:
+            return lines
+
+        used_ids = {line.product_id for line in lines}
+
+        # 1) Variété (seulement si SOUS le budget): ajoute des produits du catalogue
+        #    encore absents (du moins cher au plus cher) tant qu'on est sous la cible.
+        if total() < floor:
+            candidates = sorted(
+                (
+                    product
+                    for product in products
+                    if int(product.id) not in used_ids  # type: ignore[arg-type]
+                    and float(product.stock or 0) > 0
+                    and int(product.niveau or 0) in VALID_LEVELS
+                ),
+                key=lambda product: self._unit_price(product),
+            )
+            for product in candidates:
+                if total() >= floor:
+                    break
+                remaining = max(target - total(), 0.0)
+                quantity = self._fill_quantity(product, remaining)
+                line = self._line_for_product(product, quantity)
+                if line and total() + line.sous_total <= target:
+                    lines.append(line)
+                    used_ids.add(line.product_id)
+
+        # 2) Mise à l'échelle des seules lignes en kg (elles varient en continu et gardent
+        #    des décimales exactes). Objectif: rester dans une fourchette raisonnable du
+        #    budget. On ne touche à rien tant que le panier est déjà entre ~85% et 100% du
+        #    budget (on respecte alors les quantités du modèle). Sinon on ajuste vers ~97%
+        #    (remplissage) ou juste sous le budget (si le modèle a dépassé). Les lots/unités
+        #    (entiers, choisis par le modèle) ne sont jamais modifiés.
+        current = total()
+        if current < floor or current > target:
+            kg_lines = [
+                (index, line)
+                for index, line in enumerate(lines)
+                if products_by_id.get(line.product_id) is not None
+                and str(products_by_id[line.product_id].unite or "kg").lower() == "kg"
+            ]
+            kg_total = sum(line.sous_total for _, line in kg_lines)
+            if kg_total > 0:
+                # Marge sous le budget car l'arrondi aux paliers de 0.5 kg peut remonter le total.
+                aim = target * (0.90 if current < floor else 0.85)
+                desired_kg_total = aim - (current - kg_total)
+                factor = min(
+                    max(desired_kg_total / kg_total, 0.05),
+                    self._BUDGET_FILL_MAX_FACTOR,
+                )
+                for index, line in kg_lines:
+                    product = products_by_id[line.product_id]
+                    lines[index] = self._line_for_product(product, line.quantite_kg * factor) or line
+
+        return lines
 
     def _ensure_three_level_basket(
         self,
         lines: list[LignePanierResponseDTO],
         products: list[Product],
+        products_by_id: dict[int, Product],
         payload: PanierRequestDTO,
     ) -> list[LignePanierResponseDTO]:
         available_levels = {
@@ -434,7 +531,7 @@ class MLPanierService:
             if int(product.niveau or 0) in VALID_LEVELS and float(product.stock or 0) > 0
         }
         present_levels = {
-            int(getattr(self._product_by_id(products, line.product_id), "niveau", 0) or 0)
+            int(getattr(products_by_id.get(line.product_id), "niveau", 0) or 0)
             for line in lines
         }
         used_ids = {line.product_id for line in lines}
@@ -447,7 +544,7 @@ class MLPanierService:
             if not candidate:
                 continue
             remaining_budget = max(target_total - sum(line.sous_total for line in lines), 0.0)
-            quantity = self._suggested_quantity(candidate, remaining_budget)
+            quantity = self._fill_quantity(candidate, remaining_budget)
             line = self._line_for_product(candidate, quantity)
             if line:
                 lines.append(line)
@@ -457,7 +554,7 @@ class MLPanierService:
         return sorted(
             lines,
             key=lambda line: (
-                int(getattr(self._product_by_id(products, line.product_id), "niveau", 2) or 2),
+                int(getattr(products_by_id.get(line.product_id), "niveau", 2) or 2),
                 line.product_id,
             ),
         )
@@ -488,24 +585,19 @@ class MLPanierService:
             ),
         )
 
-    def _suggested_quantity(self, product: Product, remaining_budget: float) -> float:
+    def _fill_quantity(self, product: Product, remaining_budget: float) -> float:
+        """Quantité de base modeste pour un produit ajouté au remplissage/backfill.
+
+        Une base réaliste (≈1.5 kg, ou 1 unité/lot), plafonnée par ce que le budget
+        restant permet — la mise à l'échelle proportionnelle fait ensuite le reste.
+        Aucune sur-quantité dictée par un gros budget.
+        """
         unit = str(product.unite or "kg").lower()
+        base = 1.5 if unit == "kg" else 1.0
         price = max(self._unit_price(product), 0.01)
-        stock = max(float(product.stock or 0), 0.0)
-        step = 1.0 if unit != "kg" else 0.5
-        minimum = step
-
-        if remaining_budget > 0:
-            affordable = max(minimum, (remaining_budget / max(price, 0.01)) * 0.75)
-            quantity = min(affordable, stock or affordable)
-        else:
-            quantity = min(minimum, stock or minimum)
-
-        if unit == "kg":
-            quantity = round(max(minimum, round(quantity / step) * step), 2)
-        else:
-            quantity = round(max(minimum, round(quantity)), 2)
-        return min(quantity, stock) if stock > 0 else quantity
+        if remaining_budget <= 0:
+            return base
+        return max(0.0, min(base, remaining_budget / price))
 
     def _line_for_product(self, product: Product, quantity: float) -> LignePanierResponseDTO | None:
         stock = max(float(product.stock or 0), 0.0)
@@ -513,12 +605,30 @@ class MLPanierService:
         if effective_quantity <= 0:
             return None
 
+        # Quantites par paliers selon l'unite du produit:
+        #  - kg     : minimum 0.5 kg, pas de 0.5 kg (0.5, 1.0, 1.5, ...)
+        #  - 250g   : minimum 1 (= 250 g), pas de 1
+        #  - lot    : minimum 1 lot, pas de 1 lot
+        unit = str(product.unite or "kg").lower()
+        if unit == "kg":
+            final_quantity = max(0.5, round(effective_quantity / 0.5) * 0.5)
+            if stock > 0:
+                max_pal = int(stock / 0.5) * 0.5
+                if max_pal >= 0.5:
+                    final_quantity = min(final_quantity, max_pal)
+        else:
+            final_quantity = float(max(1, round(effective_quantity)))
+            if stock > 0:
+                final_quantity = min(final_quantity, float(int(stock)) or final_quantity)
+        if final_quantity <= 0:
+            return None
+
         unit_price = self._unit_price(product)
-        subtotal = round(unit_price * effective_quantity, 2)
+        subtotal = round(unit_price * final_quantity, 2)
         return LignePanierResponseDTO(
             product_id=int(product.id),  # type: ignore[arg-type]
             nom_produit=str(product.nom_fr),
-            quantite_kg=round(effective_quantity, 2),
+            quantite_kg=final_quantity,
             prix_unitaire=unit_price,
             sous_total=subtotal,
             unite=str(product.unite),
@@ -540,7 +650,7 @@ class MLPanierService:
         montant_total = round(sous_total + frais_livraison, 2)
 
         if self.panier_dao is None:
-            raise MLModelUnavailableError("DAO panier non configure pour la persistence ML.")
+            raise MLModelUnavailableError("DAO panier non configure pour la persistence.")
 
         panier = self.panier_dao.create_panier_draft(
             session=session,
@@ -602,9 +712,6 @@ class MLPanierService:
             if normalized_name in key or key in normalized_name:
                 return product
         return None
-
-    def _product_by_id(self, products: list[Product], product_id: int) -> Product | None:
-        return next((product for product in products if int(product.id) == product_id), None)  # type: ignore[arg-type]
 
     def _unit_price(self, product: Product) -> float:
         prix_affiche = getattr(product, "prix_affiche", None)

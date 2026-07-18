@@ -581,6 +581,17 @@ class DispatchService(IDispatchService):
         pickup_lat: float,
         pickup_lng: float,
     ) -> list[Commande]:
+        # Coordonnees resolues une seule fois par commande : la boucle plus proche
+        # voisin reste O(n²) sur haversine, mais ne re-traverse plus les relations
+        # client/user/addresses a chaque comparaison.
+        coords_by_commande: dict[int, Optional[tuple[float, float]]] = {}
+        for commande in commandes:
+            latitude = self._get_default_address_coordinate(commande, "latitude")
+            longitude = self._get_default_address_coordinate(commande, "longitude")
+            coords_by_commande[id(commande)] = (
+                (latitude, longitude) if latitude is not None and longitude is not None else None
+            )
+
         remaining = list(commandes)
         sorted_commandes: list[Commande] = []
         current_lat = pickup_lat
@@ -588,9 +599,8 @@ class DispatchService(IDispatchService):
 
         while remaining:
             def proximity_key(commande: Commande) -> tuple:
-                latitude = self._get_default_address_coordinate(commande, "latitude")
-                longitude = self._get_default_address_coordinate(commande, "longitude")
-                if latitude is None or longitude is None:
+                coords = coords_by_commande[id(commande)]
+                if coords is None:
                     return (
                         1,
                         float("inf"),
@@ -599,7 +609,7 @@ class DispatchService(IDispatchService):
                     )
                 return (
                     0,
-                    haversine(current_lat, current_lng, latitude, longitude),
+                    haversine(current_lat, current_lng, coords[0], coords[1]),
                     self._datetime_sort_key(commande.date_commande),
                     int(commande.id or 0),
                 )
@@ -608,11 +618,9 @@ class DispatchService(IDispatchService):
             remaining.remove(next_commande)
             sorted_commandes.append(next_commande)
 
-            next_lat = self._get_default_address_coordinate(next_commande, "latitude")
-            next_lng = self._get_default_address_coordinate(next_commande, "longitude")
-            if next_lat is not None and next_lng is not None:
-                current_lat = next_lat
-                current_lng = next_lng
+            next_coords = coords_by_commande[id(next_commande)]
+            if next_coords is not None:
+                current_lat, current_lng = next_coords
 
         return sorted_commandes
 

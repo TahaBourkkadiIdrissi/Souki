@@ -239,11 +239,14 @@ export function normalizePath(pathname: string) {
   return normalized || "/"
 }
 
+// Trié une seule fois au chargement du module (le plus spécifique d'abord),
+// au lieu d'une copie + tri à chaque appel de getRouteConfig.
+const SORTED_ROUTES: RouteConfig[] = [...ROUTES].sort((a, b) => b.path.length - a.path.length)
+
 export function getRouteConfig(pathname: string) {
   const normalizedPath = normalizePath(pathname)
 
-  return [...ROUTES]
-    .sort((a, b) => b.path.length - a.path.length)
+  return SORTED_ROUTES
     .find((route) => {
       const normalizedRoutePath = normalizePath(route.path)
       if (route.match === "prefix") {

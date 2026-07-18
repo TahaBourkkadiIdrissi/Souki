@@ -38,5 +38,9 @@ class IProduitPricingService(ABC):
         pass
 
     @abstractmethod
+    def delete_product(self, session: Session, produit_id: int) -> dict:
+        pass
+
+    @abstractmethod
     def update_image(self, session: Session, produit_id: int, image_url: str) -> ProduitPricingDTO:
         pass

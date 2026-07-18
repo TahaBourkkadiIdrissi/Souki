@@ -19,6 +19,8 @@ GEMINI_TIMEOUT_SECONDS = 30
 SYSTEM_PROMPT = """Tu es l'assistant vocal SOUKI pour un marché au Maroc. Extrais les produits. Réponds UNIQUEMENT avec un JSON valide, sans markdown.
 Format exact : {"transcription": "texte", "langue_detectee": "darija|français|mixte", "items": [{"produit_darija": "btata", "produit_fr": "Pommes de terre", "quantite": 2.0, "unite": "kg"}], "produits_non_disponibles": []}
 
+Règle de transcription OBLIGATOIRE : la "transcription" doit TOUJOURS être en caractères latins. Si le client parle en darija ou en arabe, translittère en darija latine (ex: "أريد طاجين الدجاج" -> "bghit tajin djaj", "حريرة" -> "l7rira"), jamais en écriture arabe.
+
 Règles de quantités OBLIGATOIRES (la quantité doit TOUJOURS être un nombre décimal) :
 - "nos" ou "noss" = 0.5
 - "rab3a" ou "reb3a" = 0.25

@@ -1,0 +1,5708 @@
+[
+ {
+  "dish_id": "tajine-poulet-citron-olives",
+  "name_fr": "Tajine de poulet au citron confit et olives",
+  "name_darija": "tajin djaj b lhamed w zitoun",
+  "category": "tajine",
+  "default_servings": 4,
+  "aliases": [
+   "tajine poulet",
+   "tajin djaj",
+   "tajine de poulet"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "poulet",
+    "quantity": 1.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "citron confit",
+    "quantity": 2,
+    "unit": "unite",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "olives vertes",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "gingembre",
+    "quantity": 10,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "safran",
+    "quantity": 1,
+    "unit": "pincee",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "tajine-kefta-oeufs",
+  "name_fr": "Tajine de kefta aux oeufs",
+  "name_darija": "tajin kefta b lbid",
+  "category": "tajine",
+  "default_servings": 4,
+  "aliases": [
+   "tajine kefta",
+   "kefta aux oeufs",
+   "tajin kefta"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "viande hachee (kefta)",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "oeufs",
+    "quantity": 4,
+    "unit": "unite",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Piments",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 6,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "paprika",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "tajine-legumes",
+  "name_fr": "Tajine de legumes",
+  "name_darija": "tajin dyal lkhodra",
+  "category": "tajine",
+  "default_servings": 4,
+  "aliases": [
+   "tajine vegetarien",
+   "tajin khodra"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "Pommes de terre",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": 1,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Carottes",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 4,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Courgettes",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 5,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Petit pois",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 25,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Haricots verts",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 15,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "huile d'olive",
+    "quantity": 0.1,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "tajine-agneau-pruneaux",
+  "name_fr": "Tajine d'agneau aux pruneaux",
+  "name_darija": "tajin lghenmi b lbarqouq",
+  "category": "tajine",
+  "default_servings": 4,
+  "aliases": [
+   "tajine pruneaux",
+   "tajin barqouq"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "epaule d'agneau",
+    "quantity": 1.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "pruneaux",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "amandes",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "cannelle",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "miel",
+    "quantity": 30,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "gingembre",
+    "quantity": 10,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "graines de sesame",
+    "quantity": 10,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "tajine-poulet-legumes",
+  "name_fr": "Tajine de poulet aux legumes",
+  "name_darija": "tajin djaj b lkhodra",
+  "category": "tajine",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "poulet",
+    "quantity": 1.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Pommes de terre",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": 1,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Carottes",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 4,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Courgettes",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 5,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Petit pois",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 25,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "tajine-boeuf-petits-pois",
+  "name_fr": "Tajine de boeuf aux petits pois",
+  "name_darija": "tajin lbegri b jelbana",
+  "category": "tajine",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "boeuf",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Petit pois",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": 25,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "curcuma",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "tajine-poisson-chermoula",
+  "name_fr": "Tajine de poisson a la chermoula",
+  "name_darija": "tajin lhout b chermoula",
+  "category": "tajine",
+  "default_servings": 4,
+  "aliases": [
+   "tajine poisson",
+   "tajin hout"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "poisson blanc",
+    "quantity": 1.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Poivrons",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 14,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Pommes de terre",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": 1,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Carottes",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 4,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 2,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "paprika",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "tajine-boulettes-sardines",
+  "name_fr": "Tajine de boulettes de sardines",
+  "name_darija": "tajin kwari dyal serdin",
+  "category": "tajine",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "sardines",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Poivrons",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 14,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 2,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Piments",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 6,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "riz",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "tajine-viande-haricots-verts",
+  "name_fr": "Tajine de viande aux haricots verts",
+  "name_darija": "tajin b loubya khadra",
+  "category": "tajine",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "boeuf",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Haricots verts",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": 15,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "tajine-viande-chou-fleur",
+  "name_fr": "Tajine de viande au chou-fleur",
+  "name_darija": "tajin b chiflour",
+  "category": "tajine",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "boeuf",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Chou-fleur",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": 24,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "curcuma",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "tajine-viande-aubergines",
+  "name_fr": "Tajine de viande aux aubergines",
+  "name_darija": "tajin b denjal",
+  "category": "tajine",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "boeuf",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Aubergines",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": 7,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "tajine-viande-navets",
+  "name_fr": "Tajine de viande aux navets",
+  "name_darija": "tajin b left",
+  "category": "tajine",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "agneau",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Navets",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": 21,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "curcuma",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "tajine-viande-epinards",
+  "name_fr": "Tajine de viande aux epinards",
+  "name_darija": "tajin b sbanekh",
+  "category": "tajine",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "boeuf",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Epinards",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": 17,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.15,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "huile d'olive",
+    "quantity": 0.1,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "tajine-poulet-carottes-olives",
+  "name_fr": "Tajine de poulet aux carottes et olives",
+  "name_darija": "tajin djaj b khizou w zitoun",
+  "category": "tajine",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "poulet",
+    "quantity": 1.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Carottes",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": 4,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "olives violettes",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "gingembre",
+    "quantity": 10,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "tajine-viande-courgettes",
+  "name_fr": "Tajine de viande aux courgettes",
+  "name_darija": "tajin b qra3",
+  "category": "tajine",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "boeuf",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Courgettes",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": 5,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "tajine-poulet-pommes-de-terre",
+  "name_fr": "Tajine de poulet aux pommes de terre",
+  "name_darija": "tajin djaj b batata",
+  "category": "tajine",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "poulet",
+    "quantity": 1.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Pommes de terre",
+    "quantity": 1.2,
+    "unit": "kg",
+    "catalog_product_id": 1,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "olives vertes",
+    "quantity": 0.15,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "curcuma",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "couscous-sept-legumes",
+  "name_fr": "Couscous aux sept legumes",
+  "name_darija": "seksou sab3a khodari",
+  "category": "couscous",
+  "default_servings": 4,
+  "aliases": [
+   "couscous",
+   "seksou",
+   "couscous legumes"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "semoule de ble",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "boeuf",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "pois chiches",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Carottes",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 4,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Navets",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 21,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Courgettes",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 5,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Petit pois",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 25,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "potiron",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "chou vert",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "couscous-tfaya",
+  "name_fr": "Couscous tfaya",
+  "name_darija": "seksou b tfaya",
+  "category": "couscous",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "semoule de ble",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "poulet",
+    "quantity": 1.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "raisins secs",
+    "quantity": 0.25,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "pois chiches",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "cannelle",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "miel",
+    "quantity": 40,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "amandes",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "couscous-poisson",
+  "name_fr": "Couscous au poisson",
+  "name_darija": "seksou b lhout",
+  "category": "couscous",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "semoule de ble",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "poisson blanc",
+    "quantity": 1.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Carottes",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 4,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Navets",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 21,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Courgettes",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 5,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Poivrons",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 14,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "couscous-belboula",
+  "name_fr": "Couscous d'orge (belboula)",
+  "name_darija": "seksou belboula",
+  "category": "couscous",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "orge concassee",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "boeuf",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Carottes",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 4,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Navets",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 21,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Courgettes",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 5,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "potiron",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "couscous-legumes-vapeur",
+  "name_fr": "Couscous vegetarien aux legumes vapeur",
+  "name_darija": "seksou b lkhodra",
+  "category": "couscous",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "semoule de ble",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Carottes",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 4,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Navets",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 21,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Courgettes",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 5,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Petit pois",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 25,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "pois chiches",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "seffa-medfouna",
+  "name_fr": "Seffa medfouna au poulet",
+  "name_darija": "seffa medfouna",
+  "category": "couscous",
+  "default_servings": 4,
+  "aliases": [
+   "seffa"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "vermicelles cheveux d'ange",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "poulet",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "amandes",
+    "quantity": 0.15,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "raisins secs",
+    "quantity": 0.15,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "cannelle",
+    "quantity": 8,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "sucre glace",
+    "quantity": 50,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "couscous-khadra-fassi",
+  "name_fr": "Couscous aux feves et petits pois",
+  "name_darija": "seksou b lfoul w jelbana",
+  "category": "couscous",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "semoule de ble",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "agneau",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "feves fraiches",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Petit pois",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 25,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "harira",
+  "name_fr": "Harira marocaine",
+  "name_darija": "l7rira",
+  "category": "soupe",
+  "default_servings": 4,
+  "aliases": [
+   "soupe harira",
+   "hrira",
+   "harira"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Celeri",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 22,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "lentilles",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "pois chiches",
+    "quantity": 0.15,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "viande de boeuf en des",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "farine",
+    "quantity": 0.05,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "vermicelles",
+    "quantity": 0.05,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "gingembre",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "bissara",
+  "name_fr": "Bissara (puree de feves seches)",
+  "name_darija": "bissara",
+  "category": "soupe",
+  "default_servings": 4,
+  "aliases": [
+   "soupe de feves",
+   "bessara"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "feves seches",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 8,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "huile d'olive",
+    "quantity": 0.1,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "paprika",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "chorba-vermicelles",
+  "name_fr": "Chorba aux vermicelles",
+  "name_darija": "chorba b cha3riya",
+  "category": "soupe",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "vermicelles",
+    "quantity": 0.15,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "poulet",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Celeri",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 22,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "soupe-legumes",
+  "name_fr": "Soupe de legumes du marche",
+  "name_darija": "chorba dyal lkhodra",
+  "category": "soupe",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Pommes de terre",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 1,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Carottes",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 4,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Courgettes",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 5,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Navets",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 21,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Celeri",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 22,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "soupe-lentilles",
+  "name_fr": "Soupe de lentilles",
+  "name_darija": "chorba dyal l3dess",
+  "category": "soupe",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "lentilles",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Carottes",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 4,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "soupe-carottes",
+  "name_fr": "Veloute de carottes au cumin",
+  "name_darija": "chorba dyal khizou",
+  "category": "soupe",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Carottes",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": 4,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Pommes de terre",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 1,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "soupe-brocoli",
+  "name_fr": "Veloute de brocoli",
+  "name_darija": "chorba dyal brokoli",
+  "category": "soupe",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Brocoli",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 23,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Pommes de terre",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 1,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "chorba-poisson",
+  "name_fr": "Chorba de poisson",
+  "name_darija": "chorba dyal lhout",
+  "category": "soupe",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "poisson blanc",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Pommes de terre",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 1,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Celeri",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 22,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "askif",
+  "name_fr": "Askif (soupe d'orge amazighe)",
+  "name_darija": "askif",
+  "category": "soupe",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "orge concassee",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "huile d'olive",
+    "quantity": 0.05,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "zaalouk",
+  "name_fr": "Zaalouk d'aubergines",
+  "name_darija": "zaalouk",
+  "category": "salade",
+  "default_servings": 4,
+  "aliases": [
+   "salade d'aubergines",
+   "zaalouk d'aubergine"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "Aubergines",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": 7,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "paprika",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "huile d'olive",
+    "quantity": 0.1,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "taktouka",
+  "name_fr": "Taktouka de poivrons et tomates",
+  "name_darija": "taktouka",
+  "category": "salade",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Poivrons",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 14,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "paprika",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "huile d'olive",
+    "quantity": 0.08,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "salade-marocaine",
+  "name_fr": "Salade marocaine",
+  "name_darija": "chlada maghribiya",
+  "category": "salade",
+  "default_servings": 4,
+  "aliases": [
+   "salade fraiche",
+   "chlada"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Concombres",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 8,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Poivrons",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 14,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "huile d'olive",
+    "quantity": 0.05,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "salade-carottes-orange",
+  "name_fr": "Salade de carottes a l'orange",
+  "name_darija": "chlada khizou b portoqal",
+  "category": "salade",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Carottes",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 4,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oranges",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 12,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "cannelle",
+    "quantity": 3,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "sucre",
+    "quantity": 20,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "eau de fleur d'oranger",
+    "quantity": 10,
+    "unit": "ml",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "salade-betteraves",
+  "name_fr": "Salade de betteraves",
+  "name_darija": "chlada barba",
+  "category": "salade",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Betteraves",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 19,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "huile d'olive",
+    "quantity": 0.05,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 3,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "salade-concombre-menthe",
+  "name_fr": "Salade de concombres a la menthe",
+  "name_darija": "chlada khiar b na3na3",
+  "category": "salade",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Concombres",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 8,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Menthe fraiche",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 9,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "huile d'olive",
+    "quantity": 0.03,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "bakoula-epinards",
+  "name_fr": "Bakoula d'epinards aux olives",
+  "name_darija": "bakoula b sbanekh",
+  "category": "salade",
+  "default_servings": 4,
+  "aliases": [
+   "bakoula",
+   "salade d'epinards"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "Epinards",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": 17,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.15,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "olives violettes",
+    "quantity": 0.15,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "paprika",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "huile d'olive",
+    "quantity": 0.1,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "felfla-grillee",
+  "name_fr": "Salade de poivrons grilles",
+  "name_darija": "felfla mechwiya",
+  "category": "salade",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Poivrons",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": 14,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "huile d'olive",
+    "quantity": 0.05,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "salade-radis-orange",
+  "name_fr": "Salade de radis et oranges",
+  "name_darija": "chlada fjel b portoqal",
+  "category": "salade",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Radis",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 20,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oranges",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 12,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "sucre",
+    "quantity": 10,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "salade-laitue-orange",
+  "name_fr": "Salade de laitue aux oranges",
+  "name_darija": "chlada khess b portoqal",
+  "category": "salade",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Laitue",
+    "quantity": 2,
+    "unit": "lot",
+    "catalog_product_id": 16,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oranges",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 12,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "eau de fleur d'oranger",
+    "quantity": 10,
+    "unit": "ml",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "sucre",
+    "quantity": 10,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "salade-haricots-verts",
+  "name_fr": "Salade de haricots verts",
+  "name_darija": "chlada loubya khadra",
+  "category": "salade",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Haricots verts",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 15,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "huile d'olive",
+    "quantity": 0.05,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "batata-mchermla",
+  "name_fr": "Pommes de terre en chermoula",
+  "name_darija": "batata mchermla",
+  "category": "salade",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Pommes de terre",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": 1,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "paprika",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "salade-orange-cannelle",
+  "name_fr": "Salade d'oranges a la cannelle",
+  "name_darija": "chlada portoqal b lqerfa",
+  "category": "salade",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Oranges",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": 12,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "cannelle",
+    "quantity": 3,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "sucre glace",
+    "quantity": 15,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "eau de fleur d'oranger",
+    "quantity": 10,
+    "unit": "ml",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "salade-piments-grilles",
+  "name_fr": "Salade de piments grilles",
+  "name_darija": "felfla harra mechwiya",
+  "category": "salade",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Piments",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 6,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "huile d'olive",
+    "quantity": 0.04,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "salade-navets-citron",
+  "name_fr": "Salade de navets au citron",
+  "name_darija": "chlada left b lhamed",
+  "category": "salade",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Navets",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 21,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.15,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "huile d'olive",
+    "quantity": 0.03,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "salade-celeri-carottes",
+  "name_fr": "Salade de celeri et carottes rapees",
+  "name_darija": "chlada karafs b khizou",
+  "category": "salade",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Celeri",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 22,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Carottes",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 4,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "huile d'olive",
+    "quantity": 0.03,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "rfissa",
+  "name_fr": "Rfissa au poulet",
+  "name_darija": "rfissa",
+  "category": "plat_mijote",
+  "default_servings": 4,
+  "aliases": [
+   "rfissa poulet",
+   "trid"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "poulet fermier",
+    "quantity": 1.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "msemen ou trid",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "lentilles",
+    "quantity": 0.25,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "fenugrec (halba)",
+    "quantity": 30,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "ras el hanout",
+    "quantity": 10,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "smen",
+    "quantity": 50,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "pastilla-poulet",
+  "name_fr": "Pastilla au poulet et amandes",
+  "name_darija": "bastila b djaj",
+  "category": "plat_mijote",
+  "default_servings": 4,
+  "aliases": [
+   "pastilla",
+   "bastila"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "feuilles de brick (ouarka)",
+    "quantity": 12,
+    "unit": "unite",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "poulet",
+    "quantity": 1.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "amandes",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "oeufs",
+    "quantity": 6,
+    "unit": "unite",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "cannelle",
+    "quantity": 8,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "sucre glace",
+    "quantity": 50,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "beurre",
+    "quantity": 100,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "pastilla-fruits-mer",
+  "name_fr": "Pastilla aux fruits de mer",
+  "name_darija": "bastila b lhout",
+  "category": "plat_mijote",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "feuilles de brick (ouarka)",
+    "quantity": 12,
+    "unit": "unite",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "crevettes",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "poisson blanc",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "calamars",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "vermicelles chinois",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Poivrons",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 14,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "tanjia-marrakchia",
+  "name_fr": "Tanjia marrakchia",
+  "name_darija": "tanjia marrakchia",
+  "category": "plat_mijote",
+  "default_servings": 4,
+  "aliases": [
+   "tanjia",
+   "tangia"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "jarret de boeuf",
+    "quantity": 1.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 2,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "citron confit",
+    "quantity": 2,
+    "unit": "unite",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 10,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "safran",
+    "quantity": 1,
+    "unit": "pincee",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "smen",
+    "quantity": 60,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "huile d'olive",
+    "quantity": 0.05,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "mrouzia",
+  "name_fr": "Mrouzia (agneau au miel et raisins)",
+  "name_darija": "mrouziya",
+  "category": "plat_mijote",
+  "default_servings": 4,
+  "aliases": [
+   "mrouzia"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "agneau",
+    "quantity": 1.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "raisins secs",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "amandes",
+    "quantity": 0.15,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "miel",
+    "quantity": 80,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "ras el hanout",
+    "quantity": 15,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "smen",
+    "quantity": 50,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "loubia",
+  "name_fr": "Loubia (haricots blancs en sauce)",
+  "name_darija": "loubya",
+  "category": "plat_mijote",
+  "default_servings": 4,
+  "aliases": [
+   "haricots blancs",
+   "loubia marocaine",
+   "loubia"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "haricots blancs secs",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "paprika",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "huile d'olive",
+    "quantity": 0.08,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "lentilles-marocaine",
+  "name_fr": "Lentilles a la marocaine",
+  "name_darija": "l3dess",
+  "category": "plat_mijote",
+  "default_servings": 4,
+  "aliases": [
+   "adas",
+   "3dess"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "lentilles",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Carottes",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 4,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "paprika",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "maakouda",
+  "name_fr": "Maakouda (galettes de pommes de terre)",
+  "name_darija": "ma3qouda",
+  "category": "plat_mijote",
+  "default_servings": 4,
+  "aliases": [
+   "maakouda batata",
+   "galette de pomme de terre"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "Pommes de terre",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": 1,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "oeufs",
+    "quantity": 2,
+    "unit": "unite",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "farine",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "huile de friture",
+    "quantity": 0.3,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "chakchouka",
+  "name_fr": "Chakchouka aux oeufs",
+  "name_darija": "chakchouka",
+  "category": "plat_mijote",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "oeufs",
+    "quantity": 4,
+    "unit": "unite",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Poivrons",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 14,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Piments",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 6,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "berkoukech",
+  "name_fr": "Berkoukech (gros couscous au lait)",
+  "name_darija": "berkoukech",
+  "category": "plat_mijote",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "berkoukes (gros grains)",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Carottes",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 4,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Celeri",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 22,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "huile d'olive",
+    "quantity": 0.05,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "hergma",
+  "name_fr": "Hergma (pieds de veau aux pois chiches)",
+  "name_darija": "hergma",
+  "category": "plat_mijote",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "pieds de veau",
+    "quantity": 1.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "pois chiches",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "ble concasse",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 2,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "paprika",
+    "quantity": 8,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 8,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "kefta-sauce-tomate",
+  "name_fr": "Boulettes de kefta a la sauce tomate",
+  "name_darija": "kefta b matecha",
+  "category": "plat_mijote",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "viande hachee (kefta)",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "paprika",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "douida-poulet",
+  "name_fr": "Douida (vermicelles) au poulet",
+  "name_darija": "dwida b djaj",
+  "category": "plat_mijote",
+  "default_servings": 4,
+  "aliases": [
+   "douida"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "vermicelles douida",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "poulet",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "pois chiches",
+    "quantity": 0.15,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "cannelle",
+    "quantity": 3,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "guedra-poulet",
+  "name_fr": "Poulet en guedra aux amandes",
+  "name_darija": "djaj b guedra",
+  "category": "plat_mijote",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "poulet",
+    "quantity": 1.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "amandes",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "pois chiches",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "safran",
+    "quantity": 1,
+    "unit": "pincee",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "smen",
+    "quantity": 50,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "batata-fliyou",
+  "name_fr": "Ragout de pommes de terre a la menthe pouliot",
+  "name_darija": "batata b fliyou",
+  "category": "plat_mijote",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Pommes de terre",
+    "quantity": 1.2,
+    "unit": "kg",
+    "catalog_product_id": 1,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "menthe pouliot (fliyou)",
+    "quantity": 1,
+    "unit": "botte",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "olives violettes",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "qra3-mderbel",
+  "name_fr": "Aubergines mderbel",
+  "name_darija": "denjal mderbel",
+  "category": "plat_mijote",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Aubergines",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": 7,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "viande de boeuf en des",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "paprika",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "kefta-grillee",
+  "name_fr": "Brochettes de kefta grillee",
+  "name_darija": "kefta mechwiya",
+  "category": "grillade",
+  "default_servings": 4,
+  "aliases": [
+   "kefta",
+   "brochettes kefta"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "viande hachee (kefta)",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 8,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "paprika",
+    "quantity": 8,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Menthe fraiche",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 9,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "brochettes-poulet",
+  "name_fr": "Brochettes de poulet marinees",
+  "name_darija": "qotban djaj",
+  "category": "grillade",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "blanc de poulet",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Poivrons",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 14,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.15,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "paprika",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "brochettes-boeuf",
+  "name_fr": "Brochettes de boeuf",
+  "name_darija": "qotban lbegri",
+  "category": "grillade",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "boeuf a brochettes",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Poivrons",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 14,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "paprika",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "mechoui",
+  "name_fr": "Mechoui d'agneau",
+  "name_darija": "mechwi",
+  "category": "grillade",
+  "default_servings": 6,
+  "aliases": [
+   "mechoui"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "epaule d'agneau",
+    "quantity": 2.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 15,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "beurre",
+    "quantity": 80,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "sel",
+    "quantity": 10,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "poulet-mhamer",
+  "name_fr": "Poulet roti mhamer",
+  "name_darija": "djaj mhamer",
+  "category": "grillade",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "poulet entier",
+    "quantity": 1.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "olives vertes",
+    "quantity": 0.15,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "safran",
+    "quantity": 1,
+    "unit": "pincee",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "smen",
+    "quantity": 40,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "sardines-grillees",
+  "name_fr": "Sardines grillees",
+  "name_darija": "serdin mechwi",
+  "category": "grillade",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "sardines",
+    "quantity": 1.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "sel",
+    "quantity": 10,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "sardines-chermoula",
+  "name_fr": "Sardines farcies a la chermoula",
+  "name_darija": "serdin m3amer b chermoula",
+  "category": "poisson",
+  "default_servings": 4,
+  "aliases": [
+   "sardines farcies",
+   "chermoula"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "sardines",
+    "quantity": 1.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Poivrons",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 14,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 2,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 8,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "paprika",
+    "quantity": 8,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "friture-poisson",
+  "name_fr": "Friture de poisson au citron",
+  "name_darija": "lhout meqli",
+  "category": "poisson",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "petits poissons a frire",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "farine",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "huile de friture",
+    "quantity": 0.5,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "poisson-four-legumes",
+  "name_fr": "Poisson au four sur lit de legumes",
+  "name_darija": "lhout fel ferran",
+  "category": "poisson",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "poisson entier (dorade/loup)",
+    "quantity": 1.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Pommes de terre",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": 1,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Poivrons",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 14,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "olives vertes",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "crevettes-pil-pil",
+  "name_fr": "Crevettes pil-pil",
+  "name_darija": "qemroun pil pil",
+  "category": "poisson",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "crevettes",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 2,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Piments",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 6,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "huile d'olive",
+    "quantity": 0.1,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "paprika",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "calamars-farcis",
+  "name_fr": "Calamars farcis au riz",
+  "name_darija": "calamar m3amer",
+  "category": "poisson",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "calamars",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "riz",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "thon-taktouka",
+  "name_fr": "Salade de thon a la taktouka",
+  "name_darija": "chlada ton b taktouka",
+  "category": "poisson",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "thon en boite",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Poivrons",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 14,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "olives vertes",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "hout-quari",
+  "name_fr": "Boulettes de poisson en sauce",
+  "name_darija": "kwari dyal lhout",
+  "category": "poisson",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "poisson blanc",
+    "quantity": 1.0,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "riz",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 2,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Piments",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 6,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "msemen",
+  "name_fr": "Msemen (crepes feuilletees)",
+  "name_darija": "msemen",
+  "category": "pain_patisserie",
+  "default_servings": 4,
+  "aliases": [
+   "msemmen",
+   "crepes marocaines"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "farine",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "semoule fine",
+    "quantity": 0.25,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "beurre",
+    "quantity": 150,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "huile",
+    "quantity": 0.2,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "sel",
+    "quantity": 8,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "harcha",
+  "name_fr": "Harcha (galette de semoule)",
+  "name_darija": "harcha",
+  "category": "pain_patisserie",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "semoule fine",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "beurre",
+    "quantity": 120,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "lait",
+    "quantity": 0.2,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "sucre",
+    "quantity": 30,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "levure chimique",
+    "quantity": 10,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "baghrir",
+  "name_fr": "Baghrir (crepes mille trous)",
+  "name_darija": "beghrir",
+  "category": "pain_patisserie",
+  "default_servings": 4,
+  "aliases": [
+   "baghrir",
+   "crepes mille trous"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "semoule fine",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "farine",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "levure boulangere",
+    "quantity": 10,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "miel",
+    "quantity": 80,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "beurre",
+    "quantity": 80,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "batbout",
+  "name_fr": "Batbout (pain a la poele)",
+  "name_darija": "batbout",
+  "category": "pain_patisserie",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "farine",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "semoule fine",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "levure boulangere",
+    "quantity": 10,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "sel",
+    "quantity": 8,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "khobz-dar",
+  "name_fr": "Pain maison (khobz dar)",
+  "name_darija": "khobz dar",
+  "category": "pain_patisserie",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "farine",
+    "quantity": 0.7,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "semoule",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "levure boulangere",
+    "quantity": 12,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "sel",
+    "quantity": 10,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "sellou",
+  "name_fr": "Sellou (sfouf)",
+  "name_darija": "sellou",
+  "category": "pain_patisserie",
+  "default_servings": 4,
+  "aliases": [
+   "sfouf",
+   "zmita"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "farine grillee",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "amandes",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "graines de sesame",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "miel",
+    "quantity": 150,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "beurre",
+    "quantity": 150,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "cannelle",
+    "quantity": 8,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "anis",
+    "quantity": 8,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "chebakia",
+  "name_fr": "Chebakia au miel et sesame",
+  "name_darija": "chebbakiya",
+  "category": "pain_patisserie",
+  "default_servings": 4,
+  "aliases": [
+   "chebakia",
+   "mkharqa"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "farine",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "graines de sesame",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "miel",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "amandes",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "eau de fleur d'oranger",
+    "quantity": 30,
+    "unit": "ml",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "safran",
+    "quantity": 1,
+    "unit": "pincee",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "huile de friture",
+    "quantity": 0.5,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "briouates-amandes",
+  "name_fr": "Briouates aux amandes",
+  "name_darija": "briwat b louz",
+  "category": "pain_patisserie",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "feuilles de brick (ouarka)",
+    "quantity": 15,
+    "unit": "unite",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "amandes",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "miel",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "eau de fleur d'oranger",
+    "quantity": 20,
+    "unit": "ml",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "cannelle",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "beurre",
+    "quantity": 80,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "briouates-viande",
+  "name_fr": "Briouates a la viande hachee",
+  "name_darija": "briwat b lkefta",
+  "category": "pain_patisserie",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "feuilles de brick (ouarka)",
+    "quantity": 15,
+    "unit": "unite",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "viande hachee (kefta)",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "oeufs",
+    "quantity": 2,
+    "unit": "unite",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "ghriba-coco",
+  "name_fr": "Ghriba a la noix de coco",
+  "name_darija": "ghriba coco",
+  "category": "pain_patisserie",
+  "default_servings": 4,
+  "aliases": [
+   "ghriba"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "noix de coco rapee",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "farine",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "oeufs",
+    "quantity": 3,
+    "unit": "unite",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "sucre",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "beurre",
+    "quantity": 80,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "kaab-ghzal",
+  "name_fr": "Cornes de gazelle",
+  "name_darija": "ka3b ghzal",
+  "category": "pain_patisserie",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "farine",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "amandes",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "sucre glace",
+    "quantity": 0.15,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "eau de fleur d'oranger",
+    "quantity": 30,
+    "unit": "ml",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "cannelle",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "beurre",
+    "quantity": 100,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "fekkas",
+  "name_fr": "Fekkas aux amandes et raisins",
+  "name_darija": "feqqas",
+  "category": "pain_patisserie",
+  "default_servings": 4,
+  "aliases": [
+   "fekkas"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "farine",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "amandes",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "raisins secs",
+    "quantity": 0.15,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "sucre",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "oeufs",
+    "quantity": 3,
+    "unit": "unite",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "anis",
+    "quantity": 8,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "the-menthe",
+  "name_fr": "The a la menthe",
+  "name_darija": "atay b na3na3",
+  "category": "autre",
+  "default_servings": 4,
+  "aliases": [
+   "atay",
+   "the marocain"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "Menthe fraiche",
+    "quantity": 2,
+    "unit": "lot",
+    "catalog_product_id": 9,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "the vert gunpowder",
+    "quantity": 30,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "sucre",
+    "quantity": 100,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "jus-orange-frais",
+  "name_fr": "Jus d'oranges pressees",
+  "name_darija": "3assir portoqal",
+  "category": "autre",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Oranges",
+    "quantity": 1.5,
+    "unit": "kg",
+    "catalog_product_id": 12,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "sucre",
+    "quantity": 20,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "jus-carotte-orange",
+  "name_fr": "Jus carotte-orange",
+  "name_darija": "3assir khizou b portoqal",
+  "category": "jus",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Carottes",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 4,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oranges",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": 12,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "sucre",
+    "quantity": 20,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "panache-betterave",
+  "name_fr": "Jus panache betterave-orange",
+  "name_darija": "3assir barba",
+  "category": "autre",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Betteraves",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 19,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oranges",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": 12,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "omelette-berbere",
+  "name_fr": "Omelette berbere aux tomates",
+  "name_darija": "omlete berberiya",
+  "category": "autre",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "oeufs",
+    "quantity": 6,
+    "unit": "unite",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oignons rouge",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 2,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Piments",
+    "quantity": 0.05,
+    "unit": "kg",
+    "catalog_product_id": 6,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 3,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "khlii-oeufs",
+  "name_fr": "Khlii aux oeufs",
+  "name_darija": "khli3 b lbid",
+  "category": "autre",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "khlii (viande sechee)",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "oeufs",
+    "quantity": 4,
+    "unit": "unite",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.2,
+    "unit": "kg",
+    "catalog_product_id": 3,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "citronnade-menthe",
+  "name_fr": "Citronnade a la menthe",
+  "name_darija": "3assir hamed b na3na3",
+  "category": "jus",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.5,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Menthe fraiche",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 9,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "sucre",
+    "quantity": 80,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "smoothie-concombre-menthe",
+  "name_fr": "Smoothie concombre-menthe",
+  "name_darija": "smoothie khiar b na3na3",
+  "category": "autre",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Concombres",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 8,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Menthe fraiche",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 9,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "yaourt nature",
+    "quantity": 0.25,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "soupe-fraiche-concombre",
+  "name_fr": "Soupe froide de concombre",
+  "name_darija": "chorba barda dyal khiar",
+  "category": "autre",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Concombres",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 8,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Menthe fraiche",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 9,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "yaourt nature",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "legumes-vapeur-cumin",
+  "name_fr": "Legumes vapeur au cumin et huile d'olive",
+  "name_darija": "khodra fuwar b kamoun",
+  "category": "autre",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Brocoli",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 23,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Chou-fleur",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 24,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Carottes",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 4,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Haricots verts",
+    "quantity": 0.3,
+    "unit": "kg",
+    "catalog_product_id": 15,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 5,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "huile d'olive",
+    "quantity": 0.05,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "pommes-terre-four-chermoula",
+  "name_fr": "Pommes de terre au four chermoula",
+  "name_darija": "batata fel ferran",
+  "category": "autre",
+  "default_servings": 4,
+  "aliases": [],
+  "ingredients": [
+   {
+    "product_reference": "Pommes de terre",
+    "quantity": 1.2,
+    "unit": "kg",
+    "catalog_product_id": 1,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Ail",
+    "quantity": 1,
+    "unit": "250g",
+    "catalog_product_id": 18,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Coriandre",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 11,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Persil",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 10,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "paprika",
+    "quantity": 8,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "cumin",
+    "quantity": 8,
+    "unit": "g",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   },
+   {
+    "product_reference": "huile d'olive",
+    "quantity": 0.08,
+    "unit": "litre",
+    "catalog_product_id": null,
+    "missing_from_catalog": true
+   }
+  ]
+ },
+ {
+  "dish_id": "jus-orange",
+  "name_fr": "Jus d'orange frais",
+  "name_darija": "asir portoqal",
+  "category": "jus",
+  "default_servings": 4,
+  "aliases": [
+   "jus orange",
+   "asir portoqal",
+   "jus d'orange"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "Oranges",
+    "quantity": 1.2,
+    "unit": "kg",
+    "catalog_product_id": 12,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "jus-carotte",
+  "name_fr": "Jus de carotte",
+  "name_darija": "asir khizou",
+  "category": "jus",
+  "default_servings": 4,
+  "aliases": [
+   "jus carotte",
+   "asir khizou"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "Carottes",
+    "quantity": 0.8,
+    "unit": "kg",
+    "catalog_product_id": 4,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oranges",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 12,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "jus-betterave",
+  "name_fr": "Jus de betterave detox",
+  "name_darija": "asir barba",
+  "category": "jus",
+  "default_servings": 4,
+  "aliases": [
+   "jus betterave",
+   "asir barba",
+   "detox betterave"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "Betteraves",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 19,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oranges",
+    "quantity": 0.4,
+    "unit": "kg",
+    "catalog_product_id": 12,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "smoothie-banane-orange",
+  "name_fr": "Smoothie banane-orange",
+  "name_darija": "smoothie banan w portoqal",
+  "category": "jus",
+  "default_servings": 4,
+  "aliases": [
+   "smoothie banane",
+   "banane orange"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "banane",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 37,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Oranges",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 12,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "jus-tomate",
+  "name_fr": "Jus de tomate",
+  "name_darija": "asir maticha",
+  "category": "jus",
+  "default_servings": 4,
+  "aliases": [
+   "jus tomate",
+   "asir maticha"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "Tomates",
+    "quantity": 0.9,
+    "unit": "kg",
+    "catalog_product_id": 38,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Celeri",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 22,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.1,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   }
+  ]
+ },
+ {
+  "dish_id": "detox-concombre-menthe",
+  "name_fr": "Detox concombre-menthe",
+  "name_darija": "detox khiar w naanaa",
+  "category": "jus",
+  "default_servings": 4,
+  "aliases": [
+   "detox concombre",
+   "concombre menthe",
+   "eau detox"
+  ],
+  "ingredients": [
+   {
+    "product_reference": "Concombres",
+    "quantity": 0.6,
+    "unit": "kg",
+    "catalog_product_id": 8,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Menthe fraiche",
+    "quantity": 1,
+    "unit": "lot",
+    "catalog_product_id": 9,
+    "missing_from_catalog": false
+   },
+   {
+    "product_reference": "Citrons",
+    "quantity": 0.15,
+    "unit": "kg",
+    "catalog_product_id": 13,
+    "missing_from_catalog": false
+   }
+  ]
+ }
+]

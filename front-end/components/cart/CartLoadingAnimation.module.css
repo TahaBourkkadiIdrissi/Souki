@@ -71,3 +71,65 @@
   border-radius: 99px;
   transition: width 0.25s ease;
 }
+
+/* ── Phase "finalisation" : barre à 100 % mais requête ML encore en vol ────── */
+
+.unit {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin-left: 2px;
+  color: #C96A00;
+}
+
+/* La barre pleine scintille doucement pour montrer que ça travaille encore */
+.progressFillFinalizing {
+  background: linear-gradient(90deg, #F07C00, #FFC244, #F07C00);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s linear infinite;
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+/* Le remplissage du chariot respire légèrement pendant la finalisation */
+.fillBarFinalizing {
+  animation: breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.72; }
+}
+
+/* Points pulsés quand l'estimation est écoulée mais la réponse pas encore là */
+.dots span {
+  display: inline-block;
+  animation: dotPulse 1.2s ease-in-out infinite;
+}
+
+.dots span:nth-child(2) { animation-delay: 0.2s; }
+.dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dotPulse {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40%           { opacity: 1;    transform: translateY(-4px); }
+}
+
+/* Politique projet : toute animation doit respecter prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .progressFillFinalizing {
+    animation: none;
+    background: linear-gradient(90deg, #F07C00, #FFC244);
+  }
+
+  .fillBarFinalizing {
+    animation: none;
+  }
+
+  .dots span {
+    animation: none;
+    opacity: 0.6;
+  }
+}

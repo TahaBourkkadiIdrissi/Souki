@@ -6,28 +6,47 @@ import styles from "./CartLoadingAnimation.module.css"
 interface CartLoadingAnimationProps {
   /** Progress percentage 0–100 */
   progress: number
+  /**
+   * Secondes restantes estimées. Affichées en compte à rebours quand la barre
+   * atteint 100 % alors que la génération ML tourne encore (~26 s à froid),
+   * pour que l'attente ne ressemble pas à un gel. `null` = masqué (terminé).
+   */
+  remainingSeconds?: number | null
 }
 
 /**
  * CartLoadingAnimation – shown during AI smart basket generation.
  * Renders a cart SVG with an animated fill bar and a numeric percentage
- * that updates as `progress` changes.
+ * that updates as `progress` changes. Once the bar tops out at 100 % while
+ * the request is still in flight, the hero number switches to an estimated
+ * countdown ("~19s") so the user knows the wait is expected.
  */
-export const CartLoadingAnimation: React.FC<CartLoadingAnimationProps> = ({ progress }) => {
+export const CartLoadingAnimation: React.FC<CartLoadingAnimationProps> = ({
+  progress,
+  remainingSeconds = null,
+}) => {
   const clamped = Math.min(100, Math.max(0, Math.round(progress)))
+  const finalizing = clamped >= 100 && remainingSeconds !== null
+  const secondsLeft = remainingSeconds ?? 0
+
+  const ariaLabel = finalizing
+    ? secondsLeft > 0
+      ? `Finalisation du panier par l'IA, environ ${secondsLeft} secondes restantes`
+      : "Finalisation du panier par l'IA, encore quelques instants"
+    : `Génération du panier : ${clamped}%`
 
   return (
     <div
       className={styles.container}
       role="status"
       aria-live="polite"
-      aria-label={`Génération du panier : ${clamped}%`}
+      aria-label={ariaLabel}
     >
       {/* Cart SVG with fill overlay */}
       <div className={styles.cartWrapper}>
         {/* Fill bar rises from the bottom */}
         <div
-          className={styles.fillBar}
+          className={`${styles.fillBar} ${finalizing ? styles.fillBarFinalizing : ""}`}
           style={{ height: `${clamped}%` }}
           data-testid="fill-bar"
         />
@@ -50,16 +69,39 @@ export const CartLoadingAnimation: React.FC<CartLoadingAnimationProps> = ({ prog
         </svg>
       </div>
 
-      {/* Percentage label */}
+      {/* Hero number: percentage, then estimated countdown once the bar is full */}
       <div className={styles.labelRow}>
-        <span className={styles.percentage}>{clamped}%</span>
-        <span className={styles.label}>Génération du panier…</span>
+        {finalizing ? (
+          secondsLeft > 0 ? (
+            <>
+              <span className={styles.percentage}>
+                ~{secondsLeft}
+                <span className={styles.unit}>s</span>
+              </span>
+              <span className={styles.label}>Finalisation par l&apos;IA…</span>
+            </>
+          ) : (
+            <>
+              <span className={`${styles.percentage} ${styles.dots}`} aria-hidden="true">
+                <span>•</span>
+                <span>•</span>
+                <span>•</span>
+              </span>
+              <span className={styles.label}>Encore quelques instants…</span>
+            </>
+          )
+        ) : (
+          <>
+            <span className={styles.percentage}>{clamped}%</span>
+            <span className={styles.label}>Génération du panier…</span>
+          </>
+        )}
       </div>
 
-      {/* Progress track */}
+      {/* Progress track (shimmers while finalizing) */}
       <div className={styles.progressTrack} aria-hidden="true">
         <div
-          className={styles.progressFill}
+          className={`${styles.progressFill} ${finalizing ? styles.progressFillFinalizing : ""}`}
           style={{ width: `${clamped}%` }}
         />
       </div>

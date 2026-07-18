@@ -1,4 +1,4 @@
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -46,18 +46,27 @@ class PanierDetailsDTO(BaseModel):
     montant_total: float
 
 
-ProfilPanier = Literal[
-    "aromates_herbes",
-    "cuisine_couscous",
-    "cuisine_tajine",
-    "equilibre",
-    "fruits_dominant",
-    "legumes_base",
-    "legumes_verts",
-    "racines_tubercules",
-    "salade_fraicheur",
-    "soupe_hiver",
-]
+class DishSummaryDTO(BaseModel):
+    """Entree legere pour le menu deroulant des plats marocains."""
+    dish_id: str
+    name_fr: str
+    name_darija: str
+    category: str
+
+
+class DishCompositionResponseDTO(BaseModel):
+    """Composition d'un plat marocain resolue contre le catalogue et mise a l'echelle."""
+    status: str
+    dish_id: str
+    name_fr: str
+    name_darija: str
+    category: str
+    personnes: int
+    default_servings: int
+    lignes_panier: List[LignePanierResponseDTO]
+    ingredients_manquants: List[str] = []
+    total_dh: float = 0.0
+    nombre_articles: int = 0
 
 
 class PanierRequestDTO(BaseModel):
@@ -68,7 +77,9 @@ class PanierRequestDTO(BaseModel):
     budget: float = Field(gt=0, le=5000)
     personnes: int = Field(ge=1, le=8)
     duree: int = Field(alias="durée", ge=3, le=14)
-    profil: ProfilPanier = "equilibre"
+    # Sélection: identifiant d'un plat marocain (dish_id) OU None/"equilibre" pour
+    # un panier équilibré (tous fruits & légumes) — les deux passent par Groq.
+    plat: Optional[str] = None
 
 
 class PanierResponseDTO(BaseModel):

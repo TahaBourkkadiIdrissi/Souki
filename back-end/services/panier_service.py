@@ -217,7 +217,7 @@ class PanierService(IPanierService):
 
         lignes_response = []
         for ligne in lignes:
-            product = self.panier_dao.get_product_by_id(session, ligne.produit_id) # type: ignore
+            product = ligne.produit  # chargé en batch via joinedload (anti N+1)
             if product:
                 quantite_kg = float(ligne.quantite_kg) # type: ignore
                 sous_total_ligne = float(ligne.sous_total) # type: ignore

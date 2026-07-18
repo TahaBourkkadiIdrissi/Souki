@@ -9,6 +9,7 @@ from dto.produit_pricing_dto import (
     ProduitPricingListDTO,
     ProduitPricingUpdateDTO,
 )
+from dao.product_dao import ProductDaoBD
 from interfaces.produit_pricing_dao_interface import IProduitPricingDao
 from interfaces.produit_pricing_service_interface import IProduitPricingService
 
@@ -85,7 +86,19 @@ class ProduitPricingServiceBD(IProduitPricingService):
 
     def create_product(self, session: Session, data: ProductCreateDTO) -> ProduitPricingDTO:
         try:
-            product = self.dao.create_product(session, data)
+            # Le nom darija est UNIQUE en base: un produit soft-supprime (is_active=False)
+            # bloquerait la re-creation avec une erreur de doublon. On reactive la ligne
+            # existante (id et historique conserves) au lieu d'echouer.
+            existing = self.dao.get_product_by_nom_darija(session, data.nom_darija)
+            if existing is not None and bool(existing.is_active):
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Un produit actif avec le nom darija '{data.nom_darija}' existe deja.",
+                )
+            if existing is not None:
+                product = self.dao.reactivate_product(session, existing, data)
+            else:
+                product = self.dao.create_product(session, data)
 
             # Resout le prix des la creation (override -> gros -> None) pour que le produit
             # ne reste pas sans prix (sinon masque du catalogue jusqu'a un recalcul manuel).
@@ -97,6 +110,7 @@ class ProduitPricingServiceBD(IProduitPricingService):
             )
             self.dao.update_prix_affiche(session, int(product.id), prix_affiche)
             session.commit()
+            ProductDaoBD.invalidate_alias_cache()
 
             produit = self.dao.get_produit_pricing(session, int(product.id))
             if produit is None:
@@ -110,6 +124,35 @@ class ProduitPricingServiceBD(IProduitPricingService):
         try:
             self.dao.deactivate_product(session, produit_id)
             session.commit()
+            ProductDaoBD.invalidate_alias_cache()
+        except Exception:
+            session.rollback()
+            raise
+
+    def delete_product(self, session: Session, produit_id: int) -> dict:
+        """Suppression hybride: definitive quand le produit n'est reference par aucune
+        commande/panier/offre, sinon soft delete (l'historique reste intact et la
+        re-creation reactive la ligne via create_product)."""
+        try:
+            if self.dao.try_hard_delete_product(session, produit_id):
+                session.commit()
+                ProductDaoBD.invalidate_alias_cache()
+                return {
+                    "success": True,
+                    "mode": "supprime",
+                    "message": "Produit supprime definitivement.",
+                }
+            self.dao.deactivate_product(session, produit_id)
+            session.commit()
+            ProductDaoBD.invalidate_alias_cache()
+            return {
+                "success": True,
+                "mode": "desactive",
+                "message": (
+                    "Produit retire du catalogue (present dans des commandes passees, "
+                    "l'historique est conserve). Le re-creer le reactivera."
+                ),
+            }
         except Exception:
             session.rollback()
             raise

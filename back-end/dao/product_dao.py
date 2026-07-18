@@ -1,6 +1,8 @@
 import re
+import threading
+import time
 import unicodedata
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -9,6 +11,18 @@ from interfaces.product_dao_interface import IProductDao
 
 
 class ProductDaoBD(IProductDao):
+
+    # Cache process-wide des alias normalises (le DAO est instancie a chaque requete
+    # FastAPI, d'ou un etat de classe). TTL court + invalidation explicite sur les
+    # mutations produit (create/reactivate/deactivate/delete).
+    _ALIAS_CACHE_TTL_SECONDS = 60.0
+    _alias_cache_lock = threading.Lock()
+    _alias_cache: Optional[dict[str, Any]] = None
+
+    @classmethod
+    def invalidate_alias_cache(cls) -> None:
+        with cls._alias_cache_lock:
+            cls._alias_cache = None
 
     def _normalize_alias(self, value: str) -> str:
         normalized = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
@@ -53,21 +67,64 @@ class ProductDaoBD(IProductDao):
         }
         return {alias for alias in aliases if alias}
 
+    def _get_alias_index(self, session: Session) -> dict[str, Any]:
+        cls = type(self)
+        now = time.monotonic()
+        with cls._alias_cache_lock:
+            cache = cls._alias_cache
+            if cache is not None and now - cache["built_at"] < cls._ALIAS_CACHE_TTL_SECONDS:
+                return cache
+
+            exact: dict[str, int] = {}
+            entries: list[tuple[set[str], int]] = []
+            for product in (
+                session.query(Product).filter(Product.is_active == True).all()  # noqa: E712
+            ):
+                aliases = self._build_aliases(product)
+                product_id = int(product.id)  # type: ignore[arg-type]
+                entries.append((aliases, product_id))
+                for candidate in aliases:
+                    exact.setdefault(candidate, product_id)
+
+            cache = {"built_at": now, "exact": exact, "entries": entries}
+            cls._alias_cache = cache
+            return cache
+
+    @staticmethod
+    def _lookup_alias_index(
+        index: dict[str, Any], normalized_alias: str, singular_alias: str
+    ) -> Optional[int]:
+        product_id = index["exact"].get(normalized_alias)
+        if product_id is None:
+            product_id = index["exact"].get(singular_alias)
+        if product_id is not None:
+            return int(product_id)
+        for aliases, candidate_id in index["entries"]:
+            if any(
+                normalized_alias in candidate or candidate in normalized_alias
+                for candidate in aliases
+            ):
+                return int(candidate_id)
+        return None
+
     def get_by_alias(self, session: Session, alias: str) -> Optional[Product]:
         normalized_alias = self._normalize_alias(alias)
         singular_alias = self._singularize(normalized_alias)
 
-        for product in session.query(Product).filter(Product.is_active == True).all():  # noqa: E712
-            aliases = self._build_aliases(product)
-            if (
-                normalized_alias in aliases
-                or singular_alias in aliases
-                or any(
-                    normalized_alias in candidate or candidate in normalized_alias
-                    for candidate in aliases
-                )
-            ):
+        for _attempt in range(2):
+            index = self._get_alias_index(session)
+            product_id = self._lookup_alias_index(index, normalized_alias, singular_alias)
+            if product_id is None:
+                return None
+            product = (
+                session.query(Product)
+                .filter(Product.id == product_id, Product.is_active == True)  # noqa: E712
+                .first()
+            )
+            if product is not None:
                 return product
+            # Cache perime (produit renomme/desactive entre-temps) : rebuild puis retry.
+            type(self).invalidate_alias_cache()
         return None
 
     def get_all(self, session: Session) -> List[Product]:
@@ -162,4 +219,5 @@ class ProductDaoBD(IProductDao):
                 session.add(Product(**product_data))
 
         session.flush()
+        self.invalidate_alias_cache()
         print("[CatalogueSync] Seed initial termine")
