@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Suspense } from 'react'
-import { Inter, Poppins } from 'next/font/google'
+import { Poppins } from 'next/font/google'
 // import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { AuthProvider } from '@/contexts/auth-context'
@@ -12,15 +12,14 @@ import { RouteGuard } from "@/components/routing/route-guard"
 import { PwaNavShell } from "@/components/souki/pwa-nav-shell"
 import { Toaster } from "@/components/ui/sonner"
 
-const inter = Inter({ 
+// Police unique du site : Poppins pour toutes les écritures (corps + titres).
+// On charge les graisses 400→900 car l'UI utilise abondamment font-extrabold
+// (800) et font-black (900) sur les titres.
+const poppins = Poppins({
   subsets: ["latin"],
-  variable: '--font-inter',
-})
-
-const poppins = Poppins({ 
-  subsets: ["latin"],
-  weight: ['400', '500', '600', '700'],
+  weight: ['400', '500', '600', '700', '800', '900'],
   variable: '--font-poppins',
+  display: 'swap',
 })
 
 export const metadata: Metadata = {
@@ -84,7 +83,7 @@ export default function RootLayout({
         <link rel="apple-touch-startup-image" href="/splash/apple-splash-750-1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
         <link rel="apple-touch-startup-image" href="/splash/apple-splash-640-1136.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
       </head>
-      <body className={`${inter.variable} ${poppins.variable} font-sans antialiased overflow-x-hidden`}>
+      <body className={`${poppins.variable} font-sans antialiased overflow-x-hidden`}>
         <AuthProvider>
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
             <MobilePullToRefresh />

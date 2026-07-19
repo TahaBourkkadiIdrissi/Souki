@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { UserRound } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { ProfileDropdown } from "./profile-dropdown"
 import { MobileBottomNav } from "./mobile-bottom-nav"
@@ -59,20 +60,20 @@ export function Navbar() {
                 (isAuthenticated && user ? (
                   <ProfileDropdown user={user} />
                 ) : (
-                  <>
-                    <Link
-                      href="/login"
-                      className="hidden items-center rounded-xl border-2 border-[#1E8A3C] px-4 py-2 font-semibold text-[#1E8A3C] transition-colors hover:bg-[#1E8A3C] hover:text-white sm:flex"
-                    >
-                      Connexion
-                    </Link>
-                    <Link
-                      href="/catalogue"
-                      className="flex items-center gap-2 rounded-xl bg-[#F07C00] px-4 py-2 font-semibold text-white transition-colors hover:bg-[#D66B00]"
-                    >
-                      Panier
-                    </Link>
-                  </>
+                  // Invite : l'icone profil mene a la fenetre de choix du type de compte (/login).
+                  <Link
+                    href="/login"
+                    aria-label="Se connecter ou creer un compte"
+                    title="Se connecter ou creer un compte"
+                    className="group flex min-h-12 items-center gap-2 rounded-full border border-[#E4EFE5] bg-white py-1.5 pl-4 pr-1.5 shadow-[0_16px_40px_-28px_rgba(18,32,24,0.45)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#CDE7D0] hover:shadow-[0_20px_50px_-30px_rgba(18,32,24,0.55)]"
+                  >
+                    <span className="text-sm font-semibold text-[#3D3D3D] transition-colors group-hover:text-[#1E8A3C]">
+                      Se connecter
+                    </span>
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#1E8A3C] to-[#4CB84A] text-white shadow-inner ring-2 ring-white transition-transform group-hover:scale-105">
+                      <UserRound size={18} />
+                    </span>
+                  </Link>
                 ))}
             </div>
           </div>
