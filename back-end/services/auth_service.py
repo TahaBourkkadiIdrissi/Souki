@@ -21,6 +21,7 @@ from entities.verification_code_entity import VerificationCode
 from rbac_config import LOGIN_TARGET_PERMISSIONS
 from services.authorization_service import AuthorizationPrincipal, AuthorizationService
 from services.email_delivery_service import EmailDeliveryService
+
 from services.parrainage_service import (
     REFERRAL_IP_CAP,
     REFERRAL_IP_WINDOW_DAYS,
