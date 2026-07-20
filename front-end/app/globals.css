@@ -1696,3 +1696,42 @@ html {
   .marquee__track { animation: none !important; }
   .step-connector::after { animation: none !important; opacity: 0 !important; }
 }
+
+/* ─── PWA welcome header — finitions « cool af » (aurora, anneau, sheen) ─── */
+
+/* Balayage lumineux diagonal qui dérive lentement sur le dégradé de l'en-tête */
+@keyframes pwa-header-aurora {
+  0%   { transform: translateX(-30%) translateY(-8%) rotate(8deg); opacity: 0; }
+  35%  { opacity: 0.55; }
+  65%  { opacity: 0.55; }
+  100% { transform: translateX(120%) translateY(8%) rotate(8deg); opacity: 0; }
+}
+.animate-pwa-aurora {
+  animation: pwa-header-aurora 9s ease-in-out infinite;
+}
+
+/* Anneau conique qui tourne lentement derrière le médaillon-mascotte */
+@keyframes pwa-ring-spin {
+  to { transform: rotate(360deg); }
+}
+.animate-pwa-ring-spin {
+  animation: pwa-ring-spin 12s linear infinite;
+}
+
+/* Reflet qui traverse le prénom (texte en dégradé clippé) */
+@keyframes pwa-text-sheen {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.animate-pwa-text-sheen {
+  background-size: 200% 100%;
+  animation: pwa-text-sheen 4.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pwa-aurora,
+  .animate-pwa-ring-spin,
+  .animate-pwa-text-sheen {
+    animation: none !important;
+  }
+}

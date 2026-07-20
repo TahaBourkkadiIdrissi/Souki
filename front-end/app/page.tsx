@@ -275,7 +275,7 @@ export default function HomePage() {
             </div>
 
             {/* Carte prix flottante — haut gauche */}
-            <div className="absolute -left-4 top-8 flex items-center gap-3 rounded-2xl border border-white/60 bg-white/95 py-3 pl-3 pr-5 shadow-[0_24px_50px_-24px_rgba(20,48,27,0.5)] backdrop-blur animate-gentle-float sm:-left-8">
+            <div className="absolute -left-4 top-8 hidden items-center gap-3 rounded-2xl border border-white/60 bg-white/95 py-3 pl-3 pr-5 shadow-[0_24px_50px_-24px_rgba(20,48,27,0.5)] backdrop-blur animate-gentle-float sm:-left-8 sm:flex">
               <span className="relative h-12 w-12 overflow-hidden rounded-xl">
                 <Image
                   src="https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=200&h=200&fit=crop"
@@ -295,7 +295,7 @@ export default function HomePage() {
 
             {/* Badge économie — haut droite */}
             <div
-              className="absolute -right-2 top-[-1.25rem] rounded-full bg-[#F5C400] px-4 py-2 text-[13px] font-black text-[#14301B] shadow-[0_16px_35px_-18px_rgba(20,48,27,0.6)] animate-gentle-float sm:-right-5"
+              className="absolute -right-2 top-[-1.25rem] hidden rounded-full bg-[#F5C400] px-4 py-2 text-[13px] font-black text-[#14301B] shadow-[0_16px_35px_-18px_rgba(20,48,27,0.6)] animate-gentle-float sm:-right-5 sm:block"
               style={{ animationDelay: "1.1s" }}
             >
               −25% vs épicier
@@ -536,105 +536,132 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══════════════ ABONNEMENT PREMIUM (version d'origine restaurée) ═══════════════ */}
-      <section className="relative min-h-[80vh] flex items-center justify-center overflow-hidden bg-[#1E8A3C]/10">
-        <div className="absolute inset-0 z-0">
-          <Image
-            src="https://images.unsplash.com/photo-1610348725531-843dff563e2c?w=1920&q=80"
-            alt="SOUKI Premium Merchandise"
-            fill
-            className="object-cover animate-slow-zoom"
-            priority
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/40 to-black/80" />
-        </div>
-
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-          <div className="space-y-10 animate-fade-in">
-            <div data-reveal="fade" className="glass-morphism inline-flex items-center gap-2 px-6 py-2 border border-white/20 rounded-full shadow-2xl mx-auto">
-              <Users className="w-5 h-5 text-white" />
-              <span className="text-sm font-bold text-white tracking-widest uppercase">Nouveau</span>
+      {/* ═══════════════ ABONNEMENT PREMIUM — carte éditoriale vert de marque ═══════════════ */}
+      <section className="py-20 lg:py-28">
+        <div className="mx-auto w-full max-w-[1200px] px-6 lg:px-8">
+          <div
+            className="relative overflow-hidden rounded-[36px] border border-[#173D24] shadow-[0_50px_100px_-52px_rgba(12,39,20,0.7)]"
+            data-reveal="up"
+          >
+            {/* Fond : photo premium sublimée par un voile VERT de marque (plus de noir cinématique) */}
+            <div className="absolute inset-0 z-0" aria-hidden="true">
+              <Image
+                src="https://images.unsplash.com/photo-1610348725531-843dff563e2c?w=1920&q=80"
+                alt=""
+                fill
+                sizes="(max-width: 1024px) 100vw, 1200px"
+                className="object-cover animate-slow-zoom"
+              />
+              <div className="absolute inset-0 bg-gradient-to-br from-[#0C2714]/96 via-[#14301B]/82 to-[#1E8A3C]/72" />
+              <div className="concept-grid absolute inset-0 opacity-40" />
             </div>
 
-            <LetterReveal
-              as="h2"
-              trigger="view"
-              stagger={30}
-              className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-white leading-tight tracking-tight text-balance drop-shadow-2xl"
-              segments={[
-                { text: "Abonnement Premium" },
-                { text: "— L'essentiel pour vos proches", block: true, className: "mt-2 text-[#4CB84A]" },
-              ]}
-            />
+            <div className="relative z-10 grid gap-10 px-7 py-14 sm:px-10 lg:grid-cols-[1.15fr_1fr] lg:items-center lg:gap-14 lg:px-14 lg:py-20">
+              {/* ── Colonne copy ── */}
+              <div>
+                <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-[12px] font-bold uppercase tracking-[0.16em] text-white backdrop-blur">
+                  <Sparkles className="h-3.5 w-3.5 text-[#7BC96F]" />
+                  Nouveau — Abonnement
+                </span>
 
-            <p className="text-base sm:text-xl md:text-2xl text-white/90 max-w-3xl mx-auto font-medium leading-relaxed drop-shadow-lg">
-              Une souscription mensuelle simplifiée pour garantir des paniers de légumes <span className="text-[#4CB84A] font-bold">frais et premium</span> livrés directement chaque semaine.
-            </p>
+                <LetterReveal
+                  as="h2"
+                  trigger="view"
+                  stagger={26}
+                  className="mt-6 font-[family-name:var(--font-poppins)] text-[clamp(2rem,3.6vw,3rem)] font-bold leading-[1.08] tracking-[-0.02em] text-white text-balance"
+                  segments={[
+                    { text: "Vos paniers frais," },
+                    { text: "en pilote automatique.", block: true, className: "text-[#7BC96F]" },
+                  ]}
+                />
 
-            <div className="flex flex-wrap items-center justify-center gap-10 md:gap-16 py-8">
-              {[
-                { icon: Users, text: "Souscription Flexible" },
-                { icon: Truck, text: "Livraison Priority" },
-                { icon: Clock, text: "Gestion Automatique" },
-              ].map((item, index) => (
-                <div key={index} className="flex flex-col items-center gap-4 group cursor-pointer transition-all">
-                  <div className="w-20 h-20 rounded-2xl bg-white/10 backdrop-blur-md border border-white/30 flex items-center justify-center group-hover:scale-110 group-hover:bg-white/20 transition-all duration-500 shadow-xl overflow-hidden relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
-                    <item.icon className="w-10 h-10 text-white relative z-10" />
-                  </div>
-                  <span className="text-white font-bold text-base tracking-wide drop-shadow-md">{item.text}</span>
+                <p className="mt-5 max-w-[32rem] text-[16px] leading-[1.65] text-white/85">
+                  Une souscription mensuelle simplifiée pour garantir des paniers de légumes{" "}
+                  <span className="font-semibold text-[#9FE0AB]">frais et premium</span>, livrés
+                  directement chaque semaine — sans même y penser.
+                </p>
+
+                <div className="mt-8 flex flex-col items-start gap-4">
+                  <button
+                    onClick={() => requireAuth(() => router.push("/abonnements"))}
+                    className={`group inline-flex min-h-14 items-center justify-center gap-3 rounded-full bg-[#F07C00] px-8 text-[16px] font-bold text-white shadow-[0_20px_45px_-16px_rgba(240,124,0,0.65)] transition-transform hover:scale-[1.03] hover:bg-[#D66B00] active:scale-[0.98] ${focusRing}`}
+                  >
+                    Découvrir l&apos;abonnement
+                    <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                  </button>
+                  <span className="inline-flex items-center gap-2 text-[13px] font-semibold text-white/70">
+                    <Shield className="h-4 w-4 text-[#7BC96F]" />
+                    Paiement 100% sécurisé via CMI &amp; Visa
+                  </span>
                 </div>
-              ))}
-            </div>
-
-            <div className="flex flex-col items-center gap-6 pt-6 w-full max-w-sm sm:max-w-none mx-auto animate-fade-in stagger-3">
-              <button
-                onClick={() => requireAuth(() => router.push("/abonnements"))}
-                className="group relative inline-flex items-center justify-center gap-4 px-6 py-4 sm:px-12 sm:py-5 bg-[#F07C00] text-white rounded-2xl font-black text-lg sm:text-2xl hover:bg-[#D66B00] transition-all hover:scale-105 shadow-[0_20px_50px_-10px_rgba(240,124,0,0.5)] overflow-hidden w-full sm:w-auto"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                Découvrir l&apos;abonnement
-                <ArrowRight className="w-6 h-6 sm:w-8 sm:h-8 group-hover:translate-x-1 transition-transform" />
-              </button>
-              <div className="flex items-center gap-2 text-white/70 text-sm font-medium">
-                <Shield className="w-4 h-4" />
-                Paiement 100% sécurisé via CMI &amp; Visa
               </div>
+
+              {/* ── Colonne bénéfices — chips de verre ── */}
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                {[
+                  { icon: Users, title: "Souscription flexible", desc: "Modifiable ou suspendable à tout moment." },
+                  { icon: Truck, title: "Livraison priority", desc: "Vos paniers passent en tête de tournée." },
+                  { icon: Clock, title: "Gestion automatique", desc: "Renouvelé chaque semaine, sans effort." },
+                ].map((item) => (
+                  <li
+                    key={item.title}
+                    className="flex items-start gap-4 rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur transition-colors hover:bg-white/[0.16]"
+                  >
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white">
+                      <item.icon className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[15px] font-bold text-white">{item.title}</span>
+                      <span className="mt-0.5 block text-[13px] leading-[1.5] text-white/75">{item.desc}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ═══════════════ MOYENS DE PAIEMENT (version d'origine) ═══════════════ */}
-      <section className="py-12 bg-[#F5F5F0]">
-        <div data-reveal="fade" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-[#8A8A8A] mb-8 font-medium">Paiements 100% sécurisés</p>
-          <div className="flex flex-wrap justify-center gap-6 lg:gap-12">
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-20 h-14 bg-white rounded-lg shadow-sm border border-gray-100 flex items-center justify-center">
-                <Banknote className="w-8 h-8 text-[#1E8A3C]" />
+      {/* ═══════════════ MOYENS DE PAIEMENT — bandeau de confiance éditorial ═══════════════ */}
+      <section className="pb-20 lg:pb-24">
+        <div className="mx-auto w-full max-w-[1200px] px-6 lg:px-8">
+          <div
+            data-reveal="fade"
+            className="rounded-[28px] border border-[#E7EFE8] bg-white px-6 py-8 shadow-[0_28px_60px_-46px_rgba(20,48,27,0.4)] sm:px-10"
+          >
+            <p className="text-center text-[12px] font-bold uppercase tracking-[0.16em] text-[#1E8A3C]">
+              Paiements 100% sécurisés
+            </p>
+            <div className="mt-7 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+              {/* Cash */}
+              <div className="flex items-center gap-3 rounded-2xl border border-[#E7EFE8] bg-[#FBFBF7] px-5 py-3.5">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EAF8EC]">
+                  <Banknote className="h-5 w-5 text-[#1E8A3C]" />
+                </span>
+                <span className="text-[14px] font-semibold text-[#14301B]">Cash à la livraison</span>
               </div>
-              <span className="text-sm font-medium text-[#3D3D3D]">Cash à la livraison</span>
-            </div>
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-32 h-14 bg-white rounded-lg shadow-sm border border-gray-100 flex items-center justify-center gap-3 px-3">
-                <span className="font-extrabold text-[#3D3D3D] tracking-tighter text-lg">CMI</span>
-                <div className="w-px h-6 bg-gray-200"></div>
-                <div className="flex flex-col leading-none">
-                  <span className="font-black text-[12px] text-[#1A1F71] italic tracking-tight">VISA</span>
-                  <div className="flex items-center mt-0.5 -space-x-1.5 ml-1">
-                    <div className="w-3.5 h-3.5 rounded-full bg-[#EB001B] mix-blend-multiply opacity-90"></div>
-                    <div className="w-3.5 h-3.5 rounded-full bg-[#F79E1B] mix-blend-multiply opacity-90"></div>
-                  </div>
-                </div>
+              {/* Carte bancaire */}
+              <div className="flex items-center gap-3 rounded-2xl border border-[#E7EFE8] bg-[#FBFBF7] px-5 py-3.5">
+                <span className="flex items-center gap-2">
+                  <span className="text-[15px] font-extrabold tracking-tighter text-[#14301B]">CMI</span>
+                  <span className="h-5 w-px bg-[#DDE8DE]" aria-hidden="true" />
+                  <span className="flex flex-col leading-none">
+                    <span className="text-[11px] font-black italic tracking-tight text-[#1A1F71]">VISA</span>
+                    <span className="ml-1 mt-0.5 flex items-center -space-x-1.5" aria-hidden="true">
+                      <span className="h-3 w-3 rounded-full bg-[#EB001B] opacity-90 mix-blend-multiply" />
+                      <span className="h-3 w-3 rounded-full bg-[#F79E1B] opacity-90 mix-blend-multiply" />
+                    </span>
+                  </span>
+                </span>
+                <span className="text-[14px] font-semibold text-[#14301B]">Carte bancaire</span>
               </div>
-              <span className="text-sm font-medium text-[#3D3D3D]">Carte Bancaire</span>
-            </div>
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-20 h-14 bg-[#1E8A3C] rounded-lg shadow-sm flex items-center justify-center">
-                <Users className="w-8 h-8 text-white" />
+              {/* Abonnement */}
+              <div className="flex items-center gap-3 rounded-2xl border border-[#E7EFE8] bg-[#FBFBF7] px-5 py-3.5">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#1E8A3C] to-[#4CB84A]">
+                  <Users className="h-5 w-5 text-white" />
+                </span>
+                <span className="text-[14px] font-semibold text-[#14301B]">Abonnement Premium</span>
               </div>
-              <span className="text-sm font-medium text-[#3D3D3D]">Abonnement Premium</span>
             </div>
           </div>
         </div>

@@ -271,6 +271,17 @@ export function getCataloguePresentation(name: string) {
   )
 }
 
+/**
+ * Les visuels locaux (`/images/...`) sont des illustrations 512px sur fond
+ * blanc : on les affiche en `object-contain` + `mix-blend-multiply` (le blanc
+ * se fond dans l'arriere-plan) pour un rendu net et premium. Les URLs distantes
+ * sont des photos reelles (fruits/herbes, uploads fournisseurs) → `object-cover`
+ * sans blend, sinon le multiply les assombrirait.
+ */
+export function isIllustrationImage(image?: string | null): boolean {
+  return typeof image === "string" && image.startsWith("/images/")
+}
+
 export function resolveCatalogueImage(name: string, imageUrl?: string | null) {
   const presentation = getCataloguePresentation(name)
   if (presentation.image.startsWith(`${VEGETABLE_IMAGE_DIRECTORY}/`)) {

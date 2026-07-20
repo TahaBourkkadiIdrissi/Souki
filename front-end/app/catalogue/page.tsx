@@ -3,6 +3,7 @@
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
+import { toast } from "sonner"
 import {
   ArrowRight,
   BadgeCheck,
@@ -32,7 +33,10 @@ import { AIModals } from "@/components/souki/ai-modals"
 import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
 import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
 import { ProductCard } from "@/components/souki/product-card"
+import { ProductDetailSheet, StickyBottomBar } from "@/components/souki/pwa"
 import { useAuth } from "@/hooks/useAuth"
+import { useFavorites } from "@/hooks/useFavorites"
+import { useHaptic } from "@/hooks/useHaptic"
 import { useScrollReveal } from "@/hooks/useScrollReveal"
 import type { CommandeHistoriqueDTO, ProduitSuggestionDTO } from "@/lib/api"
 import { getCatalogueSuggestions } from "@/lib/api"
@@ -75,6 +79,12 @@ const applyImageFallback = (
   event.currentTarget.onerror = null
   event.currentTarget.src = resolvedFallback
 }
+
+// Viewport mobile = en dessous du breakpoint `md` (768px), la ou vivent la barre
+// de recherche sticky, la barre panier sticky et la navigation basse. Sert a
+// differencier le comportement natif mobile du comportement web/tablette/desktop.
+const isMobileViewport = () =>
+  typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches
 
 const categories = [
   { id: "tous", label: "Tous" },
@@ -532,6 +542,10 @@ function CatalogueContent() {
   const [avatarExpression, setAvatarExpression] = useState<FarmerExpression>("welcome")
   const avatarResetTimerRef = useRef<number | null>(null)
   const revealRef = useScrollReveal()
+  const haptic = useHaptic()
+  const { isFavorite, toggleFavorite } = useFavorites()
+  // Produit ouvert dans la fiche détaillée (clic sur une carte produit).
+  const [detailProduct, setDetailProduct] = useState<CatalogueProduct | null>(null)
 
   const showFeedback = useCallback((nextFeedback: FeedbackMessage) => {
     setFeedback(nextFeedback)
@@ -836,8 +850,16 @@ function CatalogueContent() {
         return
       }
       setCart((currentCart) => upsertCartItem(currentCart, product, quantity))
-      setShowCart(true)
       triggerAvatarCelebrate()
+      haptic("medium")
+      // Mobile : on n'ouvre plus le tiroir panier a chaque ajout (trop intrusif).
+      // La barre panier sticky basse suffit ; un toast discret confirme l'ajout.
+      // Web/tablette/desktop : comportement inchange (ouverture du panier).
+      if (isMobileViewport()) {
+        toast.success(`${product.name} ajouté au panier`)
+      } else {
+        setShowCart(true)
+      }
     })
   }
 
@@ -877,14 +899,30 @@ function CatalogueContent() {
     }
   }
 
+  // Clic sur une carte produit : on enregistre la vue récente puis on ouvre la
+  // fiche détaillée (fenêtre avec infos, quantité, favori et ajout au panier).
+  const openProductDetail = (id: number | string) => {
+    handleProductView(id)
+    const product = products.find((item) => item.id === Number(id))
+    if (product) {
+      haptic("light")
+      setDetailProduct(product)
+    }
+  }
+
   const handleAddSuggestionToCart = (product: CatalogueProduct) => {
     requireAuth("/catalogue", () => {
       setAddedSuggestionIds((currentIds) =>
         currentIds.includes(product.id) ? currentIds : [...currentIds, product.id]
       )
       setCart((currentCart) => upsertCartItem(currentCart, product, product.quantityStep))
-      setShowCart(true)
       triggerAvatarCelebrate()
+      haptic("medium")
+      if (isMobileViewport()) {
+        toast.success(`${product.name} ajouté au panier`)
+      } else {
+        setShowCart(true)
+      }
     })
   }
 
@@ -896,6 +934,7 @@ function CatalogueContent() {
   }
 
   const updateCartQuantity = (id: number, delta: number) => {
+    haptic("light")
     setCart((currentCart) =>
       currentCart
         .map((item) => {
@@ -913,6 +952,7 @@ function CatalogueContent() {
   }
 
   const removeFromCart = (id: number) => {
+    haptic("light")
     setCart((currentCart) => currentCart.filter((item) => item.id !== id))
   }
 
@@ -1213,8 +1253,82 @@ function CatalogueContent() {
   )
 
   return (
-    <div className="min-h-screen bg-[#FBFDF9] pb-24 md:pb-0">
+    <div
+      className={cn(
+        "min-h-screen bg-[#FBFDF9] md:pb-0",
+        // Réserve l'espace bas : barre de nav mobile seule (pb-24) ou barre de nav
+        // + barre panier sticky quand le panier est rempli (pb-44), pour que le
+        // dernier contenu ne soit jamais masqué au bas du scroll.
+        isAuthenticated && cart.length > 0 ? "pb-44" : "pb-24",
+      )}
+    >
       <JitCutoffBanner />
+
+      {/* ===== BARRE MOBILE NATIVE : recherche + categories (masquee des md:) =====
+          Sur mobile, la recherche et les categories etaient enfouies dans le
+          tiroir lateral. On les remonte en tete d'ecran, a portee de pouce, facon
+          app native. Desktop (md:+) inchange : cette barre est md:hidden. */}
+      <div className="sticky top-0 z-40 border-b border-[#E7F0E8] bg-[#FBFDF9]/95 px-4 pb-2.5 pt-[max(env(safe-area-inset-top),0.6rem)] backdrop-blur-md md:hidden">
+        <div className="flex items-center gap-2">
+          <div className="flex flex-1 items-center gap-2 rounded-2xl bg-white px-3.5 py-2.5 shadow-sm ring-1 ring-[#E7F0E8]">
+            <Search className="h-5 w-5 shrink-0 text-[#1E8A3C]" />
+            <input
+              type="search"
+              inputMode="search"
+              enterKeyHint="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Rechercher un produit frais…"
+              aria-label="Rechercher un produit"
+              className="w-full bg-transparent text-[15px] font-semibold text-[#264129] outline-none placeholder:font-medium placeholder:text-[#9BB29E]"
+            />
+            {searchQuery.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                aria-label="Effacer la recherche"
+                className="shrink-0 text-[#9BB29E] active:scale-90"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              haptic("light")
+              setShowSidebar(true)
+            }}
+            aria-label="Filtres et catégories"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#1E8A3C] shadow-sm ring-1 ring-[#E7F0E8] active:scale-90"
+          >
+            <Filter className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="mt-2.5 flex gap-2 overflow-x-auto scrollbar-none">
+          {categories.map((category) => {
+            const isActive = selectedCategory === category.id
+            return (
+              <button
+                key={category.id}
+                type="button"
+                onClick={() => {
+                  haptic("light")
+                  setSelectedCategory(category.id)
+                }}
+                className={cn(
+                  "shrink-0 rounded-full px-4 py-1.5 text-[13px] font-bold transition-colors active:scale-95",
+                  isActive
+                    ? "bg-[#1E8A3C] text-white shadow-sm"
+                    : "bg-white text-[#607061] ring-1 ring-[#E7F0E8]",
+                )}
+              >
+                {category.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       <nav className="sticky top-0 z-40 hidden glass-ios26 border-b border-[#E7F0E8] md:block">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -1356,7 +1470,96 @@ function CatalogueContent() {
         </aside>
 
         <main className="min-w-0 flex-1 px-4 py-5 lg:px-8 lg:py-8">
-          <div className="relative mb-6 overflow-hidden rounded-2xl border border-[#D7EBD9] bg-[linear-gradient(135deg,#FFFFFF_0%,#F7FCF7_58%,#FFF7EE_100%)] p-5 shadow-[0_18px_50px_-34px_rgba(0,0,0,0.2)] lg:p-6">
+          {/* ===== ACCUEIL CATALOGUE MOBILE (rebuild façon référence Avora, md:hidden) =====
+              Bannière promo + actions IA compactes + compteur/tri. Remplace la grande
+              carte hero desktop (masquée en dessous de md). Desktop inchangé. */}
+          {!showOrderHistory && (
+            <div className="mb-5 md:hidden">
+              <button
+                type="button"
+                onClick={() =>
+                  document
+                    .getElementById("catalogue-products")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
+                className="relative flex w-full items-center gap-3 overflow-hidden rounded-3xl bg-gradient-to-br from-[#1A4F2C] via-[#1E8A3C] to-[#2DA050] p-5 text-left text-white shadow-[0_18px_40px_-22px_rgba(17,59,30,0.8)] active:scale-[0.98]"
+              >
+                <span className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/10" />
+                <span className="pointer-events-none absolute -bottom-12 right-12 h-24 w-24 rounded-full bg-white/10" />
+                <span className="relative min-w-0 flex-1">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider">
+                    <Leaf className="h-3 w-3" /> Frais du jour
+                  </span>
+                  <span className="mt-2 block text-[19px] font-black leading-tight">
+                    Livraison offerte dès {SEUIL.toFixed(0)} DH
+                  </span>
+                  <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-[12px] font-black text-[#1E8A3C]">
+                    Je commande <ArrowRight className="h-3.5 w-3.5" />
+                  </span>
+                </span>
+                <FarmerAvatar
+                  size="md"
+                  expression="welcome"
+                  label="Souki, votre guide du marché"
+                  className="relative shrink-0 drop-shadow-[0_12px_20px_rgba(0,0,0,0.28)]"
+                />
+              </button>
+
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => requireAuth("/catalogue", () => setActiveModal("smart"))}
+                  className="flex items-center gap-2.5 rounded-2xl bg-white p-3 text-left shadow-sm ring-1 ring-[#E7F0E8] active:scale-[0.97]"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F07C00]/10 text-[#F07C00]">
+                    <Zap className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[13px] font-black leading-tight text-[#264129]">Panier malin</span>
+                    <span className="block text-[11px] font-medium text-gray-400">L&apos;IA compose</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => requireAuth("/catalogue", () => setActiveModal("voice"))}
+                  className="flex items-center gap-2.5 rounded-2xl bg-white p-3 text-left shadow-sm ring-1 ring-[#E7F0E8] active:scale-[0.97]"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1E8A3C]/10 text-[#1E8A3C]">
+                    <Mic className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[13px] font-black leading-tight text-[#264129]">Assistant vocal</span>
+                    <span className="block text-[11px] font-medium text-gray-400">Dictez votre marché</span>
+                  </span>
+                </button>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-[13px] font-bold text-[#607061]">
+                  {filteredProducts.length} produit{filteredProducts.length > 1 ? "s" : ""}
+                </p>
+                <div className="relative">
+                  <select
+                    value={sortBy}
+                    onChange={(event) =>
+                      setSortBy(event.target.value as (typeof sortOptions)[number]["id"])
+                    }
+                    aria-label="Trier les produits"
+                    className="appearance-none rounded-full border border-[#E7F0E8] bg-white py-1.5 pl-3 pr-8 text-[12px] font-bold text-[#264129] outline-none"
+                  >
+                    {sortOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#7B8B7D]" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="relative mb-6 hidden overflow-hidden rounded-2xl border border-[#D7EBD9] bg-[linear-gradient(135deg,#FFFFFF_0%,#F7FCF7_58%,#FFF7EE_100%)] p-5 shadow-[0_18px_50px_-34px_rgba(0,0,0,0.2)] md:block lg:p-6">
             <RecolteWarmWelcome />
             <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_19rem]">
               <div className="min-w-0 xl:pr-40 2xl:pr-0">
@@ -1733,11 +1936,11 @@ function CatalogueContent() {
               {Array.from({ length: 2 }).map((_, sectionIndex) => (
                 <div key={sectionIndex} className="space-y-6">
                   <div className="souki-skeleton h-6 w-40 rounded-xl" />
-                  <div className="flex gap-3 overflow-hidden sm:gap-4">
+                  <div className="grid grid-cols-2 gap-3 md:flex md:gap-4 md:overflow-hidden">
                     {Array.from({ length: 4 }).map((__, index) => (
                       <div
                         key={index}
-                        className="souki-skeleton h-[390px] w-[10.5rem] shrink-0 rounded-[28px] sm:w-[12rem]"
+                        className="souki-skeleton h-[300px] w-full rounded-[28px] md:h-[390px] md:w-[12rem] md:shrink-0"
                       />
                     ))}
                   </div>
@@ -1783,13 +1986,13 @@ function CatalogueContent() {
                             {items.length} produit{items.length > 1 ? "s" : ""}
                           </span>
                         </div>
-                        <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-3 scrollbar-none sm:gap-4">
+                        <div className="grid grid-cols-2 gap-3 md:-mx-1 md:flex md:snap-x md:snap-mandatory md:gap-4 md:overflow-x-auto md:px-1 md:pb-3 md:scrollbar-none">
                           {items.map((product, index) => (
                             <div
                               key={product.id}
                               data-reveal="scale"
                               data-delay={String(((sectionIndex * 3 + index) % 4) + 1)}
-                              className="w-[10.5rem] shrink-0 snap-start sm:w-[12rem]"
+                              className="w-full md:w-[12rem] md:shrink-0 md:snap-start"
                             >
                               <ProductCard
                                 id={product.id}
@@ -1802,7 +2005,9 @@ function CatalogueContent() {
                                 displayUnit={product.displayUnit}
                                 quantityStep={product.quantityStep}
                                 stock={product.stock}
-                                onView={handleProductView}
+                                onView={openProductDetail}
+                                isFavorite={isFavorite(product.id)}
+                                onToggleFavorite={() => toggleFavorite(product.id)}
                                 onAddToCart={handleAddToCart}
                               />
                             </div>
@@ -1848,7 +2053,7 @@ function CatalogueContent() {
                               {items.length} produit{items.length > 1 ? "s" : ""}
                             </span>
                           </div>
-                          <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-3 scrollbar-none sm:gap-4">
+                          <div className="grid grid-cols-2 gap-3 md:-mx-1 md:flex md:snap-x md:snap-mandatory md:gap-4 md:overflow-x-auto md:px-1 md:pb-3 md:scrollbar-none">
                             {items.map((product, index) => {
                               const delay = ((sectionIndex * 3 + index) % 4) + 1
                               return (
@@ -1856,7 +2061,7 @@ function CatalogueContent() {
                                   key={product.id}
                                   data-reveal="scale"
                                   data-delay={String(delay)}
-                                  className="w-[10.5rem] shrink-0 snap-start sm:w-[12rem]"
+                                  className="w-full md:w-[12rem] md:shrink-0 md:snap-start"
                                 >
                                   <ProductCard
                                     id={product.id}
@@ -1869,7 +2074,9 @@ function CatalogueContent() {
                                     displayUnit={product.displayUnit}
                                     quantityStep={product.quantityStep}
                                     stock={product.stock}
-                                    onView={handleProductView}
+                                    onView={openProductDetail}
+                                    isFavorite={isFavorite(product.id)}
+                                    onToggleFavorite={() => toggleFavorite(product.id)}
                                     onAddToCart={handleAddToCart}
                                   />
                                 </div>
@@ -1912,7 +2119,7 @@ function CatalogueContent() {
                   id="catalogue-products"
                   className="scroll-mt-28"
                 >
-                  <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-3 scrollbar-none sm:gap-4">
+                  <div className="grid grid-cols-2 gap-3 md:-mx-1 md:flex md:snap-x md:snap-mandatory md:gap-4 md:overflow-x-auto md:px-1 md:pb-3 md:scrollbar-none">
                     {filteredProducts.map((product, index) => {
                       const delay = (index % 4) + 1
                       return (
@@ -1920,7 +2127,7 @@ function CatalogueContent() {
                           key={product.id}
                           data-reveal="scale"
                           data-delay={String(delay)}
-                          className="w-[10.5rem] shrink-0 snap-start sm:w-[12rem]"
+                          className="w-full md:w-[12rem] md:shrink-0 md:snap-start"
                         >
                           <ProductCard
                             id={product.id}
@@ -1933,7 +2140,9 @@ function CatalogueContent() {
                             displayUnit={product.displayUnit}
                             quantityStep={product.quantityStep}
                             stock={product.stock}
-                            onView={handleProductView}
+                            onView={openProductDetail}
+                            isFavorite={isFavorite(product.id)}
+                            onToggleFavorite={() => toggleFavorite(product.id)}
                             onAddToCart={handleAddToCart}
                           />
                         </div>
@@ -2236,10 +2445,47 @@ function CatalogueContent() {
         />
       )}
 
+      {/* ===== BARRE PANIER STICKY (mobile) : acces checkout a portee de pouce =====
+          Visible quand le panier contient des articles et que le tiroir panier est
+          ferme. Remonte au-dessus de la barre de navigation. md:hidden via le
+          primitif StickyBottomBar (desktop inchange). */}
+      {isAuthenticated && cart.length > 0 && !showCart && (
+        <StickyBottomBar aboveNav>
+          <button
+            type="button"
+            onClick={() => {
+              haptic("medium")
+              setShowCart(true)
+            }}
+            className="flex w-full items-center justify-between gap-3 rounded-2xl bg-[#F07C00] px-4 py-3.5 text-white shadow-[0_12px_28px_-14px_rgba(240,124,0,0.8)] active:scale-[0.98]"
+          >
+            <span className="flex items-center gap-2">
+              <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-white/20 px-1.5 text-[13px] font-black">
+                {cart.length}
+              </span>
+              <span className="text-[15px] font-black">Voir le panier</span>
+            </span>
+            <span className="flex items-center gap-1.5 text-[15px] font-black souki-tabular-nums">
+              {cartTotal.toFixed(2)} DH
+              <ArrowRight className="h-4 w-4" />
+            </span>
+          </button>
+        </StickyBottomBar>
+      )}
+
       <MobileBottomNav
         cartCount={cart.length}
         onCartClick={() => setShowCart(true)}
         onMenuClick={() => setShowSidebar(true)}
+      />
+
+      <ProductDetailSheet
+        product={detailProduct}
+        open={detailProduct !== null}
+        onClose={() => setDetailProduct(null)}
+        onAddToCart={handleAddToCart}
+        isFavorite={detailProduct ? isFavorite(detailProduct.id) : false}
+        onToggleFavorite={() => detailProduct && toggleFavorite(detailProduct.id)}
       />
 
       <AIModals

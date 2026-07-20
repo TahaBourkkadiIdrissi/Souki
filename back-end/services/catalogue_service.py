@@ -115,6 +115,31 @@ class CatalogueService(ICatalogueService):
         )
         return [self._to_product_response(p) for p in produits]
 
+    def get_personalized_suggestions(
+        self,
+        session: Session,
+        user_id: int,
+        exclude_ids: list[int],
+        panier_total: float = 0.0,
+        limit: int = 8,
+    ) -> List[ProductResponseDTO]:
+        # Import local pour eviter un cycle d'import (favorite_service depend de
+        # CatalogueService pour la conversion DTO).
+        from dao.favorite_dao import FavoriteDaoBD
+
+        favorite_dao = FavoriteDaoBD()
+        favorite_ids = favorite_dao.get_favorite_ids(session, user_id)
+        ordered_freq = favorite_dao.get_ordered_product_frequency(session, user_id)
+        produits = self.product_dao.get_personalized_suggestions(
+            session,
+            favorite_ids,
+            ordered_freq,
+            exclude_ids,
+            panier_total,
+            limit,
+        )
+        return [self._to_product_response(p) for p in produits]
+
     def valider_et_ajuster_item(
         self, item_gemini: dict
     ) -> Tuple[Optional[LigneCommandeDTO], Optional[str]]:

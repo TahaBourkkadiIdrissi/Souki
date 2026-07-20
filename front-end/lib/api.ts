@@ -1294,40 +1294,33 @@ export async function getBlacklistMonthlyReport(
   )
 }
 
-export async function fetchUserFavorites(token: string): Promise<CatalogueProductDTO[]> {
+/**
+ * Favoris explicites de l'utilisateur (coeur), persistes serveur.
+ * Source de verite cross-device — distinct des « produits frequemment commandes ».
+ */
+export async function fetchFavorites(token: string): Promise<CatalogueProductDTO[]> {
   try {
-    const orders = await apiCall<CommandeHistoriqueDTO[]>("/api/commandes/historique", { token })
-    const productCounts: Record<string, { product: ProduitCommandeJourDTO; count: number }> = {}
+    return await apiCall<CatalogueProductDTO[]>("/api/user/favorites", { token })
+  } catch {
+    return []
+  }
+}
 
-    for (const order of orders) {
-      if (order.produits) {
-        for (const ligne of order.produits) {
-          const key = ligne.product_id?.toString() || ligne.nom_fr
-          if (!productCounts[key]) {
-            productCounts[key] = { product: ligne, count: 0 }
-          }
-          productCounts[key].count++
-        }
-      }
-    }
+export async function addFavorite(productId: number, token: string): Promise<void> {
+  await apiCall(`/api/user/favorites/${productId}`, { method: "POST", token })
+}
 
-    // Return top 8 most ordered products mapped to CatalogueProductDTO shape
-    return Object.values(productCounts)
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 8)
-      .map(item => ({
-        id: item.product.product_id ?? 0,
-        nom_fr: item.product.nom_fr,
-        nom_darija: "",
-        prix_kg: item.product.sous_total ? item.product.sous_total / (item.product.quantite_kg || 1) : 0,
-        prix_affiche: item.product.sous_total ? item.product.sous_total / (item.product.quantite_kg || 1) : null,
-        prix_khddar_estime: null,
-        is_active: true,
-        image_url: item.product.image ?? null,
-        niveau: 1 as ProduitNiveau,
-        unite: "kg",
-        stock: 100,
-      }))
+export async function removeFavorite(productId: number, token: string): Promise<void> {
+  await apiCall(`/api/user/favorites/${productId}`, { method: "DELETE", token })
+}
+
+/**
+ * Suggestions personnalisees : produits favoris + deja commandes mis en avant,
+ * completes par la reco generique (marge/seuil/decouverte). Cote serveur.
+ */
+export async function fetchPersonalizedSuggestions(token: string): Promise<CatalogueProductDTO[]> {
+  try {
+    return await apiCall<CatalogueProductDTO[]>("/api/user/suggestions", { token })
   } catch {
     return []
   }
