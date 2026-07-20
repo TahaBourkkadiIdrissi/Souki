@@ -35,6 +35,18 @@ class ICatalogueService(ABC):
         pass
 
     @abstractmethod
+    def get_personalized_suggestions(
+        self,
+        session: Session,
+        user_id: int,
+        exclude_ids: list[int],
+        panier_total: float = 0.0,
+        limit: int = 8,
+    ) -> List[ProductResponseDTO]:
+        """Retourne les suggestions personnalisees (favoris + achats) de l'utilisateur."""
+        pass
+
+    @abstractmethod
     def valider_et_ajuster_item(
         self, item_gemini: dict
     ) -> Tuple[Optional[LigneCommandeDTO], Optional[str]]:

@@ -1,9 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Minus, Plus, ShoppingCart } from "lucide-react"
+import { Heart, Minus, Plus, ShoppingCart } from "lucide-react"
 
-import { formatQuantity } from "@/lib/catalogue"
+import { formatQuantity, isIllustrationImage } from "@/lib/catalogue"
 import { cn } from "@/lib/utils"
 
 interface ProductCardProps {
@@ -27,6 +27,12 @@ interface ProductCardProps {
    * des cartes produits tout en gardant les nouvelles images.
    */
   compactImage?: boolean
+  /**
+   * Favori (coeur). Affiche uniquement en overlay sur mobile/PWA (`md:hidden`) :
+   * le catalogue desktop reste pixel-identique. Fourni par le parent (useFavorites).
+   */
+  isFavorite?: boolean
+  onToggleFavorite?: (id: number | string) => void
   onView?: (id: number | string) => void
   onAddToCart?: (id: number | string, quantity: number) => void
 }
@@ -47,6 +53,8 @@ export function ProductCard({
   disabledLabel = "Indisponible",
   featured = false,
   compactImage = false,
+  isFavorite = false,
+  onToggleFavorite,
   onView,
   onAddToCart,
 }: ProductCardProps) {
@@ -61,6 +69,16 @@ export function ProductCard({
 
   const isOutOfStock = typeof stock === "number" && stock <= 0
   const isUnavailable = isOutOfStock || disabled
+  // Illustration locale (fond blanc) : rendu poli `contain`+`multiply` UNIQUEMENT
+  // sur mobile/PWA (< md). Le desktop web (md:) est reinitialise a l'identique
+  // (object-cover, sans padding ni blend) pour rester pixel-identique.
+  const isIllustration = isIllustrationImage(resolvedImage)
+
+  // Remise vs prix "khddar" estimé (marché de gros) : badge -X% + prix barré,
+  // façon référence e-commerce. Affiché seulement si le prix khddar est plus élevé.
+  const oldPrice =
+    typeof prixKhddarEstime === "number" && prixKhddarEstime > price ? prixKhddarEstime : null
+  const discountPct = oldPrice ? Math.round((1 - price / oldPrice) * 100) : 0
 
   const getUnitHint = () => {
     if (resolvedDisplayUnit === "250g") {
@@ -104,7 +122,12 @@ export function ProductCard({
     >
       <div
         className={cn(
-          "relative w-full overflow-hidden bg-[#F4FAF3]",
+          "relative w-full overflow-hidden",
+          // Illustration sur mobile : fond degrade doux. md: revient au fond plat
+          // d'origine (pixel-identique web).
+          isIllustration
+            ? "bg-gradient-to-b from-[#EFF7F0] to-[#F7FBF7] md:bg-none md:bg-[#F4FAF3]"
+            : "bg-[#F4FAF3]",
           // Accueil : proportions compactes d'origine. Sinon : visuel carre
           // (look e-commerce moderne) conserve pour le catalogue.
           compactImage
@@ -120,15 +143,47 @@ export function ProductCard({
               setResolvedImage(fallbackImage)
             }
           }}
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className={cn(
+            "h-full w-full transition-transform duration-500 group-hover:scale-105",
+            // Mobile : contain + multiply (cadre blanc efface). md: object-cover
+            // sans padding ni blend → rendu web d'origine inchange.
+            isIllustration
+              ? "object-contain p-2 mix-blend-multiply md:object-cover md:p-0 md:mix-blend-normal"
+              : "object-cover",
+          )}
         />
-        {isOutOfStock && (
+        {isOutOfStock ? (
           <>
             <span className="absolute left-3 top-3 rounded-full bg-red-500 px-3 py-1 text-xs font-semibold text-white shadow-sm">
               Rupture
             </span>
             <div className="absolute inset-0 bg-white/35" />
           </>
+        ) : (
+          discountPct > 0 && (
+            <span className="absolute left-2.5 top-2.5 rounded-full bg-[#F07C00] px-2.5 py-1 text-[11px] font-black text-white shadow-[0_6px_16px_-6px_rgba(240,124,0,0.8)]">
+              -{discountPct}%
+            </span>
+          )
+        )}
+        {onToggleFavorite && (
+          <button
+            type="button"
+            aria-label={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+            aria-pressed={isFavorite}
+            onClick={(event) => {
+              event.stopPropagation()
+              onToggleFavorite(id)
+            }}
+            className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur transition-transform active:scale-90 md:hidden"
+          >
+            <Heart
+              className={cn(
+                "h-4 w-4 transition-colors",
+                isFavorite ? "fill-[#E4405F] text-[#E4405F]" : "text-[#7C8B7D]",
+              )}
+            />
+          </button>
         )}
       </div>
 
@@ -140,13 +195,18 @@ export function ProductCard({
           </p>
         </div>
 
-        <div className="mb-2.5 flex items-baseline gap-1">
+        <div className="mb-2.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
           <span className="text-base font-black leading-none text-[#F07C00] sm:text-lg 2xl:text-xl">
             {price.toFixed(2)} DH
           </span>
           <span className="shrink-0 whitespace-nowrap text-[11px] text-[#6C7E6E]">
             / {resolvedDisplayUnit}
           </span>
+          {oldPrice && (
+            <span className="shrink-0 text-[11px] font-semibold text-[#9AA49B] line-through">
+              {oldPrice.toFixed(2)} DH
+            </span>
+          )}
         </div>
 
         <div className="mb-2 space-y-2 sm:mb-2.5">

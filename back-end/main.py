@@ -32,6 +32,7 @@ from controllers.checkout_controller import router_checkout
 from controllers.client_blacklist_controller import client_blacklist_router
 from controllers.commande_controller import router_voice
 from controllers.dispatch_controller import anomalies_router, dispatch_router
+from controllers.favorite_controller import favorite_router
 from controllers.fournisseur_controller import router_admin_supplier, router_supplier
 from controllers.supplier_products_controller import router_supplier_products
 from controllers.jit_controller import router_jit
@@ -59,6 +60,7 @@ API_ROUTERS: tuple[APIRouter, ...] = (
     auth_router,
     profile_router,
     settings_router,
+    favorite_router,
     router_catalogue,
     router_voice,
     router_panier,

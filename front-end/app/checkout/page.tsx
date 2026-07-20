@@ -40,7 +40,9 @@ import {
 } from "@/lib/catalogue"
 import { MapboxLocator } from "@/components/souki/mapbox-locator"
 import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
+import { PwaHeader, StickyBottomBar } from "@/components/souki/pwa"
 import { useAuth } from "@/hooks/useAuth"
+import { useHaptic } from "@/hooks/useHaptic"
 import { useOrderLock } from "@/hooks/useOrderLock"
 import { toast } from "sonner"
 
@@ -76,11 +78,14 @@ interface WalletState {
 }
 
 // Updated time slots
-const timeSlots = [
-  { id: "8-10", label: "8h – 10h" },
-  { id: "11-13", label: "11h – 13h" },
-  { id: "14-16", label: "14h – 16h" },
-]
+// Livraison à l'heure exacte, contrainte entre 08h00 et 15h00.
+const DELIVERY_MIN_TIME = "08:00"
+const DELIVERY_MAX_TIME = "15:00"
+const DELIVERY_TIME_PRESETS = ["08:00", "10:00", "12:00", "14:00"]
+// Comparaison sûre car les chaînes "HH:MM" 24h zéro-paddées se trient lexicalement.
+const isTimeInRange = (value: string) =>
+  Boolean(value) && value >= DELIVERY_MIN_TIME && value <= DELIVERY_MAX_TIME
+const formatDeliveryTime = (value: string) => (value ? value.replace(":", "h") : "—")
 
 const paymentMethods = [
   { id: "cod", icon: Banknote, label: "Cash on Delivery", desc: "Payez à la porte, confirmation appel la veille" },
@@ -91,6 +96,7 @@ const paymentMethods = [
 function CheckoutContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const haptic = useHaptic()
   const commandeId = searchParams.get('commande_id')
   const panierId = searchParams.get('panier_id')
   const cartParam = searchParams.get('cart')
@@ -118,7 +124,8 @@ function CheckoutContent() {
   const [walletBalance, setWalletBalance] = useState(0)
   const [phoneNumber, setPhoneNumber] = useState("")
   
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState("8-10")
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState(DELIVERY_MIN_TIME)
+  const [timeError, setTimeError] = useState("")
   const [selectedPayment, setSelectedPayment] = useState("cod")
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [address, setAddress] = useState("")
@@ -425,6 +432,7 @@ function CheckoutContent() {
   })).filter((group) => group.items.length > 0)
 
   const updateQuantity = (id: string, delta: number) => {
+    haptic("light")
     setCart(prev => prev.map(item => {
       if (item.id === id) {
         const newQuantity = Math.max(0.5, item.quantity + delta)
@@ -435,7 +443,22 @@ function CheckoutContent() {
   }
 
   const removeItem = (id: string) => {
+    haptic("light")
     setCart(prev => prev.filter(item => item.id !== id))
+  }
+
+  // Heure de livraison exacte : on borne à [08:00, 15:00]. Hors plage, on ramène
+  // à la borne la plus proche et on affiche un message clair.
+  const handleTimeChange = (value: string) => {
+    if (!value) return
+    haptic("light")
+    if (!isTimeInRange(value)) {
+      setSelectedTimeSlot(value < DELIVERY_MIN_TIME ? DELIVERY_MIN_TIME : DELIVERY_MAX_TIME)
+      setTimeError("Livraison possible uniquement entre 08h00 et 15h00.")
+      return
+    }
+    setTimeError("")
+    setSelectedTimeSlot(value)
   }
 
   const addSuggestionToCart = (product: CatalogueProduct) => {
@@ -603,7 +626,7 @@ function CheckoutContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F0] pb-24 md:pb-0">
+    <div className="min-h-screen bg-[#F5F5F0] pb-40 md:pb-0">
       {confirmedOrderId !== null && (
         <div
           className="fixed inset-0 z-[110] flex flex-col items-center justify-center bg-white/95 backdrop-blur-sm px-6"
@@ -644,6 +667,11 @@ function CheckoutContent() {
           />
         </div>
       )}
+      {/* En-tête mobile natif (← + titre centré), façon référence. Desktop garde son header. */}
+      <div className="md:hidden">
+        <PwaHeader title="Finaliser ma commande" onBack={() => router.push(editCartHref)} />
+      </div>
+
       <header className="sticky top-0 z-10 hidden glass-ios26 border-b border-gray-100 md:block">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-3">
@@ -675,8 +703,8 @@ function CheckoutContent() {
 
       <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 md:py-8 lg:px-8">
         <div className="mb-6 md:mb-8">
-          <h1 className="text-2xl font-bold leading-tight text-[#1E8A3C] lg:text-3xl">Finaliser ma commande</h1>
-          <p className="mt-2 text-sm font-medium text-[#6F8070] md:hidden">
+          <h1 className="hidden text-2xl font-bold leading-tight text-[#1E8A3C] md:block lg:text-3xl">Finaliser ma commande</h1>
+          <p className="text-sm font-medium text-[#6F8070] md:hidden">
             Vérifiez le panier, choisissez la livraison, puis confirmez.
           </p>
         </div>
@@ -961,18 +989,62 @@ function CheckoutContent() {
             </div>
 
             <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
-              <h3 className="font-bold text-[#3D3D3D] mb-4 flex items-center gap-2">
-                <Clock className="w-5 h-5 text-[#1E8A3C]" />
-                Créneau de livraison
+              <h3 className="mb-1 flex items-center gap-2 font-bold text-[#3D3D3D]">
+                <Clock className="h-5 w-5 text-[#1E8A3C]" />
+                Heure de livraison
               </h3>
-              <div className="grid gap-3 sm:grid-cols-3">
-                {timeSlots.map(slot => (
-                  <button key={slot.id} onClick={() => setSelectedTimeSlot(slot.id)} className={cn("min-h-12 rounded-xl px-4 py-3 font-semibold transition-all", selectedTimeSlot === slot.id ? "bg-[#1E8A3C] text-white" : "bg-gray-100 text-[#3D3D3D] hover:bg-gray-200")}>
-                    {slot.label}
+              <p className="mb-4 text-sm text-[#8A8A8A]">
+                Choisissez l&apos;heure exacte, demain entre 8h00 et 15h00.
+              </p>
+
+              {/* Heure choisie mise en avant + sélecteur précis */}
+              <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-[#F0FAF1] px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-[#6F8070]">Livraison prévue vers</p>
+                  <p className="souki-tabular-nums text-2xl font-black leading-tight text-[#1E8A3C]">
+                    {formatDeliveryTime(selectedTimeSlot)}
+                  </p>
+                </div>
+                <input
+                  type="time"
+                  min={DELIVERY_MIN_TIME}
+                  max={DELIVERY_MAX_TIME}
+                  step={900}
+                  value={selectedTimeSlot}
+                  onChange={(event) => handleTimeChange(event.target.value)}
+                  aria-label="Heure de livraison souhaitée"
+                  className="shrink-0 rounded-xl border-2 border-[#CDE8D0] bg-white px-3 py-2.5 text-base font-bold text-[#264129] outline-none transition-colors focus:border-[#4CB84A]"
+                />
+              </div>
+
+              {/* Raccourcis d'heures fréquentes */}
+              <div className="flex flex-wrap gap-2">
+                {DELIVERY_TIME_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => {
+                      haptic("light")
+                      setTimeError("")
+                      setSelectedTimeSlot(preset)
+                    }}
+                    className={cn(
+                      "min-h-11 rounded-full px-4 py-2 text-sm font-bold transition-all active:scale-95",
+                      selectedTimeSlot === preset
+                        ? "bg-[#1E8A3C] text-white shadow-sm"
+                        : "bg-gray-100 text-[#3D3D3D] hover:bg-gray-200",
+                    )}
+                  >
+                    {formatDeliveryTime(preset)}
                   </button>
                 ))}
               </div>
-              <p className="text-sm text-[#8A8A8A] mt-3">Livraison le lendemain matin</p>
+
+              {timeError ? (
+                <p className="mt-3 text-xs font-semibold text-red-500">{timeError}</p>
+              ) : (
+                <p className="mt-3 text-sm text-[#8A8A8A]">Livraison le lendemain matin, à l&apos;heure choisie.</p>
+              )}
             </div>
 
             <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
@@ -985,6 +1057,7 @@ function CheckoutContent() {
                 <button
                   onClick={() => {
                     if (!isCodBlocked) {
+                      haptic("light")
                       setSelectedPayment("cod")
                     }
                   }}
@@ -1008,7 +1081,7 @@ function CheckoutContent() {
 
                 {/* Wallet */}
                 <button
-                  onClick={() => setSelectedPayment("wallet")}
+                  onClick={() => { haptic("light"); setSelectedPayment("wallet") }}
                   className={cn("flex min-h-16 w-full items-start gap-4 rounded-xl border-2 p-4 text-left transition-all", selectedPayment === "wallet" ? "border-[#F07C00] bg-[#F07C00]/5" : "border-gray-200 hover:border-gray-300")}
                 >
                   <div className={cn("p-2 rounded-lg", selectedPayment === "wallet" ? "bg-[#F07C00] text-white" : "bg-gray-100 text-[#3D3D3D]")}><Wallet className="w-5 h-5" /></div>
@@ -1060,7 +1133,7 @@ function CheckoutContent() {
               <button
                 onClick={handleFinalSubmit}
                 disabled={!canSubmitOrder}
-                className={cn("flex min-h-14 w-full items-center justify-center gap-2 rounded-xl py-4 text-lg font-bold transition-all", canSubmitOrder ? "bg-[#F07C00] text-white hover:bg-[#D66B00] shadow-lg shadow-[#F07C00]/30" : "bg-gray-200 text-gray-500 cursor-not-allowed")}
+                className={cn("hidden min-h-14 w-full items-center justify-center gap-2 rounded-xl py-4 text-lg font-bold transition-all md:flex", canSubmitOrder ? "bg-[#F07C00] text-white hover:bg-[#D66B00] shadow-lg shadow-[#F07C00]/30" : "bg-gray-200 text-gray-500 cursor-not-allowed")}
               >
                 {isSubmitting ? (
                   <>
@@ -1122,6 +1195,43 @@ function CheckoutContent() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ===== CTA STICKY BAS (mobile) : total + passer la commande, à portée de pouce ===== */}
+      {cart.length > 0 && confirmedOrderId === null && (
+        <StickyBottomBar aboveNav>
+          <button
+            onClick={() => {
+              haptic("medium")
+              handleFinalSubmit()
+            }}
+            disabled={!canSubmitOrder}
+            className={cn(
+              "flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3.5 text-white transition-all active:scale-[0.98]",
+              canSubmitOrder
+                ? "bg-[#F07C00] shadow-[0_12px_28px_-14px_rgba(240,124,0,0.8)]"
+                : "cursor-not-allowed bg-gray-300",
+            )}
+          >
+            <span className="flex flex-col items-start leading-tight">
+              <span className="text-[11px] font-semibold text-white/80">Total TTC</span>
+              <span className="text-[17px] font-black souki-tabular-nums">{total.toFixed(2)} DH</span>
+            </span>
+            <span className="flex items-center gap-1.5 text-[15px] font-black">
+              {isSubmitting ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Validation…
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4" />
+                  Passer la commande
+                </>
+              )}
+            </span>
+          </button>
+        </StickyBottomBar>
       )}
 
       {/* Mapbox Locator Modal */}

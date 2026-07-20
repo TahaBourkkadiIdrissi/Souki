@@ -190,6 +190,54 @@ class ProductDaoBD(IProductDao):
                 break
         return balanced
 
+    def get_personalized_suggestions(
+        self,
+        session: Session,
+        favorite_ids: set[int],
+        ordered_freq: dict[int, int],
+        exclude_ids: list[int],
+        panier_total: float = 0.0,
+        limit: int = 8,
+    ) -> List[Product]:
+        """Suggestions personnalisees = favoris + produits deja commandes en tete,
+        completees par les suggestions generiques.
+
+        Un favori est priorise sur un simple achat ; a favori egal, on classe par
+        frequence d'achat. Le reste est comble avec `get_suggestions` (marge/seuil/
+        decouverte), en excluant ce qui a deja ete retenu.
+        """
+        excluded = set(exclude_ids or [])
+        personalized_ids = (set(favorite_ids) | set(ordered_freq.keys())) - excluded
+
+        chosen: List[Product] = []
+        if personalized_ids:
+            produits = (
+                session.query(Product)
+                .filter(Product.id.in_(personalized_ids))
+                .filter(Product.is_active == True)  # noqa: E712
+                .filter(Product.stock > 0)
+                .all()
+            )
+
+            def personal_score(produit: Product) -> tuple[int, int]:
+                pid = int(produit.id)  # type: ignore[arg-type]
+                is_favorite = 1 if pid in favorite_ids else 0
+                return (is_favorite, ordered_freq.get(pid, 0))
+
+            chosen = sorted(produits, key=personal_score, reverse=True)[:limit]
+
+        if len(chosen) < limit:
+            already = excluded | {int(p.id) for p in chosen}  # type: ignore[arg-type]
+            complement = self.get_suggestions(
+                session,
+                list(already),
+                panier_total,
+                limit=limit - len(chosen),
+            )
+            chosen.extend(complement)
+
+        return chosen[:limit]
+
     def decrement_stock(self, session: Session, product_id: int, quantity: float) -> bool:
         product = session.query(Product).filter(Product.id == product_id).first()
         if product and float(product.stock) >= quantity:
