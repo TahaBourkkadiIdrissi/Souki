@@ -827,6 +827,23 @@ function CatalogueContent() {
     }
   }, [searchParams, products, isAuthenticated, router])
 
+  // Arrivee depuis l'accueil PWA (?product=<id>) : on ouvre directement la fiche
+  // du produit touche, description comprise, puis on nettoie l'URL pour qu'un
+  // retour arriere ne la rouvre pas.
+  useEffect(() => {
+    const productIdParam = searchParams.get("product")
+    if (!productIdParam || products.length === 0) {
+      return
+    }
+
+    const product = products.find((item) => item.id === Number(productIdParam))
+    if (product) {
+      setDetailProduct(product)
+      handleProductView(product.id)
+    }
+    router.replace("/catalogue", { scroll: false })
+  }, [searchParams, products, router])
+
   const redirectToLogin = (redirectTarget: string) => {
     router.push(`/login?redirect=${encodeURIComponent(redirectTarget)}`)
   }
@@ -1471,7 +1488,7 @@ function CatalogueContent() {
                     .getElementById("catalogue-products")
                     ?.scrollIntoView({ behavior: "smooth", block: "start" })
                 }
-                className="relative flex w-full items-center gap-3 overflow-hidden rounded-3xl bg-gradient-to-br from-[#1A4F2C] via-[#1E8A3C] to-[#2DA050] p-5 text-left text-white shadow-[0_18px_40px_-22px_rgba(17,59,30,0.8)] active:scale-[0.98]"
+                className="relative flex w-full items-center gap-3 overflow-hidden rounded-3xl bg-gradient-to-br from-[#1A4F2C] via-[#1E8A3C] to-[#2DA050] p-5 text-left text-white shadow-[0_8px_20px_-14px_rgba(17,59,30,0.45)] active:scale-[0.98]"
               >
                 <span className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/10" />
                 <span className="pointer-events-none absolute -bottom-12 right-12 h-24 w-24 rounded-full bg-white/10" />
@@ -1498,7 +1515,7 @@ function CatalogueContent() {
                 <button
                   type="button"
                   onClick={() => requireAuth("/catalogue", () => setActiveModal("smart"))}
-                  className="flex items-center gap-2.5 rounded-2xl bg-white p-3 text-left shadow-sm ring-1 ring-[#E7F0E8] active:scale-[0.97]"
+                  className="flex items-center gap-2.5 rounded-2xl bg-white p-3 text-left shadow-[0_10px_24px_-16px_rgba(17,59,30,0.55)] ring-1 ring-[#E7F0E8] active:scale-[0.97]"
                 >
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F07C00]/10 text-[#F07C00]">
                     <Zap className="h-5 w-5" />
@@ -1511,7 +1528,7 @@ function CatalogueContent() {
                 <button
                   type="button"
                   onClick={() => requireAuth("/catalogue", () => setActiveModal("voice"))}
-                  className="flex items-center gap-2.5 rounded-2xl bg-white p-3 text-left shadow-sm ring-1 ring-[#E7F0E8] active:scale-[0.97]"
+                  className="flex items-center gap-2.5 rounded-2xl bg-white p-3 text-left shadow-[0_10px_24px_-16px_rgba(17,59,30,0.55)] ring-1 ring-[#E7F0E8] active:scale-[0.97]"
                 >
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1E8A3C]/10 text-[#1E8A3C]">
                     <Mic className="h-5 w-5" />
@@ -1978,7 +1995,7 @@ function CatalogueContent() {
                             {items.length} produit{items.length > 1 ? "s" : ""}
                           </span>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 md:-mx-1 md:flex md:snap-x md:snap-mandatory md:gap-4 md:overflow-x-auto md:px-1 md:pb-3 md:scrollbar-none">
+                        <div className="grid grid-cols-2 gap-3 md:-mx-1 md:flex md:snap-x md:snap-mandatory md:gap-4 md:overflow-x-auto md:px-1 md:pb-3 md:scrollbar-none">
                           {items.map((product, index) => (
                             <div
                               key={product.id}
@@ -1998,6 +2015,7 @@ function CatalogueContent() {
                                 quantityStep={product.quantityStep}
                                 stock={product.stock}
                                 onView={openProductDetail}
+                                variant="minimal"
                                 isFavorite={isFavorite(product.id)}
                                 onToggleFavorite={() => toggleFavorite(product.id)}
                                 onAddToCart={handleAddToCart}
@@ -2048,7 +2066,7 @@ function CatalogueContent() {
                               {items.length} produit{items.length > 1 ? "s" : ""}
                             </span>
                           </div>
-                          <div className="grid grid-cols-3 gap-2 md:-mx-1 md:flex md:snap-x md:snap-mandatory md:gap-4 md:overflow-x-auto md:px-1 md:pb-3 md:scrollbar-none">
+                          <div className="grid grid-cols-2 gap-3 md:-mx-1 md:flex md:snap-x md:snap-mandatory md:gap-4 md:overflow-x-auto md:px-1 md:pb-3 md:scrollbar-none">
                             {items.map((product, index) => {
                               const delay = ((sectionIndex * 3 + index) % 4) + 1
                               return (
@@ -2070,6 +2088,7 @@ function CatalogueContent() {
                                     quantityStep={product.quantityStep}
                                     stock={product.stock}
                                     onView={openProductDetail}
+                                    variant="minimal"
                                     isFavorite={isFavorite(product.id)}
                                     onToggleFavorite={() => toggleFavorite(product.id)}
                                     onAddToCart={handleAddToCart}
@@ -2114,7 +2133,7 @@ function CatalogueContent() {
                   id="catalogue-products"
                   className="scroll-mt-28"
                 >
-                  <div className="grid grid-cols-3 gap-2 md:-mx-1 md:flex md:snap-x md:snap-mandatory md:gap-4 md:overflow-x-auto md:px-1 md:pb-3 md:scrollbar-none">
+                  <div className="grid grid-cols-2 gap-3 md:-mx-1 md:flex md:snap-x md:snap-mandatory md:gap-4 md:overflow-x-auto md:px-1 md:pb-3 md:scrollbar-none">
                     {filteredProducts.map((product, index) => {
                       const delay = (index % 4) + 1
                       return (
@@ -2136,6 +2155,7 @@ function CatalogueContent() {
                             quantityStep={product.quantityStep}
                             stock={product.stock}
                             onView={openProductDetail}
+                            variant="minimal"
                             isFavorite={isFavorite(product.id)}
                             onToggleFavorite={() => toggleFavorite(product.id)}
                             onAddToCart={handleAddToCart}
