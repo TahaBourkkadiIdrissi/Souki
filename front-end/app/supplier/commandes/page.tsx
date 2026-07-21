@@ -89,7 +89,7 @@ export default function SupplierCommandesPage() {
   const activeOrders = orders.filter((order) => !["LIVREE", "ANNULEE"].includes(order.statut)).length
 
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
+    <main className="souki-portal-reveal mx-auto w-full max-w-6xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
       <SupplierPageHeader
         eyebrow="Suivi commercial"
         title="Commandes"
@@ -120,30 +120,31 @@ export default function SupplierCommandesPage() {
       ) : (
         <>
           <section className="grid grid-cols-2 gap-3 lg:grid-cols-3" aria-label="Résumé des commandes">
-            <Card className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 dark:border-border dark:bg-card">
+            <Card className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-border dark:bg-card">
               <CardContent className="p-5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EAF8EC] text-primary dark:bg-primary/10">
                   <ReceiptText className="h-5 w-5" />
                 </div>
-                <p className="mt-4 text-2xl font-black text-[#264129] dark:text-card-foreground">{orders.length}</p>
+                <p className="mt-4 text-2xl font-black tabular-nums text-[#264129] dark:text-card-foreground">{orders.length}</p>
                 <p className="mt-1 text-xs font-bold text-muted-foreground">Commandes du jour</p>
               </CardContent>
             </Card>
-            <Card className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 dark:border-border dark:bg-card">
+            <Card className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-border dark:bg-card">
               <CardContent className="p-5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FFF0DC] text-accent dark:bg-accent/10">
                   <ShoppingCart className="h-5 w-5" />
                 </div>
-                <p className="mt-4 text-2xl font-black text-[#264129] dark:text-card-foreground">{activeOrders}</p>
+                <p className="mt-4 text-2xl font-black tabular-nums text-[#264129] dark:text-card-foreground">{activeOrders}</p>
                 <p className="mt-1 text-xs font-bold text-muted-foreground">À suivre actuellement</p>
               </CardContent>
             </Card>
-            <Card className="col-span-2 gap-0 rounded-2xl border-[#DDEBDD] bg-[#173F27] py-0 text-white lg:col-span-1 dark:border-border">
-              <CardContent className="p-5">
+            <Card className="relative col-span-2 gap-0 overflow-hidden rounded-2xl border-[#DDEBDD] bg-[#173F27] py-0 text-white shadow-lg shadow-[#173F27]/20 transition-all duration-300 hover:-translate-y-0.5 lg:col-span-1 dark:border-border">
+              <div className="pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full bg-[#4CB84A]/20 blur-2xl" />
+              <CardContent className="relative p-5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-[#F5C400]">
                   <CircleDollarSign className="h-5 w-5" />
                 </div>
-                <p className="mt-4 text-2xl font-black">{totalRevenue.toFixed(2)} DH</p>
+                <p className="mt-4 text-2xl font-black tabular-nums">{totalRevenue.toFixed(2)} DH</p>
                 <p className="mt-1 text-xs font-bold text-white/60">Montant actif du jour</p>
               </CardContent>
             </Card>
@@ -151,11 +152,14 @@ export default function SupplierCommandesPage() {
 
           <section>
             <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">Historique visible</p>
-                <h2 className="mt-1 text-xl font-black text-[#264129] dark:text-foreground [font-family:var(--font-poppins)]">
-                  Liste des ventes
-                </h2>
+              <div className="flex items-center gap-3">
+                <span aria-hidden="true" className="h-9 w-1 shrink-0 rounded-full bg-gradient-to-b from-[#5BD174] to-primary" />
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">Historique visible</p>
+                  <h2 className="mt-1 text-xl font-black text-[#264129] dark:text-foreground [font-family:var(--font-poppins)]">
+                    Liste des ventes
+                  </h2>
+                </div>
               </div>
               {orders.length > 0 && (
                 <Badge variant="secondary" className="rounded-full px-3 py-1">
@@ -181,7 +185,7 @@ export default function SupplierCommandesPage() {
                 {orders.map((order) => (
                   <Card
                     key={order.id}
-                    className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 shadow-sm transition hover:border-primary/25 hover:shadow-md dark:border-border dark:bg-card"
+                    className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md dark:border-border dark:bg-card"
                   >
                     <CardContent className="p-5 sm:p-6">
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

@@ -98,7 +98,7 @@ export default function SupplierPreparationPage() {
   useSupplierLiveRefresh(load, Boolean(token))
 
   return (
-    <main className="mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
+    <main className="souki-portal-reveal mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
       <SupplierPageHeader
         eyebrow="Atelier du jour"
         title="Préparation des commandes"
@@ -141,6 +141,8 @@ export default function SupplierPreparationPage() {
           <section className="overflow-hidden rounded-3xl border border-[#BFE2C4] bg-background shadow-sm dark:border-primary/25 dark:bg-card">
             <div className="relative overflow-hidden bg-[#173F27] p-6 text-white sm:p-7">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_88%_15%,rgba(76,184,74,0.35),transparent_32%)]" />
+              <div className="pointer-events-none absolute -left-12 -bottom-16 h-44 w-44 rounded-full bg-[#F5C400]/10 blur-3xl" />
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/8 to-transparent" />
               <div className="relative flex items-start justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-[#8EDD8B]">
@@ -176,9 +178,9 @@ export default function SupplierPreparationPage() {
                   {data.picking.map((item, index) => (
                     <article
                       key={item.product_id}
-                      className="group flex items-center gap-4 rounded-2xl border border-[#DDEBDD] bg-[#F8FCF8] p-4 transition hover:border-primary/30 hover:bg-[#F0FAF1] dark:border-border dark:bg-muted/30 dark:hover:bg-muted"
+                      className="group flex items-center gap-4 rounded-2xl border border-[#DDEBDD] bg-[#F8FCF8] p-4 transition hover:-translate-y-0.5 hover:border-primary/30 hover:bg-[#F0FAF1] hover:shadow-sm dark:border-border dark:bg-muted/30 dark:hover:bg-muted"
                     >
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-background text-xs font-black text-primary shadow-sm dark:bg-card">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-background text-xs font-black text-primary shadow-sm transition-transform group-hover:scale-110 dark:bg-card">
                         {String(index + 1).padStart(2, "0")}
                       </span>
                       <div className="min-w-0 flex-1">
@@ -203,11 +205,14 @@ export default function SupplierPreparationPage() {
 
           <section>
             <div className="mb-4 flex items-end justify-between gap-3">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">Répartition</p>
-                <h2 className="mt-1 text-xl font-black text-[#264129] dark:text-foreground [font-family:var(--font-poppins)]">
-                  Détail des commandes
-                </h2>
+              <div className="flex items-center gap-3">
+                <span aria-hidden="true" className="h-9 w-1 shrink-0 rounded-full bg-gradient-to-b from-[#5BD174] to-primary" />
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">Répartition</p>
+                  <h2 className="mt-1 text-xl font-black text-[#264129] dark:text-foreground [font-family:var(--font-poppins)]">
+                    Détail des commandes
+                  </h2>
+                </div>
               </div>
               <Badge variant="secondary" className="rounded-full px-3 py-1">
                 {data.nombre_commandes} commande{data.nombre_commandes > 1 ? "s" : ""}
@@ -229,7 +234,7 @@ export default function SupplierPreparationPage() {
                 {data.commandes.map((order) => (
                   <Card
                     key={order.id}
-                    className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 shadow-sm transition hover:border-primary/25 dark:border-border dark:bg-card"
+                    className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md dark:border-border dark:bg-card"
                   >
                     <CardContent className="p-5">
                       <div className="flex items-start justify-between gap-3">

@@ -1141,6 +1141,26 @@
 .animate-fade-in-up-delay-2 { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards; opacity: 0; }
 .animate-fade-in-up-delay-3 { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards; opacity: 0; }
 
+/* ─── Portail fournisseur : révélation d'entrée en cascade ───
+   Appliqué sur un conteneur, ses enfants directs apparaissent en fondu-montée
+   décalé. Utilisé sur le <main> de chaque section (et sur les grilles de KPI)
+   pour donner une entrée vivante et cohérente à tout le portail. */
+.souki-portal-reveal > * {
+  opacity: 0;
+  animation: fadeInUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.souki-portal-reveal > *:nth-child(1) { animation-delay: 0.03s; }
+.souki-portal-reveal > *:nth-child(2) { animation-delay: 0.1s; }
+.souki-portal-reveal > *:nth-child(3) { animation-delay: 0.17s; }
+.souki-portal-reveal > *:nth-child(4) { animation-delay: 0.24s; }
+.souki-portal-reveal > *:nth-child(5) { animation-delay: 0.31s; }
+.souki-portal-reveal > *:nth-child(6) { animation-delay: 0.38s; }
+.souki-portal-reveal > *:nth-child(n+7) { animation-delay: 0.44s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .souki-portal-reveal > * { animation: none; opacity: 1; }
+}
+
 /* Shake animation for errors */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
@@ -1728,10 +1748,32 @@ html {
   animation: pwa-text-sheen 4.5s ease-in-out infinite;
 }
 
+/* Pulsation discrète du chiffre des secondes du décompte (« vivant ») */
+@keyframes pwa-tick-pulse {
+  0%, 100% { transform: scale(1); }
+  12%      { transform: scale(1.12); }
+  40%      { transform: scale(1); }
+}
+.animate-pwa-tick-pulse {
+  animation: pwa-tick-pulse 1s ease-out infinite;
+}
+
+/* Filet de lumière qui balaie lentement la hairline sous l'en-tête */
+@keyframes pwa-hairline-shimmer {
+  0%   { background-position: -150% 0; }
+  100% { background-position: 250% 0; }
+}
+.animate-pwa-hairline {
+  background-size: 200% 100%;
+  animation: pwa-hairline-shimmer 3.8s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-pwa-aurora,
   .animate-pwa-ring-spin,
-  .animate-pwa-text-sheen {
+  .animate-pwa-text-sheen,
+  .animate-pwa-tick-pulse,
+  .animate-pwa-hairline {
     animation: none !important;
   }
 }

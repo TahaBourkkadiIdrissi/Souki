@@ -161,7 +161,7 @@ export default function SupplierProfilPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
+    <main className="souki-portal-reveal mx-auto w-full max-w-6xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
       <SupplierPageHeader
         eyebrow="Identité fournisseur"
         title="Ma boutique"
@@ -178,8 +178,10 @@ export default function SupplierProfilPage() {
           <div className="grid items-start gap-6 lg:grid-cols-[320px_1fr]">
             <aside className="space-y-4">
               <Card className="gap-0 overflow-hidden rounded-3xl border-[#DDEBDD] bg-background py-0 shadow-sm dark:border-border dark:bg-card">
-                <div className="h-24 bg-[#173F27]">
+                <div className="relative h-24 overflow-hidden bg-[#173F27]">
                   <div className="h-full bg-[radial-gradient(circle_at_85%_10%,rgba(76,184,74,0.4),transparent_42%)]" />
+                  <div className="pointer-events-none absolute -left-8 -top-10 h-28 w-28 rounded-full bg-[#F5C400]/12 blur-2xl" />
+                  <div className="pointer-events-none absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #FFFFFF 1px, transparent 0)", backgroundSize: "16px 16px" }} />
                 </div>
                 <CardContent className="-mt-10 p-5 pt-0">
                   <div className="group relative h-20 w-20">

@@ -176,6 +176,17 @@ export default function PwaWelcomePage() {
     }
   }, [isReady, isAuthenticated, router])
 
+  const [reduceMotion, setReduceMotion] = useState(false)
+
+  // Respecte prefers-reduced-motion pour tout mouvement piloté en JS (parallax).
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)")
+    setReduceMotion(mq.matches)
+    const handler = (event: MediaQueryListEvent) => setReduceMotion(event.matches)
+    mq.addEventListener("change", handler)
+    return () => mq.removeEventListener("change", handler)
+  }, [])
+
   // Parallax scroll listener
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY)
@@ -307,6 +318,9 @@ export default function PwaWelcomePage() {
     [],
   )
 
+  // Décalage de parallax : neutralisé si l'utilisateur préfère moins d'animations.
+  const heroShift = reduceMotion ? 0 : scrollY
+
   // Splash tant que le mode standalone ou la session ne sont pas confirmes :
   // l'accueil PWA ne doit jamais apparaitre sans session (redirection /login).
   if (!isReady || isLoading || !isAuthenticated) {
@@ -331,10 +345,15 @@ export default function PwaWelcomePage() {
         >
           {/* Lumière zénithale (donne du relief au sommet) */}
           <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-gradient-to-b from-white/12 to-transparent" />
-          {/* Halos colorés — profondeur douce */}
-          <div className="pointer-events-none absolute -right-14 -top-20 h-56 w-56 rounded-full bg-[#5BD174]/30 blur-3xl" />
-          <div className="pointer-events-none absolute -left-16 top-10 h-48 w-48 rounded-full bg-[#0A2814]/60 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-10 right-4 h-40 w-40 rounded-full bg-[#F5C400]/12 blur-3xl" />
+          {/* Halos colorés — profondeur douce, dérive lente au scroll (parallax) */}
+          <div
+            className="pointer-events-none absolute inset-0 will-change-transform"
+            style={{ transform: `translateY(${heroShift * 0.14}px)` }}
+          >
+            <div className="absolute -right-14 -top-20 h-56 w-56 rounded-full bg-[#5BD174]/30 blur-3xl" />
+            <div className="absolute -left-16 top-10 h-48 w-48 rounded-full bg-[#0A2814]/60 blur-3xl" />
+            <div className="absolute -bottom-10 right-4 h-40 w-40 rounded-full bg-[#F5C400]/12 blur-3xl" />
+          </div>
           {/* Trame de points fins — texture premium quasi imperceptible */}
           <div
             className="pointer-events-none absolute inset-0 opacity-[0.07]"
@@ -346,8 +365,11 @@ export default function PwaWelcomePage() {
           {/* Aurore : bande de lumière diagonale qui dérive lentement sur le dégradé */}
           <div className="pointer-events-none absolute -inset-y-10 left-0 z-0 w-1/2 animate-pwa-aurora bg-gradient-to-r from-transparent via-white/20 to-transparent blur-md" />
 
-          {/* Feuilles flottantes — rares, douces, identité Récolte */}
-          <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+          {/* Feuilles flottantes — rares, douces, identité Récolte (parallax rapide) */}
+          <div
+            className="pointer-events-none absolute inset-0 z-0 overflow-hidden will-change-transform"
+            style={{ transform: `translateY(${heroShift * 0.3}px)` }}
+          >
             {[...Array(3)].map((_, i) => (
               <Leaf
                 key={i}
@@ -367,7 +389,13 @@ export default function PwaWelcomePage() {
             ))}
           </div>
 
-          <header className="relative z-10 px-5 pb-8 pt-[max(env(safe-area-inset-top),1.25rem)]">
+          <header
+            className="relative z-10 px-5 pb-8 pt-[max(env(safe-area-inset-top),1.25rem)] will-change-transform"
+            style={{
+              transform: `translateY(${heroShift * 0.12}px)`,
+              opacity: reduceMotion ? 1 : Math.max(1 - scrollY / 700, 0.55),
+            }}
+          >
             {/* Ligne 1 : pilule de localisation (verre dépoli) + favoris + profil */}
             <div className="flex items-center justify-between">
               <button
@@ -480,8 +508,8 @@ export default function PwaWelcomePage() {
 
             {/* Ligne 3 : BARRE DE RECHERCHE (element cle, absente avant) */}
             <form onSubmit={handleSearchSubmit} className="mt-6 animate-slide-in-up" role="search">
-              <div className="flex items-center gap-2.5 rounded-2xl bg-white px-4 py-3.5 shadow-[0_14px_34px_-14px_rgba(0,0,0,0.5)] ring-1 ring-black/[0.04]">
-                <Search className="h-5 w-5 shrink-0 text-[#1E8A3C]" />
+              <div className="flex items-center gap-2.5 rounded-2xl bg-white px-4 py-3.5 shadow-[0_14px_34px_-14px_rgba(0,0,0,0.5)] ring-1 ring-black/[0.04] transition-all duration-300 focus-within:ring-2 focus-within:ring-[#1E8A3C]/40 focus-within:shadow-[0_16px_40px_-12px_rgba(30,138,60,0.5)]">
+                <Search className="h-5 w-5 shrink-0 text-[#1E8A3C] transition-colors" />
                 <div className="relative flex-1">
                   <input
                     type="search"
@@ -512,6 +540,17 @@ export default function PwaWelcomePage() {
               </div>
             </form>
           </header>
+        </div>
+
+        {/* Hairline signature : filet de lumière qui balaie doucement sous l'en-tête */}
+        <div className="mx-auto -mt-px h-[3px] w-32 overflow-hidden rounded-full opacity-80">
+          <div
+            className="h-full w-full animate-pwa-hairline rounded-full"
+            style={{
+              backgroundImage:
+                "linear-gradient(90deg, transparent 0%, #4CB84A 35%, #F5C400 50%, #4CB84A 65%, transparent 100%)",
+            }}
+          />
         </div>
 
         {/* ===== HERO — OFFRE DU JOUR + DÉCOMPTE DE CLÔTURE (20h) ===== */}
@@ -551,7 +590,12 @@ export default function PwaWelcomePage() {
                     [pad(cutoff.hours), pad(cutoff.minutes), pad(cutoff.seconds)].map((segment, index) => (
                       <span key={index} className="flex items-center gap-1">
                         {index > 0 && <span className="text-sm font-black text-white/70">:</span>}
-                        <span className="min-w-[26px] rounded-lg bg-white/15 px-1.5 py-1 text-center text-[15px] font-black tabular-nums text-white ring-1 ring-white/20 backdrop-blur">
+                        <span
+                          className={cn(
+                            "min-w-[26px] rounded-lg bg-white/15 px-1.5 py-1 text-center text-[15px] font-black tabular-nums text-white ring-1 ring-white/20 backdrop-blur",
+                            index === 2 && "animate-pwa-tick-pulse",
+                          )}
+                        >
                           {segment}
                         </span>
                       </span>
@@ -581,13 +625,20 @@ export default function PwaWelcomePage() {
                 key={tile.label}
                 type="button"
                 onClick={() => router.push(tile.href)}
-                className="group flex w-[84px] shrink-0 snap-start flex-col items-center gap-2 active:scale-95"
+                className="group flex w-[84px] shrink-0 snap-start flex-col items-center gap-2 transition-transform active:scale-95"
               >
                 <span
-                  className="flex h-[72px] w-[72px] items-center justify-center rounded-[22px] text-[28px] shadow-[0_12px_26px_-14px_rgba(17,59,30,0.55)] ring-1 ring-black/[0.04] transition group-active:scale-95 group-active:shadow-inner"
-                  style={{ background: `linear-gradient(140deg, ${tile.from}17, ${tile.to}2E)` }}
+                  className="relative flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-[22px] text-[28px] ring-1 ring-white/50 transition-all duration-300 group-active:scale-90 group-active:shadow-inner"
+                  style={{
+                    background: `linear-gradient(145deg, ${tile.from}, ${tile.to})`,
+                    boxShadow: `0 14px 26px -12px ${tile.from}A6, inset 0 1px 1px rgba(255,255,255,0.5)`,
+                  }}
                 >
-                  {tile.emoji}
+                  {/* Reflet en haut — donne le relief d'une vraie icône d'app */}
+                  <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/40 to-transparent" />
+                  <span className="relative drop-shadow-sm transition-transform duration-300 group-hover:-translate-y-0.5 group-active:scale-110">
+                    {tile.emoji}
+                  </span>
                 </span>
                 <span className="text-center text-[12px] font-bold leading-tight text-[#3D3D3D]">{tile.label}</span>
               </button>
@@ -787,7 +838,7 @@ function CarouselSection({
 }) {
   return (
     <section className="mt-7" data-reveal="up">
-      <div className="flex items-end justify-between px-4">
+      <div className="flex items-end justify-between px-6">
         <div>
           <h2 className="text-[18px] font-black leading-tight text-[#3D3D3D]">{title}</h2>
           {subtitle && <p className="mt-0.5 text-[13px] font-medium text-[#8A8A8A]">{subtitle}</p>}
@@ -803,7 +854,7 @@ function CarouselSection({
           </button>
         )}
       </div>
-      <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 scrollbar-none">
+      <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-6 pb-2 scrollbar-none">
         {children}
       </div>
     </section>
@@ -825,12 +876,12 @@ function ProductCard({
 }) {
   return (
     <article className="w-[148px] shrink-0 snap-start rounded-3xl bg-white p-2 shadow-sm shadow-gray-200/50 border border-gray-100 transition hover:shadow-md">
-      <div className="relative aspect-square overflow-hidden rounded-2xl bg-gradient-to-b from-[#EFF7F0] to-[#F7FBF7]">
+      <div className="group relative aspect-square overflow-hidden rounded-2xl bg-gradient-to-b from-[#EFF7F0] to-[#F7FBF7]">
         <img
           src={product.image}
           alt={product.name}
           className={cn(
-            "h-full w-full",
+            "h-full w-full transition-transform duration-300 ease-out group-active:scale-[1.07]",
             isIllustrationImage(product.image)
               ? "object-contain p-2 mix-blend-multiply"
               : "object-cover",

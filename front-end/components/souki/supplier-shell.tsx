@@ -191,10 +191,10 @@ export function SupplierShell({ children }: { children: ReactNode }) {
                 href={resolveHref(item.href)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "group flex min-h-12 items-center gap-3 rounded-2xl px-3.5 text-sm font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                  "group flex min-h-12 items-center gap-3 rounded-2xl px-3.5 text-sm font-bold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                   active
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-[#607061] hover:bg-[#EAF8EC] hover:text-primary dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground",
+                    ? "bg-gradient-to-r from-primary to-[#25994A] text-primary-foreground shadow-md shadow-primary/25"
+                    : "text-[#607061] hover:translate-x-0.5 hover:bg-[#EAF8EC] hover:text-primary dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground",
                 )}
               >
                 <span
@@ -399,12 +399,18 @@ export function SupplierPageHeader({
 }) {
   return (
     <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div className="max-w-2xl">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">{eyebrow}</p>
-        <h1 className="mt-1 text-2xl font-black tracking-tight text-[#264129] sm:text-3xl dark:text-foreground [font-family:var(--font-poppins)]">
-          {title}
-        </h1>
-        <p className="mt-2 text-sm leading-6 text-[#6F8070] dark:text-muted-foreground">{description}</p>
+      <div className="flex items-stretch gap-4">
+        <span
+          aria-hidden="true"
+          className="mt-0.5 hidden w-1.5 shrink-0 rounded-full bg-gradient-to-b from-[#5BD174] via-primary to-[#173F27] sm:block"
+        />
+        <div className="max-w-2xl">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">{eyebrow}</p>
+          <h1 className="mt-1 text-2xl font-black tracking-tight text-[#264129] sm:text-3xl dark:text-foreground [font-family:var(--font-poppins)]">
+            {title}
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-[#6F8070] dark:text-muted-foreground">{description}</p>
+        </div>
       </div>
       {action}
     </header>

@@ -130,9 +130,11 @@ export function ProductCard({
             : "bg-[#F4FAF3]",
           // Accueil : proportions compactes d'origine. Sinon : visuel carre
           // (look e-commerce moderne) conserve pour le catalogue.
+          // Mobile : cadre plus court (aspect-[4/3]) pour des cartes moins hautes ;
+          // md: revient au carre plein → catalogue web pixel-identique.
           compactImage
             ? (featured ? "h-40 sm:h-52 md:h-56 2xl:h-64" : "h-28 sm:h-44 2xl:h-48")
-            : (featured ? "aspect-square sm:aspect-[4/3]" : "aspect-square")
+            : (featured ? "aspect-square sm:aspect-[4/3]" : "aspect-[4/3] md:aspect-square")
         )}
       >
         <img
@@ -187,15 +189,15 @@ export function ProductCard({
         )}
       </div>
 
-      <div className="flex flex-1 flex-col p-2.5 sm:p-3 2xl:p-4">
-        <div className="mb-2 min-w-0">
+      <div className="flex flex-1 flex-col p-2 sm:p-3 2xl:p-4">
+        <div className="mb-1.5 min-w-0 sm:mb-2">
           <h3 className="truncate text-sm font-bold text-[#264129] sm:text-base">{name}</h3>
           <p className="mt-0.5 truncate text-[11px] leading-4 text-[#6C7E6E] sm:text-xs">
             {getUnitHint()}
           </p>
         </div>
 
-        <div className="mb-2.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+        <div className="mb-2 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 sm:mb-2.5">
           <span className="text-base font-black leading-none text-[#F07C00] sm:text-lg 2xl:text-xl">
             {price.toFixed(2)} DH
           </span>
@@ -216,7 +218,7 @@ export function ProductCard({
                 event.stopPropagation()
                 decrement()
               }}
-              className="flex h-8 w-8 shrink-0 items-center justify-center text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] sm:h-10 sm:w-10 2xl:h-11 2xl:w-11"
+              className="flex h-7 w-7 shrink-0 items-center justify-center text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] sm:h-10 sm:w-10 2xl:h-11 2xl:w-11"
               disabled={isUnavailable}
             >
               <Minus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -229,7 +231,7 @@ export function ProductCard({
                 event.stopPropagation()
                 increment()
               }}
-              className="flex h-8 w-8 shrink-0 items-center justify-center text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] sm:h-10 sm:w-10 2xl:h-11 2xl:w-11"
+              className="flex h-7 w-7 shrink-0 items-center justify-center text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] sm:h-10 sm:w-10 2xl:h-11 2xl:w-11"
               disabled={isUnavailable}
             >
               <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -244,7 +246,7 @@ export function ProductCard({
           }}
           disabled={isUnavailable}
           className={cn(
-            "mt-auto flex w-full items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-semibold transition-all sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-2.5 sm:text-sm 2xl:py-3 2xl:text-base",
+            "mt-auto flex w-full items-center justify-center gap-1.5 rounded-xl px-2 py-1.5 text-xs font-semibold transition-all sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-2.5 sm:text-sm 2xl:py-3 2xl:text-base",
             isUnavailable
               ? "cursor-not-allowed bg-gray-200 text-gray-500"
               : "bg-[#1E8A3C] text-white hover:bg-[#176B2E]",

@@ -94,15 +94,17 @@ export default function SupplierDashboardPage() {
       : 0
 
   return (
-    <main className="mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
+    <main className="souki-portal-reveal mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
       <SupplierPageHeader
         eyebrow="Vue d’ensemble"
         title="Pilotez votre activité"
         description="Vos indicateurs essentiels et vos actions quotidiennes, réunis dans un espace clair."
       />
 
-      <section className="relative overflow-hidden rounded-3xl bg-[#173F27] p-6 text-white shadow-sm sm:p-8">
+      <section className="relative overflow-hidden rounded-3xl bg-[#173F27] p-6 text-white shadow-lg shadow-[#173F27]/20 ring-1 ring-white/5 sm:p-8">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_10%,rgba(76,184,74,0.32),transparent_34%),radial-gradient(circle_at_0%_100%,rgba(245,196,0,0.16),transparent_30%)]" />
+        <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-[#4CB84A]/20 blur-3xl" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/8 to-transparent" />
         <div className="relative grid items-end gap-6 lg:grid-cols-[1fr_auto]">
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-bold">
@@ -118,7 +120,7 @@ export default function SupplierDashboardPage() {
           </div>
           <Link
             href="/supplier/preparation"
-            className="group inline-flex min-h-12 items-center justify-center gap-3 rounded-2xl bg-accent px-5 text-sm font-black text-accent-foreground shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:bg-[#D66B00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            className="group inline-flex min-h-12 items-center justify-center gap-3 rounded-2xl bg-accent px-5 text-sm font-black text-accent-foreground shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:bg-[#D66B00] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
           >
             Préparation du jour
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -180,10 +182,10 @@ export default function SupplierDashboardPage() {
                 <Link
                   key={shortcut.href}
                   href={shortcut.href}
-                  className="group rounded-2xl border border-[#DDEBDD] bg-background p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:border-border dark:bg-card"
+                  className="group rounded-2xl border border-[#DDEBDD] bg-background p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:border-border dark:bg-card"
                 >
                   <div className="flex items-start justify-between gap-4">
-                    <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${shortcut.tone}`}>
+                    <span className={`flex h-11 w-11 items-center justify-center rounded-xl transition-transform group-hover:scale-110 ${shortcut.tone}`}>
                       <Icon className="h-5 w-5" />
                     </span>
                     <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Heart, Minus, Plus, Share2, ShoppingBasket, X } from "lucide-react"
 
 import type { CatalogueProduct } from "@/lib/catalogue"
-import { formatQuantity, isIllustrationImage } from "@/lib/catalogue"
+import { formatQuantity, getProductDescription, isIllustrationImage } from "@/lib/catalogue"
 import { cn } from "@/lib/utils"
 import { useHaptic } from "@/hooks/useHaptic"
 
@@ -177,11 +177,6 @@ export function ProductDetailSheet({
           <div className="px-5 py-4">
             <div className="flex items-start justify-between gap-3">
               <h2 className="text-2xl font-black leading-tight text-[#233127]">{product.name}</h2>
-              {typeof product.niveau === "number" && (
-                <span className="mt-1 shrink-0 rounded-full bg-[#F0FAF1] px-3 py-1 text-xs font-bold text-[#1E8A3C]">
-                  Niveau {product.niveau}
-                </span>
-              )}
             </div>
             {product.alias && (
               <p className="mt-1 text-sm font-semibold text-[#6F8070]">« {product.alias} »</p>
@@ -198,9 +193,7 @@ export function ProductDetailSheet({
             <div className="mt-4">
               <h3 className="text-sm font-black uppercase tracking-wide text-[#264129]">Description</h3>
               <p className="mt-1.5 text-sm leading-relaxed text-[#5F735F]">
-                Frais du jour, sélectionné au marché de gros de Fès et livré demain matin.
-                {product.unit === "kg" ? " Vendu au kilo" : ` Vendu à l'unité (${displayUnit})`}, du champ à
-                votre panier sans intermédiaire.
+                {getProductDescription(product.name)}
               </p>
             </div>
 

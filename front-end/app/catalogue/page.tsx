@@ -1270,7 +1270,7 @@ function CatalogueContent() {
           app native. Desktop (md:+) inchange : cette barre est md:hidden. */}
       <div className="sticky top-0 z-40 border-b border-[#E7F0E8] bg-[#FBFDF9]/95 px-4 pb-2.5 pt-[max(env(safe-area-inset-top),0.6rem)] backdrop-blur-md md:hidden">
         <div className="flex items-center gap-2">
-          <div className="flex flex-1 items-center gap-2 rounded-2xl bg-white px-3.5 py-2.5 shadow-sm ring-1 ring-[#E7F0E8]">
+          <div className="flex flex-1 items-center gap-2 rounded-2xl bg-white px-3.5 py-2.5 shadow-sm ring-1 ring-[#E7F0E8] transition-all duration-300 focus-within:ring-2 focus-within:ring-[#1E8A3C]/40 focus-within:shadow-[0_10px_28px_-12px_rgba(30,138,60,0.45)]">
             <Search className="h-5 w-5 shrink-0 text-[#1E8A3C]" />
             <input
               type="search"
@@ -1293,17 +1293,6 @@ function CatalogueContent() {
               </button>
             )}
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              haptic("light")
-              setShowSidebar(true)
-            }}
-            aria-label="Filtres et catégories"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#1E8A3C] shadow-sm ring-1 ring-[#E7F0E8] active:scale-90"
-          >
-            <Filter className="h-5 w-5" />
-          </button>
         </div>
         <div className="mt-2.5 flex gap-2 overflow-x-auto scrollbar-none">
           {categories.map((category) => {
@@ -1317,9 +1306,9 @@ function CatalogueContent() {
                   setSelectedCategory(category.id)
                 }}
                 className={cn(
-                  "shrink-0 rounded-full px-4 py-1.5 text-[13px] font-bold transition-colors active:scale-95",
+                  "shrink-0 rounded-full px-4 py-1.5 text-[13px] font-bold transition-all duration-200 active:scale-95",
                   isActive
-                    ? "bg-[#1E8A3C] text-white shadow-sm"
+                    ? "scale-105 bg-[#1E8A3C] text-white shadow-[0_8px_18px_-8px_rgba(30,138,60,0.65)]"
                     : "bg-white text-[#607061] ring-1 ring-[#E7F0E8]",
                 )}
               >
@@ -1936,11 +1925,11 @@ function CatalogueContent() {
               {Array.from({ length: 2 }).map((_, sectionIndex) => (
                 <div key={sectionIndex} className="space-y-6">
                   <div className="souki-skeleton h-6 w-40 rounded-xl" />
-                  <div className="grid grid-cols-2 gap-3 md:flex md:gap-4 md:overflow-hidden">
-                    {Array.from({ length: 4 }).map((__, index) => (
+                  <div className="grid grid-cols-3 gap-2 md:flex md:gap-4 md:overflow-hidden">
+                    {Array.from({ length: 6 }).map((__, index) => (
                       <div
                         key={index}
-                        className="souki-skeleton h-[300px] w-full rounded-[28px] md:h-[390px] md:w-[12rem] md:shrink-0"
+                        className="souki-skeleton h-[220px] w-full rounded-2xl md:h-[390px] md:w-[12rem] md:shrink-0 md:rounded-[28px]"
                       />
                     ))}
                   </div>
@@ -1978,15 +1967,18 @@ function CatalogueContent() {
                           data-delay={String((sectionIndex % 4) + 1)}
                           className="mb-4 flex items-end justify-between"
                         >
-                          <div>
-                            <h3 className="text-lg font-bold text-[#264129]">{section.label}</h3>
-                            <p className="text-sm text-[#6F8070]">{section.subtitle}</p>
+                          <div className="flex items-center gap-3">
+                            <span className="h-8 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-[#5BD174] to-[#1E8A3C] md:hidden" />
+                            <div>
+                              <h3 className="text-lg font-bold text-[#264129]">{section.label}</h3>
+                              <p className="text-sm text-[#6F8070]">{section.subtitle}</p>
+                            </div>
                           </div>
                           <span className="rounded-full bg-[#F0FAF1] px-3 py-1 text-xs font-bold text-[#1E8A3C]">
                             {items.length} produit{items.length > 1 ? "s" : ""}
                           </span>
                         </div>
-                        <div className="grid grid-cols-2 gap-3 md:-mx-1 md:flex md:snap-x md:snap-mandatory md:gap-4 md:overflow-x-auto md:px-1 md:pb-3 md:scrollbar-none">
+                        <div className="grid grid-cols-3 gap-2 md:-mx-1 md:flex md:snap-x md:snap-mandatory md:gap-4 md:overflow-x-auto md:px-1 md:pb-3 md:scrollbar-none">
                           {items.map((product, index) => (
                             <div
                               key={product.id}
@@ -2045,15 +2037,18 @@ function CatalogueContent() {
                             data-delay={String((sectionIndex % 4) + 1)}
                             className="mb-4 flex items-end justify-between"
                           >
-                            <div>
-                              <h3 className="text-lg font-bold text-[#264129]">{section.label}</h3>
-                              <p className="text-sm text-[#6F8070]">{section.subtitle}</p>
+                            <div className="flex items-center gap-3">
+                              <span className="h-8 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-[#5BD174] to-[#1E8A3C] md:hidden" />
+                              <div>
+                                <h3 className="text-lg font-bold text-[#264129]">{section.label}</h3>
+                                <p className="text-sm text-[#6F8070]">{section.subtitle}</p>
+                              </div>
                             </div>
                             <span className="rounded-full bg-[#F0FAF1] px-3 py-1 text-xs font-bold text-[#1E8A3C]">
                               {items.length} produit{items.length > 1 ? "s" : ""}
                             </span>
                           </div>
-                          <div className="grid grid-cols-2 gap-3 md:-mx-1 md:flex md:snap-x md:snap-mandatory md:gap-4 md:overflow-x-auto md:px-1 md:pb-3 md:scrollbar-none">
+                          <div className="grid grid-cols-3 gap-2 md:-mx-1 md:flex md:snap-x md:snap-mandatory md:gap-4 md:overflow-x-auto md:px-1 md:pb-3 md:scrollbar-none">
                             {items.map((product, index) => {
                               const delay = ((sectionIndex * 3 + index) % 4) + 1
                               return (
@@ -2119,7 +2114,7 @@ function CatalogueContent() {
                   id="catalogue-products"
                   className="scroll-mt-28"
                 >
-                  <div className="grid grid-cols-2 gap-3 md:-mx-1 md:flex md:snap-x md:snap-mandatory md:gap-4 md:overflow-x-auto md:px-1 md:pb-3 md:scrollbar-none">
+                  <div className="grid grid-cols-3 gap-2 md:-mx-1 md:flex md:snap-x md:snap-mandatory md:gap-4 md:overflow-x-auto md:px-1 md:pb-3 md:scrollbar-none">
                     {filteredProducts.map((product, index) => {
                       const delay = (index % 4) + 1
                       return (
@@ -2473,10 +2468,12 @@ function CatalogueContent() {
         </StickyBottomBar>
       )}
 
+      {/* Pas de onMenuClick ici : le bouton « Plus » ouvre le tiroir standard
+          (Historique, Wallet, Profil…) au lieu de l'ancienne barre latérale
+          gauche, redondante sur mobile (recherche + catégories déjà en tête). */}
       <MobileBottomNav
         cartCount={cart.length}
         onCartClick={() => setShowCart(true)}
-        onMenuClick={() => setShowSidebar(true)}
       />
 
       <ProductDetailSheet

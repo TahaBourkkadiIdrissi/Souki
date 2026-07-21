@@ -162,7 +162,7 @@ export default function SupplierProduitsPage() {
   const activeCount = offres.filter((offre) => offre.is_active).length
 
   return (
-    <main className="mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
+    <main className="souki-portal-reveal mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
       <SupplierPageHeader
         eyebrow="Catalogue fournisseur"
         title="Mes produits"
@@ -203,24 +203,30 @@ export default function SupplierProduitsPage() {
       ) : (
         <>
           <section className="grid grid-cols-3 gap-3" aria-label="Résumé du catalogue">
-            <Card className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 dark:border-border dark:bg-card">
+            <Card className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-border dark:bg-card">
               <CardContent className="p-4 sm:p-5">
-                <Package className="h-5 w-5 text-primary" />
-                <p className="mt-3 text-2xl font-black text-[#264129] dark:text-card-foreground">{offres.length}</p>
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EAF8EC] text-primary dark:bg-primary/10">
+                  <Package className="h-5 w-5" />
+                </span>
+                <p className="mt-3 text-2xl font-black tabular-nums text-[#264129] dark:text-card-foreground">{offres.length}</p>
                 <p className="mt-1 text-[11px] font-bold text-muted-foreground sm:text-xs">Produits proposés</p>
               </CardContent>
             </Card>
-            <Card className="gap-0 rounded-2xl border-[#DDEBDD] bg-[#F0FAF1] py-0 dark:border-border dark:bg-card">
+            <Card className="gap-0 rounded-2xl border-[#BFE2C4] bg-[#F0FAF1] py-0 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-border dark:bg-card">
               <CardContent className="p-4 sm:p-5">
-                <BadgeCheck className="h-5 w-5 text-primary" />
-                <p className="mt-3 text-2xl font-black text-[#264129] dark:text-card-foreground">{activeCount}</p>
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                  <BadgeCheck className="h-5 w-5" />
+                </span>
+                <p className="mt-3 text-2xl font-black tabular-nums text-[#264129] dark:text-card-foreground">{activeCount}</p>
                 <p className="mt-1 text-[11px] font-bold text-muted-foreground sm:text-xs">Produits actifs</p>
               </CardContent>
             </Card>
-            <Card className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 dark:border-border dark:bg-card">
+            <Card className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-border dark:bg-card">
               <CardContent className="p-4 sm:p-5">
-                <Plus className="h-5 w-5 text-accent" />
-                <p className="mt-3 text-2xl font-black text-[#264129] dark:text-card-foreground">{availableToAdd.length}</p>
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF0DC] text-accent dark:bg-accent/10">
+                  <Plus className="h-5 w-5" />
+                </span>
+                <p className="mt-3 text-2xl font-black tabular-nums text-[#264129] dark:text-card-foreground">{availableToAdd.length}</p>
                 <p className="mt-1 text-[11px] font-bold text-muted-foreground sm:text-xs">Encore disponibles</p>
               </CardContent>
             </Card>
@@ -228,11 +234,14 @@ export default function SupplierProduitsPage() {
 
           <section>
             <div className="mb-4 flex items-end justify-between gap-4">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">Offres actuelles</p>
-                <h2 className="mt-1 text-xl font-black text-[#264129] dark:text-foreground [font-family:var(--font-poppins)]">
-                  Mon assortiment
-                </h2>
+              <div className="flex items-center gap-3">
+                <span aria-hidden="true" className="h-9 w-1 shrink-0 rounded-full bg-gradient-to-b from-[#5BD174] to-primary" />
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">Offres actuelles</p>
+                  <h2 className="mt-1 text-xl font-black text-[#264129] dark:text-foreground [font-family:var(--font-poppins)]">
+                    Mon assortiment
+                  </h2>
+                </div>
               </div>
               <Badge variant="secondary" className="hidden rounded-full px-3 py-1 sm:inline-flex">
                 {activeCount} actif{activeCount > 1 ? "s" : ""} sur {offres.length}
