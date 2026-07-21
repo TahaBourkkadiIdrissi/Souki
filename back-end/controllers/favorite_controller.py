@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from auth_dependencies import require_permission
 from dto.product_dto import ProductResponseDTO
 from services.favorite_service import FavoriteService
+from services.onboarding_service import OnboardingService
 
 favorite_router = APIRouter(prefix="/api/user", tags=["Favorites"])
 
@@ -31,3 +32,11 @@ def remove_favorite(
 ):
     FavoriteService().remove_favorite(principal.user_id, produit_id)
     return {"status": "success"}
+
+
+@favorite_router.post("/onboarding")
+def complete_onboarding(principal=Depends(require_permission("profile.manage_self"))):
+    """Marque l'onboarding comme termine pour le compte courant (idempotent)."""
+    if not OnboardingService().complete(principal.user_id):
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+    return {"status": "success", "onboarding_completed": True}

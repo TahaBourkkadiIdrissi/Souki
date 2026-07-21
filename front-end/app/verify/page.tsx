@@ -93,7 +93,13 @@ function OTPVerificationForm({
       setMessage(data.message || "Code validé avec succès.")
       // Laisse le temps au checkmark de se dessiner avant la redirection.
       setVerified(true)
-      const destination = shouldShowOnboarding() ? "/onboarding" : data.default_dashboard || "/"
+      // Compte fraichement verifie : le serveur indique s'il reste a onboarder.
+      const destination = shouldShowOnboarding({
+        id: userId,
+        onboarding_completed: data.onboarding_completed,
+      })
+        ? "/onboarding"
+        : data.default_dashboard || "/"
       window.setTimeout(() => router.push(destination), 900)
     } catch (err: any) {
       setError(err.message || "La vérification a échoué.")

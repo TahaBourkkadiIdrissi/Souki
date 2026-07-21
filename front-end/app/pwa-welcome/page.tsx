@@ -169,12 +169,14 @@ export default function PwaWelcomePage() {
     }
   }, [isReady, isLoading, isAuthenticated, router])
 
-  // Onboarding guard: redirect authenticated first-time users to onboarding
+  // Onboarding guard: redirect authenticated first-time users to onboarding.
+  // L'etat vient du compte (serveur), pas de l'appareil : un habitue qui installe
+  // l'app sur un nouveau telephone ne repasse plus par l'onboarding.
   useEffect(() => {
-    if (isReady && isAuthenticated && shouldShowOnboarding()) {
+    if (isReady && isAuthenticated && shouldShowOnboarding(user)) {
       router.replace("/onboarding")
     }
-  }, [isReady, isAuthenticated, router])
+  }, [isReady, isAuthenticated, user, router])
 
   const [reduceMotion, setReduceMotion] = useState(false)
 

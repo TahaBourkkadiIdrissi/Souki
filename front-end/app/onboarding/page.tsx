@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
+import { useAuth } from "@/hooks/useAuth"
 import { markOnboardingCompleted } from "@/lib/onboarding"
 import { isPwaStandalone } from "@/lib/pwa"
 
@@ -46,6 +47,7 @@ const steps: OnboardingStep[] = [
 
 export default function OnboardingPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [currentStep, setCurrentStep] = useState(0)
   const [direction, setDirection] = useState<"left" | "right">("left")
   const [isAnimating, setIsAnimating] = useState(false)
@@ -55,10 +57,11 @@ export default function OnboardingPage() {
   const isLastStep = currentStep === steps.length - 1
 
   const completeOnboarding = useCallback(() => {
-    markOnboardingCompleted()
+    // Persistance serveur en arriere-plan : la navigation reste instantanee.
+    void markOnboardingCompleted(user)
     const destination = isPwaStandalone() ? "/pwa-welcome" : "/"
     router.push(destination)
-  }, [router])
+  }, [router, user])
 
   const goToStep = useCallback(
     (step: number, dir: "left" | "right") => {

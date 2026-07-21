@@ -182,7 +182,7 @@ function ClientLoginContent() {
         if (typeof window !== "undefined") {
           window.localStorage.setItem("souki_has_logged_in", "true")
         }
-        const dest = redirectTarget !== "/" ? redirectTarget : shouldShowOnboarding() ? "/onboarding" : nextUser.default_dashboard || "/";
+        const dest = redirectTarget !== "/" ? redirectTarget : shouldShowOnboarding(nextUser) ? "/onboarding" : nextUser.default_dashboard || "/";
         router.push(dest);
       }
     } catch (err: any) {
@@ -199,7 +199,7 @@ function ClientLoginContent() {
   const handleGoogleLogin = async (credential: string) => {
     setError("")
     const nextUser = await googleLogin(credential, "CLIENT")
-    const dest = redirectTarget !== "/" ? redirectTarget : shouldShowOnboarding() ? "/onboarding" : nextUser.default_dashboard || "/"
+    const dest = redirectTarget !== "/" ? redirectTarget : shouldShowOnboarding(nextUser) ? "/onboarding" : nextUser.default_dashboard || "/"
     router.push(dest)
   }
 

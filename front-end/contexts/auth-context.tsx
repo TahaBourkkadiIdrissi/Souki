@@ -15,6 +15,8 @@ export interface User {
   is_verified: boolean
   is_active: boolean
   default_dashboard: string
+  /** false = compte jamais onboarde. Porte par le serveur, pas par l'appareil. */
+  onboarding_completed: boolean
   profiles?: {
     client?: { code_parrainage?: string | null; is_blacklisted?: boolean }
     [key: string]: any
@@ -117,6 +119,7 @@ function normalizeUser(payload: any): User {
     is_verified: Boolean(payload?.is_verified),
     is_active: payload?.is_active !== false,
     default_dashboard: String(payload?.default_dashboard || "/"),
+    onboarding_completed: Boolean(payload?.onboarding_completed),
     profiles: payload?.profiles && typeof payload.profiles === "object" ? payload.profiles : undefined,
   }
 }
