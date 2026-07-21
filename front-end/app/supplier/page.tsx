@@ -94,14 +94,14 @@ export default function SupplierDashboardPage() {
       : 0
 
   return (
-    <main className="souki-portal-reveal mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
+    <main className="souki-portal-reveal mx-auto w-full max-w-7xl space-y-5 px-4 py-5 sm:space-y-8 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
       <SupplierPageHeader
         eyebrow="Vue d’ensemble"
         title="Pilotez votre activité"
         description="Vos indicateurs essentiels et vos actions quotidiennes, réunis dans un espace clair."
       />
 
-      <section className="relative overflow-hidden rounded-3xl bg-[#173F27] p-6 text-white shadow-lg shadow-[#173F27]/20 ring-1 ring-white/5 sm:p-8">
+      <section className="relative overflow-hidden rounded-3xl bg-[#173F27] p-5 text-white shadow-lg shadow-[#173F27]/20 ring-1 ring-white/5 sm:p-8">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_10%,rgba(76,184,74,0.32),transparent_34%),radial-gradient(circle_at_0%_100%,rgba(245,196,0,0.16),transparent_30%)]" />
         <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-[#4CB84A]/20 blur-3xl" />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/8 to-transparent" />
@@ -111,16 +111,18 @@ export default function SupplierDashboardPage() {
               <Sparkles className="h-4 w-4 text-[#F5C400]" />
               Espace partenaire Souki
             </div>
-            <h2 className="mt-5 text-2xl font-black tracking-tight sm:text-4xl [font-family:var(--font-poppins)]">
+            <h2 className="mt-3.5 text-xl font-black tracking-tight sm:mt-5 sm:text-4xl [font-family:var(--font-poppins)]">
               Une journée bien préparée commence ici.
             </h2>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-white/70 sm:text-base">
+            {/* Texte d'ambiance : il repoussait le bouton d'action hors de l'ecran
+                sur mobile, il est reserve aux grands ecrans. */}
+            <p className="mt-3 hidden max-w-xl text-sm leading-6 text-white/70 sm:block sm:text-base">
               Vérifiez le picking, gardez votre catalogue disponible et suivez vos commandes sans perdre le fil.
             </p>
           </div>
           <Link
             href="/supplier/preparation"
-            className="group inline-flex min-h-12 items-center justify-center gap-3 rounded-2xl bg-accent px-5 text-sm font-black text-accent-foreground shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:bg-[#D66B00] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            className="group inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-2xl bg-accent px-5 text-sm font-black text-accent-foreground shadow-lg shadow-black/10 transition active:scale-[0.98] hover:bg-[#D66B00] sm:hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 lg:w-auto"
           >
             Préparation du jour
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -179,21 +181,26 @@ export default function SupplierDashboardPage() {
             {shortcuts.map((shortcut) => {
               const Icon = shortcut.icon
               return (
+                // Mobile : rangee compacte facon liste native (icone, libelle,
+                // chevron). sm: retrouve la carte verticale d'origine.
                 <Link
                   key={shortcut.href}
                   href={shortcut.href}
-                  className="group rounded-2xl border border-[#DDEBDD] bg-background p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:border-border dark:bg-card"
+                  className="group flex min-h-16 items-center gap-3.5 rounded-2xl border border-[#DDEBDD] bg-background p-4 shadow-sm transition-all hover:border-primary/35 hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:flex-col sm:items-stretch sm:p-5 sm:hover:-translate-y-0.5 dark:border-border dark:bg-card"
                 >
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex shrink-0 items-start justify-between gap-4 sm:w-full">
                     <span className={`flex h-11 w-11 items-center justify-center rounded-xl transition-transform group-hover:scale-110 ${shortcut.tone}`}>
                       <Icon className="h-5 w-5" />
                     </span>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
+                    <ArrowRight className="hidden h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary sm:block" />
                   </div>
-                  <h3 className="mt-5 font-black text-[#264129] dark:text-card-foreground">{shortcut.label}</h3>
-                  <p className="mt-2 text-sm leading-5 text-[#6F8070] dark:text-muted-foreground">
-                    {shortcut.description}
-                  </p>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-black text-[#264129] sm:mt-5 dark:text-card-foreground">{shortcut.label}</h3>
+                    <p className="mt-0.5 line-clamp-1 text-sm leading-5 text-[#6F8070] sm:mt-2 sm:line-clamp-none dark:text-muted-foreground">
+                      {shortcut.description}
+                    </p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground sm:hidden" />
                 </Link>
               )
             })}

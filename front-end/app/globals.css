@@ -354,6 +354,78 @@
   50% { transform: translate3d(4px, -3px, 0); opacity: 0.16; }
 }
 
+/* ─── Animation de lancement de l'app installee (PwaLaunchOverlay) ───
+   Sequence : rectangles qui montent en s'approchant → eclatement des legumes →
+   convergence vers le logo → fondu vers l'accueil PWA. Tout est pilote en CSS :
+   l'overlay disparait meme si le JS est lent a s'hydrater (animation-fill-mode),
+   ce qui bouche aussi l'ecran noir d'iOS entre le splash et le premier rendu. */
+
+/* Le drapeau est pose par le script inline du <head>, avant la premiere peinture. */
+.souki-launch { display: none; }
+:root[data-souki-launch] .souki-launch { display: block; }
+
+@keyframes souki-launch-bar {
+  0% { transform: scaleY(0.04); opacity: 0; }
+  22% { opacity: 1; }
+  62% { transform: scaleY(1); opacity: 1; }
+  100% { transform: scaleY(1.18); opacity: 0; }
+}
+
+/* Le groupe grandit pendant que les barres s'elevent : sensation d'approche. */
+@keyframes souki-launch-approach {
+  0% { transform: scale(0.5); }
+  70% { transform: scale(1.04); }
+  100% { transform: scale(1.4); }
+}
+
+/* --sx/--sy : position radiale finale, --sr : rotation. Fournis par le composant. */
+@keyframes souki-launch-veggie {
+  0% { transform: translate3d(0, 0, 0) scale(0.18) rotate(0deg); opacity: 0; }
+  16% { opacity: 1; }
+  46% { transform: translate3d(var(--sx), var(--sy), 0) scale(1) rotate(var(--sr)); opacity: 1; }
+  66% { transform: translate3d(calc(var(--sx) * 1.07), calc(var(--sy) * 1.07), 0) scale(1) rotate(var(--sr)); opacity: 1; }
+  100% { transform: translate3d(0, 0, 0) scale(0.22) rotate(0deg); opacity: 0; }
+}
+
+@keyframes souki-launch-logo {
+  0% { transform: scale(0.5); opacity: 0; }
+  60% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes souki-launch-exit {
+  to { opacity: 0; visibility: hidden; }
+}
+
+.souki-launch {
+  animation: souki-launch-exit 380ms ease-in 1880ms forwards;
+}
+
+.souki-launch-bars {
+  animation: souki-launch-approach 760ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.souki-launch-bar {
+  transform-origin: bottom center;
+  animation: souki-launch-bar 760ms cubic-bezier(0.22, 1, 0.36, 1) var(--d, 0ms) forwards;
+}
+
+.souki-launch-veggie {
+  animation: souki-launch-veggie 1280ms cubic-bezier(0.22, 1, 0.36, 1) calc(520ms + var(--d, 0ms)) forwards;
+}
+
+.souki-launch-logo {
+  animation: souki-launch-logo 620ms cubic-bezier(0.34, 1.56, 0.64, 1) 1240ms both;
+}
+
+/* Mouvement reduit : on garde uniquement le logo et un fondu court. */
+@media (prefers-reduced-motion: reduce) {
+  .souki-launch { animation: souki-launch-exit 260ms ease-in 420ms forwards; }
+  .souki-launch-bars,
+  .souki-launch-veggie { display: none; }
+  .souki-launch-logo { animation: fade-in 200ms ease-out both; }
+}
+
 .animate-pulse-cta {
   animation: pulse-cta 2s ease-in-out infinite;
 }

@@ -122,6 +122,9 @@ class OTPVerificationResponse(BaseModel):
     roles: List[str] = Field(default_factory=list)
     permissions: List[str] = Field(default_factory=list)
     default_dashboard: str = "/"
+    # Un compte fraichement verifie n'est pas encore onboarde : le front enchaine
+    # donc sur l'onboarding, ce qu'il ne fait plus lors d'une simple reconnexion.
+    onboarding_completed: bool = False
     verification_channel: Optional[str] = None
     verification_target: Optional[str] = None
     expires_in_seconds: Optional[int] = None
@@ -140,4 +143,6 @@ class CurrentUserResponse(BaseModel):
     is_verified: bool
     is_active: bool = True
     default_dashboard: str = "/"
+    # False = compte jamais onboarde (le front affiche alors l'onboarding).
+    onboarding_completed: bool = False
     profiles: Dict[str, Any] = Field(default_factory=dict)

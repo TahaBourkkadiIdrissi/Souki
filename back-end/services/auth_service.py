@@ -235,6 +235,7 @@ class AuthService:
                 "roles": sorted(principal.roles),
                 "permissions": sorted(principal.permissions),
                 "default_dashboard": principal.default_dashboard,
+                "onboarding_completed": principal.onboarding_completed,
                 "verification_channel": verification_channel,
                 "verification_target": self._mask_target(user, verification_channel),
                 "expires_in_seconds": None,
@@ -624,6 +625,7 @@ class AuthService:
             "is_verified": principal.is_verified,
             "is_active": principal.is_active,
             "default_dashboard": principal.default_dashboard,
+            "onboarding_completed": principal.onboarding_completed,
             "profiles": profiles,
         }
 

@@ -23,8 +23,10 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/hooks/useAuth"
+import { useHaptic } from "@/hooks/useHaptic"
 import { useSupplierLiveRefresh } from "@/hooks/useSupplierLiveRefresh"
 import { API_BASE_URL } from "@/lib/api"
+import { cn } from "@/lib/utils"
 
 type PreparationLine = {
   product_id: number
@@ -68,11 +70,54 @@ function PreparationStatus({ status }: { status: string }) {
   )
 }
 
+/**
+ * Cases cochees de la liste de picking, conservees localement et remises a zero
+ * chaque jour. Purement cote client : c'est un pense-bete d'atelier, il ne
+ * modifie aucune donnee de commande.
+ */
+function usePickingChecklist(date: string | undefined) {
+  const storageKey = date ? `souki-supplier-picking:${date}` : null
+  const [picked, setPicked] = useState<number[]>([])
+
+  useEffect(() => {
+    if (!storageKey) return
+    try {
+      const stored = window.localStorage.getItem(storageKey)
+      setPicked(stored ? (JSON.parse(stored) as number[]) : [])
+    } catch {
+      setPicked([])
+    }
+  }, [storageKey])
+
+  const toggle = useCallback(
+    (productId: number) => {
+      setPicked((current) => {
+        const next = current.includes(productId)
+          ? current.filter((id) => id !== productId)
+          : [...current, productId]
+        if (storageKey) {
+          try {
+            window.localStorage.setItem(storageKey, JSON.stringify(next))
+          } catch {
+            // Quota plein ou mode prive : la case reste cochee pour la session.
+          }
+        }
+        return next
+      })
+    },
+    [storageKey],
+  )
+
+  return { picked, toggle }
+}
+
 export default function SupplierPreparationPage() {
   const { token } = useAuth()
   const [data, setData] = useState<PreparationResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const haptic = useHaptic()
+  const { picked, toggle } = usePickingChecklist(data?.date)
 
   const load = useCallback(async () => {
     if (!token) return
@@ -97,8 +142,17 @@ export default function SupplierPreparationPage() {
 
   useSupplierLiveRefresh(load, Boolean(token))
 
+  // Ne compte que les produits encore au programme du jour : une ligne disparue
+  // du picking ne doit pas gonfler l'avancement.
+  const pickedCount = data
+    ? data.picking.filter((item) => picked.includes(item.product_id)).length
+    : 0
+  const pickingProgress = data && data.picking.length > 0
+    ? Math.round((pickedCount / data.picking.length) * 100)
+    : 0
+
   return (
-    <main className="souki-portal-reveal mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
+    <main className="souki-portal-reveal mx-auto w-full max-w-7xl space-y-5 px-4 py-5 sm:space-y-8 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
       <SupplierPageHeader
         eyebrow="Atelier du jour"
         title="Préparation des commandes"
@@ -139,7 +193,7 @@ export default function SupplierPreparationPage() {
       ) : data ? (
         <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
           <section className="overflow-hidden rounded-3xl border border-[#BFE2C4] bg-background shadow-sm dark:border-primary/25 dark:bg-card">
-            <div className="relative overflow-hidden bg-[#173F27] p-6 text-white sm:p-7">
+            <div className="relative overflow-hidden bg-[#173F27] p-5 text-white sm:p-7">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_88%_15%,rgba(76,184,74,0.35),transparent_32%)]" />
               <div className="pointer-events-none absolute -left-12 -bottom-16 h-44 w-44 rounded-full bg-[#F5C400]/10 blur-3xl" />
               <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/8 to-transparent" />
@@ -149,17 +203,35 @@ export default function SupplierPreparationPage() {
                     <ClipboardList className="h-4 w-4" />
                     Liste de picking agrégée
                   </div>
-                  <h2 className="mt-3 text-2xl font-black [font-family:var(--font-poppins)]">
+                  <h2 className="mt-2.5 text-xl font-black sm:mt-3 sm:text-2xl [font-family:var(--font-poppins)]">
                     Tout prélever en un passage
                   </h2>
-                  <p className="mt-2 max-w-lg text-sm leading-6 text-white/70">
+                  <p className="mt-2 hidden max-w-lg text-sm leading-6 text-white/70 sm:block">
                     Les quantités ci-dessous regroupent uniquement les commandes actives d’aujourd’hui.
                   </p>
                 </div>
-                <span className="flex h-12 min-w-12 items-center justify-center rounded-2xl bg-white/10 px-3 text-lg font-black">
+                <span className="flex h-12 min-w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 px-3 text-lg font-black tabular-nums">
                   {data.picking.length}
                 </span>
               </div>
+
+              {/* Avancement du prelevement : lisible d'un coup d'oeil depuis l'atelier. */}
+              {data.picking.length > 0 && (
+                <div className="relative mt-4">
+                  <div className="flex items-center justify-between text-xs font-bold text-white/80">
+                    <span>
+                      {pickedCount} / {data.picking.length} prélevé{pickedCount > 1 ? "s" : ""}
+                    </span>
+                    <span className="tabular-nums">{pickingProgress}%</span>
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/15">
+                    <div
+                      className="h-full rounded-full bg-[#8EDD8B] transition-[width] duration-300"
+                      style={{ width: `${pickingProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="p-4 sm:p-6">
@@ -175,24 +247,56 @@ export default function SupplierPreparationPage() {
                 </Empty>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {data.picking.map((item, index) => (
-                    <article
-                      key={item.product_id}
-                      className="group flex items-center gap-4 rounded-2xl border border-[#DDEBDD] bg-[#F8FCF8] p-4 transition hover:-translate-y-0.5 hover:border-primary/30 hover:bg-[#F0FAF1] hover:shadow-sm dark:border-border dark:bg-muted/30 dark:hover:bg-muted"
-                    >
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-background text-xs font-black text-primary shadow-sm transition-transform group-hover:scale-110 dark:bg-card">
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-black text-[#264129] dark:text-foreground">{item.nom_fr}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">Produit #{item.product_id}</p>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-lg font-black text-primary">{item.quantite_kg}</p>
-                        <p className="text-xs font-bold text-muted-foreground">{item.unite}</p>
-                      </div>
-                    </article>
-                  ))}
+                  {data.picking.map((item, index) => {
+                    const isPicked = picked.includes(item.product_id)
+                    return (
+                      // Pense-bete d'atelier : on coche au fur et a mesure du
+                      // prelevement, sans lacher le cageot des yeux.
+                      <button
+                        key={item.product_id}
+                        type="button"
+                        aria-pressed={isPicked}
+                        onClick={() => {
+                          haptic(isPicked ? "light" : "success")
+                          toggle(item.product_id)
+                        }}
+                        className={cn(
+                          "group flex min-h-16 w-full items-center gap-4 rounded-2xl border p-4 text-left transition active:scale-[0.98] sm:hover:-translate-y-0.5 sm:hover:shadow-sm",
+                          isPicked
+                            ? "border-primary/35 bg-[#EAF8EC] dark:border-primary/30 dark:bg-primary/10"
+                            : "border-[#DDEBDD] bg-[#F8FCF8] hover:border-primary/30 hover:bg-[#F0FAF1] dark:border-border dark:bg-muted/30 dark:hover:bg-muted",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-black shadow-sm transition-transform sm:group-hover:scale-110",
+                            isPicked
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-background text-primary dark:bg-card",
+                          )}
+                        >
+                          {isPicked ? <ClipboardCheck className="h-5 w-5" /> : String(index + 1).padStart(2, "0")}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={cn(
+                              "truncate font-black text-[#264129] dark:text-foreground",
+                              isPicked && "line-through opacity-60",
+                            )}
+                          >
+                            {item.nom_fr}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {isPicked ? "Prélevé" : `Produit #${item.product_id}`}
+                          </p>
+                        </div>
+                        <div className={cn("shrink-0 text-right", isPicked && "opacity-60")}>
+                          <p className="text-lg font-black tabular-nums text-primary">{item.quantite_kg}</p>
+                          <p className="text-xs font-bold text-muted-foreground">{item.unite}</p>
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
               )}
 
@@ -234,7 +338,7 @@ export default function SupplierPreparationPage() {
                 {data.commandes.map((order) => (
                   <Card
                     key={order.id}
-                    className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md dark:border-border dark:bg-card"
+                    className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 shadow-sm transition active:scale-[0.98] sm:hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md dark:border-border dark:bg-card"
                   >
                     <CardContent className="p-5">
                       <div className="flex items-start justify-between gap-3">

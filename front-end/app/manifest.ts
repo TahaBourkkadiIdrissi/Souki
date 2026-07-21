@@ -9,7 +9,10 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "fr",
     dir: "ltr",
     categories: ["shopping", "food"],
-    start_url: "/",
+    // L'app installee demarre directement sur l'accueil PWA : demarrer sur "/"
+    // affichait l'accueil web une fraction de seconde avant la redirection client.
+    // Le scope reste "/" pour que tout le site reste dans l'app.
+    start_url: "/pwa-welcome",
     scope: "/",
     display: "standalone",
     display_override: ["standalone", "minimal-ui"],

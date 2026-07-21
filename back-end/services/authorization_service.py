@@ -27,6 +27,8 @@ class AuthorizationPrincipal:
     roles: Set[str] = field(default_factory=set)
     permissions: Set[str] = field(default_factory=set)
     default_dashboard: str = "/"
+    # False = compte jamais onboarde, le front doit afficher l'onboarding.
+    onboarding_completed: bool = False
 
     def has_role(self, role: str) -> bool:
         return role.upper() in self.roles
@@ -86,6 +88,7 @@ class AuthorizationService:
             roles=roles,
             permissions=permissions,
             default_dashboard=default_dashboard,
+            onboarding_completed=getattr(user, "onboarding_completed_at", None) is not None,
         )
 
     def resolve_primary_role(self, roles: Iterable[str], legacy_role: Optional[str]) -> str:

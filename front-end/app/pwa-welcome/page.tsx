@@ -169,12 +169,14 @@ export default function PwaWelcomePage() {
     }
   }, [isReady, isLoading, isAuthenticated, router])
 
-  // Onboarding guard: redirect authenticated first-time users to onboarding
+  // Onboarding guard: redirect authenticated first-time users to onboarding.
+  // L'etat vient du compte (serveur), pas de l'appareil : un habitue qui installe
+  // l'app sur un nouveau telephone ne repasse plus par l'onboarding.
   useEffect(() => {
-    if (isReady && isAuthenticated && shouldShowOnboarding()) {
+    if (isReady && isAuthenticated && shouldShowOnboarding(user)) {
       router.replace("/onboarding")
     }
-  }, [isReady, isAuthenticated, router])
+  }, [isReady, isAuthenticated, user, router])
 
   const [reduceMotion, setReduceMotion] = useState(false)
 
@@ -275,6 +277,13 @@ export default function PwaWelcomePage() {
     setAddedProductId(product.id)
     window.setTimeout(() => setAddedProductId(null), 1200)
     haptic("medium")
+  }
+
+  // Toucher un produit emmene sur la page Produits, fiche ouverte : l'utilisateur
+  // y trouve la description et enchaine ses achats sans revenir a l'accueil.
+  const handleOpenProduct = (product: CatalogueProduct) => {
+    haptic("light")
+    router.push(`/catalogue?product=${product.id}`)
   }
 
   const handleToggleFavorite = (id: number) => {
@@ -716,6 +725,7 @@ export default function PwaWelcomePage() {
                 product={product}
                 isAdded={addedProductId === product.id}
                 onQuickAdd={handleQuickAdd}
+                onOpen={handleOpenProduct}
                 isFavorite={isFavorite(product.id)}
                 onToggleFavorite={() => handleToggleFavorite(product.id)}
               />
@@ -736,6 +746,7 @@ export default function PwaWelcomePage() {
                 product={product}
                 isAdded={addedProductId === product.id}
                 onQuickAdd={handleQuickAdd}
+                onOpen={handleOpenProduct}
                 isFavorite={isFavorite(product.id)}
                 onToggleFavorite={() => handleToggleFavorite(product.id)}
               />
@@ -756,6 +767,7 @@ export default function PwaWelcomePage() {
                 product={product}
                 isAdded={addedProductId === product.id}
                 onQuickAdd={handleQuickAdd}
+                onOpen={handleOpenProduct}
                 isFavorite={isFavorite(product.id)}
                 onToggleFavorite={() => handleToggleFavorite(product.id)}
               />
@@ -780,6 +792,7 @@ export default function PwaWelcomePage() {
                     product={product}
                     isAdded={addedProductId === product.id}
                     onQuickAdd={handleQuickAdd}
+                onOpen={handleOpenProduct}
                     isFavorite={isFavorite(product.id)}
                     onToggleFavorite={() => handleToggleFavorite(product.id)}
                   />
@@ -865,17 +878,33 @@ function ProductCard({
   product,
   isAdded,
   onQuickAdd,
+  onOpen,
   isFavorite = false,
   onToggleFavorite,
 }: {
   product: CatalogueProduct
   isAdded: boolean
   onQuickAdd: (product: CatalogueProduct) => void
+  onOpen: (product: CatalogueProduct) => void
   isFavorite?: boolean
   onToggleFavorite?: (id: number) => void
 }) {
   return (
-    <article className="w-[148px] shrink-0 snap-start rounded-3xl bg-white p-2 shadow-sm shadow-gray-200/50 border border-gray-100 transition hover:shadow-md">
+    // Le « + » ajoute au panier sans quitter l'accueil ; toucher la carte emmene
+    // sur la page Produits, ou l'utilisateur poursuit ses achats.
+    <article
+      role="button"
+      tabIndex={0}
+      aria-label={`Voir ${product.name}`}
+      onClick={() => onOpen(product)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault()
+          onOpen(product)
+        }
+      }}
+      className="w-[148px] shrink-0 cursor-pointer snap-start rounded-3xl bg-white p-2 shadow-sm shadow-gray-200/50 border border-gray-100 transition hover:shadow-md active:scale-[0.98]"
+    >
       <div className="group relative aspect-square overflow-hidden rounded-2xl bg-gradient-to-b from-[#EFF7F0] to-[#F7FBF7]">
         <img
           src={product.image}
@@ -910,7 +939,10 @@ function ProductCard({
         <button
           type="button"
           aria-label={`Ajouter ${product.name}`}
-          onClick={() => onQuickAdd(product)}
+          onClick={(event) => {
+            event.stopPropagation()
+            onQuickAdd(product)
+          }}
           className={cn(
             "absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full shadow-md transition-all active:scale-90",
             isAdded

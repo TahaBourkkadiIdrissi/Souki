@@ -21,6 +21,10 @@ class User(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     avatar_url = Column(String(512), nullable=True)
     last_login_at = Column(DateTime(timezone=True), nullable=True)
+    # Date de fin de l'onboarding. NULL = compte jamais onboarde : c'est ce qui
+    # distingue un email nouvellement cree d'un compte existant, sur tous ses
+    # appareils (l'ancien marqueur vivait dans le localStorage du navigateur).
+    onboarding_completed_at = Column(DateTime(timezone=True), nullable=True)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     addresses = relationship("Address", back_populates="owner")

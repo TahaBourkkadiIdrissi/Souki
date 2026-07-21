@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Heart, Minus, Plus, ShoppingCart } from "lucide-react"
+import { Check, Heart, Minus, Plus, ShoppingCart } from "lucide-react"
 
 import { formatQuantity, isIllustrationImage } from "@/lib/catalogue"
 import { cn } from "@/lib/utils"
@@ -28,6 +28,13 @@ interface ProductCardProps {
    */
   compactImage?: boolean
   /**
+   * "minimal" : rendu aere aligne sur les cartes de l'accueil PWA — visuel carre,
+   * nom, prix, et un « + » flottant qui remplace le stepper et le bouton pleine
+   * largeur (c'est leur empilement qui rendait la grille catalogue si dense).
+   * Mobile uniquement : toutes les classes md: restaurent le rendu web d'origine.
+   */
+  variant?: "default" | "minimal"
+  /**
    * Favori (coeur). Affiche uniquement en overlay sur mobile/PWA (`md:hidden`) :
    * le catalogue desktop reste pixel-identique. Fourni par le parent (useFavorites).
    */
@@ -53,11 +60,13 @@ export function ProductCard({
   disabledLabel = "Indisponible",
   featured = false,
   compactImage = false,
+  variant = "default",
   isFavorite = false,
   onToggleFavorite,
   onView,
   onAddToCart,
 }: ProductCardProps) {
+  const isMinimal = variant === "minimal"
   const [quantity, setQuantity] = useState(quantityStep)
   const [isAdded, setIsAdded] = useState(false)
   const [resolvedImage, setResolvedImage] = useState(image)
@@ -99,7 +108,9 @@ export function ProductCard({
     }
     onAddToCart?.(id, quantity)
     setIsAdded(true)
-    setTimeout(() => setIsAdded(false), 300)
+    // En minimal, l'unique retour visuel est la coche du « + » : on la laisse
+    // assez longtemps pour etre vue.
+    setTimeout(() => setIsAdded(false), isMinimal ? 900 : 300)
   }
 
   const increment = () => {
@@ -114,7 +125,11 @@ export function ProductCard({
     <article
       onClick={() => onView?.(id)}
       className={cn(
-        "group flex h-full flex-col overflow-hidden rounded-2xl border border-[#DDEFE0] bg-white shadow-[0_18px_45px_-22px_rgba(30,138,60,0.25)] transition-all duration-300",
+        "group flex h-full flex-col bg-white transition-all duration-300",
+        // md: identique a l'origine dans les deux variantes.
+        isMinimal
+          ? "rounded-3xl border border-gray-100 p-2 shadow-sm shadow-gray-200/50 md:overflow-hidden md:rounded-2xl md:border-[#DDEFE0] md:p-0 md:shadow-[0_18px_45px_-22px_rgba(30,138,60,0.25)]"
+          : "overflow-hidden rounded-2xl border border-[#DDEFE0] shadow-[0_18px_45px_-22px_rgba(30,138,60,0.25)]",
         isUnavailable
           ? "opacity-65 grayscale-[0.55]"
           : "hover:-translate-y-1 hover:shadow-[0_22px_55px_-20px_rgba(30,138,60,0.28)]"
@@ -132,9 +147,11 @@ export function ProductCard({
           // (look e-commerce moderne) conserve pour le catalogue.
           // Mobile : cadre plus court (aspect-[4/3]) pour des cartes moins hautes ;
           // md: revient au carre plein → catalogue web pixel-identique.
-          compactImage
-            ? (featured ? "h-40 sm:h-52 md:h-56 2xl:h-64" : "h-28 sm:h-44 2xl:h-48")
-            : (featured ? "aspect-square sm:aspect-[4/3]" : "aspect-[4/3] md:aspect-square")
+          isMinimal
+            ? "aspect-square rounded-2xl md:rounded-none"
+            : compactImage
+              ? (featured ? "h-40 sm:h-52 md:h-56 2xl:h-64" : "h-28 sm:h-44 2xl:h-48")
+              : (featured ? "aspect-square sm:aspect-[4/3]" : "aspect-[4/3] md:aspect-square")
         )}
       >
         <img
@@ -177,7 +194,12 @@ export function ProductCard({
               event.stopPropagation()
               onToggleFavorite(id)
             }}
-            className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur transition-transform active:scale-90 md:hidden"
+            className={cn(
+              "absolute top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur transition-transform active:scale-90 md:hidden",
+              // En minimal, le « + » occupe le coin bas-droit : le coeur passe a
+              // gauche, comme sur les cartes de l'accueil.
+              isMinimal ? "left-2" : "right-2",
+            )}
           >
             <Heart
               className={cn(
@@ -187,12 +209,47 @@ export function ProductCard({
             />
           </button>
         )}
+
+        {/* Ajout rapide en minimal : remplace le stepper + le bouton pleine largeur,
+            dont l'empilement rendait la grille catalogue tres dense sur mobile. */}
+        {isMinimal && (
+          <button
+            type="button"
+            aria-label={`Ajouter ${name}`}
+            disabled={isUnavailable}
+            onClick={(event) => {
+              event.stopPropagation()
+              handleAdd()
+            }}
+            className={cn(
+              "absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full shadow-md transition-all active:scale-90 md:hidden",
+              isUnavailable
+                ? "cursor-not-allowed bg-gray-200 text-gray-400"
+                : "bg-white text-[#1E8A3C]",
+              isAdded && "scale-110 bg-[#1E8A3C] text-white",
+            )}
+          >
+            {isAdded ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+          </button>
+        )}
       </div>
 
-      <div className="flex flex-1 flex-col p-2 sm:p-3 2xl:p-4">
-        <div className="mb-1.5 min-w-0 sm:mb-2">
+      <div
+        className={cn(
+          "flex flex-1 flex-col",
+          isMinimal ? "mt-2.5 px-1 pb-1 md:mt-0 md:p-3 2xl:p-4" : "p-2 sm:p-3 2xl:p-4",
+        )}
+      >
+        <div className={cn("min-w-0", isMinimal ? "mb-1 md:mb-2" : "mb-1.5 sm:mb-2")}>
           <h3 className="truncate text-sm font-bold text-[#264129] sm:text-base">{name}</h3>
-          <p className="mt-0.5 truncate text-[11px] leading-4 text-[#6C7E6E] sm:text-xs">
+          <p
+            className={cn(
+              "mt-0.5 truncate text-[11px] leading-4 text-[#6C7E6E] sm:text-xs",
+              // L'unite tient deja dans la ligne de prix : on la masque en minimal
+              // pour garder une carte a deux lignes, comme sur l'accueil.
+              isMinimal && "hidden md:block",
+            )}
+          >
             {getUnitHint()}
           </p>
         </div>
@@ -211,7 +268,9 @@ export function ProductCard({
           )}
         </div>
 
-        <div className="mb-2 space-y-2 sm:mb-2.5">
+        {/* Stepper + bouton pleine largeur : masques en minimal sur mobile, ou le
+            « + » flottant les remplace. Intacts a partir de md:. */}
+        <div className={cn("mb-2 space-y-2 sm:mb-2.5", isMinimal && "hidden md:block")}>
           <div className="flex w-full items-center overflow-hidden rounded-full border border-[#CDE8D0] bg-[#F7FCF7]">
           <button
               onClick={(event) => {
@@ -247,6 +306,7 @@ export function ProductCard({
           disabled={isUnavailable}
           className={cn(
             "mt-auto flex w-full items-center justify-center gap-1.5 rounded-xl px-2 py-1.5 text-xs font-semibold transition-all sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-2.5 sm:text-sm 2xl:py-3 2xl:text-base",
+            isMinimal && "hidden md:flex",
             isUnavailable
               ? "cursor-not-allowed bg-gray-200 text-gray-500"
               : "bg-[#1E8A3C] text-white hover:bg-[#176B2E]",
