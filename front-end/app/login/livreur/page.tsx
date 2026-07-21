@@ -8,6 +8,7 @@ import { API_BASE_URL } from "@/lib/api"
 import { isValidMoroccanPhone, normalizeMoroccanPhone, PHONE_ERROR_MSG } from "@/lib/phoneValidator"
 import { GoogleLoginButton } from "@/components/auth/google-login-button"
 import { PasswordStrength } from "@/components/souki/password-strength"
+import { PolicyLink } from "@/components/souki/policy-link"
 import { toast } from "sonner"
 import { 
   Eye, 
@@ -84,7 +85,7 @@ function LivreurLoginContent() {
       else if (password.length < 8) errors.password = "Le mot de passe doit faire au moins 8 caractères.";
       
       if (password !== confirmPassword) errors.confirmPassword = "Les mots de passe ne correspondent pas.";
-      if (!acceptTerms) errors.acceptTerms = "Vous devez accepter les conditions (CGU).";
+      if (!acceptTerms) errors.acceptTerms = "Vous devez accepter la politique de confidentialité.";
     } else {
       if (!loginId.trim()) errors.loginId = "L'email ou le téléphone est requis.";
       if (!password) errors.password = "Le mot de passe est requis.";
@@ -638,14 +639,8 @@ function LivreurLoginContent() {
                     {acceptTerms && <Check className="w-3 h-3 text-white" />}
                   </div>
                   <span className="text-sm text-[#3D3D3D]">
-                    J'accepte les{" "}
-                    <Link href="/cgu" className="text-[#D66B00] hover:underline">
-                      CGU
-                    </Link>{" "}
-                    et la{" "}
-                    <Link href="/politique-confidentialite" className="text-[#D66B00] hover:underline">
-                      Politique de Confidentialité
-                    </Link>
+                    J'accepte la{" "}
+                    <PolicyLink className="text-[#D66B00] hover:underline" />
                   </span>
                 </div>
                 <ErrorMessage message={fieldErrors.acceptTerms} />

@@ -48,6 +48,7 @@ import {
 } from "lucide-react"
 import { ProductCard } from "@/components/souki/product-card"
 import { Navbar } from "@/components/souki/navbar"
+import { PolicyLink } from "@/components/souki/policy-link"
 import { AIModals } from "@/components/souki/ai-modals"
 import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
 import { LetterReveal } from "@/components/souki/letter-reveal"
@@ -811,8 +812,7 @@ export default function HomePage() {
             <div>
               <h3 className="mb-4 text-[15px] font-semibold">Légal</h3>
               <ul className="space-y-2.5 text-[15px] text-white/70">
-                <li><Link href="/politique-confidentialite" className="transition-colors hover:text-white">Politique de confidentialité</Link></li>
-                <li><Link href="/cgu" className="transition-colors hover:text-white">Conditions générales</Link></li>
+                <li><PolicyLink className="transition-colors hover:text-white">Politique de confidentialité</PolicyLink></li>
                 <li><Link href="/mentions-legales" className="transition-colors hover:text-white">Mentions légales</Link></li>
               </ul>
             </div>
