@@ -1,21 +1,14 @@
 "use client"
 
-import { useEffect, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useState, type ReactNode } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { ChevronDown, ClipboardList, Home, LayoutDashboard, Leaf, LogOut, Package, ShoppingCart, Store } from "lucide-react"
-
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"
+import { ClipboardList, Home, LayoutDashboard, Leaf, LogOut, Package, ShoppingCart, Store } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/hooks/useAuth"
+import { useSupplierLiveRefresh } from "@/hooks/useSupplierLiveRefresh"
 import { API_BASE_URL } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
@@ -85,8 +78,10 @@ export function SupplierShell({ children }: { children: ReactNode }) {
   const { token, logout } = useAuth()
   const [identity, setIdentity] = useState<SupplierIdentity | null>(null)
   const [identityLoading, setIdentityLoading] = useState(true)
-  const [dropdownOpen, setDropdownOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+  // Commandes du jour, affichees en pastille sur l'onglet Commandes : le
+  // fournisseur voit qu'il a du travail sans ouvrir l'ecran.
+  const [ordersCount, setOrdersCount] = useState(0)
 
   const resolveHref = (href: string) => {
     const base = pathname.startsWith("/fournisseur") ? "/fournisseur" : "/supplier"
@@ -111,6 +106,28 @@ export function SupplierShell({ children }: { children: ReactNode }) {
 
     void loadIdentity()
   }, [token, pathname])
+
+  const loadOrdersCount = useCallback(async () => {
+    if (!token) return
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/supplier/stats`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      })
+      if (response.ok) {
+        const stats = await response.json()
+        setOrdersCount(Number(stats?.orders_count) || 0)
+      }
+    } catch {
+      // Pastille purement indicative : un echec ne doit rien casser.
+    }
+  }, [token])
+
+  useEffect(() => {
+    void loadOrdersCount()
+  }, [loadOrdersCount, pathname])
+
+  useSupplierLiveRefresh(loadOrdersCount, Boolean(token))
 
   const shopInitial = identity?.shop_name?.trim().charAt(0).toUpperCase() || "S"
   const handleLogout = async () => {
@@ -251,8 +268,14 @@ export function SupplierShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="lg:pl-72">
-        <header className="sticky top-0 z-30 border-b border-[#DDEBDD] bg-background/95 backdrop-blur-xl lg:hidden dark:border-border">
-          <div className="flex h-[4.5rem] items-center gap-3 px-4">
+        {/*
+          En-tete mobile : identite de la boutique uniquement. La navigation
+          vivait dans un menu deroulant — un tap pour ouvrir, un tap pour choisir,
+          et aucune vue d'ensemble ; elle est passee en barre d'onglets basse,
+          atteignable au pouce. La deconnexion, elle, vit sur l'ecran Boutique.
+        */}
+        <header className="sticky top-0 z-30 border-b border-[#DDEBDD] bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur-xl lg:hidden dark:border-border">
+          <div className="flex h-16 items-center gap-3 px-4">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary text-sm font-black text-primary-foreground">
               {identity?.logo_url ? (
                 <img src={identity.logo_url} alt="" className="h-full w-full object-cover" />
@@ -271,116 +294,55 @@ export function SupplierShell({ children }: { children: ReactNode }) {
                   <p className="truncate text-sm font-black text-[#264129] dark:text-foreground">
                     {identity?.shop_name || "Ma boutique"}
                   </p>
-                  <p className="text-[11px] font-semibold text-muted-foreground">Espace fournisseur Souki</p>
+                  <p className="truncate text-[11px] font-semibold text-muted-foreground">
+                    {activeItem.label}
+                  </p>
                 </>
               )}
             </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={loggingOut}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-red-700 transition-colors hover:bg-red-100 disabled:opacity-60"
-              aria-label="Se déconnecter"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="px-3 pb-2.5">
-            <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className={cn(
-                    "flex w-full items-center justify-between gap-2 rounded-2xl border border-[#DDEBDD] bg-[#F0FAF1] px-3.5 py-2.5 text-sm font-bold text-[#264129] shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:border-border dark:bg-card dark:text-foreground",
-                    dropdownOpen && "ring-2 ring-primary/30",
-                  )}
-                >
-                  <span className="flex items-center gap-2.5">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-                      <activeItem.icon className="h-4 w-4" />
-                    </span>
-                    {activeItem.shortLabel}
-                  </span>
-                  <ChevronDown
-                    className={cn(
-                      "h-4 w-4 text-muted-foreground transition-transform duration-200",
-                      dropdownOpen && "rotate-180",
-                    )}
-                  />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                sideOffset={6}
-                className="w-[calc(100vw-1.5rem)] rounded-2xl border border-[#DDEBDD]/60 bg-white/80 p-1.5 shadow-xl backdrop-blur-xl dark:border-border dark:bg-card/80"
-              >
-                {supplierNav.map((item) => {
-                  const Icon = item.icon
-                  const active = isActiveRoute(pathname, item.href)
-                  return (
-                    <DropdownMenuItem key={item.href} asChild>
-                      <Link
-                        href={resolveHref(item.href)}
-                        aria-current={active ? "page" : undefined}
-                        className={cn(
-                          "flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-bold transition-colors focus-visible:outline-none",
-                          active
-                            ? "bg-primary text-primary-foreground"
-                            : "text-[#607061] hover:bg-[#EAF8EC] hover:text-primary dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground",
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "flex h-8 w-8 items-center justify-center rounded-xl transition-colors",
-                            active
-                              ? "bg-white/15"
-                              : "bg-[#F0FAF1] text-primary dark:bg-muted",
-                          )}
-                        >
-                          <Icon className="h-4 w-4" />
-                        </span>
-                        {item.label}
-                      </Link>
-                    </DropdownMenuItem>
-                  )
-                })}
-                <DropdownMenuSeparator className="my-1.5 bg-[#EAF8EC] dark:bg-muted" />
-                {customerNav.map((item) => {
-                  const Icon = item.icon
-                  return (
-                    <DropdownMenuItem key={item.href} asChild>
-                      <Link
-                        href={item.href}
-                        className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#607061] transition-colors hover:bg-[#EAF8EC] hover:text-primary focus-visible:outline-none dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground"
-                      >
-                        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F0FAF1] text-primary dark:bg-muted">
-                          <Icon className="h-4 w-4" />
-                        </span>
-                        {item.label}
-                      </Link>
-                    </DropdownMenuItem>
-                  )
-                })}
-                <DropdownMenuSeparator className="my-1.5 bg-[#EAF8EC] dark:bg-muted" />
-                <DropdownMenuItem asChild>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    disabled={loggingOut}
-                    className="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-bold text-red-600 transition-colors hover:bg-red-50 focus-visible:outline-none disabled:opacity-60 dark:hover:bg-red-950/20"
-                  >
-                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-950/40">
-                      <LogOut className="h-4 w-4" />
-                    </span>
-                    Se déconnecter
-                  </button>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {!identityLoading && <SupplierIdentityBadge status={identity?.statut} />}
           </div>
         </header>
 
         <div className="mobile-native-surface min-h-screen pb-20 lg:pb-8">{children}</div>
+
+        <nav
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-[#DDEBDD] bg-white/95 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-1.5 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] backdrop-blur-md lg:hidden dark:border-border dark:bg-card/95"
+          aria-label="Navigation fournisseur"
+        >
+          <div className="mx-auto grid max-w-md grid-cols-5 gap-0.5">
+            {supplierNav.map((item) => {
+              const Icon = item.icon
+              const active = isActiveRoute(pathname, item.href)
+              const badge = item.href === "/supplier/commandes" ? ordersCount : 0
+              return (
+                <Link
+                  key={item.href}
+                  href={resolveHref(item.href)}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    // min-h-14 : cible tactile confortable, bien au-dessus des 44 px.
+                    "relative flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[10px] font-bold transition-colors active:scale-95",
+                    active
+                      ? "bg-[#EAF8EC] text-primary dark:bg-primary/10"
+                      : "text-[#607061] dark:text-muted-foreground",
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span className="w-full truncate text-center">{item.shortLabel}</span>
+                  {badge > 0 && (
+                    <span
+                      key={badge}
+                      className="animate-badge-pop absolute right-1.5 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-black text-accent-foreground"
+                    >
+                      {badge > 9 ? "9+" : badge}
+                    </span>
+                  )}
+                </Link>
+              )
+            })}
+          </div>
+        </nav>
       </div>
     </div>
   )
@@ -405,11 +367,15 @@ export function SupplierPageHeader({
           className="mt-0.5 hidden w-1.5 shrink-0 rounded-full bg-gradient-to-b from-[#5BD174] via-primary to-[#173F27] sm:block"
         />
         <div className="max-w-2xl">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">{eyebrow}</p>
-          <h1 className="mt-1 text-2xl font-black tracking-tight text-[#264129] sm:text-3xl dark:text-foreground [font-family:var(--font-poppins)]">
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-accent sm:text-xs">{eyebrow}</p>
+          <h1 className="mt-1 text-xl font-black tracking-tight text-[#264129] sm:text-3xl dark:text-foreground [font-family:var(--font-poppins)]">
             {title}
           </h1>
-          <p className="mt-2 text-sm leading-6 text-[#6F8070] dark:text-muted-foreground">{description}</p>
+          {/* La description mange un tiers de l'ecran sur mobile pour une
+              information de confort : reservee aux grands ecrans. */}
+          <p className="mt-2 hidden text-sm leading-6 text-[#6F8070] sm:block dark:text-muted-foreground">
+            {description}
+          </p>
         </div>
       </div>
       {action}

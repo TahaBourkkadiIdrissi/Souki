@@ -1,11 +1,14 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import Link from "next/link"
 import {
   AlertCircle,
   Building2,
   Camera,
   Check,
+  Home,
+  Leaf,
   Link2,
   Loader2,
   LogOut,
@@ -161,7 +164,7 @@ export default function SupplierProfilPage() {
   }
 
   return (
-    <main className="souki-portal-reveal mx-auto w-full max-w-6xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
+    <main className="souki-portal-reveal mx-auto w-full max-w-6xl space-y-5 px-4 py-5 sm:space-y-8 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
       <SupplierPageHeader
         eyebrow="Identité fournisseur"
         title="Ma boutique"
@@ -383,6 +386,32 @@ export default function SupplierProfilPage() {
                   </div>
 
                   <Separator className="bg-[#DDEBDD] dark:bg-border" />
+
+                  {/* Retour vers l'espace client. Sur grand ecran ces liens vivent
+                      dans la barre laterale ; sur mobile, la barre d'onglets est
+                      reservee au metier fournisseur, donc ils atterrissent ici. */}
+                  <div className="lg:hidden">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                      Espace client
+                    </p>
+                    <div className="mt-2.5 grid grid-cols-2 gap-2.5">
+                      {[
+                        { href: "/", label: "Accueil", icon: Home },
+                        { href: "/catalogue", label: "Catalogue", icon: Leaf },
+                      ].map((item) => (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className="flex min-h-12 items-center gap-2.5 rounded-xl border border-[#DDEBDD] bg-background px-3.5 text-sm font-bold text-[#607061] transition active:scale-[0.98] dark:border-border dark:bg-card dark:text-muted-foreground"
+                        >
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F0FAF1] text-primary dark:bg-muted">
+                            <item.icon className="h-4 w-4" />
+                          </span>
+                          {item.label}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
 
                   <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <Button

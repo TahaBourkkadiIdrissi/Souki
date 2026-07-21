@@ -162,7 +162,7 @@ export default function SupplierProduitsPage() {
   const activeCount = offres.filter((offre) => offre.is_active).length
 
   return (
-    <main className="souki-portal-reveal mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
+    <main className="souki-portal-reveal mx-auto w-full max-w-7xl space-y-5 px-4 py-5 sm:space-y-8 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
       <SupplierPageHeader
         eyebrow="Catalogue fournisseur"
         title="Mes produits"
@@ -203,7 +203,7 @@ export default function SupplierProduitsPage() {
       ) : (
         <>
           <section className="grid grid-cols-3 gap-3" aria-label="Résumé du catalogue">
-            <Card className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-border dark:bg-card">
+            <Card className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 transition-all duration-300 active:scale-[0.98] sm:hover:-translate-y-0.5 hover:shadow-md dark:border-border dark:bg-card">
               <CardContent className="p-4 sm:p-5">
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EAF8EC] text-primary dark:bg-primary/10">
                   <Package className="h-5 w-5" />
@@ -212,7 +212,7 @@ export default function SupplierProduitsPage() {
                 <p className="mt-1 text-[11px] font-bold text-muted-foreground sm:text-xs">Produits proposés</p>
               </CardContent>
             </Card>
-            <Card className="gap-0 rounded-2xl border-[#BFE2C4] bg-[#F0FAF1] py-0 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-border dark:bg-card">
+            <Card className="gap-0 rounded-2xl border-[#BFE2C4] bg-[#F0FAF1] py-0 transition-all duration-300 active:scale-[0.98] sm:hover:-translate-y-0.5 hover:shadow-md dark:border-border dark:bg-card">
               <CardContent className="p-4 sm:p-5">
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
                   <BadgeCheck className="h-5 w-5" />
@@ -221,7 +221,7 @@ export default function SupplierProduitsPage() {
                 <p className="mt-1 text-[11px] font-bold text-muted-foreground sm:text-xs">Produits actifs</p>
               </CardContent>
             </Card>
-            <Card className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-border dark:bg-card">
+            <Card className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 transition-all duration-300 active:scale-[0.98] sm:hover:-translate-y-0.5 hover:shadow-md dark:border-border dark:bg-card">
               <CardContent className="p-4 sm:p-5">
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF0DC] text-accent dark:bg-accent/10">
                   <Plus className="h-5 w-5" />
@@ -280,7 +280,7 @@ export default function SupplierProduitsPage() {
                 {offres.map((offre) => (
                   <Card
                     key={offre.produit_id}
-                    className="group gap-0 overflow-hidden rounded-2xl border-[#DDEBDD] bg-background py-0 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md dark:border-border dark:bg-card"
+                    className="group gap-0 overflow-hidden rounded-2xl border-[#DDEBDD] bg-background py-0 shadow-sm transition active:scale-[0.98] sm:hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md dark:border-border dark:bg-card"
                   >
                     <div className={`h-1.5 ${offre.is_active ? "bg-primary" : "bg-muted-foreground/30"}`} />
                     <CardContent className="flex h-full flex-col p-5">

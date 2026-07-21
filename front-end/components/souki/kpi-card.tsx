@@ -49,14 +49,16 @@ export function KPICard({
   return (
     <div
       className={cn(
-        "rounded-2xl p-5 shadow-sm border border-gray-100 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md",
+        // p-4 sur mobile : quatre de ces cartes en grille 2x2 mangeaient sinon
+        // tout l'ecran avant le moindre contenu utile.
+        "rounded-2xl p-4 shadow-sm border border-gray-100 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md sm:p-5",
         styles.bg,
         className
       )}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div className={cn("p-2.5 rounded-xl", styles.iconBg)}>
-          <Icon className={cn("w-5 h-5", styles.iconColor)} />
+      <div className="flex items-start justify-between mb-2.5 sm:mb-3">
+        <div className={cn("p-2 rounded-xl sm:p-2.5", styles.iconBg)}>
+          <Icon className={cn("w-4.5 h-4.5 sm:w-5 sm:h-5", styles.iconColor)} />
         </div>
         {trend && (
           <div
@@ -80,8 +82,8 @@ export function KPICard({
           </div>
         )}
       </div>
-      <p className="text-sm text-[#8A8A8A] mb-1">{title}</p>
-      <p className="text-2xl font-bold text-[#3D3D3D]">{value}</p>
+      <p className="text-xs text-[#8A8A8A] mb-1 sm:text-sm">{title}</p>
+      <p className="text-xl font-bold tabular-nums text-[#3D3D3D] sm:text-2xl">{value}</p>
     </div>
   )
 }

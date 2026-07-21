@@ -16,7 +16,7 @@ import { SupplierPageHeader } from "@/components/souki/supplier-shell"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/hooks/useAuth"
@@ -89,7 +89,7 @@ export default function SupplierCommandesPage() {
   const activeOrders = orders.filter((order) => !["LIVREE", "ANNULEE"].includes(order.statut)).length
 
   return (
-    <main className="souki-portal-reveal mx-auto w-full max-w-6xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
+    <main className="souki-portal-reveal mx-auto w-full max-w-6xl space-y-5 px-4 py-5 sm:space-y-8 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
       <SupplierPageHeader
         eyebrow="Suivi commercial"
         title="Commandes"
@@ -120,7 +120,7 @@ export default function SupplierCommandesPage() {
       ) : (
         <>
           <section className="grid grid-cols-2 gap-3 lg:grid-cols-3" aria-label="Résumé des commandes">
-            <Card className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-border dark:bg-card">
+            <Card className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 transition-all duration-300 active:scale-[0.98] sm:hover:-translate-y-0.5 hover:shadow-md dark:border-border dark:bg-card">
               <CardContent className="p-5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EAF8EC] text-primary dark:bg-primary/10">
                   <ReceiptText className="h-5 w-5" />
@@ -129,7 +129,7 @@ export default function SupplierCommandesPage() {
                 <p className="mt-1 text-xs font-bold text-muted-foreground">Commandes du jour</p>
               </CardContent>
             </Card>
-            <Card className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-border dark:bg-card">
+            <Card className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 transition-all duration-300 active:scale-[0.98] sm:hover:-translate-y-0.5 hover:shadow-md dark:border-border dark:bg-card">
               <CardContent className="p-5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FFF0DC] text-accent dark:bg-accent/10">
                   <ShoppingCart className="h-5 w-5" />
@@ -138,7 +138,7 @@ export default function SupplierCommandesPage() {
                 <p className="mt-1 text-xs font-bold text-muted-foreground">À suivre actuellement</p>
               </CardContent>
             </Card>
-            <Card className="relative col-span-2 gap-0 overflow-hidden rounded-2xl border-[#DDEBDD] bg-[#173F27] py-0 text-white shadow-lg shadow-[#173F27]/20 transition-all duration-300 hover:-translate-y-0.5 lg:col-span-1 dark:border-border">
+            <Card className="relative col-span-2 gap-0 overflow-hidden rounded-2xl border-[#DDEBDD] bg-[#173F27] py-0 text-white shadow-lg shadow-[#173F27]/20 transition-all duration-300 active:scale-[0.98] sm:hover:-translate-y-0.5 lg:col-span-1 dark:border-border">
               <div className="pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full bg-[#4CB84A]/20 blur-2xl" />
               <CardContent className="relative p-5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-[#F5C400]">
@@ -171,9 +171,18 @@ export default function SupplierCommandesPage() {
             {orders.length === 0 ? (
               <Empty className="min-h-80 rounded-3xl border border-dashed border-[#DDEBDD] bg-background dark:border-border dark:bg-card">
                 <EmptyHeader>
-                  <EmptyMedia variant="icon" className="h-14 w-14 rounded-2xl bg-[#EAF8EC] text-primary dark:bg-primary/10">
-                    <ShoppingCart />
-                  </EmptyMedia>
+                  {/* Meme illustration que l'etat vide du catalogue fournisseur :
+                      le portail parle d'une seule voix. */}
+                  <img
+                    src="/illustrations/empty-supplier.webp"
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    width={144}
+                    height={144}
+                    aria-hidden="true"
+                    className="mx-auto h-36 w-36 object-contain animate-gentle-float"
+                  />
                   <EmptyTitle className="text-[#264129] dark:text-foreground">Aucune commande pour l’instant</EmptyTitle>
                   <EmptyDescription>
                     Les ventes liées à vos produits apparaîtront ici dès leur création.
@@ -185,7 +194,7 @@ export default function SupplierCommandesPage() {
                 {orders.map((order) => (
                   <Card
                     key={order.id}
-                    className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md dark:border-border dark:bg-card"
+                    className="gap-0 rounded-2xl border-[#DDEBDD] bg-background py-0 shadow-sm transition active:scale-[0.98] sm:hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md dark:border-border dark:bg-card"
                   >
                     <CardContent className="p-5 sm:p-6">
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
