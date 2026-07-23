@@ -3,12 +3,14 @@ Service to manage cron jobs and scheduled tasks.
 Uses APScheduler to schedule the JIT, COD alert, and daily dispatch jobs.
 """
 
+import os
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.base import SchedulerAlreadyRunningError
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from config import LocalSession
 from dao.cod_confirmation_log_dao import CODConfirmationLogDaoBD
@@ -17,11 +19,16 @@ from dao.jit_dao import JITDaoBD
 from dao.livreur_dao import LivreurDaoBD
 from dao.tournee_dao import TourneeDaoBD
 from dao.zone_jit_dao import ZoneJITDaoBD
+from services.delivery_outbox_worker import run_outbox_cycle
 from services.dispatch_service import DispatchService
 from services.jit_service import JITService
 
 
 MOROCCO_TIMEZONE = ZoneInfo("Africa/Casablanca")
+# Cadence de depilement des notifications. 15 s : assez court pour qu'un « votre
+# livreur arrive » soit percu comme instantane, assez long pour ne pas marteler
+# la base. Le job est `coalesce` + `max_instances=1` (voir start_scheduler).
+OUTBOX_POLL_SECONDS = int(os.getenv("SOUKI_OUTBOX_POLL_SECONDS", "15"))
 
 scheduler = BackgroundScheduler(daemon=True, timezone=MOROCCO_TIMEZONE)
 cod_alerte_18h_state = {
@@ -182,12 +189,24 @@ def start_scheduler():
                 name="Generation automatique des tournees a 21h35",
                 replace_existing=True,
             )
+            scheduler.add_job(
+                run_outbox_cycle,
+                IntervalTrigger(seconds=OUTBOX_POLL_SECONDS),
+                id="notification_outbox_worker",
+                name="Depilement des notifications en attente",
+                replace_existing=True,
+                # Une execution a la fois, et on rattrape sans empiler les
+                # cycles manques si un envoi a ete lent.
+                max_instances=1,
+                coalesce=True,
+            )
 
             scheduler.start()
             print("[SCHEDULER] Scheduler demarre")
             print("[SCHEDULER] Job alerte COD configure a 18h00 chaque jour")
             print("[SCHEDULER] Job JIT configure a 20h00 chaque jour")
             print("[SCHEDULER] Job dispatch configure a 21h35 chaque jour")
+            print(f"[SCHEDULER] Worker notifications configure toutes les {OUTBOX_POLL_SECONDS}s")
 
     except SchedulerAlreadyRunningError:
         print("[SCHEDULER] Scheduler deja en cours d'execution")

@@ -28,6 +28,7 @@ groq>=0.11.0               # generation du panier intelligent (Llama via Groq, m
 apscheduler>=3.10.4,<4.0
 phonenumbers>=8.13.0
 resend>=2.10.0             # envoi des emails OTP (supporte les cles d'idempotence)
+pywebpush>=2.0.0           # notifications Web Push (VAPID / RFC 8291)
 pillow>=12.2.0             # re-encodage des images uploadees ; >=12.2 corrige les CVE 2026
 python-dotenv>=1.0.1
 

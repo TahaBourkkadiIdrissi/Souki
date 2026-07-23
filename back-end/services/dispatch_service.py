@@ -23,6 +23,7 @@ from services.commande_state_machine import (
     process_end_of_day_returns,
 )
 from services.date_utils import today_morocco
+from services.notification_service import notification_service
 from services.zone_resolver import haversine
 
 
@@ -203,6 +204,31 @@ class DispatchService(IDispatchService):
                                 actor_id=int(livreur.user_id),
                             )
                             commandes_assigned += 1
+
+                        notification_service.notify(
+                            session,
+                            user_id=int(livreur.user_id),
+                            event_key="TOURNEE_ASSIGNED",
+                            data={
+                                "tournee_id": int(tournee.id),
+                                "nombre_commandes": len(commandes_chunk),
+                                "date_tournee": target_date.isoformat(),
+                            },
+                            dedupe_suffix=str(tournee.id),
+                        )
+
+                    # Un fournisseur peut etre servi par plusieurs livreurs : la
+                    # cle d'idempotence (fournisseur, date) n'en previent qu'un seul.
+                    notification_service.notify(
+                        session,
+                        user_id=int(fournisseur_id),
+                        event_key="SUPPLIER_PICKUP_SCHEDULED",
+                        data={
+                            "nombre_commandes": len(commandes_fournisseur),
+                            "date_tournee": target_date.isoformat(),
+                        },
+                        dedupe_suffix=f"{fournisseur_id}:{target_date.isoformat()}",
+                    )
 
             return {
                 "status": "success" if commandes_assigned else "no_assignable_orders",

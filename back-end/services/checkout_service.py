@@ -14,6 +14,7 @@ from interfaces.checkout_dao_interface import ICheckoutDao
 from interfaces.checkout_service_interface import ICheckoutService
 from entities.souki_wallet_entity import SoukiWallet
 from entities.transaction_wallet_entity import TransactionWallet
+from services.notification_service import notification_service
 
 PANIER_MINIMUM_DH = 50.0
 SEUIL_LIVRAISON_GRATUITE = 300.0
@@ -224,6 +225,18 @@ class CheckoutService(ICheckoutService):
                 creneau_livraison=payload.creneau_livraison,
                 mode_paiement=payload.mode_paiement,
                 montant_total=montant_total,
+            )
+
+            notification_service.notify(
+                session,
+                user_id=int(client.user_id),  # type: ignore[arg-type]
+                event_key="ORDER_CONFIRMED",
+                data={
+                    "commande_id": int(commande.id),  # type: ignore[arg-type]
+                    "montant_total": montant_total,
+                    "creneau_livraison": payload.creneau_livraison,
+                },
+                dedupe_suffix=str(commande.id),
             )
 
             session.commit()

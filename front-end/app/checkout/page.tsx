@@ -40,6 +40,7 @@ import {
 } from "@/lib/catalogue"
 import { MapboxLocator } from "@/components/souki/mapbox-locator"
 import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
+import { PolicyLink } from "@/components/souki/policy-link"
 import { PwaHeader, StickyBottomBar } from "@/components/souki/pwa"
 import { useAuth } from "@/hooks/useAuth"
 import { useHaptic } from "@/hooks/useHaptic"
@@ -1127,7 +1128,7 @@ function CheckoutContent() {
                 <div onClick={() => setAcceptTerms(!acceptTerms)} className={cn("w-5 h-5 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0 mt-0.5", acceptTerms ? "bg-[#1E8A3C] border-[#1E8A3C]" : "border-gray-300")}>
                   {acceptTerms && <Check className="w-3 h-3 text-white" />}
                 </div>
-                <span className="text-sm text-[#3D3D3D]">J'ai lu et j'accepte les <Link href="/cgu" className="text-[#1A4F8A] hover:underline">CGU</Link></span>
+                <span className="text-sm text-[#3D3D3D]">J'ai lu et j'accepte la <PolicyLink className="text-[#1A4F8A] hover:underline" /></span>
               </label>
 
               <button

@@ -40,6 +40,7 @@ from controllers.livreur_controller import router_livreur
 from controllers.panier_controller import router_panier
 from controllers.produit_pricing_controller import router as pricing_router
 from controllers.profile_controller import profile_router
+from controllers.push_controller import push_router
 from controllers.settings_controller import settings_router
 from controllers.zone_controller import router_admin_zones
 from services.catalogue_bootstrap_service import CatalogueBootstrapService
@@ -47,6 +48,7 @@ from services.delivery_schema_sync_service import DeliverySchemaSyncService
 from services.dispatch_schema_sync_service import DispatchSchemaSyncService
 from services.jit_schema_sync_service import JITSchemaSyncService
 from services.logistics_schema_sync_service import LogisticsSchemaSyncService
+from services.notification_schema_sync_service import NotificationSchemaSyncService
 from services.onboarding_schema_sync_service import OnboardingSchemaSyncService
 from services.perf_index_sync_service import PerfIndexSyncService
 from services.rbac_bootstrap_service import RBACBootstrapService
@@ -61,6 +63,7 @@ API_ROUTERS: tuple[APIRouter, ...] = (
     auth_router,
     profile_router,
     settings_router,
+    push_router,
     favorite_router,
     router_catalogue,
     router_voice,
@@ -116,6 +119,7 @@ def sync_database_schema() -> None:
             AppTask("logistics schema sync", LogisticsSchemaSyncService.sync),
             AppTask("fournisseur produits schema sync", FournisseurProduitSchemaSyncService.sync),
             AppTask("jit schema sync", JITSchemaSyncService.sync),
+            AppTask("notification schema sync", NotificationSchemaSyncService.sync),
             AppTask("perf index sync", PerfIndexSyncService.sync),
             AppTask("avatar column sync", avatar_storage_service.ensure_avatar_column),
             AppTask("onboarding column sync", OnboardingSchemaSyncService.sync),

@@ -11,6 +11,7 @@ from entities.commande_entity import Commande
 from entities.delivery_event_entity import DeliveryEvent
 from entities.livreur_entity import Livreur
 from entities.tournee_entity import Tournee
+from services.notification_service import notification_service
 
 
 logger = logging.getLogger(__name__)
@@ -87,6 +88,23 @@ def changer_statut(
         commande.retour_depot_at = timestamp
 
     session.flush()
+
+    # Point de passage unique de tous les changements de statut : notifier ici
+    # garantit qu'aucune transition n'est oubliee, quel que soit l'appelant
+    # (livreur, dispatch, JIT, back-office). Le catalogue filtre les statuts
+    # purement internes, et `status_version` rend l'envoi idempotent.
+    notification_service.notify_order_status(
+        session,
+        client_id=commande.client_id,
+        commande_id=int(commande.id),
+        new_status=statut_cible,
+        data={
+            "creneau_livraison": commande.creneau_livraison,
+            "montant_total": float(commande.montant_total) if commande.montant_total is not None else None,
+            "motif": reason or None,
+        },
+        dedupe_suffix=f"{statut_cible}:{commande.status_version}",
+    )
 
 
 def process_end_of_day_returns(session: Session, target_date: date) -> int:

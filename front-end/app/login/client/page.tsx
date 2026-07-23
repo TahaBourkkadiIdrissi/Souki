@@ -8,6 +8,7 @@ import { API_BASE_URL } from "@/lib/api"
 import { isValidMoroccanPhone, normalizeMoroccanPhone, PHONE_ERROR_MSG } from "@/lib/phoneValidator"
 import { GoogleLoginButton } from "@/components/auth/google-login-button"
 import { PasswordStrength } from "@/components/souki/password-strength"
+import { PolicyLink } from "@/components/souki/policy-link"
 import { shouldShowOnboarding } from "@/lib/onboarding"
 import { toast } from "sonner"
 import { 
@@ -141,7 +142,7 @@ function ClientLoginContent() {
           return;
         }
         if (!acceptTerms) {
-          throw new Error("Vous devez accepter les conditions (CGU).");
+          throw new Error("Vous devez accepter la politique de confidentialité.");
         }
 
         const formattedPhone = phone.trim() ? normalizeMoroccanPhone(phone) : "";
@@ -610,14 +611,8 @@ function ClientLoginContent() {
                   {acceptTerms && <Check className="w-3 h-3 text-white" />}
                 </div>
                 <span className="text-sm text-[#3D3D3D]">
-                  J'accepte les{" "}
-                  <Link href="/cgu" className="text-[#1A4F8A] hover:underline">
-                    CGU
-                  </Link>{" "}
-                  et la{" "}
-                  <Link href="/politique-confidentialite" className="text-[#1A4F8A] hover:underline">
-                    Politique de Confidentialité
-                  </Link>
+                  J'accepte la{" "}
+                  <PolicyLink className="text-[#1A4F8A] hover:underline" />
                 </span>
               </div>
 

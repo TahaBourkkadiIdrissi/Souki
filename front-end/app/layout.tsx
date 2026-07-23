@@ -108,11 +108,15 @@ export default function RootLayout({
              existante peut avoir l'ancien manifest en cache ; sans ce script, l'accueil
              web s'affiche un instant avant la redirection cote React (app/page.tsx).
           2. Poser data-souki-launch au premier ecran de la session, ce qui declenche
-             l'animation d'entree (PwaLaunchOverlay) des le premier frame.
+             l'animation d'entree (PwaLaunchOverlay) des le premier frame — et
+             precharger son asset hero (la couronne) sans attendre l'hydratation.
+          QA : le parametre ?souki-launch-preview rejoue l'animation dans un
+          navigateur classique (sans standalone, sans consommer le drapeau de
+          session) — le comportement standalone reste strictement identique.
         */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var m=window.matchMedia;var s=(m&&(m("(display-mode: standalone)").matches||m("(display-mode: fullscreen)").matches))||navigator.standalone===true;if(!s)return;if(location.pathname==="/"){location.replace("/pwa-welcome"+location.search+location.hash);return}if(!sessionStorage.getItem("souki-launched")){sessionStorage.setItem("souki-launched","1");document.documentElement.setAttribute("data-souki-launch","")}}catch(e){}})()`,
+            __html: `(function(){try{var q=location.search.indexOf("souki-launch-preview")>-1;var m=window.matchMedia;var s=(m&&(m("(display-mode: standalone)").matches||m("(display-mode: fullscreen)").matches))||navigator.standalone===true;if(!s&&!q)return;if(location.pathname==="/"){location.replace("/pwa-welcome"+location.search+location.hash);return}if(q||!sessionStorage.getItem("souki-launched")){if(!q)sessionStorage.setItem("souki-launched","1");document.documentElement.setAttribute("data-souki-launch","");var l=document.createElement("link");l.rel="preload";l.as="image";l.href="/images/launch/wreath.webp";document.head.appendChild(l)}}catch(e){}})()`,
           }}
         />
         <meta name="mobile-web-app-capable" content="yes" />

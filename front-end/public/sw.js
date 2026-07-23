@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "souki-pwa"
-const CACHE_VERSION = "v4"
+const CACHE_VERSION = "v10"
 const RUNTIME_CACHE = `${CACHE_PREFIX}-${CACHE_VERSION}`
 
 // Page de repli affichee quand une navigation echoue hors ligne.
@@ -15,6 +15,12 @@ const STATIC_ASSETS = [
   "/pwa-icon-192.png",
   "/pwa-icon-512.png",
   "/apple-icon.png",
+  // Heros generes (Higgsfield, detoures) : couronne de l'animation d'entree
+  // (~180 KB) et panier des generations IA (~65 KB) — precaches pour que le
+  // premier lancement et les premieres generations soient complets, meme
+  // hors ligne.
+  "/images/launch/wreath.webp",
+  "/images/launch/basket.webp",
   START_URL,
   OFFLINE_URL,
 ]
@@ -48,6 +54,86 @@ self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") {
     self.skipWaiting()
   }
+})
+
+// --- Notifications push -----------------------------------------------------
+
+const NOTIFICATION_ICON = "/pwa-icon-192.png"
+const NOTIFICATION_BADGE = "/pwa-icon-192.png"
+
+self.addEventListener("push", (event) => {
+  // Un push sans donnees lisibles reste affiche : ne jamais laisser une
+  // notification « silencieuse », certains navigateurs penalisent l'abonnement.
+  let payload = {}
+  try {
+    payload = event.data ? event.data.json() : {}
+  } catch (err) {
+    payload = {}
+  }
+
+  const title = payload.title || "SOUKI"
+  const url = payload.url || "/"
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: payload.body || "",
+      icon: NOTIFICATION_ICON,
+      badge: NOTIFICATION_BADGE,
+      lang: "fr",
+      // Une notification par evenement metier : un nouveau statut de commande
+      // remplace le precedent au lieu d'empiler les bulles.
+      tag: payload.event || "souki",
+      renotify: true,
+      data: { url, event: payload.event || null, payload: payload.data || {} },
+    }),
+  )
+})
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close()
+
+  const targetUrl = event.notification.data?.url || "/"
+  const targetHref = new URL(targetUrl, self.location.origin).href
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      // Reutiliser l'onglet SOUKI deja ouvert plutot que d'en empiler un
+      // nouveau a chaque notification.
+      for (const client of clientList) {
+        if (new URL(client.url).origin === self.location.origin && "focus" in client) {
+          return client.focus().then((focused) => focused.navigate?.(targetHref) ?? focused)
+        }
+      }
+      return self.clients.openWindow(targetHref)
+    }),
+  )
+})
+
+// Le navigateur peut faire tourner les cles d'un abonnement : sans ce
+// re-enregistrement, l'appareil cesse silencieusement de recevoir les push.
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil(
+    (async () => {
+      const applicationServerKey = event.oldSubscription?.options?.applicationServerKey
+      if (!applicationServerKey) return
+
+      try {
+        const subscription = await self.registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey,
+        })
+        await fetch("/backend/api/user/push/subscriptions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(subscription.toJSON()),
+        })
+      } catch (err) {
+        // Sans session valide le re-abonnement echouera : l'app le refera au
+        // prochain lancement (cf. hooks/usePushNotifications).
+      }
+    })(),
+  )
 })
 
 self.addEventListener("fetch", (event) => {

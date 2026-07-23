@@ -37,6 +37,7 @@ import { isPwaStandalone } from "@/lib/pwa"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/hooks/useAuth"
 import { useFavorites } from "@/hooks/useFavorites"
+import { useProfile } from "@/hooks/useProfile"
 import { useHaptic } from "@/hooks/useHaptic"
 import { useScrollReveal } from "@/hooks/useScrollReveal"
 import { shouldShowOnboarding } from "@/lib/onboarding"
@@ -146,6 +147,41 @@ export default function PwaWelcomePage() {
   const haptic = useHaptic()
   const { favorites: favoriteIds, isFavorite, toggleFavorite } = useFavorites()
   const cutoff = useDailyCutoff()
+
+  // Photo de profil (televersee dans Parametres) : le bouton profil du header
+  // l'affiche des qu'elle existe, initiale en repli. Meme mecanique que
+  // ProfileAvatar : version en localStorage (souki_photo_version) pour casser
+  // le cache, et evenement souki:photo-updated pour refleter immediatement un
+  // televersement fait pendant la session.
+  const { getProfile } = useProfile()
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null)
+  const [photoVersion, setPhotoVersion] = useState(() =>
+    typeof window !== "undefined" ? Number(localStorage.getItem("souki_photo_version") || "0") : 0
+  )
+
+  useEffect(() => {
+    const onPhotoUpdated = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (detail?.version) setPhotoVersion(detail.version)
+    }
+    window.addEventListener("souki:photo-updated", onPhotoUpdated)
+    return () => window.removeEventListener("souki:photo-updated", onPhotoUpdated)
+  }, [])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    let isMounted = true
+    getProfile()
+      .then((profile) => {
+        if (isMounted) setProfilePhotoUrl(profile.photo_url ?? profile.avatar_url ?? null)
+      })
+      .catch(() => {
+        if (isMounted) setProfilePhotoUrl(null)
+      })
+    return () => {
+      isMounted = false
+    }
+  }, [isAuthenticated, getProfile, photoVersion])
 
   // PWA standalone check
   useEffect(() => {
@@ -440,10 +476,18 @@ export default function PwaWelcomePage() {
                 {isAuthenticated && userName && (
                   <button
                     onClick={() => router.push("/parametres")}
-                    className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-[#F4FFF6] to-[#C4EBCF] text-[15px] font-black text-[#14522A] shadow-lg ring-2 ring-white/40 transition-transform active:scale-90 animate-bounce-in"
+                    className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#F4FFF6] to-[#C4EBCF] text-[15px] font-black text-[#14522A] shadow-lg ring-2 ring-white/40 transition-transform active:scale-90 animate-bounce-in"
                     aria-label="Profil et paramètres"
                   >
-                    {userName.charAt(0).toUpperCase()}
+                    {profilePhotoUrl ? (
+                      <img
+                        src={`${profilePhotoUrl}${profilePhotoUrl.includes("?") ? "&" : "?"}v=${photoVersion}`}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      userName.charAt(0).toUpperCase()
+                    )}
                   </button>
                 )}
               </div>

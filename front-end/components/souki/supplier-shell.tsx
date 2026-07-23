@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { ClipboardList, Home, LayoutDashboard, Leaf, LogOut, Package, ShoppingCart, Store } from "lucide-react"
+import { ClipboardList, Home, LayoutDashboard, Leaf, LogOut, Package, ShoppingBasket, ShoppingCart, Store } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/hooks/useAuth"
 import { useSupplierLiveRefresh } from "@/hooks/useSupplierLiveRefresh"
 import { API_BASE_URL } from "@/lib/api"
+import { isPwaStandalone } from "@/lib/pwa"
 import { cn } from "@/lib/utils"
 
 type SupplierIdentity = {
@@ -28,7 +29,10 @@ const supplierNav = [
 ]
 
 // Liens vers l'espace client : le fournisseur peut revenir a l'accueil / au
-// catalogue depuis son portail (web comme PWA standalone).
+// catalogue depuis son portail (web comme PWA standalone). Le href "/" est
+// resolu au rendu : en standalone il pointe directement sur /pwa-welcome
+// (une navigation client vers "/" afficherait l'accueil web un instant avant
+// la redirection React).
 const customerNav = [
   { href: "/", label: "Accueil", icon: Home },
   { href: "/catalogue", label: "Catalogue", icon: Leaf },
@@ -82,6 +86,13 @@ export function SupplierShell({ children }: { children: ReactNode }) {
   // Commandes du jour, affichees en pastille sur l'onglet Commandes : le
   // fournisseur voit qu'il a du travail sans ouvrir l'ecran.
   const [ordersCount, setOrdersCount] = useState(0)
+  // Accueil client : /pwa-welcome en standalone, / sur le web. Resolu apres
+  // montage (SSR rend "/") — le display-mode ne change pas en cours de session.
+  const [homeHref, setHomeHref] = useState("/")
+
+  useEffect(() => {
+    if (isPwaStandalone()) setHomeHref("/pwa-welcome")
+  }, [])
 
   const resolveHref = (href: string) => {
     const base = pathname.startsWith("/fournisseur") ? "/fournisseur" : "/supplier"
@@ -236,7 +247,7 @@ export function SupplierShell({ children }: { children: ReactNode }) {
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={item.href === "/" ? homeHref : item.href}
                 className="group flex min-h-12 items-center gap-3 rounded-2xl px-3.5 text-sm font-bold text-[#607061] transition-all hover:bg-[#EAF8EC] hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground"
               >
                 <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F0FAF1] text-primary transition-colors group-hover:bg-white dark:bg-muted">
@@ -301,6 +312,15 @@ export function SupplierShell({ children }: { children: ReactNode }) {
               )}
             </div>
             {!identityLoading && <SupplierIdentityBadge status={identity?.statut} />}
+            {/* Retour a l'espace client pour faire ses achats : la barre basse
+                est reservee au metier (5 onglets), l'entree achat vit ici. */}
+            <Link
+              href={homeHref}
+              aria-label="Faire mes achats sur SOUKI"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EAF8EC] text-primary transition-transform active:scale-90 dark:bg-primary/10"
+            >
+              <ShoppingBasket className="h-5 w-5" />
+            </Link>
           </div>
         </header>
 

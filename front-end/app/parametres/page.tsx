@@ -16,6 +16,7 @@ import {
 } from "@/lib/api"
 import { useProfile } from "@/hooks/useProfile"
 import { useNotifications, type NotificationPrefs } from "@/hooks/useNotifications"
+import { usePushNotifications } from "@/hooks/usePushNotifications"
 import { useSecurity } from "@/hooks/useSecurity"
 import { useWallet, type WalletState } from "@/hooks/useWallet"
 import { useAuth } from "@/hooks/useAuth"
@@ -53,8 +54,8 @@ const initialNotif: NotificationPrefs = { email: true, push: true, sms: false, p
 const acceptedPhotoTypes = ["image/jpeg", "image/png", "image/webp"]
 const maxPhotoSize = 2 * 1024 * 1024
 
-function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (v: boolean) => void }) {
-  return <button onClick={() => onCheckedChange(!checked)} className={cn("relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none", checked ? "bg-[#1E8A3C]" : "bg-gray-200")}><span className={cn("inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform duration-200", checked ? "translate-x-6" : "translate-x-1")} /></button>
+function Toggle({ checked, onCheckedChange, disabled }: { checked: boolean; onCheckedChange: (v: boolean) => void; disabled?: boolean }) {
+  return <button type="button" role="switch" aria-checked={checked} disabled={disabled} onClick={() => onCheckedChange(!checked)} className={cn("relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50", checked ? "bg-[#1E8A3C]" : "bg-gray-200")}><span className={cn("inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform duration-200", checked ? "translate-x-6" : "translate-x-1")} /></button>
 }
 
 function SectionCard({ title, children, onSave, saving }: { title: string; children: React.ReactNode; onSave?: () => void; saving?: boolean }) {
@@ -90,6 +91,7 @@ export default function ParametresPage() {
   const { user, logout, isLoading: isAuthLoading, isAuthenticated, token } = useAuth()
   const profileApi = useProfile()
   const notifApi = useNotifications()
+  const push = usePushNotifications()
   const securityApi = useSecurity()
   const walletApi = useWallet()
   const { callApi } = profileApi
@@ -261,6 +263,21 @@ export default function ParametresPage() {
 
   const onSaveAddress = async () => { try { await profileApi.updateAddress(address); showSaved() } catch (e) { setErrors((v) => ({ ...v, address: e instanceof Error ? e.message : "Erreur" })) } }
   const onSaveNotifications = async () => { try { await notifApi.updateNotifications(notifications); showSaved() } catch {} }
+
+  // Le push n'est pas une simple preference serveur : il exige une autorisation
+  // navigateur et un abonnement. L'interrupteur ne bascule donc que si
+  // l'abonnement a reellement ete cree (ou retire) sur cet appareil.
+  const onToggleNotification = async (key: keyof NotificationPrefs, value: boolean) => {
+    if (key !== "push") {
+      setNotifications((p) => ({ ...p, [key]: value }))
+      return
+    }
+
+    const applied = value ? await push.enable() : await push.disable()
+    if (applied) setNotifications((p) => ({ ...p, push: value }))
+  }
+
+  const onSendTestPush = async () => { if (await push.sendTest()) showSaved() }
   const onChangePassword = async () => { try { await securityApi.changePassword(passwords); setPasswords({ current_password: "", new_password: "", confirm_password: "" }); showSaved() } catch (e) { setErrors((v) => ({ ...v, password: e instanceof Error ? e.message : "Erreur" })) } }
   const onDisconnectSession = async (id: number) => { await securityApi.disconnectSession(id); setSessions((prev) => prev.filter((s) => s.id !== id)) }
   const onDisconnectAll = async () => { await securityApi.disconnectAll(); logout(); router.push("/login") }
@@ -380,12 +397,22 @@ export default function ParametresPage() {
   const notifRows = useMemo(() => [
     { key: "email", label: "Notifications par email", desc: "Mises à jour et confirmations par email", icon: Mail },
     { key: "push", label: "Notifications push", desc: "Alertes instantanées sur votre appareil", icon: Smartphone },
-    { key: "sms", label: "Notifications SMS", desc: "Messages texte pour les mises à jour importantes", icon: Phone },
     { key: "orderUpdates", label: "Mises à jour des commandes", desc: "Statut de livraison, confirmations", icon: Bell },
     { key: "livraison", label: "Alertes de livraison", desc: "Notifications de passage du livreur", icon: MapPin },
     { key: "promotions", label: "Promotions et offres", desc: "Remises exclusives et offres spéciales", icon: CreditCard },
     { key: "newsletter", label: "Newsletter SOUKI", desc: "Actualités et conseils hebdomadaires", icon: Globe },
   ] as const, [])
+  // Message d'etat sous l'interrupteur push : l'utilisateur doit comprendre
+  // pourquoi rien n'arrive (appareil non compatible, permission refusee...).
+  const pushHint = useMemo((): { message: string; tone: "info" | "error" } | null => {
+    if (push.error) return { message: push.error, tone: "error" }
+    if (!push.supported) return { message: "Cet appareil ne prend pas en charge les notifications push. Installez SOUKI sur votre ecran d'accueil pour en profiter.", tone: "info" }
+    if (push.permission === "denied") return { message: "Notifications bloquees pour SOUKI. Autorisez-les dans les reglages de votre navigateur.", tone: "error" }
+    if (!push.configured) return { message: "Les notifications push ne sont pas encore activees sur SOUKI.", tone: "info" }
+    if (notifications.push && !push.subscribed) return { message: "Cet appareil n'est pas encore abonne. Reactivez l'interrupteur pour l'abonner.", tone: "info" }
+    return null
+  }, [push.error, push.supported, push.permission, push.configured, push.subscribed, notifications.push])
+
   const walletPasswordState = useMemo(() => walletPasswordChecks(walletCreate.password), [walletCreate.password])
   const shouldShowLiftNotification = Boolean(
     blacklistStatus?.last_action === "LIFTED" &&
@@ -507,7 +534,40 @@ export default function ParametresPage() {
                 </div>
               )}
             </>}
-            {activeSection === "notifications" && <SectionCard title="Notifications" onSave={onSaveNotifications} saving={notifApi.loading}><div className="space-y-1">{notifRows.map((row) => <div key={row.key} className="flex items-center justify-between py-4 border-b border-gray-50 last:border-0"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl bg-[#F0FAF1] flex items-center justify-center"><row.icon className="w-4 h-4 text-[#1E8A3C]" /></div><div><p className="font-medium text-[#3D3D3D] text-sm">{row.label}</p><p className="text-xs text-[#8A8A8A]">{row.desc}</p></div></div><Toggle checked={notifications[row.key]} onCheckedChange={(v) => setNotifications((p) => ({ ...p, [row.key]: v }))} /></div>)}</div></SectionCard>}
+            {activeSection === "notifications" && (
+              <SectionCard title="Notifications" onSave={onSaveNotifications} saving={notifApi.loading}>
+                <div className="space-y-1">
+                  {notifRows.map((row) => (
+                    <div key={row.key} className="py-4 border-b border-gray-50 last:border-0">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-[#F0FAF1] flex items-center justify-center"><row.icon className="w-4 h-4 text-[#1E8A3C]" /></div>
+                          <div><p className="font-medium text-[#3D3D3D] text-sm">{row.label}</p><p className="text-xs text-[#8A8A8A]">{row.desc}</p></div>
+                        </div>
+                        <Toggle
+                          checked={notifications[row.key]}
+                          disabled={row.key === "push" && (push.busy || !push.supported)}
+                          onCheckedChange={(v) => void onToggleNotification(row.key, v)}
+                        />
+                      </div>
+                      {row.key === "push" && pushHint && (
+                        <p className={`mt-2 pl-12 text-xs ${pushHint.tone === "error" ? "text-[#C2410C]" : "text-[#6F8070]"}`}>{pushHint.message}</p>
+                      )}
+                      {row.key === "push" && push.subscribed && notifications.push && (
+                        <button
+                          type="button"
+                          onClick={() => void onSendTestPush()}
+                          disabled={push.busy}
+                          className="mt-2 ml-12 text-xs font-semibold text-[#1E8A3C] underline underline-offset-2 disabled:opacity-50"
+                        >
+                          Envoyer une notification de test
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
+            )}
             {activeSection === "securite" && <>
               <SectionCard title="Changer le mot de passe" onSave={onChangePassword} saving={securityApi.loading}><div className="space-y-4 max-w-md"><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Mot de passe actuel</label><div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8A8A]" /><input type={showPassword ? "text" : "password"} value={passwords.current_password} onChange={(e) => setPasswords((p) => ({ ...p, current_password: e.target.value }))} className="w-full pl-10 pr-12 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors" /><button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8A8A8A] hover:text-[#3D3D3D]">{showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Nouveau mot de passe</label><div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8A8A]" /><input type="password" value={passwords.new_password} onChange={(e) => setPasswords((p) => ({ ...p, new_password: e.target.value }))} className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors" /></div></div><div><label className="block text-sm font-medium text-[#3D3D3D] mb-2">Confirmer le nouveau mot de passe</label><div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8A8A]" /><input type="password" value={passwords.confirm_password} onChange={(e) => setPasswords((p) => ({ ...p, confirm_password: e.target.value }))} className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors" /></div>{errors.password && <p className="text-xs text-red-500 mt-1">{errors.password}</p>}</div></div></SectionCard>
               <SectionCard title="Sessions actives"><div className="space-y-3">{sessions.map((s) => <div key={s.id} className={cn("flex items-center justify-between p-4 rounded-xl border", s.is_current ? "bg-[#F0FAF1] border-[#4CB84A]/20" : "border-gray-100")}><div className="flex items-center gap-3"><div className={cn("w-9 h-9 rounded-xl flex items-center justify-center", s.is_current ? "bg-[#1E8A3C]" : "bg-gray-100")}><Smartphone className={cn("w-4 h-4", s.is_current ? "text-white" : "text-[#8A8A8A]")} /></div><div><p className="font-medium text-[#3D3D3D] text-sm">{s.device_name || s.browser || "Session"}</p><p className="text-xs text-[#8A8A8A]">{s.location || "Maroc"} - {s.last_active ? "Actif récemment" : "Inconnu"}</p></div></div>{s.is_current ? <span className="text-xs bg-[#1E8A3C] text-white px-2 py-1 rounded-full font-medium">Cet appareil</span> : <button onClick={() => onDisconnectSession(s.id)} className="text-sm text-red-500 hover:text-red-700 font-medium transition-colors">Déconnecter</button>}</div>)}</div></SectionCard>
