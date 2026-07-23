@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 
 import { SupplierPageHeader } from "@/components/souki/supplier-shell"
+import { SupplierProductThumb } from "@/components/souki/supplier-product-thumb"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -286,15 +287,7 @@ export default function SupplierProduitsPage() {
                     <CardContent className="flex h-full flex-col p-5">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 items-start gap-3">
-                          <div
-                            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
-                              offre.is_active
-                                ? "bg-[#EAF8EC] text-primary dark:bg-primary/10"
-                                : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            <Package className="h-5 w-5" />
-                          </div>
+                          <SupplierProductThumb name={offre.nom_fr} size="md" muted={!offre.is_active} />
                           <div className="min-w-0">
                             <h3 className="truncate font-black text-[#264129] dark:text-card-foreground">{offre.nom_fr}</h3>
                             {offre.nom_darija && (
@@ -438,9 +431,7 @@ export default function SupplierProduitsPage() {
                     disabled={addingId === item.produit_id}
                     className="group flex min-h-16 w-full items-center gap-3 rounded-2xl border border-[#DDEBDD] bg-background px-4 py-3 text-left transition hover:border-primary/35 hover:bg-[#F8FCF8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50 dark:border-border dark:hover:bg-muted"
                   >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EAF8EC] text-primary dark:bg-primary/10">
-                      <Package className="h-5 w-5" />
-                    </span>
+                    <SupplierProductThumb name={item.nom_fr} size="md" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-black text-[#264129] dark:text-foreground">
                         {item.nom_fr}

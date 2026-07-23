@@ -173,14 +173,26 @@ export function ProductCard({
         />
         {isOutOfStock ? (
           <>
-            <span className="absolute left-3 top-3 rounded-full bg-red-500 px-3 py-1 text-xs font-semibold text-white shadow-sm">
+            <span
+              className={cn(
+                "absolute top-3 rounded-full bg-red-500 px-3 py-1 text-xs font-semibold text-white shadow-sm",
+                // En minimal, le coeur favoris occupe le coin haut-gauche : les tags
+                // passent a droite pour rester visibles. md: rendu web d'origine.
+                isMinimal ? "right-3 md:left-3 md:right-auto" : "left-3",
+              )}
+            >
               Rupture
             </span>
             <div className="absolute inset-0 bg-white/35" />
           </>
         ) : (
           discountPct > 0 && (
-            <span className="absolute left-2.5 top-2.5 rounded-full bg-[#F07C00] px-2.5 py-1 text-[11px] font-black text-white shadow-[0_6px_16px_-6px_rgba(240,124,0,0.8)]">
+            <span
+              className={cn(
+                "absolute top-2.5 rounded-full bg-[#F07C00] px-2.5 py-1 text-[11px] font-black text-white shadow-[0_6px_16px_-6px_rgba(240,124,0,0.8)]",
+                isMinimal ? "right-2.5 md:left-2.5 md:right-auto" : "left-2.5",
+              )}
+            >
               -{discountPct}%
             </span>
           )

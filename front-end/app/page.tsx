@@ -633,17 +633,19 @@ export default function HomePage() {
             <p className="text-center text-[12px] font-bold uppercase tracking-[0.16em] text-[#1E8A3C]">
               Paiements 100% sécurisés
             </p>
-            <div className="mt-7 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+            {/* Grille 3 colonnes égales : les trois cartes partagent la même
+                largeur et la même hauteur, contenu centré — alignement net. */}
+            <div className="mx-auto mt-7 grid max-w-3xl gap-3 sm:grid-cols-3 sm:gap-4">
               {/* Cash */}
-              <div className="flex items-center gap-3 rounded-2xl border border-[#E7EFE8] bg-[#FBFBF7] px-5 py-3.5">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EAF8EC]">
+              <div className="flex items-center justify-center gap-3 rounded-2xl border border-[#E7EFE8] bg-[#FBFBF7] px-5 py-3.5">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EAF8EC]">
                   <Banknote className="h-5 w-5 text-[#1E8A3C]" />
                 </span>
                 <span className="text-[14px] font-semibold text-[#14301B]">Cash à la livraison</span>
               </div>
               {/* Carte bancaire */}
-              <div className="flex items-center gap-3 rounded-2xl border border-[#E7EFE8] bg-[#FBFBF7] px-5 py-3.5">
-                <span className="flex items-center gap-2">
+              <div className="flex items-center justify-center gap-3 rounded-2xl border border-[#E7EFE8] bg-[#FBFBF7] px-5 py-3.5">
+                <span className="flex h-10 shrink-0 items-center gap-2">
                   <span className="text-[15px] font-extrabold tracking-tighter text-[#14301B]">CMI</span>
                   <span className="h-5 w-px bg-[#DDE8DE]" aria-hidden="true" />
                   <span className="flex flex-col leading-none">
@@ -657,8 +659,8 @@ export default function HomePage() {
                 <span className="text-[14px] font-semibold text-[#14301B]">Carte bancaire</span>
               </div>
               {/* Abonnement */}
-              <div className="flex items-center gap-3 rounded-2xl border border-[#E7EFE8] bg-[#FBFBF7] px-5 py-3.5">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#1E8A3C] to-[#4CB84A]">
+              <div className="flex items-center justify-center gap-3 rounded-2xl border border-[#E7EFE8] bg-[#FBFBF7] px-5 py-3.5">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#1E8A3C] to-[#4CB84A]">
                   <Users className="h-5 w-5 text-white" />
                 </span>
                 <span className="text-[14px] font-semibold text-[#14301B]">Abonnement Premium</span>

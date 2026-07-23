@@ -1,14 +1,24 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { RefreshCw } from "lucide-react"
 
 export function MobilePullToRefresh() {
   const [distance, setDistance] = useState(0)
+  // La distance courante est aussi tenue dans un ref : le handler touchend en a
+  // besoin sans que `distance` figure dans les dépendances de l'effet. Sinon
+  // l'effet se ré-exécute — et ré-abonne les 3 listeners tactiles globaux — à
+  // CHAQUE frame de setDistance pendant un tirage. On abonne une seule fois.
+  const distanceRef = useRef(0)
 
   useEffect(() => {
     let startY = 0
     let isTracking = false
+
+    const setDistanceBoth = (value: number) => {
+      distanceRef.current = value
+      setDistance(value)
+    }
 
     const isEditableTarget = (target: EventTarget | null) => {
       if (!(target instanceof HTMLElement)) {
@@ -32,16 +42,16 @@ export function MobilePullToRefresh() {
       }
       const nextY = event.touches[0]?.clientY ?? 0
       const pullDistance = Math.max(0, Math.min(96, nextY - startY))
-      setDistance(pullDistance)
+      setDistanceBoth(pullDistance)
     }
 
     const onTouchEnd = () => {
-      if (isTracking && distance > 72) {
+      if (isTracking && distanceRef.current > 72) {
         window.location.reload()
         return
       }
       isTracking = false
-      setDistance(0)
+      setDistanceBoth(0)
     }
 
     window.addEventListener("touchstart", onTouchStart, { passive: true })
@@ -53,7 +63,7 @@ export function MobilePullToRefresh() {
       window.removeEventListener("touchmove", onTouchMove)
       window.removeEventListener("touchend", onTouchEnd)
     }
-  }, [distance])
+  }, [])
 
   if (distance <= 0) {
     return null

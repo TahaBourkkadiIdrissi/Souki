@@ -1375,31 +1375,37 @@
   -webkit-backdrop-filter: blur(40px) saturate(210%) !important;
 }
 
-/* Override backdrop blur classes to increase blur effect globally */
+/* Rayons de flou renforcés (frosted glass marqué) mais RAISONNABLES : le coût
+   GPU du backdrop-filter croît avec le rayon, et un élément fixe et flouté
+   (barre de nav, overlays) le repaie à CHAQUE frame de scroll. Les anciennes
+   valeurs (20/35/45/60/80px) faisaient chauffer le téléphone et saccader le
+   scroll pour un rendu quasi identique — d'autant que ces surfaces sont déjà
+   très opaques (bg-white/95), ce qui masque l'essentiel du flou. Divisées par
+   ~2, l'aspect reste franchement « verre dépoli » (le xl de Tailwind = 24px). */
 .backdrop-blur,
 .backdrop-blur-sm {
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
 }
 
 .backdrop-blur-md {
-  backdrop-filter: blur(35px) !important;
-  -webkit-backdrop-filter: blur(35px) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
 }
 
 .backdrop-blur-lg {
-  backdrop-filter: blur(45px) !important;
-  -webkit-backdrop-filter: blur(45px) !important;
+  backdrop-filter: blur(22px) !important;
+  -webkit-backdrop-filter: blur(22px) !important;
 }
 
 .backdrop-blur-xl {
-  backdrop-filter: blur(60px) !important;
-  -webkit-backdrop-filter: blur(60px) !important;
+  backdrop-filter: blur(28px) !important;
+  -webkit-backdrop-filter: blur(28px) !important;
 }
 
 .backdrop-blur-2xl {
-  backdrop-filter: blur(80px) !important;
-  -webkit-backdrop-filter: blur(80px) !important;
+  backdrop-filter: blur(36px) !important;
+  -webkit-backdrop-filter: blur(36px) !important;
 }
 
 .scrollbar-none {
@@ -1961,10 +1967,13 @@ html {
 .letter-reveal .lr-char {
   display: inline-block;
   white-space: pre;
-  will-change: transform, opacity, filter;
 }
 .letter-reveal.is-typing .lr-char {
   opacity: 0;
+  /* will-change limité à la phase d'animation : sinon chaque caractère garde
+     en permanence une couche GPU + un tampon de filtre alloués, même une fois
+     le texte écrit et figé. */
+  will-change: transform, opacity, filter;
   animation: lr-char-in 0.44s cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: var(--d, 0ms);
 }
@@ -2127,5 +2136,21 @@ html {
   .animate-pwa-tick-pulse,
   .animate-pwa-hairline {
     animation: none !important;
+  }
+}
+
+/* ============================================================
+   NAVBAR HAUTE WEB (mobile hors PWA installee)
+   La barre basse est remplacee par une navbar haute fixe de 3.5rem
+   (MobileBottomNav en mode web). Ce bloc pousse le contenu sous la
+   barre et decale les en-tetes sticky des pages pour qu'ils se
+   calent sous elle au lieu de passer dessous.
+   ============================================================ */
+@media (max-width: 767px) {
+  body.souki-web-topnav {
+    padding-top: 3.5rem;
+  }
+  body.souki-web-topnav .sticky.top-0 {
+    top: 3.5rem;
   }
 }

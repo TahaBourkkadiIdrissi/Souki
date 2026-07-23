@@ -672,7 +672,7 @@ export default function PwaWelcomePage() {
 
         {/* ===== RAIL DE CATEGORIES (decouverte facon Glovo) ===== */}
         <div className="mt-6 animate-slide-in-up">
-          <div className="flex gap-3.5 overflow-x-auto px-4 pb-1 scrollbar-none snap-x snap-mandatory">
+          <div className="flex gap-3.5 overflow-x-auto px-4 pb-1 scroll-px-4 scrollbar-none snap-x snap-mandatory">
             {CATEGORY_TILES.map((tile) => (
               <button
                 key={tile.label}
@@ -911,7 +911,9 @@ function CarouselSection({
           </button>
         )}
       </div>
-      <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-6 pb-2 scrollbar-none">
+      {/* scroll-px-6 : les cartes snap-start se posent a 24px du bord au lieu de
+          coller aux extremites de l'ecran (le snap ignore le padding seul). */}
+      <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-6 pb-2 scroll-px-6 scrollbar-none">
         {children}
       </div>
     </section>

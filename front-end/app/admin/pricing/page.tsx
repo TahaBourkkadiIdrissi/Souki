@@ -99,6 +99,7 @@ interface EditValues {
   prix_gros_saisi: string
   prix_khddar_reel: string
   prix_vente_manuel: string
+  promo_pct: string
   marge_cible: string
   coussin_securite: string
   niveau: ProduitNiveau
@@ -155,6 +156,27 @@ function formatPercent(value: number | null | undefined) {
 
 function percentInputValue(value: number) {
   return (value * 100).toFixed(2).replace(/\.?0+$/, "")
+}
+
+// Promotion affichée aux clients (badge -X% sur les cartes produits) :
+// pct = 1 - prix_vente / prix_khddar. Même arrondi que le front client.
+function derivePromoPct(prixVente: number, prixKhddar: number | null | undefined) {
+  if (
+    typeof prixKhddar !== "number" ||
+    !Number.isFinite(prixKhddar) ||
+    prixKhddar <= 0 ||
+    prixKhddar <= prixVente
+  ) {
+    return 0
+  }
+
+  return Math.round((1 - prixVente / prixKhddar) * 100)
+}
+
+function produitPromoPct(produit: ProduitPricingDTO) {
+  const prixVente =
+    typeof produit.prix_affiche === "number" ? produit.prix_affiche : produit.prix_kg
+  return derivePromoPct(prixVente, produit.prix_khddar_estime)
 }
 
 function getNumberFromInput(value: string) {
@@ -403,10 +425,59 @@ export default function AdminPricingPage() {
       prix_gros_saisi: produit.prix_gros_saisi === null ? "" : String(produit.prix_gros_saisi),
       prix_khddar_reel: produit.prix_khddar_reel == null ? "" : String(produit.prix_khddar_reel),
       prix_vente_manuel: produit.prix_vente_manuel == null ? "" : String(produit.prix_vente_manuel),
+      promo_pct: String(produitPromoPct(produit)),
       marge_cible: percentInputValue(produit.marge_cible),
       coussin_securite: percentInputValue(produit.coussin_securite),
       niveau: produit.niveau,
       volatilite: produit.volatilite,
+    })
+  }
+
+  // Prix de vente effectif pendant l'édition : prix manuel saisi, sinon prix affiché.
+  function effectiveSalePrice(values: EditValues, produit: ProduitPricingDTO) {
+    const manuel = getNumberFromInput(values.prix_vente_manuel)
+    if (manuel !== null && manuel > 0) {
+      return manuel
+    }
+    return typeof produit.prix_affiche === "number" ? produit.prix_affiche : produit.prix_kg
+  }
+
+  // Le champ "Promo client" pilote prix_khddar_reel : le badge -X% côté client vaut
+  // 1 - prix_vente / prix_khddar_estime, et prix_khddar_reel écrase l'estimation.
+  function updatePromoPct(produit: ProduitPricingDTO, value: string) {
+    setEditValues((current) => {
+      if (!current) {
+        return current
+      }
+
+      const next = { ...current, promo_pct: value }
+      const pct = getNumberFromInput(value)
+      if (pct !== null && pct >= 0 && pct < 100) {
+        const prixVente = effectiveSalePrice(next, produit)
+        next.prix_khddar_reel =
+          pct === 0 ? prixVente.toFixed(2) : (prixVente / (1 - pct / 100)).toFixed(2)
+      }
+      return next
+    })
+  }
+
+  // Édition directe du prix khddar réel ou du prix de vente : la promo affichée
+  // est resynchronisée pour rester cohérente avec le badge client.
+  function updatePriceLinkedValue(
+    produit: ProduitPricingDTO,
+    key: "prix_khddar_reel" | "prix_vente_manuel",
+    value: string,
+  ) {
+    setEditValues((current) => {
+      if (!current) {
+        return current
+      }
+
+      const next = { ...current, [key]: value }
+      const prixVente = effectiveSalePrice(next, produit)
+      const khddar = getNumberFromInput(next.prix_khddar_reel) ?? produit.prix_khddar_estime
+      next.promo_pct = String(derivePromoPct(prixVente, khddar))
+      return next
     })
   }
 
@@ -461,6 +532,12 @@ export default function AdminPricingPage() {
 
     if (editValues.prix_vente_manuel.trim() && (prixVenteManuel === null || prixVenteManuel < 0)) {
       setError("Prix de vente manuel invalide.")
+      return
+    }
+
+    const promoPct = getNumberFromInput(editValues.promo_pct)
+    if (editValues.promo_pct.trim() && (promoPct === null || promoPct < 0 || promoPct >= 100)) {
+      setError("Promotion invalide. Valeur attendue entre 0 et 99.")
       return
     }
 
@@ -1148,7 +1225,7 @@ export default function AdminPricingPage() {
                 <EmptyState />
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[1280px]">
+                  <table className="w-full min-w-[1360px]">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Produit</th>
@@ -1158,6 +1235,7 @@ export default function AdminPricingPage() {
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Marge %</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Coussin %</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Prix affiche</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Promo client</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">vs Khddar</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Prix khddar reel</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Alerte</th>
@@ -1262,11 +1340,33 @@ export default function AdminPricingPage() {
                                   step="0.1"
                                   placeholder="Auto"
                                   value={editValues.prix_vente_manuel}
-                                  onChange={(event) => updateEditValue("prix_vente_manuel", event.target.value)}
+                                  onChange={(event) => updatePriceLinkedValue(produit, "prix_vente_manuel", event.target.value)}
                                   className="w-28 rounded-lg border border-[#E5E7EB] bg-white px-2 py-2 text-sm font-bold text-[#1E8A3C] outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
                                 />
                               ) : (
                                 <span className="font-bold text-[#1E8A3C]">{formatMoney(produit.prix_affiche)}</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-4">
+                              {isEditing && editValues ? (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="99"
+                                    step="1"
+                                    value={editValues.promo_pct}
+                                    onChange={(event) => updatePromoPct(produit, event.target.value)}
+                                    className="w-20 rounded-lg border border-[#E5E7EB] bg-white px-2 py-2 text-sm font-bold text-[#F07C00] outline-none focus:border-[#F07C00] focus:ring-2 focus:ring-[#F07C00]/10"
+                                  />
+                                  <span className="text-sm font-semibold text-gray-500">%</span>
+                                </div>
+                              ) : produitPromoPct(produit) > 0 ? (
+                                <span className="inline-flex rounded-full bg-[#F07C00] px-2.5 py-1 text-xs font-black text-white">
+                                  -{produitPromoPct(produit)}%
+                                </span>
+                              ) : (
+                                <span className="text-sm text-gray-400">-</span>
                               )}
                             </td>
                             <td className="px-4 py-4 text-sm">{khddarComparison(produit)}</td>
@@ -1278,7 +1378,7 @@ export default function AdminPricingPage() {
                                   step="0.1"
                                   placeholder="Optionnel"
                                   value={editValues.prix_khddar_reel}
-                                  onChange={(event) => updateEditValue("prix_khddar_reel", event.target.value)}
+                                  onChange={(event) => updatePriceLinkedValue(produit, "prix_khddar_reel", event.target.value)}
                                   className="w-28 rounded-lg border border-[#E5E7EB] bg-white px-2 py-2 text-sm outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
                                 />
                               ) : (

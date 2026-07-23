@@ -8,14 +8,13 @@ import {
   ClipboardList,
   Clock3,
   MapPin,
-  PackageCheck,
   Phone,
   Scale,
-  ShoppingBasket,
 } from "lucide-react"
 
 import { StatusBadge } from "@/components/souki/status-badge"
 import { SupplierPageHeader } from "@/components/souki/supplier-shell"
+import { SupplierProductThumb } from "@/components/souki/supplier-product-thumb"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -277,6 +276,7 @@ export default function SupplierPreparationPage() {
                         >
                           {isPicked ? <ClipboardCheck className="h-5 w-5" /> : String(index + 1).padStart(2, "0")}
                         </span>
+                        <SupplierProductThumb name={item.nom_fr} size="sm" muted={isPicked} />
                         <div className="min-w-0 flex-1">
                           <p
                             className={cn(
@@ -326,9 +326,18 @@ export default function SupplierPreparationPage() {
             {data.commandes.length === 0 ? (
               <Empty className="min-h-72 rounded-3xl border border-dashed border-[#DDEBDD] bg-background dark:border-border dark:bg-card">
                 <EmptyHeader>
-                  <EmptyMedia variant="icon" className="bg-[#EAF8EC] text-primary dark:bg-primary/10">
-                    <ShoppingBasket />
-                  </EmptyMedia>
+                  {/* Meme illustration que le catalogue et les ventes : le portail
+                      fournisseur parle d'une seule voix sur ses etats vides. */}
+                  <img
+                    src="/illustrations/empty-supplier.webp"
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    width={144}
+                    height={144}
+                    aria-hidden="true"
+                    className="mx-auto h-32 w-32 object-contain animate-gentle-float"
+                  />
                   <EmptyTitle className="text-[#264129] dark:text-foreground">Aucune commande active</EmptyTitle>
                   <EmptyDescription>Les commandes du jour apparaîtront ici.</EmptyDescription>
                 </EmptyHeader>
@@ -382,8 +391,8 @@ export default function SupplierPreparationPage() {
                             key={line.product_id}
                             className="flex items-center justify-between gap-3 rounded-xl bg-muted/70 px-3 py-2.5"
                           >
-                            <span className="flex min-w-0 items-center gap-2 text-xs font-bold text-[#264129] dark:text-foreground">
-                              <PackageCheck className="h-4 w-4 shrink-0 text-primary" />
+                            <span className="flex min-w-0 items-center gap-2.5 text-xs font-bold text-[#264129] dark:text-foreground">
+                              <SupplierProductThumb name={line.nom_fr} size="sm" />
                               <span className="truncate">{line.nom_fr}</span>
                             </span>
                             <span className="shrink-0 text-xs font-black text-primary">

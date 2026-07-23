@@ -65,7 +65,7 @@ const getOrderStatusClassName = (status?: string | null) => {
   if (normalizedStatus === "EN_ROUTE") {
     return "border-[#B9D7F2] bg-[#EEF7FF] text-[#1A5F96]"
   }
-  if (normalizedStatus === "ABSENT" || normalizedStatus === "REFUS" || normalizedStatus === "ANNULE") {
+  if (["ABSENT", "REFUS", "ANNULE", "ANNULEE", "REFUS_LIVREUR"].includes(normalizedStatus)) {
     return "border-[#F1C6C6] bg-[#FFF1F1] text-[#B42318]"
   }
   return "border-[#F5D7B8] bg-[#FFF7EE] text-[#9A5C11]"
@@ -74,14 +74,32 @@ const getOrderStatusClassName = (status?: string | null) => {
 const getOrderStatusLabel = (status?: string | null) => {
   const normalizedStatus = (status || "").toUpperCase()
   const labels: Record<string, string> = {
+    BROUILLON: "Brouillon",
     EN_ATTENTE: "En attente",
+    CONFIRMEE: "Confirmée",
+    VERROUILLEE: "En préparation",
+    EN_ATTENTE_LIVREUR: "En attente livreur",
+    REFUS_LIVREUR: "Réassignation en cours",
+    A_LIVRER: "À livrer",
+    PLANIFIEE: "Planifiée",
     EN_ROUTE: "En route",
+    RETOUR_DEPOT: "Retour dépôt",
     LIVRE: "Livrée",
     ABSENT: "Absent",
     REFUS: "Refusée",
     ANNULE: "Annulée",
+    ANNULEE: "Annulée",
   }
-  return labels[normalizedStatus] || status || "Statut inconnu"
+  if (labels[normalizedStatus]) {
+    return labels[normalizedStatus]
+  }
+  // Statut inconnu : humanise la valeur brute (EN_ATTENTE_X -> "En attente x")
+  // plutôt que d'afficher la constante base de données.
+  if (normalizedStatus) {
+    const humanized = normalizedStatus.replace(/_/g, " ").toLowerCase()
+    return humanized.charAt(0).toUpperCase() + humanized.slice(1)
+  }
+  return "Statut inconnu"
 }
 
 function HistoriqueContent() {

@@ -31,6 +31,7 @@ import {
 
 import { AIModals } from "@/components/souki/ai-modals"
 import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
+import { ScrollProgressBar } from "@/components/souki/scroll-progress-bar"
 import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
 import { ProductCard } from "@/components/souki/product-card"
 import { ProductDetailSheet, StickyBottomBar } from "@/components/souki/pwa"
@@ -1279,6 +1280,8 @@ function CatalogueContent() {
         isAuthenticated && cart.length > 0 ? "pb-44" : "pb-24",
       )}
     >
+      {/* Avancement du scroll : l'utilisateur voit quand il approche de la fin */}
+      <ScrollProgressBar />
       <JitCutoffBanner />
 
       {/* ===== BARRE MOBILE NATIVE : recherche + categories (masquee des md:) =====

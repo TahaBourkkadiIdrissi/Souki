@@ -5,7 +5,6 @@ import {
   AlertCircle,
   CalendarDays,
   CircleDollarSign,
-  Package,
   ReceiptText,
   ShoppingCart,
   UserRound,
@@ -13,6 +12,7 @@ import {
 
 import { StatusBadge } from "@/components/souki/status-badge"
 import { SupplierPageHeader } from "@/components/souki/supplier-shell"
+import { SupplierProductThumb } from "@/components/souki/supplier-product-thumb"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -246,9 +246,9 @@ export default function SupplierCommandesPage() {
                             {order.produits.map((product, index) => (
                               <span
                                 key={index}
-                                className="inline-flex items-center gap-2 rounded-xl border border-[#DDEBDD] bg-muted/60 px-3 py-2 text-xs font-bold text-[#264129] dark:border-border dark:text-foreground"
+                                className="inline-flex items-center gap-2 rounded-xl border border-[#DDEBDD] bg-muted/60 py-1.5 pl-1.5 pr-3 text-xs font-bold text-[#264129] dark:border-border dark:text-foreground"
                               >
-                                <Package className="h-3.5 w-3.5 text-primary" />
+                                <SupplierProductThumb name={product.nom_fr} size="xs" />
                                 {product.nom_fr}
                                 <span className="text-muted-foreground">{product.quantite_kg} kg</span>
                               </span>

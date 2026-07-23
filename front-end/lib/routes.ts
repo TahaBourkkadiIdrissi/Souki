@@ -260,7 +260,10 @@ export function getDefaultDashboard(user: User | null) {
   if (!user) {
     return "/login"
   }
-  if (user.default_dashboard && user.default_dashboard !== "/") {
+  // Un fournisseur atterrit sur l'accueil, pas sur /supplier : il y accede
+  // ensuite via l'onglet "Vendre" ou le menu profil. Le remap couvre les
+  // sessions ouvertes avant ce changement (default_dashboard deja stocke).
+  if (user.default_dashboard && user.default_dashboard !== "/" && user.default_dashboard !== "/supplier") {
     return user.default_dashboard
   }
   if (user.permissions.includes("admin.panel.access")) {
@@ -268,9 +271,6 @@ export function getDefaultDashboard(user: User | null) {
   }
   if (user.permissions.includes("livreur.dashboard.access")) {
     return "/livreur"
-  }
-  if (user.permissions.includes("supplier.dashboard.view")) {
-    return "/supplier"
   }
   if (user.permissions.includes("parent.dashboard.access")) {
     return "/parent"

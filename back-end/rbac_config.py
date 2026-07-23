@@ -157,7 +157,8 @@ ROLE_PRIORITY: List[str] = [
 DEFAULT_DASHBOARD_RULES: List[Tuple[str, str]] = [
     ("admin.panel.access", "/admin"),
     ("livreur.dashboard.access", "/livreur"),
-    ("supplier.dashboard.view", "/supplier"),
+    # Un fournisseur atterrit sur l'accueil client ("/", ou /pwa-welcome en PWA)
+    # pour naviguer librement ; son espace /supplier reste accessible via la nav.
     ("parent.dashboard.access", "/parent"),
     ("client.dashboard.access", "/"),
 ]
