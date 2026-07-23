@@ -1,0 +1,1166 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>SOUKI — Le vrai goût du marché · Concept cinématique</title>
+<meta name="description" content="Concept d'accueil web cinématique pour SOUKI Fresh Market — légumes frais du marché de gros de Fès, livrés le matin même." />
+<meta name="theme-color" content="#0C2714" />
+
+<!-- Préchargement du plat héro (généré sur Higgsfield) -->
+<link rel="preload" as="image" href="/concept/hero-market-dawn.png" />
+
+<style>
+/* Poppins — police de marque SOUKI, auto-hébergée (CSP: font-src 'self') */
+@font-face{font-family:"Poppins";font-style:normal;font-weight:400;font-display:swap;src:url("/concept/fonts/poppins-400.woff2") format("woff2")}
+@font-face{font-family:"Poppins";font-style:normal;font-weight:600;font-display:swap;src:url("/concept/fonts/poppins-600.woff2") format("woff2")}
+@font-face{font-family:"Poppins";font-style:normal;font-weight:700;font-display:swap;src:url("/concept/fonts/poppins-700.woff2") format("woff2")}
+@font-face{font-family:"Poppins";font-style:normal;font-weight:800;font-display:swap;src:url("/concept/fonts/poppins-800.woff2") format("woff2")}
+@font-face{font-family:"Poppins";font-style:normal;font-weight:900;font-display:swap;src:url("/concept/fonts/poppins-900.woff2") format("woff2")}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SOUKI — Concept cinématique « Le vrai goût du marché »
+   Palette & typographie fidèles à l'app (globals.css). Animations GSAP+Lenis.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root{
+  --green-market:#1E8A3C;
+  --green-fresh:#4CB84A;
+  --green-deep:#14301B;
+  --green-darkest:#0C2714;
+  --leaf:#7BC96F;
+  --orange:#F07C00;
+  --orange-deep:#D66B00;
+  --yellow:#F5C400;
+  --blue:#1A4F8A;
+  --paper:#FBFBF7;
+  --paper-2:#F5F5F0;
+  --ink:#14301B;
+  --body:#3D3D3D;
+  --muted:#5F6F61;
+  --hair:#E7EFE8;
+  --font:'Poppins',ui-sans-serif,system-ui,sans-serif;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+html{
+  overflow-x:clip;
+  -webkit-text-size-adjust:100%;
+  scroll-behavior:smooth;
+}
+/* Pont Lenis : Lenis pose .lenis sur <html>. On coupe le scroll natif. */
+html.lenis,html.lenis body{height:auto}
+.lenis.lenis-smooth{scroll-behavior:auto!important}
+.lenis.lenis-smooth [data-lenis-prevent]{overscroll-behavior:contain}
+.lenis.lenis-stopped{overflow:hidden}
+
+body{
+  font-family:var(--font);
+  color:var(--body);
+  background:var(--paper);
+  overflow-x:clip;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+img{max-width:100%;display:block}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+::selection{background:rgba(30,138,60,.22)}
+
+.wrap{max-width:1200px;margin:0 auto;padding:0 24px}
+@media(min-width:1024px){.wrap{padding:0 32px}}
+
+/* ── Boutons ─────────────────────────────────────────────────────────── */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:12px;
+  min-height:56px;padding:0 32px;border:none;border-radius:999px;
+  font-size:16px;font-weight:700;letter-spacing:-.01em;
+  transition:transform .4s cubic-bezier(.16,1,.3,1),background .3s,box-shadow .4s;
+  will-change:transform;
+}
+.btn svg{width:20px;height:20px}
+.btn-primary{background:var(--green-market);color:#fff;box-shadow:0 18px 40px -14px rgba(30,138,60,.55)}
+.btn-primary:hover{background:#176B2E;transform:translateY(-3px) scale(1.02)}
+.btn-accent{background:var(--orange);color:#fff;box-shadow:0 20px 45px -16px rgba(240,124,0,.65)}
+.btn-accent:hover{background:var(--orange-deep);transform:translateY(-3px) scale(1.02)}
+.btn-ghost{background:#fff;color:var(--ink);border:1px solid #D7E7D9;box-shadow:0 1px 2px rgba(20,48,27,.05)}
+.btn-ghost:hover{border-color:rgba(30,138,60,.4);background:#F3FAF4;transform:translateY(-2px)}
+.btn:active{transform:scale(.97)}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--paper),0 0 0 6px var(--green-market)}
+
+/* ── Verre : LOI 1 — sur média (near-white, blur, streak spéculaire) ──── */
+.glass-media{
+  position:relative;overflow:hidden;
+  background:linear-gradient(135deg,rgba(255,255,255,.86),rgba(255,255,255,.66));
+  -webkit-backdrop-filter:blur(44px) saturate(1.8);
+  backdrop-filter:blur(44px) saturate(1.8);
+  border:1px solid rgba(255,255,255,.7);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 30px 70px -34px rgba(12,39,20,.6);
+}
+.glass-media::after{ /* fine raie spéculaire */
+  content:"";position:absolute;top:-40%;left:-30%;width:60%;height:200%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);
+  transform:rotate(18deg);pointer-events:none;filter:blur(4px);
+}
+/* ── Verre : LOI 2 — sur fond blanc (opaque, filet marque, 3 ombres) ──── */
+.glass-white{
+  background:rgba(255,255,255,.97);
+  border:1px solid rgba(30,138,60,.16);
+  box-shadow:0 1px 2px rgba(20,48,27,.05),0 10px 24px rgba(20,48,27,.10),0 30px 56px -20px rgba(20,48,27,.14);
+}
+
+/* ── Puce logo (jamais brut sur photo) ───────────────────────────────── */
+.chip{display:inline-flex;align-items:center;gap:10px;background:#fff;border-radius:999px;padding:8px 16px;box-shadow:0 14px 30px -14px rgba(20,48,27,.5)}
+.chip img{height:22px;width:auto}
+
+/* ── Surtitre ────────────────────────────────────────────────────────── */
+.kicker{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.16em;color:var(--green-market)}
+.kicker.on-dark{color:var(--leaf)}
+
+/* ── Titres : révélation de lignes masquées ──────────────────────────── */
+.h-xl{font-weight:800;line-height:1.05;letter-spacing:-.03em;color:var(--ink);font-size:clamp(2.1rem,5vw,4rem)}
+.h-lg{font-weight:800;line-height:1.1;letter-spacing:-.02em;color:var(--ink);font-size:clamp(1.9rem,3.6vw,2.9rem)}
+.line{display:block;overflow:hidden;padding-bottom:.06em}
+.line>span{display:block;transform:translateY(110%)}
+.reveal-ready .line>span{transform:translateY(110%)}
+
+/* Cartes qui se matérialisent (montée + flou) */
+.rise{opacity:0;transform:translateY(34px);filter:blur(12px)}
+
+/* ═══════════════ EN-TÊTE (se rétracte au scroll) ═══════════════════════ */
+.hdr{
+  position:fixed;top:0;left:0;right:0;z-index:80;
+  transition:transform .45s cubic-bezier(.16,1,.3,1),background .4s,box-shadow .4s,border-color .4s;
+  border-bottom:1px solid transparent;
+}
+.hdr.tucked{transform:translateY(-100%)}
+.hdr.scrolled{background:rgba(251,251,247,.82);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-bottom-color:var(--hair);box-shadow:0 8px 30px -24px rgba(20,48,27,.4)}
+.hdr-in{display:flex;align-items:center;justify-content:space-between;height:72px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-logo{height:40px;width:40px;border-radius:11px;background:#fff;padding:3px;box-shadow:0 6px 16px -8px rgba(20,48,27,.5);object-fit:cover;object-position:left center}
+.brand-name{font-weight:800;font-size:20px;letter-spacing:-.02em;color:var(--ink);line-height:1}
+.brand-sub{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.14em;color:var(--muted)}
+.nav{display:none;gap:30px;align-items:center}
+.nav a{font-size:14.5px;font-weight:600;color:var(--muted);transition:color .2s}
+.nav a:hover{color:var(--green-market)}
+.hdr .btn{min-height:44px;padding:0 20px;font-size:14px}
+@media(min-width:1024px){.nav{display:flex}}
+/* En tête de page (héro sombre), l'en-tête passe en clair */
+.hdr.on-hero .brand-name{color:#fff}
+.hdr.on-hero .brand-sub{color:rgba(255,255,255,.7)}
+.hdr.on-hero .nav a{color:rgba(255,255,255,.82)}
+.hdr.on-hero .nav a:hover{color:#fff}
+
+/* ═══════════════ CHAPITRE 1 — HÉRO : PLONGÉE KNOCKOUT ═════════════════ */
+.hero{position:relative;background:var(--green-darkest)}
+.hero-stage{position:relative;height:100vh;width:100%;overflow:hidden}
+.hero-film-full{position:absolute;inset:0;z-index:0}
+.hero-film-full img{width:100%;height:100%;object-fit:cover;object-position:center 42%}
+.hero-film-full .kb{position:absolute;inset:-4%;will-change:transform}
+.hero-svg{position:absolute;inset:0;z-index:2;width:100%;height:100%}
+.hero-tint{position:absolute;inset:0;z-index:3;background:radial-gradient(120% 90% at 50% 42%,rgba(12,39,20,.15),rgba(12,39,20,.72));opacity:0;pointer-events:none}
+.hero-vign{position:absolute;inset:0;z-index:4;pointer-events:none;box-shadow:inset 0 0 200px 40px rgba(8,26,15,.55)}
+.hero-statement{position:absolute;z-index:5;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;opacity:0;pointer-events:none}
+.hero-statement p{max-width:16ch;font-weight:800;line-height:1.08;letter-spacing:-.02em;color:#fff;font-size:clamp(1.9rem,4.6vw,3.4rem);text-shadow:0 14px 40px rgba(0,0,0,.4)}
+.hero-statement .em{color:var(--leaf)}
+
+.hero-proof{position:absolute;z-index:6;inset:0;pointer-events:none}
+.pcard{
+  position:absolute;width:min(84vw,320px);border-radius:22px;padding:20px 22px;color:#0e2a17;
+  opacity:0;pointer-events:auto;
+}
+.pcard .pc-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.pcard .pc-ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:rgba(30,138,60,.12);color:var(--green-market);flex:none}
+.pcard .pc-ic svg{width:20px;height:20px}
+.pcard h4{margin:0;font-size:15px;font-weight:800;letter-spacing:-.01em;color:var(--ink)}
+.pcard .pc-big{font-size:26px;font-weight:800;letter-spacing:-.02em;color:var(--ink);line-height:1}
+.pcard .pc-sub{font-size:13px;color:var(--muted);font-weight:500;margin-top:4px}
+.pcard .pc-src{font-size:10.5px;color:var(--muted);opacity:.85;margin-top:8px;font-weight:500}
+.pc-a{left:6vw;bottom:12vh}
+.pc-b{left:50%;top:50%;transform:translate(-50%,-50%)}
+.pc-c{right:6vw;top:16vh}
+
+.hero-hint{position:absolute;z-index:6;left:50%;bottom:26px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;color:rgba(255,255,255,.8);font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
+.hero-hint .mouse{width:24px;height:38px;border:2px solid rgba(255,255,255,.6);border-radius:14px;position:relative}
+.hero-hint .mouse::after{content:"";position:absolute;left:50%;top:7px;width:3px;height:7px;border-radius:2px;background:#fff;transform:translateX(-50%);animation:wheel 1.6s ease-in-out infinite}
+@keyframes wheel{0%{opacity:0;transform:translate(-50%,0)}30%{opacity:1}60%{opacity:1;transform:translate(-50%,9px)}100%{opacity:0;transform:translate(-50%,12px)}}
+
+/* ═══════════════ CHAPITRE 2 — PROMESSE (après plongée) ════════════════ */
+.promise{position:relative;background:var(--paper);padding:120px 0 90px;text-align:center}
+.promise .lead{max-width:40ch;margin:22px auto 0;font-size:clamp(1.05rem,1.6vw,1.25rem);line-height:1.65;color:var(--muted)}
+.promise .cta-row{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-top:38px}
+.trust{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;margin-top:56px}
+.tstat{flex:1 1 200px;max-width:280px;border-radius:22px;padding:26px 24px;text-align:left}
+.tstat .tnum{font-size:clamp(2.4rem,4vw,3.2rem);font-weight:800;letter-spacing:-.03em;color:var(--ink);line-height:1}
+.tstat .tlab{font-size:15px;font-weight:700;color:var(--ink);margin-top:6px}
+.tstat .tsrc{font-size:11.5px;color:var(--muted);margin-top:8px}
+.tstat .tstar{color:var(--yellow)}
+
+/* ═══════════════ CHAPITRE 3 — TICKER PRIX ═════════════════════════════ */
+.ticker{background:var(--green-deep);border-top:1px solid #0F2E17;border-bottom:1px solid #0F2E17;padding:16px 0;overflow:hidden}
+.ticker-mask{position:relative;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
+.ticker-track{display:flex;gap:48px;width:max-content;animation:marq 40s linear infinite;will-change:transform}
+.ticker:hover .ticker-track{animation-play-state:paused}
+.tk{display:flex;align-items:center;gap:10px;color:#fff;white-space:nowrap}
+.tk .dot{width:7px;height:7px;border-radius:50%;background:var(--leaf)}
+.tk .nm{font-size:14px;font-weight:600}
+.tk .pr{font-size:14px;font-weight:800;color:var(--yellow)}
+.tk .un{font-weight:600;color:rgba(255,255,255,.5)}
+@keyframes marq{to{transform:translateX(-50%)}}
+
+/* ═══════════════ CHAPITRE 4 — COMMENT ÇA MARCHE (3 temps) ═════════════ */
+.how{padding:110px 0}
+.sec-head{max-width:44rem;margin:0 auto 60px;text-align:center}
+.sec-head .lead{margin-top:16px;font-size:1.06rem;line-height:1.65;color:var(--muted)}
+.steps{position:relative;display:grid;gap:22px}
+@media(min-width:768px){.steps{grid-template-columns:repeat(3,1fr);gap:32px}}
+.step{position:relative;border-radius:26px;background:#fff;border:1px solid var(--hair);padding:34px 30px;overflow:hidden}
+.step .snum{position:absolute;right:-6px;top:-22px;font-size:7rem;font-weight:800;line-height:1;color:rgba(30,138,60,.07)}
+.step .sic{position:relative;width:56px;height:56px;border-radius:16px;display:grid;place-items:center;background:#EAF8EC;color:var(--green-market)}
+.step .sic svg{width:26px;height:26px}
+.step .skick{position:relative;margin-top:22px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--orange)}
+.step h3{position:relative;margin:6px 0 0;font-size:1.3rem;font-weight:800;letter-spacing:-.01em;color:var(--ink)}
+.step p{position:relative;margin:10px 0 0;font-size:15px;line-height:1.6;color:var(--muted)}
+.step-line{position:absolute;left:14%;right:14%;top:64px;height:2px;background:linear-gradient(90deg,transparent,rgba(30,138,60,.25) 12%,rgba(30,138,60,.25) 88%,transparent);display:none}
+@media(min-width:768px){.step-line{display:block}}
+
+/* ═══════════════ CHAPITRE 5 — VOL SATELLITE (MAP FLIGHT) ══════════════ */
+.map{position:relative;background:var(--green-darkest)}
+.map-pin-note{position:absolute;z-index:7;left:24px;bottom:16px;font-size:10.5px;color:rgba(255,255,255,.55);letter-spacing:.02em}
+.map-stage{position:relative;height:100vh;overflow:hidden;background:#0a1b10}
+.map-viewport{position:absolute;inset:0;overflow:hidden}
+.map-world{position:absolute;top:0;left:0;width:1024px;height:768px;transform-origin:0 0;filter:saturate(.82) contrast(1.06) brightness(.9);will-change:transform}
+.map-world .mt{position:absolute;width:256px;height:256px;image-rendering:auto}
+.map-grade{position:absolute;inset:0;z-index:3;pointer-events:none;background:radial-gradient(120% 90% at 50% 46%,rgba(12,39,20,.05),rgba(8,26,15,.62));mix-blend-mode:multiply}
+.map-grade2{position:absolute;inset:0;z-index:4;pointer-events:none;background:linear-gradient(180deg,rgba(20,48,27,.5),transparent 30%,transparent 62%,rgba(8,26,15,.85))}
+.map-svg{position:absolute;top:0;left:0;width:1024px;height:768px;transform-origin:0 0;z-index:5;overflow:visible;pointer-events:none}
+.map-route{fill:none;stroke:var(--yellow);stroke-width:3;stroke-linecap:round;stroke-dasharray:6 10;vector-effect:non-scaling-stroke;filter:drop-shadow(0 2px 6px rgba(0,0,0,.5))}
+.map-route-glow{fill:none;stroke:rgba(245,196,0,.25);stroke-width:9;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.pin{position:absolute;z-index:6;transform-origin:50% 100%;transform:translate(-50%,-100%);will-change:transform}
+.pin .dot{width:18px;height:18px;border-radius:50%;background:var(--orange);border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.5);margin:0 auto}
+.pin .stem{width:2px;height:14px;background:#fff;margin:0 auto;opacity:.8}
+.pin .pill{position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;background:#fff;color:var(--ink);font-size:12px;font-weight:700;padding:5px 12px;border-radius:999px;box-shadow:0 8px 20px -8px rgba(0,0,0,.6)}
+.pin.home .dot{background:var(--green-fresh)}
+.map-card{position:absolute;z-index:8;left:6vw;bottom:12vh;width:min(86vw,360px);border-radius:22px;padding:22px;opacity:0;color:#fff;
+  background:linear-gradient(135deg,rgba(20,48,27,.62),rgba(12,39,20,.5));
+  -webkit-backdrop-filter:blur(30px) saturate(1.4);backdrop-filter:blur(30px) saturate(1.4);
+  border:1px solid rgba(255,255,255,.16);box-shadow:0 30px 60px -30px rgba(0,0,0,.7)}
+.map-card .mk{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--leaf)}
+.map-card h3{margin:8px 0 6px;font-size:1.4rem;font-weight:800;letter-spacing:-.01em}
+.map-card p{margin:0;font-size:14px;line-height:1.55;color:rgba(255,255,255,.82)}
+.map-attr{position:absolute;z-index:7;right:12px;bottom:10px;font-size:10px;color:rgba(255,255,255,.5)}
+.map-title{position:absolute;z-index:8;left:6vw;top:12vh;color:#fff;pointer-events:none}
+.map-title .kicker{margin-bottom:10px}
+.map-title h2{margin:0;font-weight:800;letter-spacing:-.02em;font-size:clamp(1.8rem,3.4vw,2.8rem);max-width:16ch;line-height:1.08;text-shadow:0 10px 30px rgba(0,0,0,.5)}
+/* Fallback mobile map */
+.map-static{display:none;position:relative;height:62vh;min-height:420px;overflow:hidden}
+.map-static .mworld{position:absolute;inset:0;filter:saturate(.82) contrast(1.06) brightness(.85)}
+.map-static .mworld img{width:100%;height:100%;object-fit:cover}
+.map-static .mstops{position:absolute;z-index:3;inset:auto 16px 16px;display:grid;gap:8px}
+.map-static .ms{display:flex;align-items:center;gap:12px;border-radius:16px;padding:12px 14px;color:#fff;background:rgba(12,39,20,.6);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.15)}
+.map-static .ms .n{width:26px;height:26px;border-radius:50%;background:var(--orange);display:grid;place-items:center;font-size:12px;font-weight:800;flex:none}
+.map-static .ms b{font-size:14px}
+.map-static .ms span{font-size:12px;color:rgba(255,255,255,.75)}
+
+/* ═══════════════ CHAPITRE 6 — PRODUITS DU JOUR ═══════════════════════ */
+.prods{background:#fff;padding:110px 0}
+.prods-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:44px}
+.prod-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+@media(min-width:640px){.prod-grid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:1024px){.prod-grid{grid-template-columns:repeat(3,1fr);gap:24px}}
+.prod{border-radius:22px;overflow:hidden;background:#fff;border:1px solid var(--hair);transition:transform .4s cubic-bezier(.16,1,.3,1),box-shadow .4s}
+.prod:hover{transform:translateY(-6px);box-shadow:0 30px 60px -34px rgba(30,138,60,.4)}
+.prod .pimg{position:relative;aspect-ratio:4/3;overflow:hidden}
+.prod .pimg img{width:100%;height:100%;object-fit:cover;transition:transform .6s cubic-bezier(.16,1,.3,1)}
+.prod:hover .pimg img{transform:scale(1.06)}
+.prod .badge{position:absolute;top:12px;left:12px;font-size:11px;font-weight:800;padding:5px 11px;border-radius:999px;letter-spacing:.02em}
+.badge.fresh{background:#EAF8EC;color:var(--green-market)}
+.badge.promo{background:var(--yellow);color:var(--green-deep)}
+.prod .pbody{padding:16px 18px;display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+.prod .pname{font-size:15px;font-weight:700;color:var(--ink)}
+.prod .pprice{font-size:18px;font-weight:800;color:var(--green-market)}
+.prod .pprice .u{font-size:11px;color:var(--muted);font-weight:600}
+.prod .pprice .old{display:block;font-size:12px;color:var(--muted);text-decoration:line-through;font-weight:600}
+
+/* ═══════════════ CHAPITRE 7 — POURQUOI SOUKI (bento) ═════════════════ */
+.why{padding:110px 0;background:var(--paper)}
+.bento{display:grid;gap:18px;grid-template-columns:1fr}
+@media(min-width:768px){.bento{grid-template-columns:repeat(3,1fr);grid-auto-rows:minmax(210px,auto)}}
+.bento>*{border-radius:26px;overflow:hidden}
+.b-img{position:relative;min-height:280px;grid-column:span 1}
+@media(min-width:768px){.b-img{grid-column:span 2;grid-row:span 2}}
+.b-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .7s}
+.b-img:hover img{transform:scale(1.05)}
+.b-img .scrim{position:absolute;inset:0;background:linear-gradient(to top,rgba(20,48,27,.9),rgba(20,48,27,.25) 45%,transparent)}
+.b-img .cap{position:absolute;left:0;right:0;bottom:0;padding:30px}
+.b-img .cap .k{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#A7D7B5}
+.b-img .cap p{margin:8px 0 0;font-size:1.35rem;font-weight:800;line-height:1.25;color:#fff;max-width:22ch}
+.b-mascot{position:relative;background:linear-gradient(140deg,#1B4332,var(--green-market) 55%,var(--green-fresh));color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:34px 26px;min-height:280px}
+.b-mascot .halo{position:absolute;left:50%;top:38%;width:200px;height:200px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(closest-side,rgba(255,255,255,.22),transparent);pointer-events:none}
+.b-mascot .em{font-size:66px;filter:drop-shadow(0 12px 18px rgba(12,26,16,.4))}
+.b-mascot h4{margin:14px 0 0;position:relative;font-size:1.15rem;font-weight:800}
+.b-mascot p{margin:8px 0 0;position:relative;font-size:13.5px;line-height:1.55;color:rgba(255,255,255,.86)}
+.b-stat{padding:30px;display:flex;flex-direction:column;justify-content:space-between;min-height:210px}
+.b-eco{background:#FFF9EB;border:1px solid #F1E4C8}
+.b-eco .big{font-size:3rem;font-weight:800;letter-spacing:-.02em;color:var(--ink);line-height:1}
+.b-eco p{margin:10px 0 0;font-size:15px;line-height:1.5;color:#6E6142}
+.b-plain{background:#fff;border:1px solid var(--hair)}
+.b-plain h4{margin:0;font-size:1.2rem;font-weight:800;color:var(--ink)}
+.b-plain p{margin:10px 0 0;font-size:15px;line-height:1.5;color:var(--muted)}
+.b-plain .ico{width:34px;height:34px;color:var(--green-market)}
+.b-eco .ico{width:34px;height:34px;color:#B07B00}
+.b-src{font-size:11px;color:var(--muted);margin-top:10px}
+
+/* ═══════════════ CHAPITRE 8 — TIMELINE « UNE JOURNÉE » ════════════════ */
+.tl{position:relative;background:var(--green-darkest);color:#fff}
+.tl-stage{position:relative;height:100vh;overflow:hidden;display:flex;flex-direction:column;justify-content:center}
+.tl-ghost{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.tl-ghost .yr{font-size:min(46vw,44vh);font-weight:600;letter-spacing:-.04em;line-height:.8;
+  background-clip:text;-webkit-background-clip:text;color:transparent;-webkit-text-fill-color:transparent;
+  background-size:cover;background-position:center;position:absolute;opacity:0;transition:opacity .7s ease}
+.tl-ghost .yr.active{opacity:1}
+.tl-head{position:absolute;top:12vh;left:0;right:0;text-align:center;z-index:3;padding:0 24px}
+.tl-head .kicker{color:var(--leaf)}
+.tl-head h2{margin:12px 0 0;font-weight:800;letter-spacing:-.02em;font-size:clamp(1.7rem,3.2vw,2.6rem)}
+.tl-cardwrap{position:relative;z-index:4;height:100%;pointer-events:none}
+.tl-mile{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);width:min(88vw,440px);text-align:center;opacity:0}
+.tl-mile .mcard{display:inline-flex;flex-direction:column;align-items:center;border-radius:22px;overflow:hidden;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);box-shadow:0 40px 80px -40px rgba(0,0,0,.8);width:100%}
+.tl-mile .mimg{width:100%;height:170px;overflow:hidden}
+.tl-mile .mimg img{width:100%;height:100%;object-fit:cover}
+.tl-mile .mtx{padding:18px 22px}
+.tl-mile .mtime{font-size:13px;font-weight:800;letter-spacing:.1em;color:var(--yellow)}
+.tl-mile .mtx h3{margin:6px 0 6px;font-size:1.3rem;font-weight:800}
+.tl-mile .mtx p{margin:0;font-size:13.5px;line-height:1.55;color:rgba(255,255,255,.82)}
+.tl-rail{position:absolute;left:0;right:0;bottom:8vh;z-index:5;display:flex;justify-content:center;gap:8px}
+.tl-rail button{pointer-events:auto;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:rgba(255,255,255,.7);font-size:13px;font-weight:700;padding:8px 16px;border-radius:999px;transition:.25s;font-family:inherit}
+.tl-rail button.active{background:var(--leaf);color:var(--green-darkest);border-color:var(--leaf)}
+/* Fallback mobile timeline */
+.tl-static{display:none;padding:80px 0}
+.tl-static .tls{display:flex;gap:16px;align-items:flex-start;padding:14px 0}
+.tl-static .tls .tt{font-size:15px;font-weight:800;color:var(--yellow);min-width:66px;padding-top:2px}
+.tl-static .tls .tb h3{margin:0;font-size:1.05rem;font-weight:800;color:#fff}
+.tl-static .tls .tb p{margin:6px 0 0;font-size:13.5px;color:rgba(255,255,255,.78);line-height:1.55}
+
+/* ═══════════════ CHAPITRE 9 — ABONNEMENT ═════════════════════════════ */
+.sub{padding:110px 0}
+.sub-card{position:relative;border-radius:36px;overflow:hidden;border:1px solid #173D24;box-shadow:0 50px 100px -52px rgba(12,39,20,.7)}
+.sub-bg{position:absolute;inset:0}
+.sub-bg img{width:100%;height:100%;object-fit:cover;animation:subzoom 16s ease-in-out infinite alternate}
+@keyframes subzoom{from{transform:scale(1.02)}to{transform:scale(1.14)}}
+.sub-bg .ov{position:absolute;inset:0;background:linear-gradient(135deg,rgba(12,39,20,.96),rgba(20,48,27,.82) 55%,rgba(30,138,60,.72))}
+.sub-in{position:relative;display:grid;gap:38px;padding:56px 28px}
+@media(min-width:1024px){.sub-in{grid-template-columns:1.15fr 1fr;align-items:center;gap:56px;padding:72px 56px}}
+.sub-in h2{color:#fff}.sub-in .em{color:var(--leaf)}
+.sub-in .lead{margin:20px 0 0;font-size:16px;line-height:1.65;color:rgba(255,255,255,.85);max-width:34ch}
+.sub-chips{display:grid;gap:12px}
+@media(min-width:640px){.sub-chips{grid-template-columns:1fr 1fr}}
+@media(min-width:1024px){.sub-chips{grid-template-columns:1fr}}
+.sub-chip{display:flex;gap:16px;align-items:flex-start;border-radius:18px;padding:16px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);-webkit-backdrop-filter:blur(24px) saturate(1.8);backdrop-filter:blur(24px) saturate(1.8)}
+.sub-chip .ci{width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.15);display:grid;place-items:center;color:#fff;flex:none}
+.sub-chip .ci svg{width:20px;height:20px}
+.sub-chip b{display:block;font-size:15px;font-weight:800;color:#fff}
+.sub-chip span{display:block;margin-top:3px;font-size:13px;color:rgba(255,255,255,.75);line-height:1.5}
+
+/* ═══════════════ CHAPITRE 10 — TÉMOIGNAGES ═══════════════════════════ */
+.testi{background:#fff;padding:110px 0}
+.testi-badge{display:inline-flex;align-items:center;gap:12px;border:1px solid var(--hair);background:var(--paper);border-radius:999px;padding:10px 20px;margin-top:22px}
+.testi-badge .stars{color:var(--yellow);letter-spacing:2px}
+.testi-badge b{font-size:14px;color:var(--ink)}
+.testi-badge span{font-size:13px;color:var(--muted)}
+.testi-grid{display:grid;gap:20px;margin-top:48px}
+@media(min-width:768px){.testi-grid{grid-template-columns:repeat(3,1fr)}}
+.tcard{position:relative;border-radius:26px;border:1px solid var(--hair);background:var(--paper);padding:30px}
+.tcard .q{position:absolute;right:22px;top:16px;font-size:70px;line-height:1;color:rgba(30,138,60,.08);font-weight:800}
+.tcard .stars{color:var(--yellow);letter-spacing:2px;font-size:14px}
+.tcard blockquote{margin:16px 0 0;font-size:15px;line-height:1.65;color:var(--body)}
+.tcard figcaption{display:flex;align-items:center;gap:14px;margin-top:24px;border-top:1px solid var(--hair);padding-top:20px}
+.tcard figcaption img{width:44px;height:44px;border-radius:50%;object-fit:cover}
+.tcard figcaption b{font-size:14px;color:var(--ink)}
+.tcard figcaption span{display:block;font-size:12.5px;color:var(--muted)}
+
+/* ═══════════════ CHAPITRE 11 — CTA FINAL ═════════════════════════════ */
+.final{padding:100px 0}
+.final-card{position:relative;display:grid;border-radius:36px;overflow:hidden;border:1px solid #E3EFE4;background:#fff;box-shadow:0 40px 90px -50px rgba(20,48,27,.55)}
+@media(min-width:1024px){.final-card{grid-template-columns:1fr 1fr}}
+.final-vis{position:relative;min-height:280px}
+.final-vis img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.final-vis .fade{position:absolute;inset:0;background:linear-gradient(to top,#fff,transparent 60%)}
+@media(min-width:1024px){.final-vis .fade{background:linear-gradient(to right,transparent,#fff)}}
+.final-vis .fchip{position:absolute;left:20px;top:20px}
+.final-tx{padding:44px 30px;display:flex;flex-direction:column;justify-content:center;gap:18px}
+@media(min-width:1024px){.final-tx{padding:60px 56px 60px 20px}}
+.final-tx .lead{font-size:1.05rem;line-height:1.65;color:var(--muted);max-width:34ch}
+.final-tx .note{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--muted)}
+.final-tx .note svg{width:16px;height:16px;color:var(--yellow)}
+
+/* ═══════════════ PIED DE PAGE ════════════════════════════════════════ */
+footer{background:var(--green-deep);color:#fff;padding:64px 0 40px}
+.foot-grid{display:grid;gap:40px;grid-template-columns:1fr}
+@media(min-width:768px){.foot-grid{grid-template-columns:2fr 1fr 1fr}}
+.foot-brand .b{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.foot-brand .b img{height:44px;width:44px;border-radius:11px;background:#fff;padding:3px;object-fit:cover;object-position:left center}
+.foot-brand .b .nm{font-size:22px;font-weight:800;line-height:1}
+.foot-brand .b .sb{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.14em;color:rgba(255,255,255,.7)}
+.foot-brand p{max-width:34ch;font-size:14.5px;line-height:1.6;color:rgba(255,255,255,.7)}
+.foot-soc{display:flex;gap:12px;margin-top:18px}
+.foot-soc a{width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.1);display:grid;place-items:center;transition:.2s}
+.foot-soc a:hover{background:rgba(255,255,255,.2)}
+.foot-soc svg{width:20px;height:20px}
+footer h5{font-size:15px;font-weight:700;margin:0 0 16px}
+footer ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+footer ul a{font-size:14.5px;color:rgba(255,255,255,.7);transition:.2s}
+footer ul a:hover{color:#fff}
+.foot-btm{border-top:1px solid rgba(255,255,255,.15);margin-top:44px;padding-top:26px;text-align:center;font-size:13px;color:rgba(255,255,255,.5)}
+
+/* ═══════════════ RÉDUIT / MOBILE : replis statiques ═══════════════════ */
+@media(max-width:900px){
+  .hero-stage{height:auto;min-height:100vh;display:flex;flex-direction:column}
+  .hero-hint{display:none}
+  .pc-a,.pc-b,.pc-c{position:static;transform:none;width:auto;opacity:1!important;margin:0}
+  .hero-proof{position:static;display:grid;gap:12px;padding:20px;background:var(--green-darkest)}
+  .hero-statement{position:static;opacity:1!important;padding:56px 24px 30px;min-height:auto}
+  .hero-svg{position:relative;height:56vh;min-height:340px}
+  .hero-film-full{height:56vh;min-height:340px;position:absolute}
+  .map-stage,.map-title,.map-attr,.map-pin-note{display:none}
+  .map-static{display:block}
+  .tl-stage,.tl-rail{display:none}
+  .tl-static{display:block}
+}
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+  .hero-hint,.ticker-track{animation:none!important}
+}
+
+/* État initial des révélations (annulé si JS off via .no-js) */
+.js .rise{opacity:0}
+.no-js .rise,.no-js .line>span{opacity:1;transform:none;filter:none}
+.no-js .hero-statement,.no-js .pcard{opacity:1}
+</style>
+</head>
+<body class="no-js">
+
+<!-- ══════════════════════ EN-TÊTE ══════════════════════ -->
+<header class="hdr on-hero" id="hdr">
+  <div class="wrap hdr-in">
+    <a class="brand" href="#top" data-lenis>
+      <img class="brand-logo" src="/logo3.png" alt="SOUKI" />
+      <span>
+        <span class="brand-name">SOUKI</span><br>
+        <span class="brand-sub">Fresh Market</span>
+      </span>
+    </a>
+    <nav class="nav">
+      <a href="#how" data-lenis>Comment ça marche</a>
+      <a href="#map" data-lenis>Notre sourcing</a>
+      <a href="#prods" data-lenis>Produits</a>
+      <a href="#sub" data-lenis>Abonnement</a>
+    </nav>
+    <button class="btn btn-primary" data-scroll="#prods">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      Commander
+    </button>
+  </div>
+</header>
+
+<span id="top"></span>
+
+<!-- ══════════════════════ CHAPITRE 1 — HÉRO ══════════════════════ -->
+<section class="hero" id="hero">
+  <div class="hero-stage" id="heroStage">
+    <div class="hero-film-full"><div class="kb" id="heroKb"><img src="/concept/hero-market-dawn.png" alt="Marché de gros de Fès à l'aube" /></div></div>
+
+    <svg class="hero-svg" id="heroSvg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs>
+        <mask id="heroKnock" maskUnits="userSpaceOnUse" x="0" y="0" width="1440" height="900">
+          <rect x="0" y="0" width="1440" height="900" fill="#fff"/>
+          <g id="heroLetters" fill="#000" font-family="Poppins, sans-serif" font-weight="900"></g>
+        </mask>
+      </defs>
+      <g id="platesWrap">
+        <rect id="heroPlate" x="-400" y="-400" width="2240" height="1700" fill="#FBFBF7" mask="url(#heroKnock)"/>
+      </g>
+    </svg>
+
+    <div class="hero-tint" id="heroTint"></div>
+    <div class="hero-vign"></div>
+
+    <div class="hero-statement" id="heroStatement">
+      <p>Le vrai goût du marché,<br><span class="em">chaque matin.</span></p>
+    </div>
+
+    <div class="hero-proof" id="heroProof">
+      <div class="pcard glass-media pc-a" data-pc="a">
+        <div class="pc-top"><span class="pc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="9" x2="12" y2="2"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/><line x1="23" y1="22" x2="1" y2="22"/><polyline points="8 6 12 2 16 6"/></svg></span><h4>Acheté à l'aube</h4></div>
+        <div class="pc-big">05:00</div>
+        <div class="pc-sub">Sélection au marché de gros de Fès</div>
+        <div class="pc-src">Chaque matin, à la commande</div>
+      </div>
+      <div class="pcard glass-media pc-b" data-pc="b">
+        <div class="pc-top"><span class="pc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span><h4>Livré chez vous</h4></div>
+        <div class="pc-big">8h–13h</div>
+        <div class="pc-sub">Le lendemain matin, en main propre</div>
+        <div class="pc-src">Commande passée avant 20h</div>
+      </div>
+      <div class="pcard glass-media pc-c" data-pc="c">
+        <div class="pc-top"><span class="pc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span><h4>Familles à Fès</h4></div>
+        <div class="pc-big">4,9/5</div>
+        <div class="pc-sub">+250 familles livrées</div>
+        <div class="pc-src">Moyenne des avis clients vérifiés</div>
+      </div>
+    </div>
+
+    <div class="hero-hint" id="heroHint"><span>Défilez pour plonger</span><span class="mouse"></span></div>
+  </div>
+</section>
+
+<!-- ══════════════════════ CHAPITRE 2 — PROMESSE ══════════════════════ -->
+<section class="promise" id="promise">
+  <div class="wrap">
+    <p class="kicker" data-rise>Marché de gros de Fès · Du champ au panier</p>
+    <h2 class="h-xl" data-lines style="margin:18px auto 0;max-width:16ch">
+      <span class="line"><span>Vos légumes,</span></span>
+      <span class="line"><span>frais comme au souk.</span></span>
+    </h2>
+    <p class="lead" data-rise>SOUKI sélectionne vos légumes au marché de gros de Fès, prépare votre panier et le livre chez vous entre 8h et 13h. <b style="color:var(--ink)">Commandez ce soir avant 20h.</b></p>
+    <div class="cta-row" data-rise>
+      <button class="btn btn-primary" data-scroll="#prods">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        Composer mon panier
+      </button>
+      <button class="btn btn-ghost" data-scroll="#how">Comment ça marche</button>
+    </div>
+
+    <div class="trust">
+      <div class="tstat glass-white" data-rise>
+        <div class="tnum"><span class="tstar">★</span> <span data-count="4,9">4,9</span></div>
+        <div class="tlab">Note moyenne / 5</div>
+        <div class="tsrc">Avis clients vérifiés · Fès</div>
+      </div>
+      <div class="tstat glass-white" data-rise>
+        <div class="tnum">+<span data-count="250">250</span></div>
+        <div class="tlab">Familles livrées</div>
+        <div class="tsrc">Clients actifs à Fès</div>
+      </div>
+      <div class="tstat glass-white" data-rise>
+        <div class="tnum">−<span data-count="25">25</span>%</div>
+        <div class="tlab">vs épicier de quartier</div>
+        <div class="tsrc">Estimation SOUKI, à qualité égale</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ CHAPITRE 3 — TICKER PRIX ══════════════════════ -->
+<section class="ticker" aria-label="Prix du jour">
+  <div class="ticker-mask"><div class="ticker-track" id="tickerTrack"></div></div>
+</section>
+
+<!-- ══════════════════════ CHAPITRE 4 — COMMENT ÇA MARCHE ══════════════════════ -->
+<section class="how" id="how">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker" data-rise>Fonctionnement</p>
+      <h2 class="h-lg" data-lines style="margin-top:12px">
+        <span class="line"><span>Du marché à votre table,</span></span>
+        <span class="line"><span>en trois temps.</span></span>
+      </h2>
+      <p class="lead" data-rise>Une seule promesse : la fraîcheur du gros, sans les files, le transport ni les prix opaques.</p>
+    </div>
+    <div class="steps">
+      <div class="step-line"></div>
+      <div class="step rise" data-rise>
+        <span class="snum">01</span>
+        <span class="sic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+        <p class="skick">Ce soir, avant 20h</p>
+        <h3>Vous commandez</h3>
+        <p>Panier manuel, vocal ou composé par l'IA — en moins de trois minutes.</p>
+      </div>
+      <div class="step rise" data-rise>
+        <span class="snum">02</span>
+        <span class="sic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="9" x2="12" y2="2"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/><line x1="23" y1="22" x2="1" y2="22"/><polyline points="8 6 12 2 16 6"/></svg></span>
+        <p class="skick">Demain, à l'aube</p>
+        <h3>SOUKI achète au gros</h3>
+        <p>Notre équipe sélectionne les meilleurs produits du marché de gros de Fès.</p>
+      </div>
+      <div class="step rise" data-rise>
+        <span class="snum">03</span>
+        <span class="sic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
+        <p class="skick">Entre 8h et 13h</p>
+        <h3>Vous êtes livré</h3>
+        <p>Un panier frais, pesé et contrôlé, remis en main propre à votre porte.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ CHAPITRE 5 — VOL SATELLITE ══════════════════════ -->
+<section class="map" id="map">
+  <!-- Desktop : scène épinglée -->
+  <div class="map-stage" id="mapStage">
+    <div class="map-viewport">
+      <div class="map-world" id="mapWorld"></div>
+      <svg class="map-svg" id="mapSvg" viewBox="0 0 1024 768">
+        <path class="map-route-glow" id="mapRouteGlow"/>
+        <path class="map-route" id="mapRoute"/>
+      </svg>
+      <div class="map-grade"></div>
+      <div class="map-grade2"></div>
+      <div class="pin" id="pinA" style="left:0;top:0"><div class="pill">Marché de gros — Bensouda</div><div class="dot"></div><div class="stem"></div></div>
+      <div class="pin home" id="pinB" style="left:0;top:0"><div class="pill">Votre porte</div><div class="dot"></div><div class="stem"></div></div>
+    </div>
+    <div class="map-title">
+      <p class="kicker on-dark">Sourcing direct · Fès</p>
+      <h2 id="mapH2">Du marché de gros<br>à votre porte.</h2>
+    </div>
+    <div class="map-card" id="mapCard">
+      <div class="mk" id="mcK">Étape 1</div>
+      <h3 id="mcT">Au marché de gros</h3>
+      <p id="mcP">À l'aube, notre équipe choisit les meilleurs cageots à Bensouda — le grand marché de gros de Fès.</p>
+    </div>
+    <div class="map-attr">Imagerie satellite : Esri, Maxar, Earthstar Geographics</div>
+    <div class="map-pin-note">Tracé illustratif du parcours de livraison.</div>
+  </div>
+  <!-- Mobile : carte statique -->
+  <div class="map-static">
+    <div class="mworld"><img src="/concept/tiles/t_1636_1990.jpg" alt="Vue satellite de Fès" /></div>
+    <div class="map-grade"></div><div class="map-grade2"></div>
+    <div class="mstops">
+      <div class="ms"><span class="n">1</span><div><b>Marché de gros</b> <span>— sélection à l'aube, Bensouda</span></div></div>
+      <div class="ms"><span class="n">2</span><div><b>Préparé & pesé</b> <span>— votre panier contrôlé</span></div></div>
+      <div class="ms"><span class="n">3</span><div><b>Votre porte</b> <span>— livré 8h–13h</span></div></div>
+    </div>
+    <div class="map-attr" style="display:block">Esri, Maxar, Earthstar Geographics</div>
+  </div>
+</section>
+
+<!-- ══════════════════════ CHAPITRE 6 — PRODUITS DU JOUR ══════════════════════ -->
+<section class="prods" id="prods">
+  <div class="wrap">
+    <div class="prods-head">
+      <div>
+        <p class="kicker" data-rise>Prix du gros, chaque matin</p>
+        <h2 class="h-lg" data-lines style="margin-top:10px"><span class="line"><span>Les produits frais du jour</span></span></h2>
+      </div>
+      <button class="btn btn-ghost" data-scroll="#final" data-rise>Tout le catalogue
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+      </button>
+    </div>
+    <div class="prod-grid" id="prodGrid"></div>
+  </div>
+</section>
+
+<!-- ══════════════════════ CHAPITRE 7 — POURQUOI SOUKI ══════════════════════ -->
+<section class="why" id="why">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker" data-rise>Notre mission</p>
+      <h2 class="h-lg" data-lines style="margin-top:12px"><span class="line"><span>Pourquoi les familles</span></span><span class="line"><span>choisissent SOUKI.</span></span></h2>
+    </div>
+    <div class="bento">
+      <div class="b-img rise" data-rise>
+        <img src="/concept/wholesale-dawn.png" alt="Marché de gros de Fès à l'aube, cageots de légumes" />
+        <div class="scrim"></div>
+        <div class="cap"><span class="k">Sourcing direct</span><p>Acheté à l'aube au marché de gros, sans intermédiaire.</p></div>
+      </div>
+      <div class="b-mascot rise" data-rise>
+        <div class="halo"></div>
+        <div class="em">🧑‍🌾</div>
+        <h4>Récolte veille au grain</h4>
+        <p>IA &amp; traçabilité : chaque panier est contrôlé du marché à votre porte.</p>
+      </div>
+      <div class="b-stat b-eco rise" data-rise>
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <div><div class="big">−25%</div><p>en moyenne face à l'épicier de quartier, à qualité supérieure.</p><div class="b-src">Estimation SOUKI vs épicier de quartier</div></div>
+      </div>
+      <div class="b-stat b-plain rise" data-rise>
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        <div><h4>Zéro gaspillage</h4><p>Acheté à la commande : rien ne dort en entrepôt, tout part le matin même.</p></div>
+      </div>
+      <div class="b-stat b-plain rise" data-rise>
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        <div><h4>Paiement à votre façon</h4><p>Cash à la porte, Wallet SOUKI ou carte CMI &amp; Visa — 100% sécurisé.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ CHAPITRE 8 — TIMELINE UNE JOURNÉE ══════════════════════ -->
+<section class="tl" id="tl">
+  <div class="tl-stage" id="tlStage">
+    <div class="tl-head">
+      <p class="kicker">Une journée SOUKI</p>
+      <h2>De votre commande à votre porte, heure par heure.</h2>
+    </div>
+    <div class="tl-ghost" id="tlGhost"></div>
+    <div class="tl-cardwrap" id="tlCards"></div>
+    <div class="tl-rail" id="tlRail"></div>
+  </div>
+  <!-- Mobile : timeline statique -->
+  <div class="tl-static wrap">
+    <p class="kicker" style="color:var(--leaf)">Une journée SOUKI</p>
+    <h2 class="h-lg" style="color:#fff;margin:12px 0 20px">Heure par heure.</h2>
+    <div id="tlStaticList"></div>
+  </div>
+</section>
+
+<!-- ══════════════════════ CHAPITRE 9 — ABONNEMENT ══════════════════════ -->
+<section class="sub" id="sub">
+  <div class="wrap">
+    <div class="sub-card" data-rise>
+      <div class="sub-bg"><img src="https://images.unsplash.com/photo-1610348725531-843dff563e2c?w=1920&q=80" alt="" /><div class="ov"></div></div>
+      <div class="sub-in">
+        <div>
+          <span class="chip" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#fff;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)"><span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.16em;color:#fff">✦ Nouveau — Abonnement</span></span>
+          <h2 class="h-lg" data-lines style="margin-top:22px">
+            <span class="line"><span style="color:#fff">Vos paniers frais,</span></span>
+            <span class="line"><span class="em">en pilote automatique.</span></span>
+          </h2>
+          <p class="lead">Une souscription mensuelle simplifiée pour garantir des paniers de légumes <b style="color:#9FE0AB">frais et premium</b>, livrés chaque semaine — sans même y penser.</p>
+          <div style="margin-top:32px;display:flex;flex-direction:column;gap:16px;align-items:flex-start">
+            <button class="btn btn-accent" data-scroll="#final">Découvrir l'abonnement
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </button>
+            <span style="display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:rgba(255,255,255,.72)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--leaf)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Paiement 100% sécurisé via CMI &amp; Visa
+            </span>
+          </div>
+        </div>
+        <ul class="sub-chips" style="list-style:none;margin:0;padding:0">
+          <li class="sub-chip"><span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span><b>Souscription flexible</b><span>Modifiable ou suspendable à tout moment.</span></span></li>
+          <li class="sub-chip"><span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span><span><b>Livraison priority</b><span>Vos paniers passent en tête de tournée.</span></span></li>
+          <li class="sub-chip"><span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span><span><b>Gestion automatique</b><span>Renouvelé chaque semaine, sans effort.</span></span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ CHAPITRE 10 — TÉMOIGNAGES ══════════════════════ -->
+<section class="testi" id="testi">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker" data-rise>Avis clients</p>
+      <h2 class="h-lg" data-lines style="margin-top:12px"><span class="line"><span>Ce que disent</span></span><span class="line"><span>les familles de Fès.</span></span></h2>
+      <div class="testi-badge" data-rise><span class="stars">★★★★★</span><b>4,9/5</b><span>·</span><span>+250 familles à Fès</span></div>
+    </div>
+    <div class="testi-grid" id="testiGrid"></div>
+  </div>
+</section>
+
+<!-- ══════════════════════ CHAPITRE 11 — CTA FINAL ══════════════════════ -->
+<section class="final" id="final">
+  <div class="wrap">
+    <div class="final-card" data-rise>
+      <div class="final-vis">
+        <img src="https://images.unsplash.com/photo-1540420773420-3366772f4999?w=1200&q=80" alt="Panier de légumes frais du marché de Fès" />
+        <div class="fade"></div>
+        <span class="chip fchip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green-market)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/></svg><span style="font-size:13px;font-weight:800;color:var(--ink)">100% frais du jour</span></span>
+      </div>
+      <div class="final-tx">
+        <p class="kicker">Votre marché vous attend</p>
+        <h2 class="h-lg" data-lines><span class="line"><span>Prêt à goûter la</span></span><span class="line"><span>différence du marché ?</span></span></h2>
+        <p class="lead">Commandez ce soir avant 20h — vos légumes arrivent demain entre 8h et 13h.</p>
+        <div><button class="btn btn-primary" data-scroll="#prods">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+          Commencer mes courses</button></div>
+        <span class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Commande avant 20h, livraison dès 8h demain</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ PIED DE PAGE ══════════════════════ -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <div class="b"><img src="/logo3.png" alt="SOUKI"/><div><div class="nm">SOUKI</div><div class="sb">Fresh Market</div></div></div>
+        <p>Du champ au panier, le matin même. Légumes frais du marché de gros de Fès livrés chez vous.</p>
+        <div class="foot-soc">
+          <a href="#top" data-lenis aria-label="WhatsApp SOUKI"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></a>
+          <a href="#top" data-lenis aria-label="Instagram SOUKI"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg></a>
+        </div>
+      </div>
+      <div><h5>Liens utiles</h5><ul><li><a href="#prods" data-lenis>Nos légumes</a></li><li><a href="#sub" data-lenis>Abonnements</a></li><li><a href="#how" data-lenis>Comment ça marche</a></li><li><a href="#map" data-lenis>Notre sourcing</a></li></ul></div>
+      <div><h5>Légal</h5><ul><li><a href="#top" data-lenis>Politique de confidentialité</a></li><li><a href="#top" data-lenis>Mentions légales</a></li></ul></div>
+    </div>
+    <div class="foot-btm">© 2026 SOUKI Fresh Market — Fès, Maroc — « Du champ au panier, le matin même. »</div>
+  </div>
+</footer>
+
+<!-- ══════════════════════ SCRIPTS (CDN épinglés) ══════════════════════ -->
+<script src="/concept/vendor/gsap.min.js"></script>
+<script src="/concept/vendor/ScrollTrigger.min.js"></script>
+<script src="/concept/vendor/lenis.min.js"></script>
+<script>
+(function(){
+  "use strict";
+  var D=document, root=D.documentElement;
+  root.classList.remove('no-js'); D.body.classList.remove('no-js'); D.body.classList.add('js');
+
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var HERO='/concept/hero-market-dawn.png';
+
+  /* ── Données ─────────────────────────────────────────────────────── */
+  var products=[
+    {n:"Tomates Marocaines",p:"7,00",u:"kg",img:"https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=600&h=450&fit=crop",b:"fresh"},
+    {n:"Pommes de Terre",p:"6,00",u:"kg",img:"https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=600&h=450&fit=crop"},
+    {n:"Oignons",p:"9,00",u:"kg",img:"https://images.unsplash.com/photo-1620574387735-3624d75b2dbc?w=600&h=450&fit=crop"},
+    {n:"Carottes",p:"8,50",u:"kg",img:"https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=600&h=450&fit=crop",b:"promo",old:"10,00"},
+    {n:"Courgettes",p:"13,00",u:"kg",img:"https://images.unsplash.com/photo-1768405741410-71317eceb565?w=600&h=450&fit=crop&auto=format"},
+    {n:"Piments",p:"12,00",u:"kg",img:"https://images.unsplash.com/photo-1583119022894-919a68a3d0e3?w=600&h=450&fit=crop",b:"fresh"},
+    {n:"Aubergines",p:"8,00",u:"kg",img:"https://images.unsplash.com/photo-1736831969575-f8c0a1f1ed67?w=600&h=450&fit=crop&auto=format"},
+    {n:"Concombres",p:"11,00",u:"kg",img:"https://images.unsplash.com/photo-1449300079323-02e209d9d3a6?w=600&h=450&fit=crop"},
+    {n:"Herbes Fraîches",p:"3,00",u:"lot",img:"https://images.unsplash.com/photo-1466637574441-749b8f19452f?w=600&h=450&fit=crop",b:"promo",old:"5,00"}
+  ];
+  var testi=[
+    {n:"Fatima B.",c:"Fès",r:5,t:"Service exceptionnel ! Les légumes sont toujours frais et la livraison est ponctuelle. Je recommande vivement.",a:"https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop"},
+    {n:"Ahmed M.",c:"Fès",r:5,t:"Depuis que j'utilise SOUKI, je ne vais plus au marché. Qualité impeccable et prix imbattables.",a:"https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&h=150&fit=crop"},
+    {n:"Khadija EL",c:"Fès",r:4,t:"Très pratique pour les familles occupées. L'abonnement premium est une excellente idée !",a:"https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&h=150&fit=crop"}
+  ];
+  var journey=[
+    {time:"20:00",title:"Vous commandez",txt:"Ce soir, avant 20h. Panier manuel, vocal ou composé par l'IA en trois minutes.",img:"https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=900&q=80"},
+    {time:"05:00",title:"Achat au marché de gros",txt:"À l'aube, notre équipe sélectionne les meilleurs cageots au marché de gros de Fès.",img:HERO},
+    {time:"07:00",title:"Préparé, pesé, contrôlé",txt:"Chaque panier est composé, pesé et contrôlé avant le départ en tournée.",img:"https://images.unsplash.com/photo-1542838132-92c53300491e?w=900&q=80"},
+    {time:"08:00",title:"Livré chez vous",txt:"Entre 8h et 13h, votre panier frais est remis en main propre à votre porte.",img:"https://images.unsplash.com/photo-1540420773420-3366772f4999?w=900&q=80"}
+  ];
+
+  /* ── Injection produits ──────────────────────────────────────────── */
+  var pg=D.getElementById('prodGrid');
+  products.forEach(function(p,i){
+    var badge=p.b?('<span class="badge '+p.b+'">'+(p.b==='promo'?'Promo':'Frais')+'</span>'):'';
+    var old=p.old?('<span class="old">'+p.old+' DH</span>'):'';
+    var el=D.createElement('div');
+    el.className='prod rise'; el.setAttribute('data-rise','');
+    el.innerHTML='<div class="pimg">'+badge+'<img loading="lazy" src="'+p.img+'" alt="'+p.n+'"></div>'+
+      '<div class="pbody"><div><div class="pname">'+p.n+'</div></div>'+
+      '<div class="pprice">'+old+p.p+' DH <span class="u">/'+p.u+'</span></div></div>';
+    pg.appendChild(el);
+  });
+
+  /* ── Ticker ──────────────────────────────────────────────────────── */
+  var tt=D.getElementById('tickerTrack'), tkHtml='';
+  products.forEach(function(p){tkHtml+='<span class="tk"><span class="dot"></span><span class="nm">'+p.n+'</span><span class="pr">'+p.p+' DH<span class="un">/'+p.u+'</span></span></span>';});
+  tt.innerHTML=tkHtml+tkHtml; // duplication pour boucle continue
+
+  /* ── Témoignages ─────────────────────────────────────────────────── */
+  var tg=D.getElementById('testiGrid');
+  testi.forEach(function(t){
+    var stars=''; for(var i=0;i<t.r;i++)stars+='★';
+    var fig=D.createElement('figure');
+    fig.className='tcard rise'; fig.setAttribute('data-rise','');
+    fig.innerHTML='<span class="q">”</span><span class="stars">'+stars+'</span>'+
+      '<blockquote>« '+t.t+' »</blockquote>'+
+      '<figcaption><img loading="lazy" src="'+t.a+'" alt=""><div><b>'+t.n+'</b><span>Client vérifié · '+t.c+'</span></div></figcaption>';
+    tg.appendChild(fig);
+  });
+
+  /* ── Timeline statique (mobile) ──────────────────────────────────── */
+  var tsl=D.getElementById('tlStaticList');
+  journey.forEach(function(j){
+    var d=D.createElement('div'); d.className='tls';
+    d.innerHTML='<div class="tt">'+j.time+'</div><div class="tb"><h3>'+j.title+'</h3><p>'+j.txt+'</p></div>';
+    tsl.appendChild(d);
+  });
+
+  /* ── Défilement doux : boutons/ancres ────────────────────────────── */
+  function goTo(sel){
+    var el=D.querySelector(sel); if(!el)return;
+    if(window.__lenis){window.__lenis.scrollTo(el,{offset:-10});}
+    else{el.scrollIntoView({behavior:reduce?'auto':'smooth'});}
+  }
+  D.querySelectorAll('[data-scroll]').forEach(function(b){b.addEventListener('click',function(){goTo(b.getAttribute('data-scroll'));});});
+  D.querySelectorAll('a[data-lenis]').forEach(function(a){a.addEventListener('click',function(e){var h=a.getAttribute('href');if(h&&h.indexOf('#')===0){e.preventDefault();goTo(h);}});});
+
+  /* ═════════ HÉRO : construction du knockout ═════════ */
+  var lettersG=D.getElementById('heroLetters');
+  var VBW=1440, VBH=900, CY=470;
+  var focal={x:VBW/2,y:CY};
+
+  function buildKnockout(){
+    var word="SOUKI";
+    // Mesure : text temporaire pour dimensionner à ~78% de la largeur
+    var fs=300;
+    var meas=document.createElementNS('http://www.w3.org/2000/svg','text');
+    meas.setAttribute('font-family','Poppins, sans-serif');meas.setAttribute('font-weight','900');
+    meas.setAttribute('font-size',fs);meas.setAttribute('x','-9999');meas.setAttribute('y','-9999');
+    meas.textContent=word; lettersG.appendChild(meas);
+    var total=meas.getComputedTextLength();
+    var target=VBW*0.80; var scale=target/total; fs=fs*scale;
+    meas.setAttribute('font-size',fs);
+    total=meas.getComputedTextLength();
+    // largeur par lettre (cumulatif)
+    var widths=[], cum=0;
+    for(var i=0;i<word.length;i++){
+      var sub=document.createElementNS('http://www.w3.org/2000/svg','text');
+      sub.setAttribute('font-family','Poppins, sans-serif');sub.setAttribute('font-weight','900');
+      sub.setAttribute('font-size',fs);sub.setAttribute('x','-9999');sub.setAttribute('y','-9999');
+      sub.textContent=word.substr(0,i+1); lettersG.appendChild(sub);
+      var w=sub.getComputedTextLength(); widths.push(w-cum); cum=w; lettersG.removeChild(sub);
+    }
+    lettersG.removeChild(meas);
+    var startX=(VBW-total)/2, cursor=startX, els=[];
+    for(var j=0;j<word.length;j++){
+      var t=document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.setAttribute('font-family','Poppins, sans-serif');t.setAttribute('font-weight','900');
+      t.setAttribute('font-size',fs);t.setAttribute('x',cursor);t.setAttribute('y',CY);
+      t.setAttribute('dominant-baseline','middle');t.setAttribute('class','hl');
+      t.textContent=word.charAt(j); lettersG.appendChild(t); els.push(t);
+      if(word.charAt(j)==='K'){ // point focal = plein du fût gauche du K (jamais un contre-poinçon)
+        var bb=t.getBBox(); focal.x=bb.x+bb.width*0.16; focal.y=bb.y+bb.height*0.52;
+      }
+      cursor+=widths[j];
+    }
+    return els;
+  }
+
+  /* ═════════ Lancement : polices prêtes ET mise en page stabilisée ═════════
+     (dans un onglet non affiché, fonts.ready peut résoudre avant que le
+     viewport ne soit dimensionné → les matchMedia largeur échoueraient.) */
+  function whenReady(cb){
+    var fontsP=(D.fonts&&D.fonts.ready)?D.fonts.ready:Promise.resolve();
+    var loadP=(D.readyState==='complete')?Promise.resolve():new Promise(function(r){window.addEventListener('load',r,{once:true});});
+    Promise.all([fontsP,loadP]).then(function(){
+      try{cb();}catch(e){ window.__pageErr=String((e&&e.stack)||e); console.error('[concept]',e); }
+    });
+  }
+
+  whenReady(function(){
+    var letters;
+    try{ letters=buildKnockout(); }catch(e){ letters=[]; }
+
+    if(window.gsap){
+      gsap.registerPlugin(ScrollTrigger);
+
+      /* Révélation des lignes de titre */
+      D.querySelectorAll('[data-lines]').forEach(function(h){
+        var lines=h.querySelectorAll('.line>span');
+        gsap.set(lines,{yPercent:110});
+        ScrollTrigger.create({trigger:h,start:'top 86%',once:true,onEnter:function(){
+          gsap.to(lines,{yPercent:0,duration:reduce?0.01:1,ease:'power4.out',stagger:0.12});
+        }});
+      });
+
+      /* Cartes / éléments qui montent */
+      D.querySelectorAll('[data-rise]').forEach(function(el){
+        el.classList.add('rise');
+        gsap.set(el,{opacity:0,y:34,filter:'blur(12px)'});
+        ScrollTrigger.create({trigger:el,start:'top 90%',once:true,onEnter:function(){
+          gsap.to(el,{opacity:1,y:0,filter:'blur(0px)',duration:reduce?0.01:0.9,ease:'power4.out'});
+        }});
+      });
+
+      /* Compteurs (jamais 0 au repos : valeur réelle en HTML) */
+      D.querySelectorAll('[data-count]').forEach(function(el){
+        var raw=el.getAttribute('data-count'); var dec=raw.indexOf(',')>-1;
+        var target=parseFloat(raw.replace(',','.'));
+        ScrollTrigger.create({trigger:el,start:'top 92%',once:true,onEnter:function(){
+          if(reduce){el.textContent=raw;return;}
+          var o={v:0};
+          gsap.to(o,{v:target,duration:1.4,ease:'power2.out',onUpdate:function(){
+            el.textContent = dec ? o.v.toFixed(1).replace('.',',') : Math.round(o.v).toString();
+          },onComplete:function(){el.textContent=raw;}});
+        }});
+      });
+
+      /* Montée des lettres du héro (au chargement) */
+      if(letters.length){
+        gsap.set(letters,{transformOrigin:'50% 100%'});
+        gsap.from(letters,{opacity:0,y:110,duration:reduce?0.01:1.1,ease:'power4.out',stagger:0.09,delay:0.15});
+      }
+
+      /* ── PLONGÉE ÉPINGLÉE (desktop, mouvement autorisé) ── */
+      var mm=gsap.matchMedia();
+      mm.add('(min-width:901px) and (prefers-reduced-motion: no-preference)',function(){
+        var plates=D.getElementById('platesWrap');
+        var maxDim=Math.max(VBW,VBH);
+        var Smax=18; // le fût du K couvre l'écran
+        var tl=gsap.timeline({scrollTrigger:{
+          trigger:'#hero',start:'top top',end:'+=360%',scrub:1,pin:'#heroStage',anticipatePin:1
+        }});
+        // 1. Plongée dans l'encre + tint + parallaxe film + disparition du plat
+        tl.to(plates,{scale:Smax,svgOrigin:focal.x+' '+focal.y,ease:'none',duration:5},0);
+        tl.to('#heroKb',{scale:1.28,ease:'none',duration:6},0);
+        tl.to('#heroTint',{opacity:1,ease:'power1.in',duration:3},1.4);
+        tl.to('#heroSvg',{opacity:0,ease:'power2.in',duration:1.4},3.4);
+        tl.to('#heroHint',{opacity:0,duration:0.6},0.3);
+        // 2. Déclaration de marque : apparition puis sortie
+        tl.fromTo('#heroStatement',{opacity:0,scale:1.06},{opacity:1,scale:1,ease:'power2.out',duration:1.4},4.4);
+        tl.to('#heroStatement',{opacity:0,scale:0.98,ease:'power2.in',duration:1.2},6.6);
+        // 3. Escalier de preuves : bas-gauche → centre → haut-droite (chacune persiste)
+        gsap.set('.pcard',{opacity:0,y:40,scale:0.94});
+        tl.to('.pc-a',{opacity:1,y:0,scale:1,ease:'power4.out',duration:1.1},7.4);
+        tl.to('.pc-b',{opacity:1,y:0,scale:1,ease:'power4.out',duration:1.1},8.2);
+        tl.to('.pc-c',{opacity:1,y:0,scale:1,ease:'power4.out',duration:1.1},9.0);
+        tl.to({},{duration:1.2},10); // maintien avant relâche
+        return function(){ /* cleanup géré par matchMedia */ };
+      });
+
+      /* ── Repli statique héro (mobile / réduit) ── */
+      mm.add('(max-width:900px),(prefers-reduced-motion: reduce)',function(){
+        gsap.set(['#heroStatement','.pcard'],{clearProps:'all',opacity:1,y:0,scale:1,filter:'none'});
+        gsap.set('#heroTint',{opacity:0});
+      });
+
+      buildMapFlight(mm);
+      buildTimeline(mm);
+    }
+
+    initLenis();
+    initHeader();
+    if(window.ScrollTrigger) ScrollTrigger.refresh();
+  });
+
+  /* ═════════ VOL SATELLITE (MAP FLIGHT) ═════════ */
+  function buildMapFlight(mm){
+    var world=D.getElementById('mapWorld');
+    if(!world) return;
+    // Grille 4 colonnes (x 1989..1992) × 3 lignes (y 1635..1637)
+    var xs=[1989,1990,1991,1992], ys=[1635,1636,1637];
+    ys.forEach(function(y,r){ xs.forEach(function(x,c){
+      var im=D.createElement('img'); im.className='mt'; im.loading='lazy';
+      im.src='/concept/tiles/t_'+y+'_'+x+'.jpg'; im.alt='';
+      im.style.left=(c*256)+'px'; im.style.top=(r*256)+'px';
+      world.appendChild(im);
+    });});
+
+    // Points du parcours (coords monde px). Illustratif.
+    var A={x:250,y:250}, MIDp={x:560,y:430}, B={x:760,y:560};
+    D.getElementById('pinA').style.left=A.x+'px'; D.getElementById('pinA').style.top=A.y+'px';
+    D.getElementById('pinB').style.left=B.x+'px'; D.getElementById('pinB').style.top=B.y+'px';
+    var path='M '+A.x+' '+A.y+' Q '+MIDp.x+' '+(MIDp.y-90)+' '+MIDp.x+' '+MIDp.y+' T '+B.x+' '+B.y;
+    D.getElementById('mapRoute').setAttribute('d',path);
+    D.getElementById('mapRouteGlow').setAttribute('d',path);
+
+    var VW=window.innerWidth||1280, VH=window.innerHeight||720;
+    function camFor(pt,scale,biasX,biasY){
+      // translate = viewport·bias − point·scale  (origine 0 0)
+      return {x:(VW*biasX)-(pt.x*scale), y:(VH*biasY)-(pt.y*scale), s:scale};
+    }
+    var stops=[
+      camFor(A,1.9,0.5,0.46),
+      camFor(MIDp,2.3,0.5,0.5),
+      camFor(B,2.1,0.5,0.5)
+    ];
+    var cards=[
+      {k:'Étape 1',t:'Au marché de gros',p:"À l'aube, notre équipe choisit les meilleurs cageots à Bensouda — le grand marché de gros de Fès."},
+      {k:'Étape 2',t:'Préparé & pesé',p:'Votre panier est composé, pesé et contrôlé avant le départ en tournée.'},
+      {k:'Étape 3',t:'Votre porte',p:'Livraison en main propre, chez vous, entre 8h et 13h le lendemain matin.'}
+    ];
+    function applyCam(st){
+      var tr='translate('+st.x+'px,'+st.y+'px) scale('+st.s+')';
+      world.style.transform=tr; D.getElementById('mapSvg').style.transform=tr;
+      var pa=D.getElementById('pinA'), pb=D.getElementById('pinB');
+      pa.style.transform='translate(-50%,-100%) scale('+(1/st.s)+')';
+      pb.style.transform='translate(-50%,-100%) scale('+(1/st.s)+')';
+      // reprojection écran des épingles
+      pa.style.left=(A.x*st.s+st.x)+'px'; pa.style.top=(A.y*st.s+st.y)+'px';
+      pb.style.left=(B.x*st.s+st.x)+'px'; pb.style.top=(B.y*st.s+st.y)+'px';
+    }
+    function setCard(i){
+      var c=cards[i]; D.getElementById('mcK').textContent=c.k;
+      D.getElementById('mcT').textContent=c.t; D.getElementById('mcP').textContent=c.p;
+    }
+    applyCam(stops[0]); setCard(0);
+
+    mm.add('(min-width:901px) and (prefers-reduced-motion: no-preference)',function(){
+      var cur={x:stops[0].x,y:stops[0].y,s:stops[0].s};
+      var card=D.getElementById('mapCard');
+      var tl=gsap.timeline({scrollTrigger:{trigger:'#map',start:'top top',end:'+=300%',scrub:1,pin:'#mapStage',anticipatePin:1}});
+      gsap.set(card,{opacity:0,y:24});
+      tl.to(card,{opacity:1,y:0,duration:0.5,ease:'power2.out'},0.1);
+      // Vers l'étape 2
+      tl.to(cur,{x:stops[1].x,y:stops[1].y,s:stops[1].s,duration:2,ease:'power2.inOut',onUpdate:function(){applyCam(cur);}},0.6);
+      tl.to(card,{opacity:0,duration:0.3,onComplete:function(){setCard(1);}},1.9);
+      tl.to(card,{opacity:1,duration:0.3},2.3);
+      // Vers l'étape 3
+      tl.to(cur,{x:stops[2].x,y:stops[2].y,s:stops[2].s,duration:2,ease:'power2.inOut',onUpdate:function(){applyCam(cur);}},3.1);
+      tl.to(card,{opacity:0,duration:0.3,onComplete:function(){setCard(2);}},3.0);
+      tl.to(card,{opacity:1,duration:0.4},3.5);
+      tl.to({},{duration:0.8},5);
+    });
+  }
+
+  /* ═════════ TIMELINE « UNE JOURNÉE » ═════════ */
+  function buildTimeline(mm){
+    var ghost=D.getElementById('tlGhost'), cardsWrap=D.getElementById('tlCards'), rail=D.getElementById('tlRail');
+    if(!ghost) return;
+    journey.forEach(function(j,i){
+      var yr=D.createElement('div'); yr.className='yr'+(i===0?' active':'');
+      yr.style.backgroundImage='url('+j.img+')'; yr.textContent=j.time.replace(':','');
+      ghost.appendChild(yr);
+      var mile=D.createElement('div'); mile.className='tl-mile'; if(i===0)mile.style.opacity='1';
+      mile.innerHTML='<div class="mcard"><div class="mimg"><img loading="lazy" src="'+j.img+'" alt=""></div>'+
+        '<div class="mtx"><div class="mtime">'+j.time+'</div><h3>'+j.title+'</h3><p>'+j.txt+'</p></div></div>';
+      cardsWrap.appendChild(mile);
+      var b=D.createElement('button'); b.textContent=j.time; if(i===0)b.className='active';
+      b.setAttribute('data-i',i); rail.appendChild(b);
+    });
+    var yrs=ghost.querySelectorAll('.yr'), miles=cardsWrap.querySelectorAll('.tl-mile'), btns=rail.querySelectorAll('button');
+    function show(i){
+      yrs.forEach(function(e,k){e.classList.toggle('active',k===i);});
+      btns.forEach(function(e,k){e.classList.toggle('active',k===i);});
+      if(window.gsap){
+        miles.forEach(function(e,k){ gsap.to(e,{opacity:k===i?1:0,y:k===i?0:20,duration:0.5,ease:'power2.out'}); });
+      } else { miles.forEach(function(e,k){e.style.opacity=k===i?1:0;}); }
+    }
+    var N=journey.length, currentIndex=0;
+    btns.forEach(function(b){b.addEventListener('click',function(){
+      var i=parseInt(b.getAttribute('data-i'),10);
+      // aller à la portion de scroll correspondante si épinglé
+      var stg=D.getElementById('tl'); if(window.__tlST){var pr=i/(N-1);window.__lenis&&window.__lenis.scrollTo(window.__tlST.start+(window.__tlST.end-window.__tlST.start)*pr);}
+      show(i);
+    });});
+
+    mm.add('(min-width:901px) and (prefers-reduced-motion: no-preference)',function(){
+      if(window.gsap){ gsap.set(miles,{opacity:0,y:20}); gsap.set(miles[0],{opacity:1,y:0}); }
+      var st=ScrollTrigger.create({
+        trigger:'#tl',start:'top top',end:'+='+(N*90)+'%',scrub:0.5,pin:'#tlStage',anticipatePin:1,
+        onUpdate:function(self){
+          var i=Math.min(N-1,Math.floor(self.progress*N*0.999));
+          if(i!==currentIndex){currentIndex=i;show(i);}
+        }
+      });
+      window.__tlST=st;
+      return function(){window.__tlST=null;};
+    });
+  }
+
+  /* ═════════ Lenis + pont GSAP ═════════ */
+  function initLenis(){
+    if(reduce || !window.Lenis){ if(window.ScrollTrigger)ScrollTrigger.refresh(); return; }
+    var lenis=new Lenis({lerp:0.1,wheelMultiplier:1,smoothWheel:true});
+    window.__lenis=lenis;
+    lenis.on('scroll',function(){ if(window.ScrollTrigger)ScrollTrigger.update(); });
+    if(window.gsap){
+      gsap.ticker.add(function(time){ lenis.raf(time*1000); });
+      gsap.ticker.lagSmoothing(0);
+    } else {
+      function raf(t){lenis.raf(t);requestAnimationFrame(raf);} requestAnimationFrame(raf);
+    }
+    if(window.ScrollTrigger)ScrollTrigger.refresh();
+  }
+
+  /* ═════════ En-tête : rétraction au scroll ═════════ */
+  function initHeader(){
+    var hdr=D.getElementById('hdr'), last=0, heroH=function(){return (D.getElementById('hero')||{}).offsetHeight||600;};
+    function onScroll(){
+      var y=window.scrollY||window.pageYOffset;
+      hdr.classList.toggle('scrolled', y>40);
+      // au-delà du héro, thème sombre → clair
+      hdr.classList.toggle('on-hero', y < 120);
+      if(y>last && y>240){ hdr.classList.add('tucked'); } else { hdr.classList.remove('tucked'); }
+      last=y;
+    }
+    window.addEventListener('scroll',onScroll,{passive:true}); onScroll();
+  }
+
+  // Re-mesure sur redimensionnement (débounce) : les scènes épinglées se recalculent.
+  var rT; window.addEventListener('resize',function(){ clearTimeout(rT); rT=setTimeout(function(){ if(window.ScrollTrigger) ScrollTrigger.refresh(); },250); });
+})();
+</script>
+</body>
+</html>
