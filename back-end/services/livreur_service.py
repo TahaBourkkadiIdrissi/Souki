@@ -551,7 +551,6 @@ class LivreurService(ILivreurService):
             self._queue_notifications(
                 session=session,
                 commande=commande,
-                client_phone=context["client_phone"],
                 previous_status=previous_status,
                 new_status=target_status,
                 client_event_id=str(payload.client_event_id),
@@ -818,7 +817,6 @@ class LivreurService(ILivreurService):
         *,
         session: Session,
         commande: Commande,
-        client_phone: Optional[str],
         previous_status: str,
         new_status: str,
         client_event_id: str,
@@ -834,17 +832,9 @@ class LivreurService(ILivreurService):
             "status_version": int(commande.status_version or 1),
         }
 
-        if client_phone:
-            self.livreur_dao.create_notification_outbox(
-                session=session,
-                outbox_type="SMS",
-                payload={
-                    **base_payload,
-                    "recipient": client_phone,
-                    "message": f"Votre commande #{commande.id} est maintenant {new_status}.",
-                },
-            )
-
+        # Le client est notifie par `changer_statut` (point de passage unique
+        # de tous les changements de statut). Ici on ne produit que les
+        # evenements temps reel a destination du back-office.
         self.livreur_dao.create_notification_outbox(
             session=session,
             outbox_type="WEBSOCKET",

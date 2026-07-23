@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 
 import { useAuth } from "@/hooks/useAuth"
+import { isPwaStandalone } from "@/lib/pwa"
 import { cn } from "@/lib/utils"
 
 interface MobileBottomNavProps {
@@ -34,8 +35,18 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
 
   const isFournisseur = user?.roles.includes("FOURNISSEUR") ?? false
 
+  // Accueil : /pwa-welcome en standalone (navigation directe, sans passer par
+  // la redirection React de "/" qui fait flasher l'accueil web), "/" sur le web.
+  // Resolu apres montage : le SSR rend "/" et le display-mode ne change pas
+  // en cours de session.
+  const [homeHref, setHomeHref] = useState("/")
+
+  useEffect(() => {
+    if (isPwaStandalone()) setHomeHref("/pwa-welcome")
+  }, [])
+
   const linkItems = [
-    { label: "Accueil", href: "/", icon: Home },
+    { label: "Accueil", href: homeHref, icon: Home },
     { label: "Produits", href: "/catalogue", icon: Leaf },
   ]
 

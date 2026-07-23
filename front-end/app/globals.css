@@ -355,75 +355,355 @@
 }
 
 /* ─── Animation de lancement de l'app installee (PwaLaunchOverlay) ───
-   Sequence : rectangles qui montent en s'approchant → eclatement des legumes →
-   convergence vers le logo → fondu vers l'accueil PWA. Tout est pilote en CSS :
-   l'overlay disparait meme si le JS est lent a s'hydrater (animation-fill-mode),
-   ce qui bouche aussi l'ecran noir d'iOS entre le splash et le premier rendu. */
+   « Aube de la recolte » : le logo respire des le premier frame (continuite
+   avec le splash iOS blanc) → aube verte + lueur safran + rayons derriere lui
+   → la couronne de legumes photorealiste (generee via Higgsfield, detouree)
+   vient se poser autour du logo avec une vraie physique de ressort, doublee
+   d'une copie floutee plus large (profondeur) → reflet sur le logo → lettres
+   SOUKI a ressort → finale : le vert profond de l'accueil jaillit du coeur du
+   logo (disque qui inonde l'ecran) et l'overlay s'efface dessus, si bien que
+   le dernier frame du splash porte deja la couleur du hero de /pwa-welcome
+   (aucune coupure de luminance entre le splash et l'accueil).
+   Tout est pilote en CSS : l'overlay disparait meme si le JS est lent a
+   s'hydrater (animation-fill-mode), ce qui bouche aussi l'ecran noir d'iOS
+   entre le splash et le premier rendu. Les ressorts sont de vraies courbes
+   echantillonnees via linear() (bloc @supports en fin de section), avec repli
+   cubic-bezier a depassement pour les navigateurs plus anciens.
+   Chronologie : aube 80→950ms · couronne 250→1300ms puis derive 1300→2150ms ·
+   reflet 1000→1650ms · lettrage 1080→1900ms puis sortie 2080ms · crue verte
+   2120→2580ms · fondu final 2420→2650ms (= SEQUENCE_MS du composant). */
 
 /* Le drapeau est pose par le script inline du <head>, avant la premiere peinture. */
 .souki-launch { display: none; }
 :root[data-souki-launch] .souki-launch { display: block; }
 
-@keyframes souki-launch-bar {
-  0% { transform: scaleY(0.04); opacity: 0; }
-  22% { opacity: 1; }
-  62% { transform: scaleY(1); opacity: 1; }
-  100% { transform: scaleY(1.18); opacity: 0; }
-}
-
-/* Le groupe grandit pendant que les barres s'elevent : sensation d'approche. */
-@keyframes souki-launch-approach {
-  0% { transform: scale(0.5); }
-  70% { transform: scale(1.04); }
-  100% { transform: scale(1.4); }
-}
-
-/* --sx/--sy : position radiale finale, --sr : rotation. Fournis par le composant. */
-@keyframes souki-launch-veggie {
-  0% { transform: translate3d(0, 0, 0) scale(0.18) rotate(0deg); opacity: 0; }
-  16% { opacity: 1; }
-  46% { transform: translate3d(var(--sx), var(--sy), 0) scale(1) rotate(var(--sr)); opacity: 1; }
-  66% { transform: translate3d(calc(var(--sx) * 1.07), calc(var(--sy) * 1.07), 0) scale(1) rotate(var(--sr)); opacity: 1; }
-  100% { transform: translate3d(0, 0, 0) scale(0.22) rotate(0deg); opacity: 0; }
-}
-
-@keyframes souki-launch-logo {
-  0% { transform: scale(0.5); opacity: 0; }
-  60% { transform: scale(1.05); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
-}
-
 @keyframes souki-launch-exit {
   to { opacity: 0; visibility: hidden; }
 }
 
+/* Le fondu final se joue sur la crue verte deja en place : on revele un hero
+   de la meme couleur, jamais un flash blanc→vert. */
 .souki-launch {
-  animation: souki-launch-exit 380ms ease-in 1880ms forwards;
+  animation: souki-launch-exit 230ms ease-out 2420ms forwards;
 }
 
-.souki-launch-bars {
-  animation: souki-launch-approach 760ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+/* La traversee finale : la scene avance doucement vers l'utilisateur pendant
+   que la couronne, plus rapide, la depasse (parallaxe de profondeur). */
+@keyframes souki-launch-scene-exit {
+  from { transform: scale(1); }
+  to { transform: scale(1.05); }
 }
 
-.souki-launch-bar {
-  transform-origin: bottom center;
-  animation: souki-launch-bar 760ms cubic-bezier(0.22, 1, 0.36, 1) var(--d, 0ms) forwards;
+.souki-launch-scene {
+  animation: souki-launch-scene-exit 480ms cubic-bezier(0.55, 0, 0.8, 0.6) 2120ms forwards;
 }
 
-.souki-launch-veggie {
-  animation: souki-launch-veggie 1280ms cubic-bezier(0.22, 1, 0.36, 1) calc(520ms + var(--d, 0ms)) forwards;
+/* Aube : halo vert qui s'ouvre derriere le logo, rechauffe d'une lueur safran
+   qui monte du bas de l'ecran (le logo porte un soleil levant). */
+@keyframes souki-launch-bloom {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 
-.souki-launch-logo {
-  animation: souki-launch-logo 620ms cubic-bezier(0.34, 1.56, 0.64, 1) 1240ms both;
+.souki-launch-bloom {
+  background:
+    radial-gradient(
+      circle at 50% 46%,
+      rgba(76, 184, 74, 0.16),
+      rgba(143, 214, 154, 0.10) 42%,
+      rgba(255, 255, 255, 0) 70%
+    ),
+    radial-gradient(
+      ellipse at 50% 88%,
+      rgba(245, 196, 0, 0.12),
+      rgba(255, 255, 255, 0) 58%
+    );
+  animation: souki-launch-bloom 870ms ease-out 80ms both;
 }
 
-/* Mouvement reduit : on garde uniquement le logo et un fondu court. */
+/* Rayons de soleil : disque conique adouci par un masque radial, lente derive. */
+@keyframes souki-launch-rays-in {
+  from { opacity: 0; }
+  to { opacity: 0.9; }
+}
+
+@keyframes souki-launch-rays-drift {
+  from { transform: rotate(-16deg); }
+  to { transform: rotate(8deg); }
+}
+
+.souki-launch-rays {
+  width: 680px;
+  height: 680px;
+  left: calc(50% - 340px);
+  top: calc(50% - 340px);
+  border-radius: 9999px;
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(245, 196, 0, 0.14) 0deg 9deg,
+    rgba(255, 255, 255, 0) 9deg 24deg,
+    rgba(76, 184, 74, 0.08) 24deg 33deg,
+    rgba(255, 255, 255, 0) 33deg 45deg
+  );
+  -webkit-mask-image: radial-gradient(circle, #000 26%, transparent 62%);
+  mask-image: radial-gradient(circle, #000 26%, transparent 62%);
+  animation:
+    souki-launch-rays-in 500ms ease-out 200ms both,
+    souki-launch-rays-drift 2050ms ease-in-out 100ms both;
+}
+
+/* Crue verte : le vert profond du hero de /pwa-welcome jaillit du coeur du
+   logo en un disque qui inonde l'ecran (160vmax > diagonale de tout viewport
+   mobile). C'est la piece de continuite de la sortie : le splash se termine
+   SUR la couleur exacte du hero, le fondu final ne change plus la luminance. */
+@keyframes souki-launch-takeover-in {
+  to { transform: scale(1); }
+}
+
+.souki-launch-takeover {
+  left: 50%;
+  top: 50%;
+  width: 160vmax;
+  height: 160vmax;
+  margin-left: -80vmax;
+  margin-top: -80vmax;
+  border-radius: 9999px;
+  background:
+    radial-gradient(circle at 50% 44%, rgba(45, 160, 80, 0.5), rgba(10, 40, 20, 0) 60%),
+    linear-gradient(160deg, #0A2814 0%, #14522A 55%, #1E8A3C 100%);
+  transform: scale(0);
+  animation: souki-launch-takeover-in 460ms cubic-bezier(0.66, 0, 0.34, 1) 2120ms forwards;
+}
+
+/* Couronne de la recolte : elle tournoie du centre vers sa place autour du
+   logo et s'y pose en ressort. Le depassement vient de la timing-function
+   (courbe linear() ou bezier a overshoot), PAS des keyframes : les keyframes
+   d'entree n'ont que deux frames, sinon le ressort rejouerait sur chaque
+   segment. Le fondu d'entree vit dans une animation dediee pour la meme
+   raison. Ensuite : derive douce, puis la couronne perce l'ecran plus vite
+   que la scene en s'effacant au-dessus de la crue verte (parallaxe de
+   traversee). Chaque animation reprend la pose finale de la precedente. */
+.souki-launch-wreath {
+  width: min(94vmin, 384px);
+  height: auto;
+}
+
+@keyframes souki-launch-wreath-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes souki-launch-wreath-in {
+  from { transform: rotate(-38deg) scale(0.24); }
+  to { transform: rotate(0deg) scale(1); }
+}
+
+@keyframes souki-launch-wreath-drift {
+  from { transform: rotate(0deg) scale(1); }
+  to { transform: rotate(5deg) scale(1.015); }
+}
+
+@keyframes souki-launch-wreath-exit {
+  from { transform: rotate(5deg) scale(1.015); opacity: 1; }
+  to { transform: rotate(9deg) scale(1.38); opacity: 0; }
+}
+
+.souki-launch-wreath-front {
+  animation:
+    souki-launch-wreath-fade 320ms linear 250ms both,
+    souki-launch-wreath-in 1050ms cubic-bezier(0.26, 1.16, 0.48, 1) 250ms both,
+    /* forwards, jamais both : un remplissage a rebours pendant le delai
+       ecraserait la rotation d'entree avec la pose from de la derive. */
+    souki-launch-wreath-drift 850ms ease-in-out 1300ms forwards,
+    souki-launch-wreath-exit 480ms cubic-bezier(0.5, 0, 0.75, 0.5) 2120ms forwards;
+}
+
+@keyframes souki-launch-wreath-back-fade {
+  from { opacity: 0; }
+  to { opacity: 0.45; }
+}
+
+@keyframes souki-launch-wreath-back-in {
+  from { transform: rotate(30deg) scale(0.32); }
+  to { transform: rotate(0deg) scale(1); }
+}
+
+@keyframes souki-launch-wreath-back-drift {
+  from { transform: rotate(0deg) scale(1); }
+  to { transform: rotate(-4deg) scale(1.01); }
+}
+
+@keyframes souki-launch-wreath-back-exit {
+  from { transform: rotate(-4deg) scale(1.01); opacity: 0.45; }
+  to { transform: rotate(-6deg) scale(1.16); opacity: 0; }
+}
+
+.souki-launch-wreath-back {
+  width: min(122vmin, 500px);
+  filter: blur(7px) saturate(1.05);
+  opacity: 0.45;
+  animation:
+    souki-launch-wreath-back-fade 340ms linear 150ms both,
+    souki-launch-wreath-back-in 1150ms cubic-bezier(0.26, 1.16, 0.48, 1) 150ms both,
+    /* forwards, jamais both : meme raison que la couronne avant. */
+    souki-launch-wreath-back-drift 850ms ease-in-out 1300ms forwards,
+    souki-launch-wreath-back-exit 480ms cubic-bezier(0.5, 0, 0.75, 0.5) 2120ms forwards;
+}
+
+/* Etincelles : petites lueurs breves entre les deux couronnes. */
+@keyframes souki-launch-sparkle {
+  0% { transform: translate3d(var(--sx), var(--sy), 0) scale(0); opacity: 0; }
+  45% { transform: translate3d(var(--sx), var(--sy), 0) scale(1); opacity: 1; }
+  100% { transform: translate3d(var(--sx), var(--sy), 0) scale(0); opacity: 0; }
+}
+
+.souki-launch-sparkle {
+  border-radius: 9999px;
+  background: var(--c);
+  box-shadow: 0 0 12px 2px var(--c);
+  animation: souki-launch-sparkle 780ms ease-in-out var(--d, 0ms) both;
+}
+
+/* Le logo est present des le premier frame (le splash iOS le montre deja) :
+   il respire au lieu d'apparaitre (deux frames, l'inspiration vient du
+   ressort de la timing-function). A la fin, il gonfle legerement pendant que
+   la crue verte passe derriere lui : le medaillon blanc sur vert profond est
+   le dernier plan du splash, comme l'icone de l'app sur son fond. L'ombre et
+   la respiration vivent sur le medaillon circulaire (le PNG opaque
+   projetterait une ombre rectangulaire). */
+@keyframes souki-launch-logo {
+  from { transform: scale(0.86); }
+  to { transform: scale(1); }
+}
+
+@keyframes souki-launch-logo-lift {
+  to { transform: scale(1.08); }
+}
+
+.souki-launch-logo-wrap {
+  box-shadow: 0 18px 40px rgba(18, 53, 31, 0.16);
+  animation:
+    souki-launch-logo 760ms cubic-bezier(0.34, 1.56, 0.64, 1) both,
+    souki-launch-logo-lift 480ms cubic-bezier(0.66, 0, 0.34, 1) 2150ms forwards;
+}
+
+/* Reflet qui balaie le logo : bande claire limitee aux pixels du logo via masque. */
+@keyframes souki-launch-shine {
+  from { background-position: 130% 0; }
+  to { background-position: -30% 0; }
+}
+
+.souki-launch-shine { display: none; }
+
+@supports ((-webkit-mask-image: url("")) or (mask-image: url(""))) {
+  .souki-launch-shine {
+    display: block;
+    background: linear-gradient(
+      115deg,
+      rgba(255, 255, 255, 0) 32%,
+      rgba(255, 255, 255, 0.85) 50%,
+      rgba(255, 255, 255, 0) 68%
+    );
+    background-size: 250% 100%;
+    background-repeat: no-repeat;
+    -webkit-mask-image: url("/logo3.png");
+    -webkit-mask-size: contain;
+    -webkit-mask-position: center;
+    -webkit-mask-repeat: no-repeat;
+    mask-image: url("/logo3.png");
+    mask-size: contain;
+    mask-position: center;
+    mask-repeat: no-repeat;
+    animation: souki-launch-shine 650ms ease-in-out 1000ms both;
+  }
+}
+
+/* Lettres SOUKI qui se levent une a une avec un leger depassement de ressort,
+   puis la devise. Le wordmark entier s'eclipse vers le haut juste avant la
+   crue verte (le texte sombre serait illisible sur le vert profond). */
+@keyframes souki-launch-letter {
+  from { transform: translateY(18px) scale(0.94); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.souki-launch-letter {
+  animation: souki-launch-letter 430ms cubic-bezier(0.34, 1.56, 0.64, 1) calc(1080ms + var(--d, 0ms)) both;
+}
+
+.souki-launch-tagline {
+  animation: fade-in 420ms ease-out 1500ms both;
+}
+
+@keyframes souki-launch-wordmark-exit {
+  to { transform: translateY(-14px); opacity: 0; }
+}
+
+.souki-launch-wordmark {
+  animation: souki-launch-wordmark-exit 260ms cubic-bezier(0.55, 0, 0.8, 0.6) 2080ms forwards;
+}
+
+/* Vraies courbes de ressort la ou linear() est supporte (Safari ≥ 17.2,
+   Chrome ≥ 113) : pose de la couronne = ressort amorti (~4% de depassement),
+   pop du logo et des lettres = ressort vif (~15%). Les cubic-bezier declares
+   plus haut restent le repli. Les longhands ci-dessous ecrasent uniquement
+   les timing-functions, dans l'ordre des listes d'animations. */
+@supports (animation-timing-function: linear(0, 1)) {
+  :root {
+    --souki-spring-settle: linear(
+      0, 0.0086 1.6%, 0.0344 3.3%, 0.0781 5.1%, 0.1407 7.1%, 0.2246 9.4%,
+      0.3466 12.4%, 0.5842 18.2%, 0.7738 23.5%, 0.8944 27.9%, 0.9585 31.3%,
+      1.0033 35%, 1.0313 39.3%, 1.0437 44.4%, 1.0415 51.4%, 1.0261 61.5%,
+      1.008 74.5%, 1.0014 86.8%, 1
+    );
+    --souki-spring-pop: linear(
+      0, 0.009, 0.035 2.1%, 0.141 4.4%, 0.281 6.1%, 0.723 12.9%, 0.938 16.7%,
+      1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%,
+      1.129 32.8%, 1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%, 0.974 53.8%,
+      0.975 57.1%, 0.997 69.8%, 1.003 76.9%, 1
+    );
+  }
+
+  .souki-launch-wreath-front,
+  .souki-launch-wreath-back {
+    animation-timing-function:
+      linear,
+      var(--souki-spring-settle),
+      ease-in-out,
+      cubic-bezier(0.5, 0, 0.75, 0.5);
+  }
+
+  .souki-launch-logo-wrap {
+    animation-timing-function:
+      var(--souki-spring-pop),
+      cubic-bezier(0.66, 0, 0.34, 1);
+  }
+
+  .souki-launch-letter {
+    animation-timing-function: var(--souki-spring-pop);
+  }
+}
+
+/* Mouvement reduit : couronne posee + logo + lettrage en fondu pur (sans
+   translation), aucun element en mouvement. */
+@keyframes souki-launch-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .souki-launch { animation: souki-launch-exit 260ms ease-in 420ms forwards; }
-  .souki-launch-bars,
-  .souki-launch-veggie { display: none; }
-  .souki-launch-logo { animation: fade-in 200ms ease-out both; }
+  .souki-launch { animation: souki-launch-exit 260ms ease-in 480ms forwards; }
+  .souki-launch-scene,
+  .souki-launch-wordmark { animation: none; }
+  .souki-launch-bloom,
+  .souki-launch-rays,
+  .souki-launch-takeover,
+  .souki-launch-wreath-back,
+  .souki-launch-sparkle,
+  .souki-launch-shine { display: none; }
+  .souki-launch-wreath-front,
+  .souki-launch-logo-wrap,
+  .souki-launch-letter,
+  .souki-launch-tagline { animation: souki-launch-fade 200ms ease-out both; }
 }
 
 .animate-pulse-cta {

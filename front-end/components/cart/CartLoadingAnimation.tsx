@@ -15,12 +15,26 @@ interface CartLoadingAnimationProps {
 }
 
 /**
- * CartLoadingAnimation – shown during AI smart basket generation.
- * Renders a cart SVG with an animated fill bar and a numeric percentage
- * that updates as `progress` changes. Once the bar tops out at 100 % while
- * the request is still in flight, the hero number switches to an estimated
- * countdown ("~19s") so the user knows the wait is expected.
+ * CartLoadingAnimation — « la récolte se compose » : scène affichée pendant la
+ * génération IA du panier, dans le langage visuel de l'animation d'entrée.
+ *
+ * Aube verte + rayons derrière un panier marocain en osier (généré via
+ * Higgsfield, détouré) qui respire, entouré de la couronne de la récolte en
+ * lente orbite (copie floutée derrière = profondeur) et de glints de rosée.
+ * Le pourcentage héros bascule en compte à rebours (~Xs) quand le modèle ML
+ * calcule encore. Toute la mise en mouvement est en CSS (module), neutralisée
+ * sous prefers-reduced-motion.
  */
+
+// Glints de rosée sur la couronne : position en %, couleur de marque, délai.
+const GLINTS = [
+  { left: "18%", top: "22%", size: 7, color: "#F5C400", delay: 0 },
+  { left: "78%", top: "18%", size: 5, color: "#FFFFFF", delay: 450 },
+  { left: "86%", top: "58%", size: 6, color: "#F5C400", delay: 900 },
+  { left: "64%", top: "86%", size: 5, color: "#FFFFFF", delay: 1350 },
+  { left: "12%", top: "66%", size: 6, color: "#F5C400", delay: 1800 },
+]
+
 export const CartLoadingAnimation: React.FC<CartLoadingAnimationProps> = ({
   progress,
   remainingSeconds = null,
@@ -42,31 +56,36 @@ export const CartLoadingAnimation: React.FC<CartLoadingAnimationProps> = ({
       aria-live="polite"
       aria-label={ariaLabel}
     >
-      {/* Cart SVG with fill overlay */}
-      <div className={styles.cartWrapper}>
-        {/* Fill bar rises from the bottom */}
-        <div
-          className={`${styles.fillBar} ${finalizing ? styles.fillBarFinalizing : ""}`}
-          style={{ height: `${clamped}%` }}
-          data-testid="fill-bar"
+      {/* Scène : aube + rayons + couronne en orbite + panier qui respire */}
+      <div className={styles.scene} aria-hidden="true">
+        <div className={styles.bloom} />
+        <div className={styles.rays} />
+        <img
+          src="/images/launch/wreath.webp"
+          alt=""
+          className={`${styles.wreath} ${styles.wreathBack}`}
         />
-        {/* Cart outline on top */}
-        <svg
-          className={styles.cartSvg}
-          viewBox="0 0 96 96"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true"
-        >
-          {/* Cart body */}
-          <rect x="18" y="28" width="60" height="40" rx="6" stroke="#F07C00" strokeWidth="4" />
-          {/* Cart handle */}
-          <path d="M18 28 L10 12" stroke="#F07C00" strokeWidth="4" strokeLinecap="round" />
-          <path d="M10 12 H6" stroke="#F07C00" strokeWidth="4" strokeLinecap="round" />
-          {/* Wheels */}
-          <circle cx="30" cy="76" r="5" fill="#F07C00" />
-          <circle cx="66" cy="76" r="5" fill="#F07C00" />
-        </svg>
+        <img src="/images/launch/wreath.webp" alt="" className={styles.wreath} />
+        <img
+          src="/images/launch/basket.webp"
+          alt=""
+          className={`${styles.basket} ${finalizing ? styles.basketFinalizing : ""}`}
+        />
+        {GLINTS.map((glint) => (
+          <span
+            key={`${glint.left}-${glint.top}`}
+            className={styles.glint}
+            style={{
+              left: glint.left,
+              top: glint.top,
+              width: glint.size,
+              height: glint.size,
+              background: glint.color,
+              boxShadow: `0 0 10px 2px ${glint.color}`,
+              animationDelay: `${glint.delay}ms`,
+            }}
+          />
+        ))}
       </div>
 
       {/* Hero number: percentage, then estimated countdown once the bar is full */}
@@ -74,7 +93,7 @@ export const CartLoadingAnimation: React.FC<CartLoadingAnimationProps> = ({
         {finalizing ? (
           secondsLeft > 0 ? (
             <>
-              <span className={styles.percentage}>
+              <span className={`${styles.percentage} ${styles.countdown}`}>
                 ~{secondsLeft}
                 <span className={styles.unit}>s</span>
               </span>

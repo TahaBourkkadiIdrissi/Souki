@@ -173,8 +173,15 @@ def test_chaine_logistique_deux_fournisseurs_deux_zones():
             details_produits=[],
         )
         notifier_fournisseur(outbox_session, zone, result)
-    assert outbox_session.add.call_count == 2
-    payloads = [call.args[0].payload for call in outbox_session.add.call_args_list]
+    # Le fan-out multi-canal (push / email vers le fournisseur) ajoute ses
+    # propres entrees : on ne verifie ici que le canal temps reel du back-office.
+    backoffice_rows = [
+        call.args[0]
+        for call in outbox_session.add.call_args_list
+        if call.args[0].type == "WEBSOCKET"
+    ]
+    assert len(backoffice_rows) == 2
+    payloads = [row.payload for row in backoffice_rows]
     assert {payload["fournisseur_id"] for payload in payloads} == {10, 20}
     assert all(payload["event"] == "SUPPLIER_DAILY_BATCH" for payload in payloads)
 

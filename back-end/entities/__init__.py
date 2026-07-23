@@ -33,6 +33,7 @@ from entities.permission_entity import Permission
 from entities.user_role_entity import UserRole
 from entities.role_permission_entity import RolePermission
 from entities.user_notification_preferences_entity import UserNotificationPreferences
+from entities.push_subscription_entity import PushSubscription
 from entities.user_session_entity import UserSession
 
 __all__ = [
@@ -72,5 +73,6 @@ __all__ = [
     "UserRole",
     "RolePermission",
     "UserNotificationPreferences",
+    "PushSubscription",
     "UserSession",
 ]

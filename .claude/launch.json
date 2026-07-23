@@ -6,6 +6,11 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "front-end", "run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "souki-front-attach",
+      "url": "http://localhost:3000",
+      "port": 3000
     }
   ]
 }

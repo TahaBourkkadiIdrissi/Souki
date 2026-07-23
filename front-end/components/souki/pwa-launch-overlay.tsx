@@ -3,10 +3,16 @@
 import { useEffect, useState, type CSSProperties } from "react"
 
 /**
- * Animation d'entree de l'app installee.
+ * Animation d'entree de l'app installee — « aube de la recolte ».
  *
- * Sequence : fond blanc → rectangles qui montent en s'approchant → eclatement des
- * legumes → convergence vers le logo → fondu vers l'accueil PWA.
+ * Sequence : le logo respire des le premier frame (continuite avec le splash iOS)
+ * → aube verte + lueur safran + rayons de soleil derriere lui → une couronne de
+ * legumes photorealiste (generee via Higgsfield, detouree) vient se poser autour
+ * du logo avec une physique de ressort, doublee d'une copie floutee plus large
+ * pour la profondeur → reflet sur le logo → lettres SOUKI + devise → finale :
+ * le vert profond de l'accueil jaillit du coeur du logo (disque qui inonde
+ * l'ecran) et l'overlay s'efface dessus — le dernier frame du splash porte deja
+ * la couleur du hero de /pwa-welcome, aucune coupure de luminance.
  *
  * Le declenchement N'EST PAS decide ici : le script inline de app/layout.tsx pose
  * l'attribut `data-souki-launch` sur <html> avant la premiere peinture, quand l'app
@@ -15,35 +21,26 @@ import { useEffect, useState, type CSSProperties } from "react"
  * l'ecran noir affiche par iOS entre son splash et le premier rendu de l'app.
  *
  * Toute la mise en mouvement vit dans globals.css (politique projet : animations 100%
- * CSS, avec neutralisation sous prefers-reduced-motion).
+ * CSS, avec neutralisation sous prefers-reduced-motion ; ressorts via linear(),
+ * repli cubic-bezier). L'asset hero (public/images/launch/wreath.webp) est precache
+ * par le service worker et precharge par le script inline du <head>.
  */
 
 // Duree totale de la sequence, calee sur les animations de globals.css
-// (.souki-launch : delai 1880ms + 380ms de fondu).
-const SEQUENCE_MS = 2260
+// (.souki-launch : delai 2420ms + 230ms de fondu final sur la crue verte).
+const SEQUENCE_MS = 2650
 
-// Barres colorees de la premiere phase : hauteur en % et couleur de marque.
-const BARS = [
-  { height: 38, color: "#8FD69A" },
-  { height: 62, color: "#4CB84A" },
-  { height: 92, color: "#1E8A3C" },
-  { height: 70, color: "#F5C400" },
-  { height: 44, color: "#F07C00" },
+// Etincelles posees sur la couronne : glints de rosee aux couleurs de la marque.
+const SPARKLES = [
+  { x: -68, y: -110, size: 7, color: "#F5C400", delay: 850 },
+  { x: 96, y: -84, size: 5, color: "#FFFFFF", delay: 1030 },
+  { x: 132, y: 24, size: 6, color: "#F5C400", delay: 1210 },
+  { x: 70, y: 122, size: 5, color: "#FFFFFF", delay: 1380 },
+  { x: -112, y: 76, size: 6, color: "#F5C400", delay: 1530 },
+  { x: -138, y: -24, size: 5, color: "#FFFFFF", delay: 1650 },
 ]
 
-// Legumes de l'eclatement, places en couronne autour du centre.
-const VEGETABLES = [
-  "tomate",
-  "carotte",
-  "poivron-rouge",
-  "brocoli",
-  "aubergine",
-  "mais",
-  "piment",
-  "courgette",
-]
-
-const BURST_RADIUS_PX = 104
+const WORDMARK = ["S", "O", "U", "K", "I"]
 
 export function PwaLaunchOverlay() {
   const [done, setDone] = useState(false)
@@ -72,51 +69,84 @@ export function PwaLaunchOverlay() {
       // L'ecran est purement decoratif : il ne doit jamais intercepter un tap.
       style={{ pointerEvents: "none" }}
     >
-      <div className="relative flex h-full w-full items-center justify-center">
-        {/* Phase 1 — rectangles qui montent en s'approchant */}
-        <div className="souki-launch-bars absolute flex h-40 items-end gap-2.5">
-          {BARS.map((bar, index) => (
-            <span
-              key={bar.color}
-              className="souki-launch-bar block w-3.5 rounded-full sm:w-4"
-              style={
-                {
-                  height: `${bar.height}%`,
-                  backgroundColor: bar.color,
-                  "--d": `${index * 70}ms`,
-                } as CSSProperties
-              }
-            />
-          ))}
+      <div className="souki-launch-scene relative flex h-full w-full items-center justify-center overflow-hidden">
+        {/* Aube — halo vert qui s'ouvre derriere le logo */}
+        <div className="souki-launch-bloom absolute inset-0" />
+
+        {/* Rayons de soleil (le logo porte deja un soleil levant) */}
+        <div className="souki-launch-rays absolute" />
+
+        {/* Crue verte : a la fin de la sequence, le vert du hero de /pwa-welcome
+            jaillit du coeur du logo et inonde l'ecran — continuite de couleur
+            avec l'accueil. Sous les couronnes (elles s'effacent au-dessus). */}
+        <div className="souki-launch-takeover absolute" />
+
+        {/* Profondeur : la meme couronne, plus large, floutee, en contre-rotation */}
+        <div className="absolute inset-0 grid place-items-center">
+          <img
+            src="/images/launch/wreath.webp"
+            alt=""
+            className="souki-launch-wreath souki-launch-wreath-back"
+          />
         </div>
 
-        {/* Phase 2 — eclatement des legumes */}
-        {VEGETABLES.map((name, index) => {
-          const angle = (index / VEGETABLES.length) * 2 * Math.PI - Math.PI / 2
-          return (
-            <img
-              key={name}
-              src={`/images/legumes/${name}.png`}
-              alt=""
-              className="souki-launch-veggie absolute h-16 w-16 object-contain"
-              style={
-                {
-                  "--sx": `${Math.round(Math.cos(angle) * BURST_RADIUS_PX)}px`,
-                  "--sy": `${Math.round(Math.sin(angle) * BURST_RADIUS_PX)}px`,
-                  "--sr": `${index % 2 === 0 ? 22 : -22}deg`,
-                  "--d": `${index * 45}ms`,
-                } as CSSProperties
-              }
-            />
-          )
-        })}
+        {/* Hero : la couronne de la recolte tournoie et se pose autour du logo */}
+        <div className="absolute inset-0 grid place-items-center">
+          <img
+            src="/images/launch/wreath.webp"
+            alt=""
+            className="souki-launch-wreath souki-launch-wreath-front"
+          />
+        </div>
 
-        {/* Phase 3 — le logo se forme */}
-        <img
-          src="/logo3.png"
-          alt=""
-          className="souki-launch-logo relative h-36 w-36 object-contain"
-        />
+        {/* Glints de rosee sur la couronne */}
+        {SPARKLES.map((sparkle) => (
+          <span
+            key={`${sparkle.x}-${sparkle.y}`}
+            className="souki-launch-sparkle absolute left-1/2 top-1/2"
+            style={
+              {
+                width: `${sparkle.size}px`,
+                height: `${sparkle.size}px`,
+                marginLeft: `${-sparkle.size / 2}px`,
+                marginTop: `${-sparkle.size / 2}px`,
+                "--sx": `${sparkle.x}px`,
+                "--sy": `${sparkle.y}px`,
+                "--c": sparkle.color,
+                "--d": `${sparkle.delay}ms`,
+              } as CSSProperties
+            }
+          />
+        ))}
+
+        {/* Le logo respire au coeur de la couronne, puis un reflet le balaie.
+            logo3.png est opaque (fond blanc) : le cercle + overflow-hidden le
+            transforme en medaillon blanc — jamais de carte rectangulaire. */}
+        <div className="souki-launch-logo-wrap relative h-36 w-36 overflow-hidden rounded-full bg-white">
+          <img src="/logo3.png" alt="" className="souki-launch-logo h-full w-full object-contain" />
+          <span className="souki-launch-shine absolute inset-0" />
+        </div>
+
+        {/* Lettrage SOUKI + devise, sous la couronne */}
+        <div
+          className="souki-launch-wordmark absolute inset-x-0 text-center"
+          style={{ top: "calc(50% + min(52vmin, 212px))" }}
+        >
+          <div className="text-[28px] font-black tracking-[0.32em] text-[#163019]">
+            {WORDMARK.map((letter, index) => (
+              <span
+                key={`${letter}-${index}`}
+                className="souki-launch-letter inline-block"
+                style={{ "--d": `${index * 60}ms` } as CSSProperties}
+              >
+                {letter}
+              </span>
+            ))}
+          </div>
+          <p className="souki-launch-tagline mt-1.5 text-[11px] font-semibold tracking-wide text-gray-500">
+            Du champ au panier, le matin même
+          </p>
+        </div>
       </div>
     </div>
   )

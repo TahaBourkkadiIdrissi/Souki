@@ -4,6 +4,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from entities.notification_outbox_entity import NotificationOutbox
+from services.notification_service import notification_service
 
 
 def notifier_fournisseur(session: Session, zone: Any, resultat: Any) -> NotificationOutbox | None:
@@ -37,4 +38,19 @@ def notifier_fournisseur(session: Session, zone: Any, resultat: Any) -> Notifica
     )
     session.add(notification)
     session.flush()
+
+    # En plus du canal temps reel du back-office, on previent le fournisseur
+    # sur ses propres canaux (push / email) selon ses preferences.
+    notification_service.notify(
+        session,
+        user_id=int(fournisseur_id),
+        event_key="SUPPLIER_DAILY_BATCH",
+        data={
+            "nombre_commandes": payload["nombre_commandes"],
+            "nom_ville": payload["nom_ville"],
+            "zone_id": payload["zone_id"],
+        },
+        dedupe_suffix=f"{fournisseur_id}:{payload['date']}",
+    )
+
     return notification
