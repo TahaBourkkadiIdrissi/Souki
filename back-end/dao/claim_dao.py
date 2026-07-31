@@ -49,3 +49,23 @@ class ClaimDaoBD(IClaimDao):
             .where(Claim.user_id == user_id, Claim.created_at >= since)
         )
         return int(session.execute(statement).scalar_one() or 0)
+
+    def sum_claimed_quantity(
+        self,
+        session: Session,
+        *,
+        ligne_panier_id: int,
+    ) -> Decimal:
+        """Quantite cumulee deja remboursee sur une ligne (anti-rejeu de reclamation).
+
+        La somme porte sur TOUTES les reclamations de la ligne, quel que soit
+        l'utilisateur ou la demande : c'est elle qui borne ce qui reste
+        remboursable. Appelee dans la transaction qui verrouille deja la commande
+        (SELECT ... FOR UPDATE), donc deux demandes concurrentes ne peuvent pas
+        lire la meme somme puis crediter chacune de leur cote.
+        """
+        statement = (
+            select(func.coalesce(func.sum(Claim.quantity_claimed), 0))
+            .where(Claim.ligne_panier_id == ligne_panier_id)
+        )
+        return Decimal(str(session.execute(statement).scalar_one() or "0"))

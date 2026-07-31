@@ -28,7 +28,10 @@ from services.auth_service import AuthService
 from services.client_ip import extract_client_ip
 from services.rate_limit_service import (
     ADMIN_LOGIN_POLICY,
+    SIGNUP_IP_MAX_ATTEMPTS,
+    SIGNUP_IP_WINDOW_SECONDS,
     USER_LOGIN_POLICY,
+    ip_action_quota,
     login_rate_limiter,
 )
 from services.user_session_service import UserSessionService
@@ -61,7 +64,13 @@ def _set_auth_cookie(response: Response, token: str):
 
 @auth_router.post("/register", response_model=RegisterResponse)
 def register(data: UserRegister, request: Request):
-    return AuthService().register(data, client_ip=extract_client_ip(request))
+    # VULN-014 : chaque inscription declenche un envoi d'email facture. Limite par
+    # IP, seul niveau disponible avant qu'un compte existe.
+    client_ip = extract_client_ip(request)
+    ip_action_quota.ensure_within_quota(
+        "register", client_ip, SIGNUP_IP_MAX_ATTEMPTS, SIGNUP_IP_WINDOW_SECONDS
+    )
+    return AuthService().register(data, client_ip=client_ip)
 
 
 @auth_router.post("/login")
@@ -131,7 +140,16 @@ def verify_otp(data: OTPVerifyRequest, request: Request, response: Response):
 
 
 @auth_router.post("/resend-otp", response_model=OTPVerificationResponse)
-def resend_otp(data: OTPResendRequest):
+def resend_otp(data: OTPResendRequest, request: Request):
+    # VULN-013/014 : route non authentifiee prenant un user_id brut. La limite par
+    # IP borne l'enumeration de comptes et l'envoi d'emails vers des tiers ; le
+    # service repond de facon neutre, qu'un envoi ait eu lieu ou non.
+    ip_action_quota.ensure_within_quota(
+        "resend-otp",
+        extract_client_ip(request),
+        SIGNUP_IP_MAX_ATTEMPTS,
+        SIGNUP_IP_WINDOW_SECONDS,
+    )
     return AuthService().resend_otp(data.user_id, data.channel)
 
 

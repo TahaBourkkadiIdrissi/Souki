@@ -3,6 +3,7 @@ import json
 import os
 import unicodedata
 import uuid
+from typing import Optional
 from urllib import error, parse, request
 
 from PIL import Image, UnidentifiedImageError
@@ -14,6 +15,12 @@ from config import engine
 
 AVATAR_BUCKET = "avatars"
 PRODUCT_BUCKET = "products"
+# RISK-007 : le bucket avatars est PRIVE. Une photo de profil est une donnee
+# personnelle : un bucket public la rend lisible par quiconque connait l'URL, et
+# l'ancien nommage `{user_id}/profile.jpg` la rendait carrement enumerable. On ne
+# stocke donc plus l'URL publique en base mais le CHEMIN de l'objet, et chaque
+# lecture genere une URL signee a duree limitee.
+AVATAR_SIGNED_URL_TTL_SECONDS = int(os.getenv("SOUKI_AVATAR_URL_TTL_SECONDS", "3600"))
 MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024
 ALLOWED_AVATAR_MIME_TYPES = {
     "image/jpeg": "jpg",
@@ -146,8 +153,9 @@ class SupabaseStorageService:
         except SQLAlchemyError as exc:
             print(
                 "[Startup] Configuration automatique du storage Supabase ignoree: "
-                f"{exc}. Executez le script SQL d'avatars dans l'editeur SQL Supabase "
-                "avec un role proprietaire si vous voulez activer les policies automatiquement."
+                f"{exc}. Executez back-end/sql/2026-07-26_avatars_private_bucket.sql "
+                "dans l'editeur SQL Supabase avec un role proprietaire pour garantir "
+                "que le bucket avatars reste PRIVE."
             )
 
     def _bootstrap_storage_objects(self) -> None:
@@ -155,8 +163,10 @@ class SupabaseStorageService:
             connection.execute(
                 text(
                     """
+                    -- public = FALSE (RISK-007) : les avatars ne sont lisibles
+                    -- que via une URL signee generee par le backend.
                     INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-                    VALUES (:bucket_id, :bucket_name, TRUE, :file_size_limit, :allowed_mime_types)
+                    VALUES (:bucket_id, :bucket_name, FALSE, :file_size_limit, :allowed_mime_types)
                     ON CONFLICT (id) DO UPDATE
                     SET public = EXCLUDED.public,
                         file_size_limit = EXCLUDED.file_size_limit,
@@ -171,91 +181,11 @@ class SupabaseStorageService:
                 },
             )
 
-            for statement in self._policy_statements():
-                connection.execute(text(statement))
-
-    def _policy_statements(self) -> list[str]:
-        subject_expr = "coalesce(auth.jwt() ->> 'sub', auth.uid()::text)"
-        path_expr = f"(storage.foldername(name))[1] = {subject_expr}"
-        return [
-            f"""
-            DO $$
-            BEGIN
-                IF NOT EXISTS (
-                    SELECT 1
-                    FROM pg_policies
-                    WHERE schemaname = 'storage'
-                      AND tablename = 'objects'
-                      AND policyname = 'avatars_select_own'
-                ) THEN
-                    CREATE POLICY avatars_select_own
-                    ON storage.objects
-                    FOR SELECT
-                    TO authenticated
-                    USING (bucket_id = '{self.bucket}' AND {path_expr});
-                END IF;
-            END
-            $$;
-            """,
-            f"""
-            DO $$
-            BEGIN
-                IF NOT EXISTS (
-                    SELECT 1
-                    FROM pg_policies
-                    WHERE schemaname = 'storage'
-                      AND tablename = 'objects'
-                      AND policyname = 'avatars_insert_own'
-                ) THEN
-                    CREATE POLICY avatars_insert_own
-                    ON storage.objects
-                    FOR INSERT
-                    TO authenticated
-                    WITH CHECK (bucket_id = '{self.bucket}' AND {path_expr});
-                END IF;
-            END
-            $$;
-            """,
-            f"""
-            DO $$
-            BEGIN
-                IF NOT EXISTS (
-                    SELECT 1
-                    FROM pg_policies
-                    WHERE schemaname = 'storage'
-                      AND tablename = 'objects'
-                      AND policyname = 'avatars_update_own'
-                ) THEN
-                    CREATE POLICY avatars_update_own
-                    ON storage.objects
-                    FOR UPDATE
-                    TO authenticated
-                    USING (bucket_id = '{self.bucket}' AND {path_expr})
-                    WITH CHECK (bucket_id = '{self.bucket}' AND {path_expr});
-                END IF;
-            END
-            $$;
-            """,
-            f"""
-            DO $$
-            BEGIN
-                IF NOT EXISTS (
-                    SELECT 1
-                    FROM pg_policies
-                    WHERE schemaname = 'storage'
-                      AND tablename = 'objects'
-                      AND policyname = 'avatars_delete_own'
-                ) THEN
-                    CREATE POLICY avatars_delete_own
-                    ON storage.objects
-                    FOR DELETE
-                    TO authenticated
-                    USING (bucket_id = '{self.bucket}' AND {path_expr});
-                END IF;
-            END
-            $$;
-            """,
-        ]
+            # Plus de policies RLS ici (RISK-006) : elles testaient
+            # `auth.jwt() ->> 'sub'`, or SOUKI n'emet jamais de JWT Supabase Auth.
+            # Elles ne matchaient donc jamais rien — du code decoratif qui donnait
+            # l'illusion d'un controle d'acces. Le bucket est prive et l'acces
+            # passe exclusivement par des URLs signees cote backend.
 
     def upload_avatar(self, user_id: int, content: bytes, content_type: str) -> str:
         """Televerse un avatar apres validation profonde (RISK-001).
@@ -290,7 +220,10 @@ class SupabaseStorageService:
                 "apikey": service_role_key,
                 "Content-Type": "image/jpeg",
                 "x-upsert": "true",
-                "cache-control": "3600",
+                # Cache court (RISK-007) : une photo de profil est une donnee
+                # personnelle. Un cache CDN long survit a une revocation d'acces
+                # — l'objet reste servi par le bord alors que l'origine est fermee.
+                "cache-control": "60",
             },
             method="POST",
         )
@@ -304,11 +237,79 @@ class SupabaseStorageService:
         except error.URLError as exc:
             raise SupabaseStorageError("Impossible de joindre Supabase Storage pour le moment.") from exc
 
-        return self.public_avatar_url(object_path)
+        # On renvoie le CHEMIN (stocke en base), pas une URL : l'URL signee est
+        # generee a la lecture, avec une expiration.
+        return object_path
 
-    def public_avatar_url(self, object_path: str) -> str:
+    def normalize_avatar_path(self, stored_value: Optional[str]) -> Optional[str]:
+        """Ramene une valeur `t_users.avatar_url` a un chemin d'objet.
+
+        Tolere les deux formats pendant la migration : les anciennes lignes
+        contiennent l'URL publique complete, les nouvelles le chemin seul.
+        """
+        value = (stored_value or "").strip()
+        if not value:
+            return None
+
+        if not value.lower().startswith(("http://", "https://")):
+            return value.lstrip("/")
+
+        path = parse.unquote(parse.urlparse(value).path)
+        marker = f"/{self.bucket}/"
+        index = path.find(marker)
+        if index == -1:
+            return None
+        return path[index + len(marker):].lstrip("/") or None
+
+    def resolve_avatar_url(self, stored_value: Optional[str]) -> Optional[str]:
+        """URL signee (TTL court) pour la photo de profil, ou None.
+
+        Ne leve jamais : une photo illisible ne doit pas casser l'affichage du
+        profil, l'appelant retombe simplement sur l'avatar par defaut.
+        """
+        object_path = self.normalize_avatar_path(stored_value)
+        if not object_path:
+            return None
+
+        try:
+            return self.create_signed_url(
+                self.bucket, object_path, AVATAR_SIGNED_URL_TTL_SECONDS
+            )
+        except SupabaseStorageError as exc:
+            print(f"[Avatar] URL signee indisponible pour {object_path}: {exc}")
+            return None
+
+    def create_signed_url(self, bucket: str, object_path: str, expires_in: int) -> str:
+        """Demande a Supabase Storage une URL signee temporaire pour un objet prive."""
+        supabase_url = self._resolve_supabase_url()
+        service_role_key = self._service_role_key()
         encoded_object_path = parse.quote(object_path, safe="/.")
-        return f"{self._resolve_supabase_url()}/storage/v1/object/public/{self.bucket}/{encoded_object_path}"
+
+        sign_request = request.Request(
+            url=f"{supabase_url}/storage/v1/object/sign/{bucket}/{encoded_object_path}",
+            data=json.dumps({"expiresIn": int(expires_in)}).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {service_role_key}",
+                "apikey": service_role_key,
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+
+        try:
+            with request.urlopen(sign_request, timeout=15) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="ignore")
+            raise SupabaseStorageError(f"Signature d'URL refusee: {detail}") from exc
+        except (error.URLError, json.JSONDecodeError, TypeError) as exc:
+            raise SupabaseStorageError("Impossible de joindre Supabase Storage.") from exc
+
+        signed_path = (payload or {}).get("signedURL") or (payload or {}).get("signedUrl")
+        if not signed_path:
+            raise SupabaseStorageError("Reponse de signature inattendue.")
+
+        return f"{supabase_url}/storage/v1{signed_path if signed_path.startswith('/') else '/' + signed_path}"
 
     @staticmethod
     def _reencode_image(content: bytes, allowed_formats: set[str]) -> bytes:

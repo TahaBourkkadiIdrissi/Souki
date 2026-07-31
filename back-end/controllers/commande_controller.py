@@ -22,7 +22,13 @@ from dto.commande_dto import (
 from interfaces.cod_confirmation_service_interface import ICODConfirmationService
 from interfaces.commande_service_interface import ICommandeVocaleService
 from services.business_errors import internal_error_http
-from services.rate_limit_service import user_action_quota
+from services.rate_limit_service import (
+    AI_BASKET_QUOTA_ACTION,
+    AI_BASKET_QUOTA_DETAIL,
+    AI_BASKET_QUOTA_MAX_CALLS,
+    AI_BASKET_QUOTA_WINDOW_SECONDS,
+    user_action_quota,
+)
 from services.scheduler_service import cod_alerte_18h_state
 
 router_voice = APIRouter(prefix="/api", tags=["Voice AI"])
@@ -37,10 +43,8 @@ ALLOWED_AUDIO_FORMATS = {
     "audio/mp3",
     "audio/webm",
 }
-# Quota d'appels IA par utilisateur (text + voice basket) : limite l'abus des
-# appels Gemini factures (VULN-008).
-AI_BASKET_QUOTA_MAX_CALLS = 20
-AI_BASKET_QUOTA_WINDOW_SECONDS = 60 * 60
+# Le quota d'appels IA est desormais defini une seule fois dans
+# services.rate_limit_service et partage avec /api/paniers/generer (VULN-008).
 
 
 def _normalize_audio_content_type(content_type: str | None) -> str:
@@ -116,10 +120,11 @@ def process_text_basket(
     service: ICommandeVocaleService = Depends(get_voice_service)
 ):
     user_action_quota.ensure_within_quota(
-        "ai-basket",
+        AI_BASKET_QUOTA_ACTION,
         principal.user_id,
         AI_BASKET_QUOTA_MAX_CALLS,
         AI_BASKET_QUOTA_WINDOW_SECONDS,
+        AI_BASKET_QUOTA_DETAIL,
     )
     with service:
         return service.traiter_texte(principal.user_id, body.texte)
@@ -132,10 +137,11 @@ def process_voice_basket(
     service: ICommandeVocaleService = Depends(get_voice_service)
 ):
     user_action_quota.ensure_within_quota(
-        "ai-basket",
+        AI_BASKET_QUOTA_ACTION,
         principal.user_id,
         AI_BASKET_QUOTA_MAX_CALLS,
         AI_BASKET_QUOTA_WINDOW_SECONDS,
+        AI_BASKET_QUOTA_DETAIL,
     )
     if not audio or not audio.filename:
         raise HTTPException(status_code=400, detail="Fichier audio manquant")

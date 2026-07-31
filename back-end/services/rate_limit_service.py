@@ -106,6 +106,16 @@ def _build_backend():
     redis_url = os.getenv("REDIS_URL", "").strip()
     if redis_url:
         return _RedisBackend(redis_url)
+
+    # Sans Redis, les compteurs sont process-locaux : avec N workers uvicorn,
+    # chaque limite (anti-brute-force login ET quotas IA) est de fait multipliee
+    # par N, puisque le round-robin repartit les tentatives entre les processus.
+    # On le signale fort : c'est silencieux et invisible en production.
+    logger.warning(
+        "[SECURITE] REDIS_URL absent : rate limiting en memoire, process-local. "
+        "Avec plusieurs workers, les limites de connexion et les quotas IA sont "
+        "multiplies par le nombre de workers. Configurer REDIS_URL en production."
+    )
     return _MemoryBackend()
 
 
@@ -143,6 +153,42 @@ ADMIN_LOGIN_POLICY = LoginRateLimitPolicy(
 )
 
 RATE_LIMIT_DETAIL = "Trop de tentatives de connexion. Reessayez plus tard."
+
+# VULN-014 : /auth/register et /auth/resend-otp ne sont pas authentifies et
+# declenchent chacun un envoi d'email facture (Resend). Le quota par compte ne
+# protege rien tant que creer un compte est gratuit et instantane : la limite
+# utile est celle par IP, en amont de l'authentification.
+SIGNUP_IP_MAX_ATTEMPTS = 5
+SIGNUP_IP_WINDOW_SECONDS = 60 * 60
+SIGNUP_IP_DETAIL = "Trop de demandes depuis cette connexion. Reessayez plus tard."
+
+
+class IpActionQuota:
+    """Quota par adresse IP pour les routes couteuses ouvertes au public."""
+
+    def __init__(self, backend=None) -> None:
+        self._backend = backend or _build_backend()
+
+    def ensure_within_quota(
+        self,
+        action: str,
+        ip: Optional[str],
+        max_calls: int,
+        window_seconds: int,
+        detail: str = SIGNUP_IP_DETAIL,
+    ) -> None:
+        normalized_ip = (ip or "unknown").strip().lower()
+        key = f"souki:ipquota:{action}:{normalized_ip}"
+        count = self._backend.incr_window(key, window_seconds)
+        if count > max_calls:
+            raise HTTPException(
+                status_code=429,
+                detail=detail,
+                headers={"Retry-After": str(window_seconds)},
+            )
+
+
+ip_action_quota = IpActionQuota()
 
 
 class LoginRateLimiter:
@@ -226,6 +272,19 @@ class LoginRateLimiter:
 
 
 login_rate_limiter = LoginRateLimiter()
+
+
+# Quota PARTAGE de toutes les generations IA facturees (VULN-008) :
+# /api/text-basket et /api/voice-basket (Gemini) et /api/paniers/generer (Groq).
+# Un seul compteur pour les trois : sinon un utilisateur cumule les quotas en
+# alternant les routes, et chaque route ajoutee rouvre le robinet.
+AI_BASKET_QUOTA_ACTION = "ai-basket"
+AI_BASKET_QUOTA_MAX_CALLS = 20
+AI_BASKET_QUOTA_WINDOW_SECONDS = 60 * 60
+AI_BASKET_QUOTA_DETAIL = (
+    "Vous avez atteint la limite de generations automatiques pour cette heure. "
+    "Composez votre panier manuellement ou reessayez plus tard."
+)
 
 
 class UserActionQuota:

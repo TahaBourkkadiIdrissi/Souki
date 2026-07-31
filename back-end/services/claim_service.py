@@ -128,7 +128,7 @@ class ClaimService(IClaimService):
                 total_refunded = Decimal("0.00")
 
                 for item_index, item in enumerate(claim_request_data.items):
-                    line = self._validate_and_get_line(line_by_id, item)
+                    line = self._validate_and_get_line(session, line_by_id, item)
                     amount_refunded = self._calculate_refund_amount(line, item.quantity_claimed)
                     is_suspect = recent_claim_count + item_index >= SUSPECT_THRESHOLD
 
@@ -235,6 +235,7 @@ class ClaimService(IClaimService):
 
     def _validate_and_get_line(
         self,
+        session: Session,
         line_by_id: dict[int, LignePanier],
         item: ClaimItemData,
     ) -> LignePanier:
@@ -256,6 +257,23 @@ class ClaimService(IClaimService):
             raise ClaimInvalidRequestError("La quantite reclamee doit etre positive.")
         if claimed_quantity > initial_quantity:
             raise ClaimInvalidRequestError("La quantite reclamee depasse la quantite commandee.")
+
+        # Anti-rejeu (VULN-011) : comparer a la quantite commandee ne suffit pas.
+        # Sans ce cumul, rejouer la meme demande crediterait le wallet a chaque
+        # appel pendant les 24 h de la fenetre de reclamation. Ce qui borne le
+        # remboursement, c'est ce qui RESTE non reclame sur la ligne.
+        already_claimed = self.claim_dao.sum_claimed_quantity(
+            session, ligne_panier_id=item.ligne_panier_id
+        )
+        remaining_quantity = initial_quantity - already_claimed
+        if remaining_quantity <= Decimal("0"):
+            raise ClaimNotEligibleError(
+                "Cette ligne a deja ete integralement remboursee."
+            )
+        if claimed_quantity > remaining_quantity:
+            raise ClaimNotEligibleError(
+                f"Quantite deja remboursee sur cette ligne. Reste remboursable: {remaining_quantity}."
+            )
 
         return line
 

@@ -8,6 +8,11 @@ from interfaces.product_dao_interface import IProductDao
 from sqlalchemy.orm import Session
 
 
+# VULN-012 : plafond par ligne pour toute quantite issue du modele vocal/texte.
+# Au-dela, ce n'est plus une commande d'epicerie mais un vidage de stock.
+MAX_QUANTITE_PAR_LIGNE = 20.0
+
+
 class CatalogueService(ICatalogueService):
     COEFFICIENT_KHDDAR_PRODUIT = {
         "patates": 1.09,
@@ -140,6 +145,24 @@ class CatalogueService(ICatalogueService):
         )
         return [self._to_product_response(p) for p in produits]
 
+    @staticmethod
+    def _borner_quantite(valeur) -> float:
+        """Ramene une quantite proposee par le modele dans un intervalle plausible.
+
+        Une commande de particulier ne depasse pas MAX_QUANTITE_PAR_LIGNE par
+        produit. Une valeur non numerique, negative ou absurde retombe sur 1.
+        """
+        try:
+            quantite = float(valeur)
+        except (TypeError, ValueError):
+            return 1.0
+
+        if quantite != quantite or quantite in (float("inf"), float("-inf")):
+            return 1.0
+        if quantite <= 0:
+            return 1.0
+        return min(quantite, MAX_QUANTITE_PAR_LIGNE)
+
     def valider_et_ajuster_item(
         self, item_gemini: dict
     ) -> Tuple[Optional[LigneCommandeDTO], Optional[str]]:
@@ -154,7 +177,12 @@ class CatalogueService(ICatalogueService):
             if not produit:
                 return None, alias
 
-            qte_demandee = float(item_gemini.get("quantite", 1.0))
+            # VULN-012 : `quantite` vient du modele, donc indirectement du texte
+            # de l'utilisateur (injection de prompt). Le prix est deja pris en
+            # base, jamais du modele — mais sans plafond ici, une reponse forcee
+            # a « quantite: 99999 » sur chaque produit ramenait tout le stock du
+            # catalogue a zero, puisque _traiter_commande decremente aussitot.
+            qte_demandee = self._borner_quantite(item_gemini.get("quantite", 1.0))
             qte_effective = qte_demandee
             stock = float(produit.stock) # type: ignore
             prix_kg = float(produit.prix_kg)# type: ignore
