@@ -34,3 +34,13 @@ class IClaimDao(ABC):
         since: datetime,
     ) -> int:
         pass
+
+    @abstractmethod
+    def sum_claimed_quantity(
+        self,
+        session: Session,
+        *,
+        ligne_panier_id: int,
+    ) -> Decimal:
+        """Quantite deja remboursee sur cette ligne de panier (toutes reclamations)."""
+        pass

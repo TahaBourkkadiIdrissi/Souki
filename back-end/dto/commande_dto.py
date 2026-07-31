@@ -4,7 +4,11 @@ from typing import Optional, List
 
 
 class TextBasketRequest(BaseModel):
-    texte: str
+    # VULN-008 : sans borne, un seul appel (dans le quota) peut pousser un prompt
+    # arbitrairement gros vers Gemini et facturer les tokens correspondants.
+    # Une commande d'epicerie dictee ne depasse jamais quelques centaines de
+    # caracteres.
+    texte: str = Field(min_length=1, max_length=500)
 
 
 class LigneCommandeDTO(BaseModel):

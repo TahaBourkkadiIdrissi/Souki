@@ -108,8 +108,10 @@ class SettingsService:
                 "nom": nom,
                 "email": user.email or "",
                 "telephone": user.phone or "",
-                "photo_url": user.avatar_url,
-                "avatar_url": user.avatar_url,
+                # RISK-007 : la base stocke le chemin de l'objet, jamais une URL
+                # publique. L'URL signee est regeneree a chaque lecture.
+                "photo_url": avatar_storage_service.resolve_avatar_url(user.avatar_url),
+                "avatar_url": avatar_storage_service.resolve_avatar_url(user.avatar_url),
                 "email_verified": bool(user.is_email_verified),
                 "address": {
                     "adresse": address.street if address else "",
@@ -176,7 +178,9 @@ class SettingsService:
             db.close()
 
     def upload_profile_photo(self, user_id: int, content: bytes, content_type: str):
-        avatar_url = avatar_storage_service.upload_avatar(user_id, content, content_type)
+        # upload_avatar renvoie le CHEMIN de l'objet (bucket prive) : c'est lui
+        # qui est persiste. Le front recoit une URL signee a duree limitee.
+        object_path = avatar_storage_service.upload_avatar(user_id, content, content_type)
 
         db = LocalSession()
         try:
@@ -184,9 +188,10 @@ class SettingsService:
             if not user:
                 raise HTTPException(status_code=404, detail="Utilisateur introuvable")
 
-            user.avatar_url = avatar_url
+            user.avatar_url = object_path
             db.commit()
-            return {"photo_url": avatar_url, "avatar_url": avatar_url}
+            signed_url = avatar_storage_service.resolve_avatar_url(object_path)
+            return {"photo_url": signed_url, "avatar_url": signed_url}
         finally:
             db.close()
 

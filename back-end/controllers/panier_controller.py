@@ -18,6 +18,13 @@ from services.ml_panier_service import (
     MLModelUnavailableError,
     MLPanierService,
 )
+from services.rate_limit_service import (
+    AI_BASKET_QUOTA_ACTION,
+    AI_BASKET_QUOTA_DETAIL,
+    AI_BASKET_QUOTA_MAX_CALLS,
+    AI_BASKET_QUOTA_WINDOW_SECONDS,
+    user_action_quota,
+)
 
 
 router_panier = APIRouter(prefix="/api", tags=["Panier"])
@@ -42,6 +49,16 @@ def generer_panier_intelligent(
     principal=Depends(require_permission("client.dashboard.access", "parent.dashboard.access", match="any")),
     service: MLPanierService = Depends(get_ml_panier_service),
 ):
+    # VULN-008 : cette route embarque tout le catalogue dans le prompt systeme
+    # Groq a chaque appel — c'est le prompt le plus cher de l'application. Elle
+    # partage le quota horaire des autres generations IA.
+    user_action_quota.ensure_within_quota(
+        AI_BASKET_QUOTA_ACTION,
+        principal.user_id,
+        AI_BASKET_QUOTA_MAX_CALLS,
+        AI_BASKET_QUOTA_WINDOW_SECONDS,
+        AI_BASKET_QUOTA_DETAIL,
+    )
     try:
         return service.generer_panier(payload, principal.user_id)
     except ValueError as e:

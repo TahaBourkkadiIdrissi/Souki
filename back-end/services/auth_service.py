@@ -34,6 +34,11 @@ OTP_RESEND_LIMIT = 3
 OTP_RESEND_WINDOW_HOURS = 1
 OTP_MAX_ATTEMPTS = 5
 
+# VULN-015 : roles qu'un visiteur peut se donner lui-meme a l'inscription. Tout
+# autre role demande (ADMIN, LIVREUR, FOURNISSEUR...) retombe silencieusement sur
+# CLIENT — ce sont des roles operationnels, provisionnes par un administrateur.
+SELF_ASSIGNABLE_ROLES = {"CLIENT", "PARENT"}
+
 logger = logging.getLogger("souki.otp")
 
 _dao = UserDao()
@@ -72,7 +77,14 @@ class AuthService:
                         detail="Un compte non verifie existe deja pour ce telephone. Utilisez le renvoi du code OTP."
                     )
 
-            role = "CLIENT" if data.role.upper() == "ADMIN" else data.role.upper()
+            # VULN-015 : seuls les roles front-office sont auto-attribuables.
+            # ADMIN etait deja retrograde, mais LIVREUR passait : n'importe qui
+            # pouvait donc s'inscrire avec deliveries.read / deliveries.start_tour
+            # et atteindre l'espace livreur. Les roles operationnels (LIVREUR,
+            # FOURNISSEUR) sont provisionnes par un administrateur.
+            role = data.role.upper()
+            if role not in SELF_ASSIGNABLE_ROLES:
+                role = "CLIENT"
             verification_channel = "email" if data.email else "phone"
 
             new_user = User(
@@ -244,17 +256,37 @@ class AuthService:
         finally:
             db.close()
 
+    @staticmethod
+    def _generic_resend_response(channel: Optional[str] = None) -> dict:
+        """Reponse neutre du renvoi d'OTP (VULN-013).
+
+        `/auth/resend-otp` n'est pas authentifie et prend un user_id brut : une
+        reponse differenciee (404 vs 200) transformait la route en oracle
+        d'existence de compte, enumerable en incrementant l'identifiant. On
+        renvoie donc toujours la meme forme, qu'un envoi ait eu lieu ou non.
+        """
+        return {
+            "message": "Si ce compte existe et n'est pas verifie, un nouveau code OTP a ete envoye.",
+            "is_verified": False,
+            "verification_channel": channel or "email",
+            "verification_target": None,
+            "expires_in_seconds": OTP_EXPIRATION_MINUTES * 60,
+            "resend_available_in_seconds": 60,
+        }
+
     def resend_otp(self, user_id: int, channel: Optional[str] = None):
         db = LocalSession()
         try:
             user = _dao.read(db, user_id)
             if not user:
-                raise HTTPException(status_code=404, detail="Utilisateur introuvable.")
+                # Compte inconnu : meme reponse qu'un envoi reussi, aucun envoi reel.
+                return self._generic_resend_response(channel)
 
             verification_channel = channel or self._resolve_channel(user)
             contact_value = user.email if verification_channel == "email" else user.phone
             if not contact_value:
-                raise HTTPException(status_code=400, detail="Aucun moyen de contact disponible pour cet utilisateur.")
+                # Ne revele pas non plus quels canaux sont renseignes sur ce compte.
+                return self._generic_resend_response(verification_channel)
 
             existing_challenge = self._get_active_challenge(db, user.id, verification_channel)
             now = datetime.utcnow()
@@ -264,11 +296,13 @@ class AuthService:
                     existing_challenge.window_started_at <= now < window_ends_at
                     and existing_challenge.resend_count >= OTP_RESEND_LIMIT
                 ):
+                    # Quota atteint : on n'envoie rien, mais on repond comme pour
+                    # un compte inconnu. Un 429 ici prouverait que le compte
+                    # existe et qu'il est en cours de verification (VULN-013).
                     retry_after = max(1, int((window_ends_at - now).total_seconds()))
-                    raise HTTPException(
-                        status_code=429,
-                        detail=f"Trop d'envois. Reessayez dans {retry_after} secondes."
-                    )
+                    response = self._generic_resend_response(verification_channel)
+                    response["resend_available_in_seconds"] = retry_after
+                    return response
 
             otp_code = self._issue_otp(db, user, verification_channel, reset_rate_limit=False)
             self._send_otp(user, verification_channel, otp_code)
