@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from auth_dependencies import require_permission
+from auth_dependencies import require_client
 from dto.product_dto import ProductResponseDTO
 from services.favorite_service import FavoriteService
 from services.onboarding_service import OnboardingService
@@ -9,14 +9,14 @@ favorite_router = APIRouter(prefix="/api/user", tags=["Favorites"])
 
 
 @favorite_router.get("/favorites", response_model=list[ProductResponseDTO])
-def list_favorites(principal=Depends(require_permission("profile.manage_self"))):
+def list_favorites(principal=Depends(require_client)):
     return FavoriteService().list_favorites(principal.user_id)
 
 
 @favorite_router.post("/favorites/{produit_id}")
 def add_favorite(
     produit_id: int,
-    principal=Depends(require_permission("profile.manage_self")),
+    principal=Depends(require_client),
 ):
     try:
         FavoriteService().add_favorite(principal.user_id, produit_id)
@@ -28,14 +28,14 @@ def add_favorite(
 @favorite_router.delete("/favorites/{produit_id}")
 def remove_favorite(
     produit_id: int,
-    principal=Depends(require_permission("profile.manage_self")),
+    principal=Depends(require_client),
 ):
     FavoriteService().remove_favorite(principal.user_id, produit_id)
     return {"status": "success"}
 
 
 @favorite_router.post("/onboarding")
-def complete_onboarding(principal=Depends(require_permission("profile.manage_self"))):
+def complete_onboarding(principal=Depends(require_client)):
     """Marque l'onboarding comme termine pour le compte courant (idempotent)."""
     if not OnboardingService().complete(principal.user_id):
         raise HTTPException(status_code=404, detail="Utilisateur introuvable")

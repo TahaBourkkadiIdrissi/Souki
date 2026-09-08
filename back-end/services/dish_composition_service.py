@@ -1,3 +1,4 @@
+from operating_mode import preorders_enabled
 """Couche de renforcement deterministe: 100 compositions de plats marocains.
 
 Cette couche est independante du pipeline de generation IA du panier (aucun appel LLM):
@@ -168,10 +169,11 @@ class DishCompositionService:
 
                 quantity = self.scale_quantity(float(ingredient["quantity"]), str(product.unite), factor)
                 stock = max(float(product.stock or 0), 0.0)
-                if stock <= 0:
+                if not preorders_enabled() and stock <= 0:
                     manquants.append(reference)
                     continue
-                quantity = min(quantity, stock)
+                if not preorders_enabled():
+                    quantity = min(quantity, stock)
 
                 unit_price = self._unit_price(product)
                 lignes.append(

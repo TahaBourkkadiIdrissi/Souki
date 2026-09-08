@@ -1,3 +1,4 @@
+from operating_mode import preorders_enabled
 import json
 import os
 import re
@@ -601,7 +602,7 @@ class MLPanierService:
 
     def _line_for_product(self, product: Product, quantity: float) -> LignePanierResponseDTO | None:
         stock = max(float(product.stock or 0), 0.0)
-        effective_quantity = min(quantity, stock) if stock > 0 else quantity
+        effective_quantity = min(quantity, stock) if stock > 0 and not preorders_enabled() else quantity
         if effective_quantity <= 0:
             return None
 
@@ -612,13 +613,13 @@ class MLPanierService:
         unit = str(product.unite or "kg").lower()
         if unit == "kg":
             final_quantity = max(0.5, round(effective_quantity / 0.5) * 0.5)
-            if stock > 0:
+            if stock > 0 and not preorders_enabled():
                 max_pal = int(stock / 0.5) * 0.5
                 if max_pal >= 0.5:
                     final_quantity = min(final_quantity, max_pal)
         else:
             final_quantity = float(max(1, round(effective_quantity)))
-            if stock > 0:
+            if stock > 0 and not preorders_enabled():
                 final_quantity = min(final_quantity, float(int(stock)) or final_quantity)
         if final_quantity <= 0:
             return None

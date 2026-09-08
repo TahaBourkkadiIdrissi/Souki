@@ -1,6 +1,3 @@
-import hashlib
-import json
-from pathlib import Path
 from typing import Dict
 
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -14,47 +11,21 @@ from entities.user_role_entity import UserRole
 from entities.role_permission_entity import RolePermission
 from rbac_config import PERMISSION_DEFINITIONS, ROLE_DEFINITIONS, ROLE_PERMISSION_MAP
 
-_HASH_FILE = Path(__file__).resolve().parent.parent / ".rbac_bootstrap_hash"
-
-
-def _compute_rbac_hash() -> str:
-    payload = json.dumps(
-        {
-            "roles": ROLE_DEFINITIONS,
-            "permissions": PERMISSION_DEFINITIONS,
-            "role_permissions": ROLE_PERMISSION_MAP,
-        },
-        sort_keys=True,
-    )
-    return hashlib.sha256(payload.encode()).hexdigest()
-
-
 class RBACBootstrapService:
     def sync_rbac(self) -> None:
-        current_hash = _compute_rbac_hash()
-        stored_hash = _HASH_FILE.read_text().strip() if _HASH_FILE.exists() else ""
-        config_changed = current_hash != stored_hash
-
         db = LocalSession()
         try:
-            if config_changed:
-                print("[RBAC] Configuration modifiée — synchronisation complète...")
-                role_map = self._ensure_roles(db)
-                permission_map = self._ensure_permissions(db)
-                self._ensure_role_permissions(db, role_map, permission_map)
-            else:
-                print("[RBAC] Configuration inchangée — synchronisation des utilisateurs uniquement.")
-
+            # Always synchronize the target database, independently of local files.
+            role_map = self._ensure_roles(db)
+            permission_map = self._ensure_permissions(db)
+            self._ensure_role_permissions(db, role_map, permission_map)
             self._sync_existing_users(db)
             self._audit_admins(db)
             db.commit()
-
-            if config_changed:
-                _HASH_FILE.write_text(current_hash)
-                print("[RBAC] Bootstrap terminé et hash sauvegardé.")
+            print("[RBAC] Synchronisation terminee.")
         except SQLAlchemyError as exc:
             db.rollback()
-            print(f"[RBAC] Bootstrap échoué: {exc}")
+            raise RuntimeError("Initialisation RBAC échouée.") from exc
         finally:
             db.close()
 

@@ -6,5 +6,17 @@
   "devDependencies": {
     "ffmpeg-static": "^5.3.0",
     "playwright": "^1.62.0"
+  },
+  "name": "souki",
+  "private": true,
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "build": "pnpm -r --filter \"@souki/*\" build",
+    "typecheck": "pnpm -r --filter \"@souki/*\" typecheck",
+    "lint": "pnpm -r --filter \"@souki/*\" lint",
+    "dev:client": "pnpm --filter @souki/client dev",
+    "dev:livreur": "pnpm --filter @souki/livreur dev",
+    "dev:admin": "pnpm --filter @souki/admin dev",
+    "check:boundaries": "node tools/check-frontend-boundaries.mjs"
   }
 }

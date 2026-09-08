@@ -1,3 +1,4 @@
+from operating_mode import preorders_enabled
 from typing import Optional, List
 from sqlalchemy.orm import Session, joinedload
 
@@ -108,7 +109,7 @@ class PanierDaoBD(IPanierDao):
         return (
             session.query(Product)
             .filter(Product.is_active == True)  # noqa: E712
-            .filter(Product.stock > 0)
+            .filter(True if preorders_enabled() else Product.stock > 0)
             .order_by(Product.id.asc())
             .all()
         )
@@ -116,5 +117,5 @@ class PanierDaoBD(IPanierDao):
     def decrement_stock(self, session: Session, product_id: int, quantity: float) -> None:
         """Réduit le stock d'un produit"""
         product = self.get_product_by_id(session, product_id)
-        if product:
+        if product and not preorders_enabled():
             product.stock = float(product.stock) - quantity # type: ignore

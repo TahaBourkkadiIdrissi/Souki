@@ -1,6 +1,7 @@
 import math
 from datetime import date, datetime, time, timezone
 from typing import Optional
+from operating_mode import suppliers_enabled
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload, selectinload
@@ -49,7 +50,7 @@ class AdminExceptionService:
             raisons.append("PENDING_NON_VALIDE")
         if statut in FAILURE_STATUSES:
             raisons.append("ECHEC_LIVRAISON")
-        if getattr(commande, "fournisseur_id", None) is None and statut not in TERMINAL_STATUSES:
+        if suppliers_enabled() and getattr(commande, "fournisseur_id", None) is None and statut not in TERMINAL_STATUSES:
             raisons.append("SANS_FOURNISSEUR")
         if not statut or statut not in TRANSITIONS:
             raisons.append("ABERRANT")

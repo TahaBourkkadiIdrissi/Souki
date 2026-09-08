@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from config import LocalSession, SOUKI_DEPOT_LAT, SOUKI_DEPOT_LNG
+from operating_mode import suppliers_enabled, depot_identity
 from dto.livreur_dto import (
     CodValidationResponseDTO,
     DeliveryEventRequestDTO,
@@ -127,6 +128,8 @@ class LivreurService(ILivreurService):
             for item in sorted_items
         )
         first_row = rows[0] if rows else {}
+        if first_row and not suppliers_enabled():
+            first_row = {**first_row, **{f"pickup_{key}": value for key, value in depot_identity().items()}}
         ramasse_at = first_row.get("ramasse_at")
         pickup = None
         if first_row.get("tournee_id") is not None:
@@ -193,7 +196,7 @@ class LivreurService(ILivreurService):
                     commande=commande,
                     nouveau_statut=PENDING_DELIVERY_STATUS,
                     actor_id=livreur_id,
-                    reason="RAMASSAGE_FOURNISSEUR",
+                    reason="RAMASSAGE_FOURNISSEUR" if suppliers_enabled() else "RAMASSAGE_SOUKI",
                 )
                 commandes_ramassees += 1
 
@@ -509,7 +512,7 @@ class LivreurService(ILivreurService):
                 if tournee is None or tournee.ramasse_at is None:
                     raise HTTPException(
                         status_code=409,
-                        detail="Ramassez d'abord chez le fournisseur.",
+                        detail="Confirmez d'abord le ramassage des commandes.",
                     )
 
             if target_status == DELIVERED_STATUS and self._is_cod_mode(commande.mode_paiement):

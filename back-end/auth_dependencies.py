@@ -79,6 +79,10 @@ def require_permission(*expected_permissions: str, match: str = "all"):
     normalized_permissions = {permission for permission in expected_permissions if permission}
 
     def dependency(principal=Depends(require_auth)):
+        if normalized_permissions & {"checkout.create", "orders.read_self", "client.dashboard.access"}:
+            require_client(principal)
+        if normalized_permissions & {"livreur.dashboard.access", "deliveries.start_tour"}:
+            require_livreur(principal)
         if not normalized_permissions:
             return principal
 
@@ -111,3 +115,15 @@ def ensure_resource_owner(principal, resource_owner_id: Optional[int]) -> None:
     """
     if resource_owner_id is None or int(resource_owner_id) != int(principal.user_id):
         raise HTTPException(status_code=404, detail="Ressource introuvable.")
+
+
+def require_client(principal=Depends(require_auth)):
+    if "CLIENT" not in principal.roles or principal.roles & {"FOURNISSEUR", "LIVREUR", "ADMIN", "ADMIN_SUPER", "PARENT"}:
+        raise HTTPException(status_code=403, detail="Fonction réservée aux comptes clients.")
+    return principal
+
+
+def require_livreur(principal=Depends(require_auth)):
+    if "LIVREUR" not in principal.roles or principal.roles & {"FOURNISSEUR", "ADMIN", "ADMIN_SUPER", "PARENT"}:
+        raise HTTPException(status_code=403, detail="Fonction réservée aux comptes livreurs.")
+    return principal

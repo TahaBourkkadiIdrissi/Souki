@@ -1,3 +1,4 @@
+from operating_mode import preorders_enabled
 import os
 
 from datetime import datetime, time
@@ -136,10 +137,12 @@ class CheckoutService(ICheckoutService):
                     raise ValueError("Chaque ligne du panier doit avoir une quantite positive.")
 
                 product = products_by_id[item.product_id]
+                if not product.is_active:
+                    raise ValueError("Produit indisponible à la précommande.")
                 requested_quantity = float(item.quantity)
                 available_stock = float(product.stock) # type: ignore
 
-                if available_stock < requested_quantity:
+                if not preorders_enabled() and available_stock < requested_quantity:
                     raise ValueError(
                         f"Stock insuffisant pour {product.nom_fr}. Disponible: {available_stock} {product.unite}."
                     )
@@ -154,7 +157,8 @@ class CheckoutService(ICheckoutService):
                 sous_total += line_total
                 total_legumes += requested_quantity
                 total_articles += 1
-                product.stock = available_stock - requested_quantity # type: ignore
+                if not preorders_enabled():
+                    product.stock = available_stock - requested_quantity # type: ignore
 
             total_produits = round(sous_total, 2)
 

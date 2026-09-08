@@ -1,4 +1,5 @@
 import logging
+from operating_mode import suppliers_enabled
 import os
 import re
 import sys
@@ -139,7 +140,7 @@ def bootstrap_database_data() -> None:
 
 
 def initialize_application() -> None:
-    if env_flag("SOUKI_SKIP_DB_INIT", False):
+    if env_flag("SOUKI_SKIP_DB_INIT", is_production_environment()):
         print("[STARTUP] Initialisation base ignoree par SOUKI_SKIP_DB_INIT")
         return
 
@@ -170,7 +171,7 @@ def initialize_application() -> None:
 def get_startup_tasks() -> tuple[AppTask, ...]:
     tasks: list[AppTask] = [AppTask("initialisation application", initialize_application)]
 
-    if env_flag("SOUKI_ENABLE_SCHEDULER", True):
+    if env_flag("SOUKI_ENABLE_SCHEDULER", not is_production_environment()):
         tasks.append(AppTask("scheduler", start_scheduler))
     else:
         print("[STARTUP] Scheduler ignore par SOUKI_ENABLE_SCHEDULER=0")
@@ -181,7 +182,7 @@ def get_startup_tasks() -> tuple[AppTask, ...]:
 def get_shutdown_tasks() -> tuple[AppTask, ...]:
     tasks: list[AppTask] = []
 
-    if env_flag("SOUKI_ENABLE_SCHEDULER", True):
+    if env_flag("SOUKI_ENABLE_SCHEDULER", not is_production_environment()):
         tasks.append(AppTask("scheduler", stop_scheduler))
 
     return tuple(tasks)
@@ -190,6 +191,8 @@ def get_shutdown_tasks() -> tuple[AppTask, ...]:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _ = app
+    from production_checks import validate_production_config
+    validate_production_config()
     print("\n[STARTUP] Demarrage de l'application SOUKI...")
     run_tasks(get_startup_tasks(), "STARTUP")
     print("[STARTUP] Application SOUKI lancee avec succes\n")
@@ -266,6 +269,7 @@ def register_csrf_protection(fastapi_app: FastAPI) -> None:
     allowed_origins = set(get_allowed_origins())
     origin_regex = get_allowed_origin_regex()
     compiled_regex = re.compile(origin_regex) if origin_regex else None
+    production = os.getenv("SOUKI_ENV", os.getenv("APP_ENV", "development")).lower() in {"prod", "production"}
 
     @fastapi_app.middleware("http")
     async def csrf_origin_check(request: Request, call_next):
@@ -274,6 +278,9 @@ def register_csrf_protection(fastapi_app: FastAPI) -> None:
             and request.cookies.get(ACCESS_TOKEN_COOKIE_NAME)
         ):
             origin = request.headers.get("origin")
+            # Nginx overwrites this header; the backend has no public port.
+            if production and (not origin or origin != request.headers.get("x-souki-origin")):
+                return JSONResponse(status_code=403, content={"detail": "Origine non autorisee."})
             if origin and origin not in allowed_origins and not (
                 compiled_regex and compiled_regex.match(origin)
             ):
@@ -315,12 +322,24 @@ def register_performance_middleware(fastapi_app: FastAPI) -> None:
 
 
 def register_routers(fastapi_app: FastAPI) -> None:
+    dormant = (router_supplier, router_supplier_products, router_admin_supplier)
     for router in API_ROUTERS:
+        if not suppliers_enabled() and router in dormant:
+            continue
         fastapi_app.include_router(router)
 
 
 def create_app() -> FastAPI:
-    fastapi_app = FastAPI(title="Fes Delivery Professional API", lifespan=lifespan)
+    fastapi_app = FastAPI(
+        title="Souki API", lifespan=lifespan,
+        docs_url=None if is_production_environment() else "/docs",
+        redoc_url=None if is_production_environment() else "/redoc",
+        openapi_url=None if is_production_environment() else "/openapi.json",
+    )
+
+    @fastapi_app.get("/health", include_in_schema=False)
+    def health():
+        return {"status": "ok"}
     configure_cors(fastapi_app)
     register_csrf_protection(fastapi_app)
     register_exception_handlers(fastapi_app)

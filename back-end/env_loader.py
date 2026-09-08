@@ -9,7 +9,9 @@ REPO_ROOT = BASE_DIR.parent
 
 
 def load_app_env() -> None:
-    """Load shared repo env first, then backend-specific overrides."""
+    """Local defaults only; injected deployment/test variables always win."""
+    if os.getenv("SOUKI_LOAD_ENV_FILES", "1").lower() in {"0", "false", "no"}:
+        return
     merged_env: dict[str, str] = {}
 
     for env_path in (REPO_ROOT / ".env", BASE_DIR / ".env"):
@@ -21,4 +23,4 @@ def load_app_env() -> None:
                 merged_env[key] = value
 
     for key, value in merged_env.items():
-        os.environ[key] = value
+        os.environ.setdefault(key, value)

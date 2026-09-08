@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from config import LocalSession
-from auth_dependencies import require_permission
+from auth_dependencies import require_client
 from dto.product_dto import ProductResponseDTO, SuggestionsRequestDTO
 from interfaces.catalogue_service_interface import ICatalogueService
 from dependencies import get_catalogue_service
@@ -32,7 +32,7 @@ def get_suggestions(
 
 @router_catalogue.get("/user/suggestions", response_model=list[ProductResponseDTO])
 def get_personalized_suggestions(
-    principal=Depends(require_permission("profile.manage_self")),
+    principal=Depends(require_client),
     service: ICatalogueService = Depends(get_catalogue_service),
 ):
     """Suggestions personnalisees de l'utilisateur connecte (favoris + achats)."""

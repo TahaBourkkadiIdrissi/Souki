@@ -1,6 +1,7 @@
 import os
 
 from sqlalchemy import create_engine
+from sqlalchemy.engine import URL
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from env_loader import load_app_env
@@ -26,9 +27,10 @@ DBNAME   = os.getenv("dbname")
 DB_CONNECT_TIMEOUT = int(os.getenv("DB_CONNECT_TIMEOUT", "5"))
 
 # Construct the SQLAlchemy connection string
-DATABASE_URL = (
-    f"postgresql+psycopg2://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}"
-    f"?sslmode=require&connect_timeout={DB_CONNECT_TIMEOUT}"
+DATABASE_URL = os.getenv("DATABASE_URL") or URL.create(
+    "postgresql+psycopg2", username=USER, password=PASSWORD, host=HOST,
+    port=int(PORT) if PORT else 5432, database=DBNAME,
+    query={"sslmode": "require", "connect_timeout": str(DB_CONNECT_TIMEOUT)},
 )
 
 # Créer le moteur avec un pool de connexions
