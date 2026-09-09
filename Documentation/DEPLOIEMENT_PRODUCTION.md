@@ -26,7 +26,7 @@ exécuter une seule fois :
 ```sh
 docker compose --env-file infra/.env.production build
 docker compose --env-file infra/.env.production run --rm backend python scripts/bootstrap.py --apply
-docker compose --env-file infra/.env.production run --rm backend python scripts/provision_admin.py --apply --email admin@souki.co
+docker compose --env-file infra/.env.production run --rm backend python scripts/provision_admin.py --apply --email admin@souki.io
 ```
 
 Le dernier script demande le mot de passe deux fois sans l'afficher. Il crée un
