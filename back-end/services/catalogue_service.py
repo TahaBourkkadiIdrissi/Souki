@@ -1,3 +1,4 @@
+from operating_mode import preorders_enabled
 from typing import List, Optional, Tuple
 
 from config import LocalSession
@@ -188,7 +189,7 @@ class CatalogueService(ICatalogueService):
             prix_kg = float(produit.prix_kg)# type: ignore
             message = None
 
-            if qte_demandee > stock:
+            if not preorders_enabled() and qte_demandee > stock:
                 qte_effective = stock
                 if qte_effective == 0:
                     return None, alias

@@ -71,7 +71,7 @@ class SelfAssignableRolesTests(unittest.TestCase):
             self.assertNotIn(role, SELF_ASSIGNABLE_ROLES)
 
     def test_roles_front_office_auto_attribuables(self):
-        self.assertEqual(SELF_ASSIGNABLE_ROLES, {"CLIENT", "PARENT"})
+        self.assertEqual(SELF_ASSIGNABLE_ROLES, {"CLIENT"})
 
 
 if __name__ == "__main__":

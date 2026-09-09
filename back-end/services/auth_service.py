@@ -37,7 +37,7 @@ OTP_MAX_ATTEMPTS = 5
 # VULN-015 : roles qu'un visiteur peut se donner lui-meme a l'inscription. Tout
 # autre role demande (ADMIN, LIVREUR, FOURNISSEUR...) retombe silencieusement sur
 # CLIENT — ce sont des roles operationnels, provisionnes par un administrateur.
-SELF_ASSIGNABLE_ROLES = {"CLIENT", "PARENT"}
+SELF_ASSIGNABLE_ROLES = {"CLIENT"}
 
 logger = logging.getLogger("souki.otp")
 
@@ -146,6 +146,8 @@ class AuthService:
         db = LocalSession()
         try:
             target_role = (data.role or "CLIENT").upper()
+            if target_role not in {"CLIENT", "LIVREUR", "ADMIN"}:
+                raise HTTPException(status_code=403, detail="Cet espace est désactivé.")
             if target_role == "ADMIN":
                 raise HTTPException(
                     status_code=403,
@@ -330,12 +332,16 @@ class AuthService:
                 return None
 
             normalized_role = (role or "CLIENT").upper()
+            if normalized_role not in {"CLIENT", "LIVREUR"}:
+                raise HTTPException(status_code=403, detail="Cet espace est désactivé.")
 
             db = LocalSession()
             try:
                 user = _dao.find_by_email(db, email)
                 if not user:
-                    initial_role = "CLIENT" if normalized_role == "FOURNISSEUR" else normalized_role
+                    if normalized_role != "CLIENT":
+                        raise HTTPException(status_code=403, detail="Ce compte doit être créé par un administrateur.")
+                    initial_role = "CLIENT"
                     user = User(
                         email=email,
                         role=initial_role,
@@ -609,6 +615,11 @@ class AuthService:
         )
 
     def _assert_target_access(self, principal: AuthorizationPrincipal, target_role: str):
+        if target_role.upper() == "CLIENT":
+            from auth_dependencies import require_client
+            require_client(principal)
+        if target_role.upper() == "LIVREUR" and not principal.has_role("LIVREUR"):
+            raise HTTPException(status_code=403, detail="Compte livreur requis.")
         required_permission = LOGIN_TARGET_PERMISSIONS.get(target_role.upper())
         if not required_permission:
             raise HTTPException(status_code=400, detail="Espace de connexion invalide.")

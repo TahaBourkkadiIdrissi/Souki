@@ -6,7 +6,8 @@ from typing import Any, Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from config import LocalSession
+from config import LocalSession, SOUKI_DEPOT_LAT, SOUKI_DEPOT_LNG
+from operating_mode import suppliers_enabled, depot_identity
 from entities.anomalie_entity import AnomalieLogistique
 from entities.commande_entity import Commande
 from entities.fournisseur_entity import Fournisseur
@@ -117,11 +118,14 @@ class DispatchService(IDispatchService):
                 commandes_sans_fournisseur = [
                     int(commande.id)
                     for commande in commandes
-                    if commande.fournisseur_id is None
+                    if suppliers_enabled() and commande.fournisseur_id is None
                 ]
-                commandes_par_fournisseur: dict[int, list[Commande]] = defaultdict(list)
+                commandes_par_fournisseur: dict[int | None, list[Commande]] = defaultdict(list)
                 for commande in commandes:
-                    if commande.fournisseur_id is not None:
+                    if not suppliers_enabled():
+                        # None is the Souki pickup group, never a synthetic supplier ID.
+                        commandes_par_fournisseur[None].append(commande)
+                    elif commande.fournisseur_id is not None:
                         commandes_par_fournisseur[int(commande.fournisseur_id)].append(commande)
 
                 if not commandes:
@@ -158,21 +162,25 @@ class DispatchService(IDispatchService):
                     if not livreurs_alloues:
                         continue
 
-                    fournisseur = session.get(Fournisseur, fournisseur_id)
-                    if (
-                        fournisseur is None
-                        or fournisseur.latitude is None
-                        or fournisseur.longitude is None
-                    ):
-                        logger.error(
-                            "Dispatch ignore fournisseur_id=%s: coordonnées de ramassage absentes.",
-                            fournisseur_id,
-                        )
-                        commandes_backlog_coordonnees += len(commandes_fournisseur)
-                        continue
+                    if not suppliers_enabled():
+                        pickup_lat = float(SOUKI_DEPOT_LAT)
+                        pickup_lng = float(SOUKI_DEPOT_LNG)
+                    else:
+                        fournisseur = session.get(Fournisseur, fournisseur_id)
+                        if (
+                            fournisseur is None
+                            or fournisseur.latitude is None
+                            or fournisseur.longitude is None
+                        ):
+                            logger.error(
+                                "Dispatch ignore fournisseur_id=%s: coordonnées de ramassage absentes.",
+                                fournisseur_id,
+                            )
+                            commandes_backlog_coordonnees += len(commandes_fournisseur)
+                            continue
 
-                    pickup_lat = float(fournisseur.latitude)
-                    pickup_lng = float(fournisseur.longitude)
+                        pickup_lat = float(fournisseur.latitude)
+                        pickup_lng = float(fournisseur.longitude)
                     commandes_triees = self._sort_commandes_from_pickup(
                         commandes_fournisseur,
                         pickup_lat=pickup_lat,
@@ -217,18 +225,19 @@ class DispatchService(IDispatchService):
                             dedupe_suffix=str(tournee.id),
                         )
 
-                    # Un fournisseur peut etre servi par plusieurs livreurs : la
-                    # cle d'idempotence (fournisseur, date) n'en previent qu'un seul.
-                    notification_service.notify(
-                        session,
-                        user_id=int(fournisseur_id),
-                        event_key="SUPPLIER_PICKUP_SCHEDULED",
-                        data={
-                            "nombre_commandes": len(commandes_fournisseur),
-                            "date_tournee": target_date.isoformat(),
-                        },
-                        dedupe_suffix=f"{fournisseur_id}:{target_date.isoformat()}",
-                    )
+                    if suppliers_enabled():
+                        # Un fournisseur peut etre servi par plusieurs livreurs : la
+                        # cle d'idempotence (fournisseur, date) n'en previent qu'un seul.
+                        notification_service.notify(
+                            session,
+                            user_id=int(fournisseur_id),
+                            event_key="SUPPLIER_PICKUP_SCHEDULED",
+                            data={
+                                "nombre_commandes": len(commandes_fournisseur),
+                                "date_tournee": target_date.isoformat(),
+                            },
+                            dedupe_suffix=f"{fournisseur_id}:{target_date.isoformat()}",
+                        )
 
             return {
                 "status": "success" if commandes_assigned else "no_assignable_orders",
@@ -238,7 +247,8 @@ class DispatchService(IDispatchService):
                 "available_livreurs": len(livreurs),
                 "commandes_sans_fournisseur": len(commandes_sans_fournisseur),
                 "commandes_sans_coordonnees_fournisseur": commandes_backlog_coordonnees,
-                "fournisseurs_sans_livreur": fournisseurs_sans_livreur,
+                "fournisseurs_sans_livreur": [item for item in fournisseurs_sans_livreur if item is not None],
+                "commandes_sans_livreur": len(commandes) - commandes_assigned,
                 "retours_depot": retours_depot,
             }
         except CommandeTransitionError as exc:
@@ -527,7 +537,7 @@ class DispatchService(IDispatchService):
 
     def _allocate_livreurs_by_supplier(
         self,
-        commandes_par_fournisseur: dict[int, list[Commande]],
+        commandes_par_fournisseur: dict[int | None, list[Commande]],
         livreurs: list[Livreur],
     ) -> tuple[dict[int, list[Livreur]], list[int]]:
         supplier_ids = sorted(
@@ -752,16 +762,16 @@ class DispatchService(IDispatchService):
                 else None,
                 "shop_name": str(fournisseur.shop_name)
                 if fournisseur and fournisseur.shop_name
-                else None,
+                else depot_identity()["shop_name"],
                 "address": str(fournisseur.address)
                 if fournisseur and fournisseur.address
-                else None,
+                else depot_identity()["address"],
                 "ville": str(fournisseur.ville)
                 if fournisseur and fournisseur.ville
-                else None,
+                else depot_identity()["ville"],
                 "phone": str(fournisseur.phone)
                 if fournisseur and fournisseur.phone
-                else None,
+                else depot_identity()["phone"],
                 "latitude": float(tournee.pickup_lat)
                 if tournee.pickup_lat is not None
                 else None,

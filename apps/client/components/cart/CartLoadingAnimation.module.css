@@ -1,0 +1,244 @@
+/* ── « La récolte se compose » — scène de génération du panier IA ──
+   Même langage visuel que l'animation d'entrée (globals.css, souki-launch-*) :
+   aube verte + rayons coniques, couronne Higgsfield en orbite (copie floutée
+   derrière = profondeur), panier en osier qui respire, glints de rosée.
+   Tout est neutralisé sous prefers-reduced-motion (politique projet). */
+
+.container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.scene {
+  position: relative;
+  width: 260px;
+  height: 260px;
+}
+
+/* Aube : halo vert qui s'ouvre derrière le panier */
+.bloom {
+  position: absolute;
+  inset: -30px;
+  background: radial-gradient(
+    circle at 50% 46%,
+    rgba(76, 184, 74, 0.18),
+    rgba(143, 214, 154, 0.10) 44%,
+    rgba(255, 255, 255, 0) 72%
+  );
+  animation: bloomIn 700ms ease-out both;
+}
+
+@keyframes bloomIn {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Rayons de soleil en lente rotation, adoucis par un masque radial */
+.rays {
+  position: absolute;
+  inset: -40px;
+  border-radius: 9999px;
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(245, 196, 0, 0.16) 0deg 9deg,
+    rgba(255, 255, 255, 0) 9deg 24deg,
+    rgba(76, 184, 74, 0.09) 24deg 33deg,
+    rgba(255, 255, 255, 0) 33deg 45deg
+  );
+  -webkit-mask-image: radial-gradient(circle, #000 24%, transparent 64%);
+  mask-image: radial-gradient(circle, #000 24%, transparent 64%);
+  animation: fadeIn 500ms ease-out 150ms both, spin 26s linear infinite;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes spinReverse {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+
+/* Couronne de la récolte en orbite autour du panier */
+.wreath {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 240px;
+  height: 240px;
+  margin: -120px 0 0 -120px;
+  animation: fadeIn 500ms ease-out both, spin 18s linear infinite;
+}
+
+.wreathBack {
+  width: 296px;
+  height: 296px;
+  margin: -148px 0 0 -148px;
+  filter: blur(7px) saturate(1.05);
+  opacity: 0.38;
+  /* fadeIn (fill both) écraserait l'opacité de base : fondu dédié vers 0.38. */
+  animation: fadeInSoft 500ms ease-out both, spinReverse 24s linear infinite;
+}
+
+@keyframes fadeInSoft {
+  from { opacity: 0; }
+  to { opacity: 0.38; }
+}
+
+/* Le panier marocain respire au cœur de la couronne */
+.basket {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 128px;
+  height: 128px;
+  margin: -64px 0 0 -64px;
+  object-fit: contain;
+  filter: drop-shadow(0 16px 26px rgba(18, 53, 31, 0.22));
+  animation:
+    basketIn 600ms cubic-bezier(0.34, 1.56, 0.64, 1) both,
+    basketBreath 2.6s ease-in-out 600ms infinite;
+}
+
+@keyframes basketIn {
+  from { transform: scale(0.55); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes basketBreath {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50% { transform: scale(1.045) translateY(-3px); }
+}
+
+/* Finalisation : le panier s'auréole d'or pendant que le ML calcule encore */
+.basketFinalizing {
+  filter: drop-shadow(0 16px 26px rgba(18, 53, 31, 0.22))
+    drop-shadow(0 0 18px rgba(245, 196, 0, 0.55));
+}
+
+/* Glints de rosée sur la couronne */
+.glint {
+  position: absolute;
+  border-radius: 9999px;
+  animation: glintTwinkle 1.9s ease-in-out infinite;
+}
+
+@keyframes glintTwinkle {
+  0%, 100% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1); opacity: 1; }
+}
+
+.labelRow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.percentage {
+  font-size: 2.4rem;
+  font-weight: 900;
+  color: #1e8a3c;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.countdown {
+  color: #f07c00;
+}
+
+.label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #6c7e6e;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.progressTrack {
+  width: 200px;
+  height: 8px;
+  background: #e8f3e9;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #1e8a3c, #4cb84a 55%, #f5c400 85%, #f07c00);
+  border-radius: 99px;
+  transition: width 0.25s ease;
+}
+
+/* ── Phase "finalisation" : barre à 100 % mais requête ML encore en vol ────── */
+
+.unit {
+  font-size: 1.2rem;
+  font-weight: 800;
+  margin-left: 2px;
+  color: #c96a00;
+}
+
+/* La barre pleine scintille doucement pour montrer que ça travaille encore */
+.progressFillFinalizing {
+  background: linear-gradient(90deg, #1e8a3c, #4cb84a, #f5c400, #4cb84a, #1e8a3c);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s linear infinite;
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* Points pulsés quand l'estimation est écoulée mais la réponse pas encore là */
+.dots span {
+  display: inline-block;
+  animation: dotPulse 1.2s ease-in-out infinite;
+}
+
+.dots span:nth-child(2) { animation-delay: 0.2s; }
+.dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dotPulse {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40%           { opacity: 1;    transform: translateY(-4px); }
+}
+
+/* Politique projet : toute animation doit respecter prefers-reduced-motion.
+   La scène reste visible mais posée : aucun mouvement, uniquement l'état. */
+@media (prefers-reduced-motion: reduce) {
+  .bloom,
+  .rays,
+  .wreath,
+  .wreathBack,
+  .basket {
+    animation: none;
+  }
+
+  .glint {
+    animation: none;
+    opacity: 0.7;
+    transform: scale(1);
+  }
+
+  .progressFillFinalizing {
+    animation: none;
+    background: linear-gradient(90deg, #1e8a3c, #4cb84a 55%, #f5c400 85%, #f07c00);
+  }
+
+  .dots span {
+    animation: none;
+    opacity: 0.6;
+  }
+}

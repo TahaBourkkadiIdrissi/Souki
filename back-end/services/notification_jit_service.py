@@ -1,5 +1,6 @@
 from datetime import date, datetime, timezone
 from typing import Any
+from operating_mode import suppliers_enabled
 
 from sqlalchemy.orm import Session
 
@@ -8,6 +9,8 @@ from services.notification_service import notification_service
 
 
 def notifier_fournisseur(session: Session, zone: Any, resultat: Any) -> NotificationOutbox | None:
+    if not suppliers_enabled():
+        return None
     fournisseur_id = getattr(zone, "fournisseur_id", None)
     if fournisseur_id is None:
         return None

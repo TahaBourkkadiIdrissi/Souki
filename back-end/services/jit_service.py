@@ -1,4 +1,5 @@
 import math
+from operating_mode import suppliers_enabled
 from datetime import date, datetime, time
 from typing import Dict, List, Optional
 
@@ -101,7 +102,7 @@ class JITService(IJITService):
             elif (
                 not addr
                 and allow_unlocated_fallback
-                and getattr(zone, "fournisseur_id", None) is not None
+                and (not suppliers_enabled() or getattr(zone, "fournisseur_id", None) is not None)
             ):
                 dans_zone.append(commande)
         return dans_zone
@@ -302,10 +303,11 @@ class JITService(IJITService):
                             if commande.client_id is not None
                             else None
                         )
-                        fournisseur_id = resoudre_fournisseur_pour_adresse(adresse, zones)
+                        fournisseur_id = resoudre_fournisseur_pour_adresse(adresse, zones) if suppliers_enabled() else None
 
                         if (
-                            fournisseur_id is None
+                            suppliers_enabled()
+                            and fournisseur_id is None
                             and allow_unlocated_fallback
                             and zone is not None
                         ):
@@ -317,7 +319,7 @@ class JITService(IJITService):
                             if fallback_fournisseur_id is not None:
                                 fournisseur_id = int(fallback_fournisseur_id)
 
-                        if fournisseur_id is None:
+                        if suppliers_enabled() and fournisseur_id is None:
                             print(
                                 f"[JIT] Commande {commande.id} sans fournisseur résolu; "
                                 "conservée pour le backlog admin."
@@ -532,7 +534,7 @@ class JITService(IJITService):
         if not zones:
             print("Aucune zone JIT active configuree.")
             raise RuntimeError(
-                "Aucune zone JIT active configuree. Activez au moins une zone JIT avec un fournisseur affecte."
+                "Aucune zone JIT active configuree. Activez au moins une zone de livraison JIT."
             )
 
         resultats: Dict[str, dict] = {}
@@ -579,7 +581,7 @@ class JITService(IJITService):
                     print(f"[JIT] {zone_dto.nom_ville}: {nb} commandes verrouillees")
                     if resultat.nombre_commandes > 0 and nb == 0:
                         raise RuntimeError(
-                            "Aucune commande verrouillee: verifiez que la zone a un fournisseur affecte "
+                            "Aucune commande verrouillee: verifiez la configuration de la zone "
                             "et que les clients ont une adresse par defaut geolocalisee dans cette zone."
                         )
                     notifier_fournisseur(zone_session, zone_dto, resultat)

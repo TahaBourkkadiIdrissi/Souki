@@ -1,0 +1,2136 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'mapbox-gl/dist/mapbox-gl.css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* SOUKI Fresh Market - Brand Colors */
+  --green-market: #1E8A3C;
+  --green-fresh: #4CB84A;
+  --orange-cta: #F07C00;
+  --yellow-badge: #F5C400;
+  --blue-trust: #1A4F8A;
+  --bg-card: #F0FAF1;
+  --bg-section: #F5F5F0;
+  --text-body: #3D3D3D;
+  --text-muted: #8A8A8A;
+
+  /* Design System Tokens */
+  --background: #FFFFFF;
+  --foreground: #3D3D3D;
+  --card: #F0FAF1;
+  --card-foreground: #3D3D3D;
+  --popover: #FFFFFF;
+  --popover-foreground: #3D3D3D;
+  --primary: #1E8A3C;
+  --primary-foreground: #FFFFFF;
+  --secondary: #4CB84A;
+  --secondary-foreground: #FFFFFF;
+  --muted: #F5F5F0;
+  --muted-foreground: #8A8A8A;
+  --accent: #F07C00;
+  --accent-foreground: #FFFFFF;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: #E5E7EB;
+  --input: #E5E7EB;
+  --ring: #1E8A3C;
+  --chart-1: #1E8A3C;
+  --chart-2: #4CB84A;
+  --chart-3: #F07C00;
+  --chart-4: #F5C400;
+  --chart-5: #1A4F8A;
+  --radius: 1rem;
+  --sidebar: #1E8A3C;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: #FFFFFF;
+  --sidebar-primary-foreground: #1E8A3C;
+  --sidebar-accent: rgba(255, 255, 255, 0.1);
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: rgba(255, 255, 255, 0.2);
+  --sidebar-ring: #4CB84A;
+}
+
+.dark {
+  --background: #1a1a1a;
+  --foreground: #F5F5F0;
+  --card: #262626;
+  --card-foreground: #F5F5F0;
+  --popover: #262626;
+  --popover-foreground: #F5F5F0;
+  --primary: #4CB84A;
+  --primary-foreground: #FFFFFF;
+  --secondary: #1E8A3C;
+  --secondary-foreground: #FFFFFF;
+  --muted: #333333;
+  --muted-foreground: #8A8A8A;
+  --accent: #F07C00;
+  --accent-foreground: #FFFFFF;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: #404040;
+  --input: #404040;
+  --ring: #4CB84A;
+  --sidebar: #1E8A3C;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: #FFFFFF;
+  --sidebar-primary-foreground: #1E8A3C;
+  --sidebar-accent: rgba(255, 255, 255, 0.1);
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: rgba(255, 255, 255, 0.2);
+  --sidebar-ring: #4CB84A;
+}
+
+@theme inline {
+  /* Police unifiee du site : Poppins pour TOUTES les ecritures. */
+  --font-sans: var(--font-poppins), 'Poppins', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback', monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Custom Souki Colors */
+  --color-green-market: var(--green-market);
+  --color-green-fresh: var(--green-fresh);
+  --color-orange-cta: var(--orange-cta);
+  --color-yellow-badge: var(--yellow-badge);
+  --color-blue-trust: var(--blue-trust);
+  --color-bg-card: var(--bg-card);
+  --color-bg-section: var(--bg-section);
+  --color-text-body: var(--text-body);
+  --color-text-muted: var(--text-muted);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  /* Pas d'overflow sur <html>/<body> : cela cassait le scroll vertical du
+     document. Le debordement horizontal est deja contenu par le wrapper de
+     page (`overflow-x-hidden`). */
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Transitions ciblees (pas transition-all) : on n'anime que des proprietes
+     composables par le GPU pour rester proche de 60 FPS facon natif. */
+  button, a, [role="button"] {
+    transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    transition-duration: 200ms;
+  }
+
+  @media (hover: hover) {
+    button:not(:disabled):hover,
+    a:hover,
+    [role="button"]:hover {
+      @apply opacity-90;
+      transform: translateY(-1px);
+    }
+  }
+
+  button:not(:disabled):active,
+  a:active,
+  [role="button"]:active {
+    transform: scale(0.96) translateY(1px);
+    @apply opacity-80;
+  }
+}
+
+/* ─── Echelle typographique inspiree d'iOS (HIG) ───────────────────────────
+   On garde les polices de marque SOUKI : titres en Poppins, corps en Inter.
+   Ce sont les tailles / interlignes / graisses / tracking facon iOS. */
+.ios-large-title { font-family: var(--font-poppins), sans-serif; font-size: 2.125rem; line-height: 2.5rem;   font-weight: 700; letter-spacing: -0.022em; }
+.ios-title-1     { font-family: var(--font-poppins), sans-serif; font-size: 1.75rem;  line-height: 2.125rem; font-weight: 700; letter-spacing: -0.021em; }
+.ios-title-2     { font-family: var(--font-poppins), sans-serif; font-size: 1.375rem; line-height: 1.75rem;  font-weight: 600; letter-spacing: -0.018em; }
+.ios-title-3     { font-family: var(--font-poppins), sans-serif; font-size: 1.25rem;  line-height: 1.5625rem;font-weight: 600; letter-spacing: -0.015em; }
+.ios-headline    { font-size: 1.0625rem; line-height: 1.375rem;  font-weight: 600; letter-spacing: -0.012em; }
+.ios-body        { font-size: 1.0625rem; line-height: 1.375rem;  font-weight: 400; letter-spacing: -0.012em; }
+.ios-callout     { font-size: 1rem;      line-height: 1.3125rem; font-weight: 400; }
+.ios-subheadline { font-size: 0.9375rem; line-height: 1.25rem;   font-weight: 400; }
+.ios-footnote    { font-size: 0.8125rem; line-height: 1.125rem;  font-weight: 400; color: var(--text-muted); }
+.ios-caption     { font-size: 0.75rem;   line-height: 1rem;      font-weight: 400; color: var(--text-muted); }
+
+/* Custom animations */
+@keyframes pulse-cta {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+@keyframes falling-leaf {
+  0% {
+    transform: translate(0, -20px) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.6;
+  }
+  50% {
+    transform: translate(25px, 60px) rotate(45deg);
+  }
+  90% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translate(-20px, 140px) rotate(90deg);
+    opacity: 0;
+  }
+}
+
+.animate-falling-leaf {
+  animation: falling-leaf 8s linear infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+@keyframes slow-zoom {
+  0% { transform: scale(1.02) translate3d(-1.2%, -0.8%, 0); }
+  50% { transform: scale(1.1) translate3d(1.4%, 0.9%, 0); }
+  100% { transform: scale(1.16) translate3d(-0.8%, 1.2%, 0); }
+}
+
+@keyframes souki-wave {
+  0%, 100% { transform: rotate(0deg); }
+  12% { transform: rotate(-8deg); }
+  24% { transform: rotate(8deg); }
+  36% { transform: rotate(-6deg); }
+  48% { transform: rotate(5deg); }
+  60% { transform: rotate(0deg); }
+}
+
+@keyframes souki-open-hands {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-2px) scale(1.025); }
+}
+
+@keyframes recolte-breathe {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+  35% { transform: translateY(1px) rotate(-0.4deg) scale(1.006, 0.996); }
+  65% { transform: translateY(-2px) rotate(0.35deg) scale(0.996, 1.018); }
+}
+
+@keyframes recolte-leaves {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  35% { transform: rotate(2deg) translateY(0); }
+  65% { transform: rotate(-5deg) translateY(-1px); }
+}
+
+@keyframes recolte-wave {
+  0%, 100% { transform: translate(0, 0) rotate(-6deg); }
+  8% { transform: translate(-4px, 3px) rotate(-24deg); }
+  18% { transform: translate(2px, -5px) rotate(18deg); }
+  30% { transform: translate(-3px, -2px) rotate(-30deg); }
+  42% { transform: translate(2px, -5px) rotate(17deg); }
+  56% { transform: translate(0, 0) rotate(-13deg); }
+}
+
+@keyframes recolte-success {
+  0%, 100% { transform: translateY(0) scale(1); }
+  22% { transform: translateY(2px) scale(1.03, 0.97); }
+  48% { transform: translateY(-9px) scale(0.98, 1.04); }
+  72% { transform: translateY(1px) scale(1.015, 0.985); }
+}
+
+@keyframes recolte-sparkles {
+  0%, 100% { opacity: 0.3; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+@keyframes recolte-open-left {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  14% { transform: translate(4px, 4px) rotate(-12deg); }
+  42%, 72% { transform: translate(-18px, -24px) rotate(38deg); }
+  86% { transform: translate(-7px, -10px) rotate(15deg); }
+}
+
+@keyframes recolte-open-right {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  14% { transform: translate(-4px, 4px) rotate(12deg); }
+  42%, 72% { transform: translate(18px, -24px) rotate(-38deg); }
+  86% { transform: translate(7px, -10px) rotate(-15deg); }
+}
+
+@keyframes recolte-warm-smile {
+  0%, 100% { transform: scaleX(1); }
+  18% { transform: scaleX(0.96) translateY(-1px); }
+  42%, 72% { transform: scaleX(1.22) translateY(2px); }
+}
+
+@keyframes recolte-welcome-body {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+  12% { transform: translateY(3px) rotate(-2deg) scale(1.03, 0.97); }
+  28% { transform: translateY(-6px) rotate(1.4deg) scale(0.97, 1.04); }
+  52% { transform: translateY(-3px) rotate(0.5deg) scale(1); }
+}
+
+@keyframes recolte-wave-hand {
+  0%, 100% { transform: rotate(0deg); }
+  12% { transform: rotate(28deg); }
+  25% { transform: rotate(-34deg); }
+  38% { transform: rotate(29deg); }
+  52% { transform: rotate(-20deg); }
+  66% { transform: rotate(8deg); }
+}
+
+@keyframes recolte-finger-wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  35% { transform: rotate(8deg); }
+  70% { transform: rotate(-5deg); }
+}
+
+@keyframes recolte-shadow-pulse {
+  0%, 100% { transform: scaleX(1); opacity: 0.14; }
+  45% { transform: scaleX(0.84); opacity: 0.09; }
+  72% { transform: scaleX(1.08); opacity: 0.16; }
+}
+
+@keyframes recolte-basket-sway {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  38% { transform: rotate(-2.2deg) translateY(1px); }
+  70% { transform: rotate(1.8deg) translateY(-1px); }
+}
+
+@keyframes recolte-closed-eye-smile {
+  0%, 100% { transform: translateY(0); }
+  42%, 72% { transform: translateY(1px); }
+}
+
+@keyframes pwa-leaf-float {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(-18deg); opacity: 0.72; }
+  32% { transform: translate3d(10px, -14px, 0) rotate(14deg); opacity: 1; }
+  68% { transform: translate3d(-8px, 8px, 0) rotate(-32deg); opacity: 0.82; }
+}
+
+@keyframes pwa-tree-sway {
+  0%, 100% { transform: rotate(-2deg) scaleY(1); }
+  50% { transform: rotate(2deg) scaleY(1.04); }
+}
+
+@keyframes pwa-word-drift {
+  0%, 100% { transform: translate3d(-2px, 0, 0); opacity: 0.1; }
+  50% { transform: translate3d(4px, -3px, 0); opacity: 0.16; }
+}
+
+/* ─── Animation de lancement de l'app installee (PwaLaunchOverlay) ───
+   « Aube de la recolte » : le logo respire des le premier frame (continuite
+   avec le splash iOS blanc) → aube verte + lueur safran + rayons derriere lui
+   → la couronne de legumes photorealiste (generee via Higgsfield, detouree)
+   vient se poser autour du logo avec une vraie physique de ressort, doublee
+   d'une copie floutee plus large (profondeur) → reflet sur le logo → lettres
+   SOUKI a ressort → finale : le vert profond de l'accueil jaillit du coeur du
+   logo (disque qui inonde l'ecran) et l'overlay s'efface dessus, si bien que
+   le dernier frame du splash porte deja la couleur du hero de /pwa-welcome
+   (aucune coupure de luminance entre le splash et l'accueil).
+   Tout est pilote en CSS : l'overlay disparait meme si le JS est lent a
+   s'hydrater (animation-fill-mode), ce qui bouche aussi l'ecran noir d'iOS
+   entre le splash et le premier rendu. Les ressorts sont de vraies courbes
+   echantillonnees via linear() (bloc @supports en fin de section), avec repli
+   cubic-bezier a depassement pour les navigateurs plus anciens.
+   Chronologie : aube 80→950ms · couronne 250→1300ms puis derive 1300→2150ms ·
+   reflet 1000→1650ms · lettrage 1080→1900ms puis sortie 2080ms · crue verte
+   2120→2580ms · fondu final 2420→2650ms (= SEQUENCE_MS du composant). */
+
+/* Le drapeau est pose par le script inline du <head>, avant la premiere peinture. */
+.souki-launch { display: none; }
+:root[data-souki-launch] .souki-launch { display: block; }
+
+@keyframes souki-launch-exit {
+  to { opacity: 0; visibility: hidden; }
+}
+
+/* Le fondu final se joue sur la crue verte deja en place : on revele un hero
+   de la meme couleur, jamais un flash blanc→vert. */
+.souki-launch {
+  animation: souki-launch-exit 230ms ease-out 2420ms forwards;
+}
+
+/* La traversee finale : la scene avance doucement vers l'utilisateur pendant
+   que la couronne, plus rapide, la depasse (parallaxe de profondeur). */
+@keyframes souki-launch-scene-exit {
+  from { transform: scale(1); }
+  to { transform: scale(1.05); }
+}
+
+.souki-launch-scene {
+  animation: souki-launch-scene-exit 480ms cubic-bezier(0.55, 0, 0.8, 0.6) 2120ms forwards;
+}
+
+/* Aube : halo vert qui s'ouvre derriere le logo, rechauffe d'une lueur safran
+   qui monte du bas de l'ecran (le logo porte un soleil levant). */
+@keyframes souki-launch-bloom {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.souki-launch-bloom {
+  background:
+    radial-gradient(
+      circle at 50% 46%,
+      rgba(76, 184, 74, 0.16),
+      rgba(143, 214, 154, 0.10) 42%,
+      rgba(255, 255, 255, 0) 70%
+    ),
+    radial-gradient(
+      ellipse at 50% 88%,
+      rgba(245, 196, 0, 0.12),
+      rgba(255, 255, 255, 0) 58%
+    );
+  animation: souki-launch-bloom 870ms ease-out 80ms both;
+}
+
+/* Rayons de soleil : disque conique adouci par un masque radial, lente derive. */
+@keyframes souki-launch-rays-in {
+  from { opacity: 0; }
+  to { opacity: 0.9; }
+}
+
+@keyframes souki-launch-rays-drift {
+  from { transform: rotate(-16deg); }
+  to { transform: rotate(8deg); }
+}
+
+.souki-launch-rays {
+  width: 680px;
+  height: 680px;
+  left: calc(50% - 340px);
+  top: calc(50% - 340px);
+  border-radius: 9999px;
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(245, 196, 0, 0.14) 0deg 9deg,
+    rgba(255, 255, 255, 0) 9deg 24deg,
+    rgba(76, 184, 74, 0.08) 24deg 33deg,
+    rgba(255, 255, 255, 0) 33deg 45deg
+  );
+  -webkit-mask-image: radial-gradient(circle, #000 26%, transparent 62%);
+  mask-image: radial-gradient(circle, #000 26%, transparent 62%);
+  animation:
+    souki-launch-rays-in 500ms ease-out 200ms both,
+    souki-launch-rays-drift 2050ms ease-in-out 100ms both;
+}
+
+/* Crue verte : le vert profond du hero de /pwa-welcome jaillit du coeur du
+   logo en un disque qui inonde l'ecran (160vmax > diagonale de tout viewport
+   mobile). C'est la piece de continuite de la sortie : le splash se termine
+   SUR la couleur exacte du hero, le fondu final ne change plus la luminance. */
+@keyframes souki-launch-takeover-in {
+  to { transform: scale(1); }
+}
+
+.souki-launch-takeover {
+  left: 50%;
+  top: 50%;
+  width: 160vmax;
+  height: 160vmax;
+  margin-left: -80vmax;
+  margin-top: -80vmax;
+  border-radius: 9999px;
+  background:
+    radial-gradient(circle at 50% 44%, rgba(45, 160, 80, 0.5), rgba(10, 40, 20, 0) 60%),
+    linear-gradient(160deg, #0A2814 0%, #14522A 55%, #1E8A3C 100%);
+  transform: scale(0);
+  animation: souki-launch-takeover-in 460ms cubic-bezier(0.66, 0, 0.34, 1) 2120ms forwards;
+}
+
+/* Couronne de la recolte : elle tournoie du centre vers sa place autour du
+   logo et s'y pose en ressort. Le depassement vient de la timing-function
+   (courbe linear() ou bezier a overshoot), PAS des keyframes : les keyframes
+   d'entree n'ont que deux frames, sinon le ressort rejouerait sur chaque
+   segment. Le fondu d'entree vit dans une animation dediee pour la meme
+   raison. Ensuite : derive douce, puis la couronne perce l'ecran plus vite
+   que la scene en s'effacant au-dessus de la crue verte (parallaxe de
+   traversee). Chaque animation reprend la pose finale de la precedente. */
+.souki-launch-wreath {
+  width: min(94vmin, 384px);
+  height: auto;
+}
+
+@keyframes souki-launch-wreath-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes souki-launch-wreath-in {
+  from { transform: rotate(-38deg) scale(0.24); }
+  to { transform: rotate(0deg) scale(1); }
+}
+
+@keyframes souki-launch-wreath-drift {
+  from { transform: rotate(0deg) scale(1); }
+  to { transform: rotate(5deg) scale(1.015); }
+}
+
+@keyframes souki-launch-wreath-exit {
+  from { transform: rotate(5deg) scale(1.015); opacity: 1; }
+  to { transform: rotate(9deg) scale(1.38); opacity: 0; }
+}
+
+.souki-launch-wreath-front {
+  animation:
+    souki-launch-wreath-fade 320ms linear 250ms both,
+    souki-launch-wreath-in 1050ms cubic-bezier(0.26, 1.16, 0.48, 1) 250ms both,
+    /* forwards, jamais both : un remplissage a rebours pendant le delai
+       ecraserait la rotation d'entree avec la pose from de la derive. */
+    souki-launch-wreath-drift 850ms ease-in-out 1300ms forwards,
+    souki-launch-wreath-exit 480ms cubic-bezier(0.5, 0, 0.75, 0.5) 2120ms forwards;
+}
+
+@keyframes souki-launch-wreath-back-fade {
+  from { opacity: 0; }
+  to { opacity: 0.45; }
+}
+
+@keyframes souki-launch-wreath-back-in {
+  from { transform: rotate(30deg) scale(0.32); }
+  to { transform: rotate(0deg) scale(1); }
+}
+
+@keyframes souki-launch-wreath-back-drift {
+  from { transform: rotate(0deg) scale(1); }
+  to { transform: rotate(-4deg) scale(1.01); }
+}
+
+@keyframes souki-launch-wreath-back-exit {
+  from { transform: rotate(-4deg) scale(1.01); opacity: 0.45; }
+  to { transform: rotate(-6deg) scale(1.16); opacity: 0; }
+}
+
+.souki-launch-wreath-back {
+  width: min(122vmin, 500px);
+  filter: blur(7px) saturate(1.05);
+  opacity: 0.45;
+  animation:
+    souki-launch-wreath-back-fade 340ms linear 150ms both,
+    souki-launch-wreath-back-in 1150ms cubic-bezier(0.26, 1.16, 0.48, 1) 150ms both,
+    /* forwards, jamais both : meme raison que la couronne avant. */
+    souki-launch-wreath-back-drift 850ms ease-in-out 1300ms forwards,
+    souki-launch-wreath-back-exit 480ms cubic-bezier(0.5, 0, 0.75, 0.5) 2120ms forwards;
+}
+
+/* Etincelles : petites lueurs breves entre les deux couronnes. */
+@keyframes souki-launch-sparkle {
+  0% { transform: translate3d(var(--sx), var(--sy), 0) scale(0); opacity: 0; }
+  45% { transform: translate3d(var(--sx), var(--sy), 0) scale(1); opacity: 1; }
+  100% { transform: translate3d(var(--sx), var(--sy), 0) scale(0); opacity: 0; }
+}
+
+.souki-launch-sparkle {
+  border-radius: 9999px;
+  background: var(--c);
+  box-shadow: 0 0 12px 2px var(--c);
+  animation: souki-launch-sparkle 780ms ease-in-out var(--d, 0ms) both;
+}
+
+/* Le logo est present des le premier frame (le splash iOS le montre deja) :
+   il respire au lieu d'apparaitre (deux frames, l'inspiration vient du
+   ressort de la timing-function). A la fin, il gonfle legerement pendant que
+   la crue verte passe derriere lui : le medaillon blanc sur vert profond est
+   le dernier plan du splash, comme l'icone de l'app sur son fond. L'ombre et
+   la respiration vivent sur le medaillon circulaire (le PNG opaque
+   projetterait une ombre rectangulaire). */
+@keyframes souki-launch-logo {
+  from { transform: scale(0.86); }
+  to { transform: scale(1); }
+}
+
+@keyframes souki-launch-logo-lift {
+  to { transform: scale(1.08); }
+}
+
+.souki-launch-logo-wrap {
+  box-shadow: 0 18px 40px rgba(18, 53, 31, 0.16);
+  animation:
+    souki-launch-logo 760ms cubic-bezier(0.34, 1.56, 0.64, 1) both,
+    souki-launch-logo-lift 480ms cubic-bezier(0.66, 0, 0.34, 1) 2150ms forwards;
+}
+
+/* Reflet qui balaie le logo : bande claire limitee aux pixels du logo via masque. */
+@keyframes souki-launch-shine {
+  from { background-position: 130% 0; }
+  to { background-position: -30% 0; }
+}
+
+.souki-launch-shine { display: none; }
+
+@supports ((-webkit-mask-image: url("")) or (mask-image: url(""))) {
+  .souki-launch-shine {
+    display: block;
+    background: linear-gradient(
+      115deg,
+      rgba(255, 255, 255, 0) 32%,
+      rgba(255, 255, 255, 0.85) 50%,
+      rgba(255, 255, 255, 0) 68%
+    );
+    background-size: 250% 100%;
+    background-repeat: no-repeat;
+    -webkit-mask-image: url("/logo3.png");
+    -webkit-mask-size: contain;
+    -webkit-mask-position: center;
+    -webkit-mask-repeat: no-repeat;
+    mask-image: url("/logo3.png");
+    mask-size: contain;
+    mask-position: center;
+    mask-repeat: no-repeat;
+    animation: souki-launch-shine 650ms ease-in-out 1000ms both;
+  }
+}
+
+/* Lettres SOUKI qui se levent une a une avec un leger depassement de ressort,
+   puis la devise. Le wordmark entier s'eclipse vers le haut juste avant la
+   crue verte (le texte sombre serait illisible sur le vert profond). */
+@keyframes souki-launch-letter {
+  from { transform: translateY(18px) scale(0.94); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.souki-launch-letter {
+  animation: souki-launch-letter 430ms cubic-bezier(0.34, 1.56, 0.64, 1) calc(1080ms + var(--d, 0ms)) both;
+}
+
+.souki-launch-tagline {
+  animation: fade-in 420ms ease-out 1500ms both;
+}
+
+@keyframes souki-launch-wordmark-exit {
+  to { transform: translateY(-14px); opacity: 0; }
+}
+
+.souki-launch-wordmark {
+  animation: souki-launch-wordmark-exit 260ms cubic-bezier(0.55, 0, 0.8, 0.6) 2080ms forwards;
+}
+
+/* Vraies courbes de ressort la ou linear() est supporte (Safari ≥ 17.2,
+   Chrome ≥ 113) : pose de la couronne = ressort amorti (~4% de depassement),
+   pop du logo et des lettres = ressort vif (~15%). Les cubic-bezier declares
+   plus haut restent le repli. Les longhands ci-dessous ecrasent uniquement
+   les timing-functions, dans l'ordre des listes d'animations. */
+@supports (animation-timing-function: linear(0, 1)) {
+  :root {
+    --souki-spring-settle: linear(
+      0, 0.0086 1.6%, 0.0344 3.3%, 0.0781 5.1%, 0.1407 7.1%, 0.2246 9.4%,
+      0.3466 12.4%, 0.5842 18.2%, 0.7738 23.5%, 0.8944 27.9%, 0.9585 31.3%,
+      1.0033 35%, 1.0313 39.3%, 1.0437 44.4%, 1.0415 51.4%, 1.0261 61.5%,
+      1.008 74.5%, 1.0014 86.8%, 1
+    );
+    --souki-spring-pop: linear(
+      0, 0.009, 0.035 2.1%, 0.141 4.4%, 0.281 6.1%, 0.723 12.9%, 0.938 16.7%,
+      1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%,
+      1.129 32.8%, 1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%, 0.974 53.8%,
+      0.975 57.1%, 0.997 69.8%, 1.003 76.9%, 1
+    );
+  }
+
+  .souki-launch-wreath-front,
+  .souki-launch-wreath-back {
+    animation-timing-function:
+      linear,
+      var(--souki-spring-settle),
+      ease-in-out,
+      cubic-bezier(0.5, 0, 0.75, 0.5);
+  }
+
+  .souki-launch-logo-wrap {
+    animation-timing-function:
+      var(--souki-spring-pop),
+      cubic-bezier(0.66, 0, 0.34, 1);
+  }
+
+  .souki-launch-letter {
+    animation-timing-function: var(--souki-spring-pop);
+  }
+}
+
+/* Mouvement reduit : couronne posee + logo + lettrage en fondu pur (sans
+   translation), aucun element en mouvement. */
+@keyframes souki-launch-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .souki-launch { animation: souki-launch-exit 260ms ease-in 480ms forwards; }
+  .souki-launch-scene,
+  .souki-launch-wordmark { animation: none; }
+  .souki-launch-bloom,
+  .souki-launch-rays,
+  .souki-launch-takeover,
+  .souki-launch-wreath-back,
+  .souki-launch-sparkle,
+  .souki-launch-shine { display: none; }
+  .souki-launch-wreath-front,
+  .souki-launch-logo-wrap,
+  .souki-launch-letter,
+  .souki-launch-tagline { animation: souki-launch-fade 200ms ease-out both; }
+}
+
+.animate-pulse-cta {
+  animation: pulse-cta 2s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out forwards;
+}
+
+.animate-pop {
+  animation: pop 0.3s ease-out;
+}
+
+.animate-slow-zoom {
+  animation: slow-zoom 8s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.pwa-hero-scene {
+  min-height: 430px;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.18), transparent 34%),
+    linear-gradient(180deg, #12351F 0%, #1E8A3C 58%, #DFF3D6 100%);
+}
+
+.pwa-hero-scene::after {
+  position: absolute;
+  inset: auto 0 0;
+  height: 34%;
+  content: "";
+  background: linear-gradient(180deg, transparent, rgba(246, 247, 239, 0.72));
+  pointer-events: none;
+}
+
+.pwa-hero-avatar {
+  height: 16.5rem;
+  width: 16.5rem;
+  filter: drop-shadow(0 26px 30px rgba(31, 37, 33, 0.24));
+}
+
+.pwa-word {
+  position: absolute;
+  z-index: 0;
+  color: #fff;
+  font-weight: 900;
+  line-height: 0.9;
+  pointer-events: none;
+  animation: pwa-word-drift 8s ease-in-out infinite;
+}
+
+.pwa-word-top {
+  left: -0.35rem;
+  right: -0.35rem;
+  top: 5.8rem;
+  font-size: 4rem;
+  text-align: center;
+}
+
+.pwa-word-bottom {
+  bottom: 8.1rem;
+  left: -0.25rem;
+  right: -0.25rem;
+  font-size: 2.55rem;
+  text-align: center;
+  animation-delay: -2.2s;
+}
+
+.pwa-leaf {
+  position: absolute;
+  z-index: 1;
+  width: 2rem;
+  height: 1.15rem;
+  border-radius: 100% 0 100% 0;
+  background: linear-gradient(135deg, #B7EA84, #1E8A3C);
+  box-shadow: 0 10px 22px rgba(20, 53, 31, 0.16);
+  animation: pwa-leaf-float 5.4s ease-in-out infinite;
+}
+
+.pwa-leaf::after {
+  position: absolute;
+  inset: 50% 14% auto 18%;
+  height: 1px;
+  content: "";
+  background: rgba(255, 255, 255, 0.72);
+  transform: rotate(-22deg);
+}
+
+.pwa-leaf-one {
+  left: 1.15rem;
+  top: 8.7rem;
+}
+
+.pwa-leaf-two {
+  right: 1.35rem;
+  top: 11.6rem;
+  transform: rotate(36deg);
+  animation-delay: -1.4s;
+}
+
+.pwa-leaf-three {
+  left: 2.4rem;
+  bottom: 7.8rem;
+  width: 1.55rem;
+  height: 0.95rem;
+  animation-delay: -2.6s;
+}
+
+.pwa-leaf-four {
+  right: 2.6rem;
+  bottom: 9.4rem;
+  width: 1.65rem;
+  height: 1rem;
+  animation-delay: -3.7s;
+}
+
+.pwa-tree {
+  position: absolute;
+  z-index: 0;
+  bottom: 5.3rem;
+  width: 4rem;
+  height: 7rem;
+  opacity: 0.22;
+  transform-origin: center bottom;
+  animation: pwa-tree-sway 6s ease-in-out infinite;
+}
+
+.pwa-tree::before {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 0.45rem;
+  height: 4rem;
+  content: "";
+  background: rgba(20, 53, 31, 0.5);
+  border-radius: 999px;
+  transform: translateX(-50%);
+}
+
+.pwa-tree::after {
+  position: absolute;
+  left: 50%;
+  bottom: 2.2rem;
+  width: 3.6rem;
+  height: 3.6rem;
+  content: "";
+  background: rgba(255, 255, 255, 0.42);
+  border-radius: 50% 50% 44% 50%;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.pwa-tree-left {
+  left: 0.2rem;
+}
+
+.pwa-tree-right {
+  right: 0.25rem;
+  bottom: 6rem;
+  animation-delay: -2s;
+}
+
+.souki-avatar-wave {
+  animation: souki-wave 4.5s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 15% 85%;
+}
+
+.souki-open-hands {
+  animation: souki-open-hands 3.8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.recolte-avatar {
+  display: inline-block;
+  user-select: none;
+}
+
+.recolte-avatar-body {
+  animation: recolte-breathe 3.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+.recolte-avatar-leaves {
+  animation: recolte-leaves 3.8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+.recolte-avatar-right-arm {
+  transform-box: fill-box;
+  transform-origin: 8% 18%;
+}
+
+.recolte-avatar-left-arm {
+  transform-box: fill-box;
+  transform-origin: 92% 18%;
+}
+
+.recolte-avatar-left-hand,
+.recolte-avatar-right-hand,
+.recolte-avatar-wave-hand,
+.recolte-avatar-wave-finger {
+  transform-box: fill-box;
+}
+
+.recolte-avatar-left-hand {
+  transform-origin: 70% 25%;
+}
+
+.recolte-avatar-right-hand {
+  transform-origin: 30% 25%;
+}
+
+.recolte-avatar-wave-arm {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: 18% 88%;
+}
+
+.recolte-avatar-wave-hand {
+  transform-origin: 22% 78%;
+}
+
+.recolte-avatar-wave-finger {
+  transform-origin: 50% 100%;
+}
+
+.recolte-avatar--welcome .recolte-avatar-right-arm {
+  opacity: 0;
+}
+
+.recolte-avatar--welcome .recolte-avatar-body {
+  animation: recolte-welcome-body 2.8s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
+
+.recolte-avatar--welcome .recolte-avatar-wave-arm {
+  animation: recolte-wave 2.4s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  opacity: 1;
+}
+
+.recolte-avatar--welcome .recolte-avatar-wave-hand {
+  animation: recolte-wave-hand 2.4s ease-in-out infinite;
+}
+
+.recolte-avatar--welcome .recolte-avatar-wave-finger {
+  animation: recolte-finger-wiggle 2.4s ease-in-out infinite;
+}
+
+.recolte-avatar--welcome .recolte-avatar-wave-finger-2 {
+  animation-delay: 80ms;
+}
+
+.recolte-avatar--welcome .recolte-avatar-wave-finger-3 {
+  animation-delay: 150ms;
+}
+
+.recolte-avatar--welcome .recolte-avatar-shadow,
+.recolte-avatar--success .recolte-avatar-shadow {
+  animation: recolte-shadow-pulse 2.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.recolte-avatar--success .recolte-avatar-body {
+  animation: recolte-success 1.6s ease-in-out infinite;
+}
+
+.recolte-avatar-closed-eyes {
+  opacity: 0;
+}
+
+.recolte-avatar--curious .recolte-avatar-eyes {
+  opacity: 0;
+}
+
+.recolte-avatar--curious .recolte-avatar-eye-shine {
+  opacity: 0;
+}
+
+.recolte-avatar--curious .recolte-avatar-closed-eyes {
+  opacity: 1;
+}
+
+.recolte-avatar--curious .recolte-avatar-left-arm {
+  animation: recolte-open-left 3.4s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
+
+.recolte-avatar--curious .recolte-avatar-right-arm {
+  animation: recolte-open-right 3.4s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
+
+.recolte-avatar--curious .recolte-avatar-mouth {
+  animation: recolte-warm-smile 3.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.recolte-avatar--curious .recolte-avatar-left-hand {
+  transform: rotate(-8deg);
+}
+
+.recolte-avatar--curious .recolte-avatar-right-hand {
+  transform: rotate(8deg);
+}
+
+.recolte-avatar--curious .recolte-avatar-closed-eyes {
+  animation: recolte-closed-eye-smile 3.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.recolte-avatar-basket {
+  animation: recolte-basket-sway 3.6s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: top center;
+}
+
+.recolte-avatar-sparkles {
+  animation: recolte-sparkles 2.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recolte-avatar *,
+  .recolte-avatar {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ─── Farmer Avatar Animations ─── */
+
+@keyframes farmer-breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  40% { transform: translateY(-1.5px) scale(1.004, 0.997); }
+  70% { transform: translateY(1px) scale(0.997, 1.006); }
+}
+
+@keyframes farmer-wave {
+  0%, 100% { transform: translate(0, 0) rotate(-4deg); }
+  10% { transform: translate(-3px, 2px) rotate(-20deg); }
+  22% { transform: translate(2px, -4px) rotate(16deg); }
+  36% { transform: translate(-2px, -2px) rotate(-26deg); }
+  50% { transform: translate(2px, -3px) rotate(14deg); }
+  64% { transform: translate(0, 0) rotate(-10deg); }
+}
+
+@keyframes farmer-wave-hand {
+  0%, 100% { transform: rotate(0deg); }
+  14% { transform: rotate(24deg); }
+  28% { transform: rotate(-28deg); }
+  42% { transform: rotate(22deg); }
+  56% { transform: rotate(-16deg); }
+  70% { transform: rotate(6deg); }
+}
+
+@keyframes farmer-finger-wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  30% { transform: rotate(10deg); }
+  65% { transform: rotate(-6deg); }
+}
+
+@keyframes farmer-point-bob {
+  0%, 100% { transform: translateX(0) translateY(0); }
+  30% { transform: translateX(4px) translateY(-2px); }
+  60% { transform: translateX(-2px) translateY(1px); }
+}
+
+@keyframes farmer-explain-body {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-1px) rotate(0.5deg); }
+  50% { transform: translateY(1px) rotate(-0.3deg); }
+  75% { transform: translateY(-0.5px) rotate(0.2deg); }
+}
+
+@keyframes farmer-celebrate-bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  20% { transform: translateY(3px) scale(1.02, 0.97); }
+  45% { transform: translateY(-10px) scale(0.98, 1.04); }
+  70% { transform: translateY(1px) scale(1.01, 0.99); }
+}
+
+@keyframes farmer-celebrate-left {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-8deg); }
+  50% { transform: rotate(4deg); }
+  75% { transform: rotate(-4deg); }
+}
+
+@keyframes farmer-celebrate-right {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(8deg); }
+  50% { transform: rotate(-4deg); }
+  75% { transform: rotate(4deg); }
+}
+
+@keyframes farmer-sparkle-pulse {
+  0%, 100% { opacity: 0.2; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.12); }
+}
+
+@keyframes farmer-shadow-pulse {
+  0%, 100% { transform: scaleX(1); opacity: 0.12; }
+  45% { transform: scaleX(0.82); opacity: 0.08; }
+  72% { transform: scaleX(1.06); opacity: 0.14; }
+}
+
+@keyframes farmer-hat-leaf {
+  0%, 100% { transform: rotate(0deg); }
+  35% { transform: rotate(3deg); }
+  65% { transform: rotate(-4deg); }
+}
+
+@keyframes farmer-welcome-body {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+  14% { transform: translateY(2px) rotate(-1.5deg) scale(1.02, 0.98); }
+  32% { transform: translateY(-5px) rotate(1deg) scale(0.98, 1.03); }
+  56% { transform: translateY(-2px) rotate(0.4deg) scale(1); }
+}
+
+/* Base farmer avatar styles */
+.farmer-avatar {
+  display: inline-block;
+  user-select: none;
+}
+
+.farmer-avatar-body {
+  animation: farmer-breathe 3.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+.farmer-avatar-hat-leaf {
+  animation: farmer-hat-leaf 4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: left center;
+}
+
+.farmer-avatar-shadow {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.farmer-avatar-left-arm {
+  transform-box: fill-box;
+  transform-origin: 90% 15%;
+}
+
+.farmer-avatar-right-arm {
+  transform-box: fill-box;
+  transform-origin: 10% 15%;
+}
+
+.farmer-avatar-left-hand,
+.farmer-avatar-right-hand,
+.farmer-avatar-wave-hand,
+.farmer-avatar-point-hand,
+.farmer-avatar-wave-finger {
+  transform-box: fill-box;
+}
+
+.farmer-avatar-left-hand {
+  transform-origin: 65% 25%;
+}
+
+.farmer-avatar-right-hand {
+  transform-origin: 35% 25%;
+}
+
+.farmer-avatar-wave-arm {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: 15% 90%;
+}
+
+.farmer-avatar-wave-hand {
+  transform-origin: 25% 80%;
+}
+
+.farmer-avatar-wave-finger {
+  transform-origin: 50% 100%;
+}
+
+.farmer-avatar-point-arm {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: 8% 50%;
+}
+
+.farmer-avatar-point-hand {
+  transform-origin: 30% 50%;
+}
+
+.farmer-avatar-celebrate-left,
+.farmer-avatar-celebrate-right {
+  opacity: 0;
+  transform-box: fill-box;
+}
+
+.farmer-avatar-celebrate-left {
+  transform-origin: 85% 90%;
+}
+
+.farmer-avatar-celebrate-right {
+  transform-origin: 15% 90%;
+}
+
+.farmer-avatar-sparkles {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Welcome expression */
+.farmer-avatar--welcome .farmer-avatar-right-arm {
+  opacity: 0;
+}
+
+.farmer-avatar--welcome .farmer-avatar-body {
+  animation: farmer-welcome-body 2.8s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
+
+.farmer-avatar--welcome .farmer-avatar-wave-arm {
+  animation: farmer-wave 2.6s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  opacity: 1;
+}
+
+.farmer-avatar--welcome .farmer-avatar-wave-hand {
+  animation: farmer-wave-hand 2.6s ease-in-out infinite;
+}
+
+.farmer-avatar--welcome .farmer-avatar-wave-finger {
+  animation: farmer-finger-wiggle 2.6s ease-in-out infinite;
+}
+
+.farmer-avatar--welcome .farmer-avatar-wave-finger-2 {
+  animation-delay: 80ms;
+}
+
+.farmer-avatar--welcome .farmer-avatar-wave-finger-3 {
+  animation-delay: 150ms;
+}
+
+.farmer-avatar--welcome .farmer-avatar-shadow {
+  animation: farmer-shadow-pulse 2.6s ease-in-out infinite;
+}
+
+/* Explain expression */
+.farmer-avatar--explain .farmer-avatar-right-arm {
+  opacity: 0;
+}
+
+.farmer-avatar--explain .farmer-avatar-point-arm {
+  opacity: 1;
+  animation: farmer-point-bob 2.8s ease-in-out infinite;
+}
+
+.farmer-avatar--explain .farmer-avatar-body {
+  animation: farmer-explain-body 3.2s ease-in-out infinite;
+}
+
+/* Celebrate expression */
+.farmer-avatar--celebrate .farmer-avatar-left-arm,
+.farmer-avatar--celebrate .farmer-avatar-right-arm {
+  opacity: 0;
+}
+
+.farmer-avatar--celebrate .farmer-avatar-celebrate-left {
+  opacity: 1;
+  animation: farmer-celebrate-left 1.4s ease-in-out infinite;
+}
+
+.farmer-avatar--celebrate .farmer-avatar-celebrate-right {
+  opacity: 1;
+  animation: farmer-celebrate-right 1.4s ease-in-out infinite;
+  animation-delay: 100ms;
+}
+
+.farmer-avatar--celebrate .farmer-avatar-body {
+  animation: farmer-celebrate-bounce 1.6s ease-in-out infinite;
+}
+
+.farmer-avatar--celebrate .farmer-avatar-sparkles {
+  opacity: 1;
+  animation: farmer-sparkle-pulse 1.8s ease-in-out infinite;
+}
+
+.farmer-avatar--celebrate .farmer-avatar-shadow {
+  animation: farmer-shadow-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .farmer-avatar *,
+  .farmer-avatar {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.delivery-sheet-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(26, 115, 232, 0.45) transparent;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.delivery-sheet-toggle {
+  min-height: clamp(2.5rem, 6dvh, 3rem);
+  padding-block: clamp(0.5rem, 1.5dvh, 0.75rem);
+}
+
+.delivery-sheet-handle {
+  width: clamp(2.75rem, 14vw, 4rem);
+  height: clamp(0.3rem, 1.2vw, 0.375rem);
+  flex: none;
+}
+
+.delivery-sheet-toggle-icon {
+  width: clamp(1rem, 4.5vw, 1.25rem);
+  height: clamp(1rem, 4.5vw, 1.25rem);
+  flex: none;
+}
+
+.delivery-sheet-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.delivery-sheet-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+
+.delivery-sheet-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.delivery-sheet-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.delivery-sheet-scroll::-webkit-scrollbar-thumb {
+  background: rgba(26, 115, 232, 0.45);
+  border-radius: 9999px;
+}
+
+.glass-morphism {
+  @apply bg-white/20 backdrop-blur-xl border border-white/30 shadow-[0_8px_32px_0_rgba(0,0,0,0.1)];
+}
+
+.glass-ios26 {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.1)) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+  background-color: transparent !important;
+}
+
+.dark .glass-ios26 {
+  background: linear-gradient(135deg, rgba(38, 38, 38, 0.8), rgba(20, 20, 20, 0.7)) !important;
+  background-color: rgba(38, 38, 38, 0.75) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25) !important;
+  backdrop-filter: blur(40px) saturate(210%) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(210%) !important;
+}
+
+/* Rayons de flou renforcés (frosted glass marqué) mais RAISONNABLES : le coût
+   GPU du backdrop-filter croît avec le rayon, et un élément fixe et flouté
+   (barre de nav, overlays) le repaie à CHAQUE frame de scroll. Les anciennes
+   valeurs (20/35/45/60/80px) faisaient chauffer le téléphone et saccader le
+   scroll pour un rendu quasi identique — d'autant que ces surfaces sont déjà
+   très opaques (bg-white/95), ce qui masque l'essentiel du flou. Divisées par
+   ~2, l'aspect reste franchement « verre dépoli » (le xl de Tailwind = 24px). */
+.backdrop-blur,
+.backdrop-blur-sm {
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+
+.backdrop-blur-md {
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+}
+
+.backdrop-blur-lg {
+  backdrop-filter: blur(22px) !important;
+  -webkit-backdrop-filter: blur(22px) !important;
+}
+
+.backdrop-blur-xl {
+  backdrop-filter: blur(28px) !important;
+  -webkit-backdrop-filter: blur(28px) !important;
+}
+
+.backdrop-blur-2xl {
+  backdrop-filter: blur(36px) !important;
+  -webkit-backdrop-filter: blur(36px) !important;
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-up {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes fade-in-left {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fade-in-right {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-scale-up {
+  animation: scale-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in-left {
+  animation: fade-in-left 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in-right {
+  animation: fade-in-right 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.hover-scale {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hover-scale:hover {
+    transform: translateY(-4px) scale(1.02);
+  }
+}
+
+/* Floating orb animation */
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-8px) scale(1.08); }
+}
+
+.animate-float-slow {
+  animation: floatSlow 4s ease-in-out infinite;
+}
+
+/* Gradient shift animation */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-gradient-shift {
+  background-size: 200% 200%;
+  animation: gradientShift 6s ease infinite;
+}
+
+/* Fade-in-up for cards */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in-up-delay-1 { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards; opacity: 0; }
+.animate-fade-in-up-delay-2 { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards; opacity: 0; }
+.animate-fade-in-up-delay-3 { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards; opacity: 0; }
+
+/* Shake animation for errors */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  15%, 45%, 75% { transform: translateX(-6px); }
+  30%, 60%, 90% { transform: translateX(6px); }
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out;
+}
+
+/* Slow zoom for hero images */
+@keyframes slowZoom {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
+}
+
+.animate-slow-zoom {
+  animation: slowZoom 20s ease-in-out infinite alternate;
+}
+
+/* Staggered animations */
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+.stagger-5 { animation-delay: 0.5s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-up,
+  .animate-scale-up,
+  .animate-fade-in-left,
+  .animate-fade-in-right,
+  .animate-float-slow,
+  .animate-gradient-shift,
+  .animate-shake,
+  .animate-slow-zoom,
+  .hover-scale {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+@media (max-width: 767px) {
+  html {
+    scroll-padding-bottom: 6rem;
+    /* Coupe le chainage d'overscroll (rubber-band qui revele le fond/la barre). */
+    overscroll-behavior-y: none;
+  }
+
+  body {
+    -webkit-tap-highlight-color: rgba(30, 138, 60, 0.12);
+    /* Inertie de defilement facon natif (iOS) + pas de rebond global. */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: none;
+  }
+
+  button,
+  a,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  .mobile-native-surface {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 5.75rem);
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   Scroll-reveal animations (Glovo-inspired)
+   ═══════════════════════════════════════════════════ */
+
+/* Smooth scroll globally */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Scroll-reveal "fail-safe" : contrairement a l'ancienne version (elements
+   caches en opacity:0 qui restaient invisibles si l'IntersectionObserver ne
+   se declenchait pas), le contenu est TOUJOURS visible par defaut. La classe
+   `.revealed`, posee par useScrollReveal a l'entree dans le viewport, ne fait
+   que rejouer une animation d'apparition. Observer absent => pas d'animation,
+   mais jamais de contenu masque. */
+[data-reveal] {
+  opacity: 1;
+}
+
+@keyframes souki-reveal-up {
+  from { opacity: 0; transform: translateY(22px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes souki-reveal-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes souki-reveal-scale {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes souki-reveal-left {
+  from { opacity: 0; transform: translateX(-26px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes souki-reveal-right {
+  from { opacity: 0; transform: translateX(26px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+[data-reveal].revealed {
+  animation: souki-reveal-up 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+[data-reveal="fade"].revealed {
+  animation-name: souki-reveal-fade;
+}
+
+[data-reveal="scale"].revealed {
+  animation-name: souki-reveal-scale;
+  animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+[data-reveal="left"].revealed {
+  animation-name: souki-reveal-left;
+}
+
+[data-reveal="right"].revealed {
+  animation-name: souki-reveal-right;
+}
+
+[data-delay="1"].revealed { animation-delay: 80ms; }
+[data-delay="2"].revealed { animation-delay: 160ms; }
+[data-delay="3"].revealed { animation-delay: 240ms; }
+[data-delay="4"].revealed { animation-delay: 320ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal].revealed {
+    animation: none !important;
+  }
+}
+
+/* Parallax wrapper for background images */
+.parallax-bg {
+  position: relative;
+  overflow: hidden;
+}
+
+.parallax-bg > .parallax-inner {
+  position: absolute;
+  inset: -20% 0;
+  transition: transform 0.1s linear;
+  will-change: transform;
+}
+
+/* Glovo-style card hover lift */
+.glovo-card {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .glovo-card:hover {
+    transform: translateY(-6px) scale(1.015);
+    box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.12);
+  }
+}
+
+/* Gentle floating animation for hero elements */
+@keyframes gentleFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-gentle-float {
+  animation: gentleFloat 5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-gentle-float {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* Subtle pulse glow for CTA buttons */
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(30, 138, 60, 0.4); }
+  50% { box-shadow: 0 0 0 12px rgba(30, 138, 60, 0); }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2.5s ease-in-out infinite;
+}
+
+/* Catalogue bento grid */
+.catalogue-bento-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(11rem, auto);
+  gap: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .catalogue-bento-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-rows: minmax(12.5rem, auto);
+    gap: 1.25rem;
+  }
+}
+
+.catalogue-bento-grid .bento-cell {
+  min-height: 0;
+}
+
+.catalogue-bento-grid .bento-cell > article {
+  height: 100%;
+}
+
+@keyframes avatar-celebrate-pop {
+  0% { transform: translateY(0) scale(1); }
+  25% { transform: translateY(-14px) scale(1.06); }
+  50% { transform: translateY(-6px) scale(1.03); }
+  75% { transform: translateY(-10px) scale(1.04); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+.animate-avatar-celebrate {
+  animation: avatar-celebrate-pop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ─── Animations d'entree de l'accueil PWA (etaient referencees sans etre definies) ─── */
+@keyframes slide-in-down {
+  from { opacity: 0; transform: translateY(-14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes bounce-in {
+  0% { opacity: 0; transform: scale(0.6); }
+  60% { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.animate-slide-in-down { animation: slide-in-down 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-slide-in-up { animation: slide-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-bounce-in { animation: bounce-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+/* Placeholder de recherche qui defile (style marketplace) */
+@keyframes search-hint-cycle {
+  0%, 18% { opacity: 1; transform: translateY(0); }
+  25%, 100% { opacity: 0; transform: translateY(-8px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-in-down,
+  .animate-slide-in-up,
+  .animate-bounce-in {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* ─── Transition de page (fondu natif a chaque navigation) ─── */
+@keyframes pageEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.page-enter {
+  animation: pageEnter 0.28s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter {
+    animation: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   Passe UX 2026-07 : feedback, cascades, skeletons
+   Meme personnalite de mouvement que le reste de l'app :
+   ease "house" cubic-bezier(0.16,1,0.3,1), spring (0.34,1.56,0.64,1).
+   ═══════════════════════════════════════════════════ */
+
+/* Checkmark SVG qui se dessine (succes OTP / checkout).
+   Le path doit avoir pathLength="100". */
+@keyframes souki-check-draw {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 0; }
+}
+
+.souki-check-draw {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: souki-check-draw 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
+}
+
+/* Cercle de succes qui pop derriere le checkmark */
+@keyframes souki-success-pop {
+  0% { opacity: 0; transform: scale(0.4); }
+  70% { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.animate-souki-success-pop {
+  animation: souki-success-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Onde qui s'evanouit autour du cercle de succes */
+@keyframes souki-success-ring {
+  from { opacity: 0.5; transform: scale(0.6); }
+  to { opacity: 0; transform: scale(1.6); }
+}
+
+.animate-souki-success-ring {
+  animation: souki-success-ring 0.9s ease-out 0.2s both;
+}
+
+/* Entree en cascade des listes : chaque item pose --cascade-i.
+   40ms d'ecart, plafonne implicitement par le nombre d'items visibles. */
+@keyframes souki-cascade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-cascade {
+  animation: souki-cascade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--cascade-i, 0) * 40ms);
+}
+
+/* Pop du badge compteur (panier) quand la valeur change */
+@keyframes souki-badge-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+.animate-badge-pop {
+  animation: souki-badge-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Bounce bref de la carte produit a l'ajout au panier */
+@keyframes souki-add-bounce {
+  0% { transform: scale(1); }
+  35% { transform: scale(0.96); }
+  70% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+.animate-add-bounce {
+  animation: souki-add-bounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Skeleton shimmer : balayage lumineux au-dessus du fond pulse */
+@keyframes souki-shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+.souki-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #F3F7F3, #EAF3EB);
+}
+
+.souki-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: souki-shimmer 1.4s ease-in-out infinite;
+}
+
+.dark .souki-skeleton {
+  background: linear-gradient(135deg, #262626, #2e2e2e);
+}
+
+.dark .souki-skeleton::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+}
+
+/* Pulsation douce du compte a rebours JIT quand il reste moins d'une heure */
+@keyframes souki-countdown-urgent {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.animate-countdown-urgent {
+  animation: souki-countdown-urgent 1.6s ease-in-out infinite;
+}
+
+/* Chiffres du countdown / solde : transition douce sans layout shift */
+.souki-tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .souki-check-draw {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .animate-souki-success-pop,
+  .animate-souki-success-ring,
+  .animate-cascade,
+  .animate-badge-pop,
+  .animate-add-bounce,
+  .animate-countdown-urgent {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+
+  .souki-skeleton::after {
+    animation: none;
+  }
+}
+
+/* ============================================================
+   LETTER REVEAL — ecriture "lettre par lettre" (machine a ecrire)
+   100% CSS ; le JS ne fait que poser `.is-typing`.
+   Fail-safe : sans `.is-typing`, tout le texte reste visible.
+   ============================================================ */
+.letter-reveal .lr-word {
+  display: inline-block;
+  white-space: nowrap;
+}
+.letter-reveal .lr-line {
+  display: block;
+}
+.letter-reveal .lr-char {
+  display: inline-block;
+  white-space: pre;
+}
+.letter-reveal.is-typing .lr-char {
+  opacity: 0;
+  /* will-change limité à la phase d'animation : sinon chaque caractère garde
+     en permanence une couche GPU + un tampon de filtre alloués, même une fois
+     le texte écrit et figé. */
+  will-change: transform, opacity, filter;
+  animation: lr-char-in 0.44s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes lr-char-in {
+  0% { opacity: 0; transform: translateY(0.42em); filter: blur(6px); }
+  60% { opacity: 1; }
+  100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+.letter-reveal .lr-caret {
+  display: inline-block;
+  width: 0.07em;
+  height: 1em;
+  margin-left: 0.06em;
+  vertical-align: -0.08em;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0;
+}
+.letter-reveal.is-typing .lr-caret {
+  animation:
+    lr-caret-blink 0.85s steps(1, end) infinite,
+    lr-caret-hide 1ms linear var(--lr-total, 2s) forwards;
+}
+@keyframes lr-caret-blink {
+  0%, 49% { opacity: 0.9; }
+  50%, 100% { opacity: 0; }
+}
+@keyframes lr-caret-hide {
+  to { opacity: 0; }
+}
+
+/* ============================================================
+   MARQUEE — defilement horizontal en boucle (droite -> gauche)
+   Le contenu est duplique en JSX ; on translate de -50%.
+   ============================================================ */
+.marquee {
+  display: flex;
+  overflow: hidden;
+  width: 100%;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+.marquee__track {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--marquee-gap, 3rem);
+  padding-right: var(--marquee-gap, 3rem);
+  width: max-content;
+  animation: marquee-scroll var(--marquee-duration, 26s) linear infinite;
+  will-change: transform;
+}
+.marquee:hover .marquee__track {
+  animation-play-state: paused;
+}
+@keyframes marquee-scroll {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+
+/* ============================================================
+   CONNECTEUR "How it works" — trait pointille anime entre etapes
+   ============================================================ */
+.step-connector {
+  position: relative;
+  height: 2px;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(90deg, rgba(30, 138, 60, 0.35) 0 8px, transparent 8px 16px);
+}
+.step-connector::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(240, 124, 0, 0.9), transparent);
+  width: 40%;
+  animation: connector-run 3.2s ease-in-out infinite;
+}
+@keyframes connector-run {
+  0% { transform: translateX(-60%); opacity: 0; }
+  30% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translateX(260%); opacity: 0; }
+}
+
+/* Motif "reseau / blockchain" pour la tuile concept SOUKI (Innovation) */
+.concept-grid {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.35) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .letter-reveal.is-typing .lr-char {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+  .letter-reveal .lr-caret { display: none !important; }
+  .marquee__track { animation: none !important; }
+  .step-connector::after { animation: none !important; opacity: 0 !important; }
+}
+
+/* ─── PWA welcome header — finitions « cool af » (aurora, anneau, sheen) ─── */
+
+/* Balayage lumineux diagonal qui dérive lentement sur le dégradé de l'en-tête */
+@keyframes pwa-header-aurora {
+  0%   { transform: translateX(-30%) translateY(-8%) rotate(8deg); opacity: 0; }
+  35%  { opacity: 0.55; }
+  65%  { opacity: 0.55; }
+  100% { transform: translateX(120%) translateY(8%) rotate(8deg); opacity: 0; }
+}
+.animate-pwa-aurora {
+  animation: pwa-header-aurora 9s ease-in-out infinite;
+}
+
+/* Anneau conique qui tourne lentement derrière le médaillon-mascotte */
+@keyframes pwa-ring-spin {
+  to { transform: rotate(360deg); }
+}
+.animate-pwa-ring-spin {
+  animation: pwa-ring-spin 12s linear infinite;
+}
+
+/* Reflet qui traverse le prénom (texte en dégradé clippé) */
+@keyframes pwa-text-sheen {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.animate-pwa-text-sheen {
+  background-size: 200% 100%;
+  animation: pwa-text-sheen 4.5s ease-in-out infinite;
+}
+
+/* Pulsation discrète du chiffre des secondes du décompte (« vivant ») */
+@keyframes pwa-tick-pulse {
+  0%, 100% { transform: scale(1); }
+  12%      { transform: scale(1.12); }
+  40%      { transform: scale(1); }
+}
+.animate-pwa-tick-pulse {
+  animation: pwa-tick-pulse 1s ease-out infinite;
+}
+
+/* Filet de lumière qui balaie lentement la hairline sous l'en-tête */
+@keyframes pwa-hairline-shimmer {
+  0%   { background-position: -150% 0; }
+  100% { background-position: 250% 0; }
+}
+.animate-pwa-hairline {
+  background-size: 200% 100%;
+  animation: pwa-hairline-shimmer 3.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pwa-aurora,
+  .animate-pwa-ring-spin,
+  .animate-pwa-text-sheen,
+  .animate-pwa-tick-pulse,
+  .animate-pwa-hairline {
+    animation: none !important;
+  }
+}
+
+/* ============================================================
+   NAVBAR HAUTE WEB (mobile hors PWA installee)
+   La barre basse est remplacee par une navbar haute fixe de 3.5rem
+   (MobileBottomNav en mode web). Ce bloc pousse le contenu sous la
+   barre et decale les en-tetes sticky des pages pour qu'ils se
+   calent sous elle au lieu de passer dessous.
+   ============================================================ */
+@media (max-width: 767px) {
+  body.souki-web-topnav {
+    padding-top: 3.5rem;
+  }
+  body.souki-web-topnav .sticky.top-0 {
+    top: 3.5rem;
+  }
+}

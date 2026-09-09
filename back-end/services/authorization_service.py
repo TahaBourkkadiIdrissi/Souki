@@ -74,6 +74,14 @@ class AuthorizationService:
             raise HTTPException(status_code=403, detail="Compte non verifie")
 
         roles, permissions = self._load_roles_and_permissions(user)
+        from operating_mode import suppliers_enabled
+        if not suppliers_enabled():
+            disabled_roles = {"FOURNISSEUR", "PARENT", "OPS_MANAGER", "CATALOG_MANAGER", "FINANCE_MANAGER", "SUPPORT_AGENT"}
+            if (roles | {str(user.role or "").upper()}) & disabled_roles and not roles & {"ADMIN", "ADMIN_SUPER"}:
+                raise HTTPException(status_code=403, detail="Cet espace est désactivé pour cette version.")
+        if roles & {"ADMIN", "ADMIN_SUPER"}:
+            from rbac_config import PERMISSION_DEFINITIONS
+            permissions = {item["code"] for item in PERMISSION_DEFINITIONS}
         primary_role = self.resolve_primary_role(roles, user.role)
         default_dashboard = self.resolve_default_dashboard(permissions)
 

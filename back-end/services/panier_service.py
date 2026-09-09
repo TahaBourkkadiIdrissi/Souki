@@ -1,3 +1,4 @@
+from operating_mode import preorders_enabled
 from typing import Optional
 
 from config import LocalSession
@@ -113,6 +114,8 @@ class PanierService(IPanierService):
                     raise ValueError("Chaque ligne du panier doit avoir une quantité positive.")
 
                 product = products_by_id[item.product_id]
+                if not product.is_active:
+                    raise ValueError("Produit indisponible à la précommande.")
                 requested_quantity = float(item.quantity)
                 available_stock = float(product.stock) # type: ignore
                 prix_affiche = getattr(product, "prix_affiche", None)
@@ -122,7 +125,7 @@ class PanierService(IPanierService):
                     else float(product.prix_kg) # type: ignore
                 )
 
-                if available_stock < requested_quantity:
+                if not preorders_enabled() and available_stock < requested_quantity:
                     raise ValueError(
                         f"Stock insuffisant pour {product.nom_fr}. "
                         f"Disponible: {available_stock} {product.unite}."

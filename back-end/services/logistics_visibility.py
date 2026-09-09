@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from typing import Any
+from operating_mode import suppliers_enabled
 
 
 SUPPLIER_VISIBLE_STATUSES = {"VERROUILLEE", "EN_ATTENTE_LIVREUR", "A_LIVRER"}
@@ -29,6 +30,6 @@ def is_supplier_order_visible(commande: Any, fournisseur_id: int, today: date) -
 def is_livreur_tournee_row_visible(row: dict[str, Any], today: date) -> bool:
     return (
         _as_date(row.get("date_tournee")) == today
-        and row.get("fournisseur_id") is not None
+        and (not suppliers_enabled() or row.get("fournisseur_id") is not None)
         and _normalize_status(row.get("statut")) in LIVREUR_VISIBLE_STATUSES
     )

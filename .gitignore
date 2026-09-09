@@ -154,6 +154,7 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 .venv
+.pnpm-store/
 
 regles.txt
 *.md

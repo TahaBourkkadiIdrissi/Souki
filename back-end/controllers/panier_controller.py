@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from auth_dependencies import require_auth, require_permission
+from auth_dependencies import require_client, require_permission
 from dependencies import get_dish_composition_service, get_ml_panier_service, get_panier_service
 from dto.panier_dto import (
     DishCompositionResponseDTO,
@@ -108,7 +108,7 @@ def get_dish_composition(
 @router_panier.get("/paniers/{panier_id}", response_model=PanierDetailsDTO)
 def get_panier_checkout(
     panier_id: int,
-    principal=Depends(require_auth),
+    principal=Depends(require_client),
     service: IPanierService = Depends(get_panier_service),
 ):
     # Anti-IDOR (VULN-004) : le panier est charge avec le proprietaire courant ;

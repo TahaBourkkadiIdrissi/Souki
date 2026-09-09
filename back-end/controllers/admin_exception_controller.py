@@ -1,4 +1,5 @@
 from datetime import date
+from operating_mode import suppliers_enabled
 
 from fastapi import APIRouter, Depends, Query
 
@@ -58,6 +59,8 @@ def rattacher_fournisseur(
 ):
     session = LocalSession()
     try:
+        if not suppliers_enabled():
+            raise HTTPException(status_code=404, detail="Fonction indisponible.")
         return AdminExceptionService(session).rattacher_fournisseur(
             commande_id,
             payload.fournisseur_id,

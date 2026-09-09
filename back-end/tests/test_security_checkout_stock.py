@@ -53,6 +53,7 @@ def _product(product_id=1, stock=5.0, prix=10.0):
     return SimpleNamespace(
         id=product_id,
         nom_fr="Tomate",
+        is_active=True,
         unite="kg",
         stock=stock,
         prix_kg=prix,

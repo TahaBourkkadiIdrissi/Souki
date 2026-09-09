@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
-from auth_dependencies import require_auth
+from auth_dependencies import require_auth, require_client
 from dto.settings_dto import (
     AddressUpdateDTO,
     ChangePasswordDTO,
@@ -104,15 +104,15 @@ def delete_account(data: DeleteAccountDTO, principal=Depends(require_auth)):
 
 
 @settings_router.get("/wallet")
-def get_wallet(principal=Depends(require_auth)):
+def get_wallet(principal=Depends(require_client)):
     return _service.get_wallet(principal.user_id)
 
 
 @settings_router.post("/wallet/activate")
-def activate_wallet(data: WalletActivationDTO, principal=Depends(require_auth)):
+def activate_wallet(data: WalletActivationDTO, principal=Depends(require_client)):
     return _service.activate_wallet(principal.user_id, data)
 
 
 @settings_router.post("/parrainage/generate")
-def generate_parrainage_code(principal=Depends(require_auth)):
+def generate_parrainage_code(principal=Depends(require_client)):
     return _service.generate_parrainage_code(principal.user_id)

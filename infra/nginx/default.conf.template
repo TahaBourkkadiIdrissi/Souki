@@ -1,0 +1,66 @@
+server_tokens off;
+server {
+    listen 80 default_server;
+    server_name _;
+    return 444;
+}
+server {
+    listen 80;
+    server_name ${CLIENT_HOST} ${LIVREUR_HOST} ${ADMIN_HOST};
+    return 308 https://$host$request_uri;
+}
+server {
+    listen 443 ssl default_server;
+    ssl_reject_handshake on;
+}
+server {
+    listen 443 ssl;
+    server_name ${CLIENT_HOST};
+    ssl_certificate /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    client_max_body_size 15m;
+    location /backend/ {
+        include /etc/nginx/proxy.conf;
+        proxy_pass http://backend:8000/;
+        add_header Cache-Control "no-store" always;
+    }
+    location / {
+        include /etc/nginx/proxy.conf;
+        proxy_pass http://client:3000;
+    }
+}
+server {
+    listen 443 ssl;
+    server_name ${LIVREUR_HOST};
+    ssl_certificate /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    client_max_body_size 15m;
+    location /backend/ {
+        include /etc/nginx/proxy.conf;
+        proxy_pass http://backend:8000/;
+        add_header Cache-Control "no-store" always;
+    }
+    location / {
+        include /etc/nginx/proxy.conf;
+        proxy_pass http://livreur:3000;
+    }
+}
+server {
+    listen 443 ssl;
+    server_name ${ADMIN_HOST};
+    ssl_certificate /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    client_max_body_size 15m;
+    location /backend/ {
+        include /etc/nginx/proxy.conf;
+        proxy_pass http://backend:8000/;
+        add_header Cache-Control "no-store" always;
+    }
+    location / {
+        include /etc/nginx/proxy.conf;
+        proxy_pass http://admin:3000;
+    }
+}

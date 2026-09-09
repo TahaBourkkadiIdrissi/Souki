@@ -1,3 +1,4 @@
+from operating_mode import preorders_enabled
 import re
 import threading
 import time
@@ -155,7 +156,7 @@ class ProductDaoBD(IProductDao):
             .filter(Product.niveau.in_([2, 3]))
             .filter(Product.is_active == True)  # noqa: E712
             .filter(Product.prix_affiche.isnot(None))
-            .filter(Product.stock > 0)
+            .filter(True if preorders_enabled() else Product.stock > 0)
             .filter(~Product.nom_fr.ilike("Tomate test"))
             .filter(~Product.nom_fr.ilike("Taha"))
             .filter(~Product.nom_fr.ilike("Hamza"))
@@ -215,7 +216,7 @@ class ProductDaoBD(IProductDao):
                 session.query(Product)
                 .filter(Product.id.in_(personalized_ids))
                 .filter(Product.is_active == True)  # noqa: E712
-                .filter(Product.stock > 0)
+                .filter(True if preorders_enabled() else Product.stock > 0)
                 .all()
             )
 
@@ -240,6 +241,8 @@ class ProductDaoBD(IProductDao):
 
     def decrement_stock(self, session: Session, product_id: int, quantity: float) -> bool:
         product = session.query(Product).filter(Product.id == product_id).first()
+        if preorders_enabled():
+            return bool(product and product.is_active)
         if product and float(product.stock) >= quantity:
             product.stock = float(product.stock) - quantity
             session.flush()  # le commit est gere par le service appelant (__exit__)

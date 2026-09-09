@@ -212,7 +212,7 @@ class DeliveryPickupGuardTests(unittest.TestCase):
             service.apply_delivery_event(101, 1, self._payload())
 
         self.assertEqual(context.exception.status_code, 409)
-        self.assertEqual(context.exception.detail, "Ramassez d'abord chez le fournisseur.")
+        self.assertEqual(context.exception.detail, "Confirmez d'abord le ramassage des commandes.")
 
     @patch("services.livreur_service.changer_statut")
     def test_en_route_autorise_apres_ramassage(self, changer_statut_mock):

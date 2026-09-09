@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
+from operating_mode import suppliers_enabled
 
 from auth_dependencies import require_permission
 from config import LocalSession
@@ -16,11 +17,15 @@ class ZoneAdminPayload(BaseModel):
     lat_centre: float = Field(ge=-90, le=90)
     lng_centre: float = Field(ge=-180, le=180)
     rayon_km: float = Field(gt=0, le=500)
-    fournisseur_id: int
+    fournisseur_id: int | None = None
     actif: bool = True
 
 
-def _validate_supplier(session, fournisseur_id: int) -> None:
+def _validate_supplier(session, fournisseur_id: int | None) -> None:
+    if not suppliers_enabled():
+        if fournisseur_id is not None:
+            raise HTTPException(status_code=422, detail="Le module fournisseur est désactivé.")
+        return
     fournisseur = (
         session.query(Fournisseur)
         .filter(Fournisseur.user_id == fournisseur_id)

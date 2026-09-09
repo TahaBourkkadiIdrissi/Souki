@@ -1,0 +1,89 @@
+name: souki
+services:
+  backend:
+    image: souki-backend:local
+    build:
+      context: .
+      dockerfile: back-end/Dockerfile
+    env_file: ./infra/.env.production
+    environment:
+      SOUKI_ENV: production
+      SOUKI_LOAD_ENV_FILES: "0"
+      SOUKI_SKIP_DB_INIT: "1"
+      SOUKI_ENABLE_SCHEDULER: "0"
+      SOUKI_ENABLE_SUPPLIERS: "0"
+      SOUKI_PREORDERS: "1"
+      COOKIE_SECURE: "1"
+      SOUKI_TRUSTED_IP_HEADER: X-Real-IP
+    restart: unless-stopped
+    init: true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  scheduler:
+    image: souki-backend:local
+    env_file: ./infra/.env.production
+    environment:
+      SOUKI_ENV: production
+      SOUKI_LOAD_ENV_FILES: "0"
+      SOUKI_SKIP_DB_INIT: "1"
+      SOUKI_ENABLE_SCHEDULER: "0"
+      SOUKI_ENABLE_SUPPLIERS: "0"
+      SOUKI_PREORDERS: "1"
+      COOKIE_SECURE: "1"
+    command: ["python", "scripts/run_scheduler.py"]
+    restart: unless-stopped
+    init: true
+    depends_on:
+      backend:
+        condition: service_healthy
+  client:
+    build:
+      context: .
+      dockerfile: apps/client/Dockerfile
+      args:
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
+        NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: ${NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN:-}
+    restart: unless-stopped
+    init: true
+  livreur:
+    build:
+      context: .
+      dockerfile: apps/livreur/Dockerfile
+      args:
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
+        NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: ${NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN:-}
+    restart: unless-stopped
+    init: true
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+      args:
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
+        NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: ${NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN:-}
+    restart: unless-stopped
+    init: true
+  nginx:
+    image: nginx:1.28-alpine
+    ports: ["80:80", "443:443"]
+    environment:
+      CLIENT_HOST: ${CLIENT_HOST:?Renseigner CLIENT_HOST}
+      LIVREUR_HOST: ${LIVREUR_HOST:?Renseigner LIVREUR_HOST}
+      ADMIN_HOST: ${ADMIN_HOST:?Renseigner ADMIN_HOST}
+    volumes:
+      - ./infra/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./infra/nginx/proxy.conf:/etc/nginx/proxy.conf:ro
+      - ./infra/certs:/etc/nginx/certs:ro
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      client:
+        condition: service_started
+      livreur:
+        condition: service_started
+      admin:
+        condition: service_started
