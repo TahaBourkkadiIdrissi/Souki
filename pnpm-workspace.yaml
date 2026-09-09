@@ -1,9 +1,10 @@
 packages:
   - apps/*
   - packages/*
-onlyBuiltDependencies:
-  - sharp
-  - ffmpeg-static
+allowBuilds:
+  ffmpeg-static: true
+  sharp: true
+  unrs-resolver: true
 overrides:
   lodash: ">=4.18.0"
   postcss: ">=8.5.16"
