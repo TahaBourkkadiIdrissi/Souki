@@ -172,7 +172,7 @@ class EmailDeliveryService:
         return bool(self.resend_api_key and self.resend_from)
 
     def send_otp_email(self, recipient: str, code: str):
-        """Envoie le code OTP par email via Resend (domaine souki.io verifie).
+        """Envoie le code OTP par email via Resend (domaine souki.app verifie).
 
         Regles de securite (VULN-002) : ni le code ni le destinataire ne sont
         journalises ; toute erreur remonte en EmailDeliveryException avec un
