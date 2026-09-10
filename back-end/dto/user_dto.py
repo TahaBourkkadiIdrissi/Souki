@@ -70,6 +70,32 @@ class GoogleLoginRequest(BaseModel):
         return role
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=20, max_length=4096)
+    new_password: str
+    confirm_password: str
+
+    @validator("new_password")
+    def validate_new_password(cls, value):
+        if len(value) < 8:
+            raise ValueError("Le mot de passe doit contenir au moins 8 caractères")
+        if not any(char.isupper() for char in value):
+            raise ValueError("Le mot de passe doit contenir au moins une lettre majuscule")
+        if not any(char.isdigit() for char in value):
+            raise ValueError("Le mot de passe doit contenir au moins un chiffre")
+        return value
+
+    @validator("confirm_password")
+    def validate_confirmation(cls, value, values):
+        if values.get("new_password") and value != values["new_password"]:
+            raise ValueError("Les mots de passe ne correspondent pas")
+        return value
+
+
 class OTPVerifyRequest(BaseModel):
     user_id: int
     code: str

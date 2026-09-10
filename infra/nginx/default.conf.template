@@ -1,4 +1,11 @@
 server_tokens off;
+proxy_cache_path /var/cache/nginx/souki_static
+    levels=1:2
+    keys_zone=souki_static:20m
+    max_size=1g
+    inactive=7d
+    use_temp_path=off;
+
 server {
     listen 80 default_server;
     server_name _;
@@ -25,6 +32,23 @@ server {
         proxy_pass http://backend:8000/;
         add_header Cache-Control "no-store" always;
     }
+    location ^~ /_next/static/ {
+        include /etc/nginx/proxy.conf;
+        proxy_pass http://client:3000;
+        proxy_cache souki_static;
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+        proxy_cache_lock on;
+        proxy_cache_valid 200 7d;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+    }
+    location ~* ^/(?!backend/).+\.(?:avif|gif|ico|jpe?g|png|svg|webp)$ {
+        include /etc/nginx/proxy.conf;
+        proxy_pass http://client:3000;
+        proxy_buffering off;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "public, max-age=86400" always;
+    }
     location / {
         include /etc/nginx/proxy.conf;
         proxy_pass http://client:3000;
@@ -42,6 +66,23 @@ server {
         proxy_pass http://backend:8000/;
         add_header Cache-Control "no-store" always;
     }
+    location ^~ /_next/static/ {
+        include /etc/nginx/proxy.conf;
+        proxy_pass http://livreur:3000;
+        proxy_cache souki_static;
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+        proxy_cache_lock on;
+        proxy_cache_valid 200 7d;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+    }
+    location ~* ^/(?!backend/).+\.(?:avif|gif|ico|jpe?g|png|svg|webp)$ {
+        include /etc/nginx/proxy.conf;
+        proxy_pass http://livreur:3000;
+        proxy_buffering off;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "public, max-age=86400" always;
+    }
     location / {
         include /etc/nginx/proxy.conf;
         proxy_pass http://livreur:3000;
@@ -58,6 +99,23 @@ server {
         include /etc/nginx/proxy.conf;
         proxy_pass http://backend:8000/;
         add_header Cache-Control "no-store" always;
+    }
+    location ^~ /_next/static/ {
+        include /etc/nginx/proxy.conf;
+        proxy_pass http://admin:3000;
+        proxy_cache souki_static;
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+        proxy_cache_lock on;
+        proxy_cache_valid 200 7d;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+    }
+    location ~* ^/(?!backend/).+\.(?:avif|gif|ico|jpe?g|png|svg|webp)$ {
+        include /etc/nginx/proxy.conf;
+        proxy_pass http://admin:3000;
+        proxy_buffering off;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "public, max-age=86400" always;
     }
     location / {
         include /etc/nginx/proxy.conf;
