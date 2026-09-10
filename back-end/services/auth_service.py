@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import HTTPException
+from google.auth.exceptions import GoogleAuthError, TransportError
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 
@@ -324,54 +325,78 @@ class AuthService:
         finally:
             db.close()
 
-    def google_login(self, token: str, role: str = "CLIENT"):
+    @staticmethod
+    def _verify_google_identity(token: str):
+        if not GOOGLE_CLIENT_ID:
+            raise HTTPException(
+                status_code=503,
+                detail="La connexion Google n'est pas configurée sur le serveur.",
+            )
+
         try:
             idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), GOOGLE_CLIENT_ID)
-            email = idinfo.get("email")
-            if not email:
-                return None
-
-            normalized_role = (role or "CLIENT").upper()
-            if normalized_role not in {"CLIENT", "LIVREUR"}:
-                raise HTTPException(status_code=403, detail="Cet espace est désactivé.")
-
-            db = LocalSession()
-            try:
-                user = _dao.find_by_email(db, email)
-                if not user:
-                    if normalized_role != "CLIENT":
-                        raise HTTPException(status_code=403, detail="Ce compte doit être créé par un administrateur.")
-                    initial_role = "CLIENT"
-                    user = User(
-                        email=email,
-                        role=initial_role,
-                        password=None,
-                        is_verified=True,
-                        is_email_verified=True,
-                        is_phone_verified=False,
-                        auth_provider="google",
-                    )
-                    db.add(user)
-                    db.flush()
-                    self._ensure_rbac_role_assignment(db, user, initial_role)
-                else:
-                    user.is_verified = True
-                    user.is_email_verified = True
-                    user.auth_provider = self._merge_auth_provider(user.auth_provider, "google")
-
-                db.commit()
-                db.refresh(user)
-
-                principal = self._build_principal(db, user)
-                self._assert_target_access(principal, normalized_role)
-                self._ensure_profile_for_role(db, user, normalized_role)
-                db.commit()
-                token = self._issue_access_token(user, principal, selected_role=normalized_role)
-                return {"token": token, "user": self._export_current_user(principal, db)}
-            finally:
-                db.close()
-        except ValueError:
+        except TransportError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="La validation Google est temporairement indisponible.",
+            ) from exc
+        except (ValueError, GoogleAuthError):
             return None
+
+        email = idinfo.get("email")
+        if not isinstance(email, str) or not email.strip():
+            return None
+        if idinfo.get("email_verified") is not True:
+            return None
+
+        return {**idinfo, "email": email.strip().casefold()}
+
+    def google_login(self, token: str, role: str = "CLIENT"):
+        idinfo = self._verify_google_identity(token)
+        if not idinfo:
+            return None
+
+        email = idinfo["email"]
+
+        normalized_role = (role or "CLIENT").upper()
+        if normalized_role not in {"CLIENT", "LIVREUR"}:
+            raise HTTPException(status_code=403, detail="Cet espace est désactivé.")
+
+        db = LocalSession()
+        try:
+            user = _dao.find_by_email(db, email)
+            if not user:
+                if normalized_role != "CLIENT":
+                    raise HTTPException(status_code=403, detail="Ce compte doit être créé par un administrateur.")
+                initial_role = "CLIENT"
+                user = User(
+                    email=email,
+                    role=initial_role,
+                    password=None,
+                    is_verified=True,
+                    is_email_verified=True,
+                    is_phone_verified=False,
+                    auth_provider="google",
+                )
+                db.add(user)
+                db.flush()
+                self._ensure_rbac_role_assignment(db, user, initial_role)
+            else:
+                user.is_verified = True
+                user.is_email_verified = True
+                user.auth_provider = self._merge_auth_provider(user.auth_provider, "google")
+
+            db.commit()
+            db.refresh(user)
+
+            principal = self._build_principal(db, user)
+            self._assert_target_access(principal, normalized_role)
+            self._ensure_profile_for_role(db, user, normalized_role)
+            db.commit()
+            token = self._issue_access_token(user, principal, selected_role=normalized_role)
+            return {"token": token, "user": self._export_current_user(principal, db)}
+        finally:
+            db.close()
 
     def get_by_id(self, user_id: int):
         db = LocalSession()
