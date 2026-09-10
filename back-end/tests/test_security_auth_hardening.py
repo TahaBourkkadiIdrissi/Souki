@@ -8,8 +8,10 @@
 """
 
 import unittest
+from unittest.mock import Mock, patch
 
 from fastapi import HTTPException
+from google.auth.exceptions import TransportError
 
 from services.auth_service import SELF_ASSIGNABLE_ROLES, AuthService
 from services.rate_limit_service import IpActionQuota, _MemoryBackend
@@ -72,6 +74,56 @@ class SelfAssignableRolesTests(unittest.TestCase):
 
     def test_roles_front_office_auto_attribuables(self):
         self.assertEqual(SELF_ASSIGNABLE_ROLES, {"CLIENT"})
+
+
+class GoogleIdentityVerificationTests(unittest.TestCase):
+    @patch("services.auth_service.id_token.verify_oauth2_token")
+    @patch("services.auth_service.GOOGLE_CLIENT_ID", None)
+    def test_client_id_absent_refuse_google_login(self, verify_token):
+        with self.assertRaises(HTTPException) as context:
+            AuthService._verify_google_identity("token")
+        self.assertEqual(context.exception.status_code, 503)
+        verify_token.assert_not_called()
+
+    @patch("services.auth_service.google_requests.Request")
+    @patch("services.auth_service.id_token.verify_oauth2_token")
+    @patch("services.auth_service.GOOGLE_CLIENT_ID", "souki-test.apps.googleusercontent.com")
+    def test_audience_souki_et_email_verifie_sont_exiges(self, verify_token, request_class):
+        request = Mock()
+        request_class.return_value = request
+        verify_token.return_value = {
+            "email": " Client@Example.COM ",
+            "email_verified": True,
+        }
+
+        identity = AuthService._verify_google_identity("token")
+
+        self.assertEqual(identity["email"], "client@example.com")
+        verify_token.assert_called_once_with(
+            "token",
+            request,
+            "souki-test.apps.googleusercontent.com",
+        )
+
+        verify_token.return_value = {
+            "email": "client@example.com",
+            "email_verified": False,
+        }
+        self.assertIsNone(AuthService._verify_google_identity("token-non-verifie"))
+
+    @patch("services.auth_service.id_token.verify_oauth2_token")
+    @patch("services.auth_service.GOOGLE_CLIENT_ID", "souki-test.apps.googleusercontent.com")
+    def test_token_invalide_est_refuse(self, verify_token):
+        verify_token.side_effect = ValueError("audience incorrecte")
+        self.assertIsNone(AuthService._verify_google_identity("token-invalide"))
+
+    @patch("services.auth_service.id_token.verify_oauth2_token")
+    @patch("services.auth_service.GOOGLE_CLIENT_ID", "souki-test.apps.googleusercontent.com")
+    def test_indisponibilite_google_renvoie_503(self, verify_token):
+        verify_token.side_effect = TransportError("Google indisponible")
+        with self.assertRaises(HTTPException) as context:
+            AuthService._verify_google_identity("token")
+        self.assertEqual(context.exception.status_code, 503)
 
 
 if __name__ == "__main__":

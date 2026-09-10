@@ -109,6 +109,8 @@ class ProductionConfigurationTests(unittest.TestCase):
             "SOUKI_DEPOT_PHONE": "+212600000000",
             "SOUKI_DEPOT_LAT": "34.0331",
             "SOUKI_DEPOT_LNG": "-5.0003",
+            "NEXT_PUBLIC_GOOGLE_CLIENT_ID": "souki-test.apps.googleusercontent.com",
+            "GOOGLE_CLIENT_ID": "souki-test.apps.googleusercontent.com",
         }
 
     def test_valid_production_configuration_is_accepted(self):
@@ -133,3 +135,18 @@ class ProductionConfigurationTests(unittest.TestCase):
             environment["FRONTEND_ORIGINS"] = origin
             with self.subTest(origin=origin), patch.dict(os.environ, environment, clear=True), self.assertRaises(RuntimeError):
                 validate_production_config()
+
+    def test_google_client_ids_are_required_and_must_match(self):
+        from production_checks import validate_production_config
+
+        missing_environment = self._valid_environment()
+        missing_environment["GOOGLE_CLIENT_ID"] = ""
+        with patch.dict(os.environ, missing_environment, clear=True), self.assertRaises(RuntimeError) as context:
+            validate_production_config()
+        self.assertIn("GOOGLE_CLIENT_ID", str(context.exception))
+
+        mismatched_environment = self._valid_environment()
+        mismatched_environment["GOOGLE_CLIENT_ID"] = "other-client.apps.googleusercontent.com"
+        with patch.dict(os.environ, mismatched_environment, clear=True), self.assertRaises(RuntimeError) as context:
+            validate_production_config()
+        self.assertIn("doivent être identiques", str(context.exception))
