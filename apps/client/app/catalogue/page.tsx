@@ -331,7 +331,7 @@ function JitCutoffBanner() {
       >
         {pad(hours)}:{pad(minutes)}:{pad(seconds)}
       </span>{" "}
-      pour être livré demain matin
+      pour être livré demain entre 8h et 15h
     </div>
   )
 }
@@ -1242,7 +1242,7 @@ function CatalogueContent() {
           trust: {
             icon: Clock,
             eyebrow: "Logistique Souki",
-            title: "Livraison demain matin",
+            title: "Livraison demain entre 8h et 15h",
             description: "Commande validée aujourd'hui, panier livré demain pour garantir la fraîcheur.",
             tone: "orange" as const,
           },

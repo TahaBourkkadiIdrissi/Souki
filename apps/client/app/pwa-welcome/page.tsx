@@ -526,7 +526,7 @@ export default function PwaWelcomePage() {
                 )}
                 <p className="mt-2.5 flex items-center gap-1.5 text-[13px] font-medium text-[#CDEBD6] drop-shadow-sm">
                   <Truck className="h-4 w-4 shrink-0 text-[#9BE7AE]" />
-                  Vos courses fraîches, livrées demain matin.
+                  Vos courses fraîches, livrées demain entre 8h et 15h.
                 </p>
               </div>
 
@@ -628,7 +628,7 @@ export default function PwaWelcomePage() {
                   Le marché ferme à 20h
                 </h2>
                 <p className="mt-1 max-w-[16rem] text-[13px] font-medium leading-snug text-[#D3EEDB]">
-                  Commandez ce soir, livré demain entre 8h et 13h — frais du marché de gros.
+                  Commandez avant 20h, livré demain entre 8h et 15h — frais du marché de gros.
                 </p>
               </div>
 

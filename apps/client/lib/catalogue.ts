@@ -306,7 +306,7 @@ const normalizedDescriptionEntries = new Map(
 )
 
 const GENERIC_PRODUCT_DESCRIPTION =
-  "Frais du jour, sélectionné au marché de gros de Fès et livré demain matin, du champ à votre panier sans intermédiaire."
+  "Frais du jour, sélectionné au marché de gros de Fès et livré demain entre 8h et 15h, du champ à votre panier sans intermédiaire."
 
 export function getProductDescription(name: string): string {
   const directMatch = productDescriptions[name]
