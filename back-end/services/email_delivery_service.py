@@ -9,12 +9,13 @@ import resend
 logger = logging.getLogger("souki.email")
 
 OTP_EMAIL_SUBJECT = "Votre code de verification SOUKI"
+PASSWORD_RESET_EMAIL_SUBJECT = "Réinitialisez votre mot de passe SOUKI"
 RESEND_TIMEOUT_SECONDS = 15
 
 
 def get_public_base_url() -> str:
     """Racine publique du front, utilisee pour les liens des emails."""
-    return os.getenv("SOUKI_PUBLIC_URL", "https://souki.app").rstrip("/")
+    return os.getenv("SOUKI_PUBLIC_URL", "https://souki.io").rstrip("/")
 
 
 def _absolute_url(url: str) -> str:
@@ -59,6 +60,49 @@ def render_otp_email_html(otp_code: str) -> str:
                   font-weight:bold; color:#1a1a1a;">{otp_code}</p>
         <p style="margin:0 0 8px; font-size:13px; color:#666666;">
           Ce code expire dans 15 minutes.
+        </p>
+        <p style="margin:0; font-size:13px; color:#666666;">
+          Si vous n'&ecirc;tes pas &agrave; l'origine de cette demande, ignorez cet email.
+        </p>
+      </div>
+    </div>
+  </body>
+</html>
+"""
+
+
+def render_password_reset_email_text(reset_url: str) -> str:
+    return "\n".join(
+        [
+            "Bonjour,",
+            "",
+            "Une réinitialisation du mot de passe SOUKI a été demandée.",
+            f"Choisissez un nouveau mot de passe : {reset_url}",
+            "",
+            "Ce lien expire dans 15 minutes et devient invalide après utilisation.",
+            "Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.",
+        ]
+    )
+
+
+def render_password_reset_email_html(reset_url: str) -> str:
+    return f"""\
+<!DOCTYPE html>
+<html lang="fr">
+  <body style="margin:0; padding:0; background-color:#f6f6f4; font-family:Arial, Helvetica, sans-serif;">
+    <div style="max-width:480px; margin:0 auto; padding:32px 24px;">
+      <div style="background:#ffffff; border-radius:12px; padding:32px; border:1px solid #e8e8e4;">
+        <h1 style="margin:0 0 24px; font-size:20px; color:#1E8A3C;">SOUKI</h1>
+        <p style="margin:0 0 16px; font-size:15px; color:#333333;">
+          Une r&eacute;initialisation de votre mot de passe a &eacute;t&eacute; demand&eacute;e.
+        </p>
+        <p style="margin:0 0 24px;">
+          <a href="{reset_url}" style="display:inline-block; background:#1E8A3C; color:#ffffff;
+             text-decoration:none; padding:12px 24px; border-radius:8px; font-size:15px;
+             font-weight:bold;">Choisir un nouveau mot de passe</a>
+        </p>
+        <p style="margin:0 0 8px; font-size:13px; color:#666666;">
+          Ce lien expire dans 15 minutes et devient invalide apr&egrave;s utilisation.
         </p>
         <p style="margin:0; font-size:13px; color:#666666;">
           Si vous n'&ecirc;tes pas &agrave; l'origine de cette demande, ignorez cet email.
@@ -128,7 +172,7 @@ class EmailDeliveryService:
         return bool(self.resend_api_key and self.resend_from)
 
     def send_otp_email(self, recipient: str, code: str):
-        """Envoie le code OTP par email via Resend (domaine souki.app verifie).
+        """Envoie le code OTP par email via Resend (domaine souki.io verifie).
 
         Regles de securite (VULN-002) : ni le code ni le destinataire ne sont
         journalises ; toute erreur remonte en EmailDeliveryException avec un
@@ -202,6 +246,27 @@ class EmailDeliveryService:
             # Ni le destinataire ni le contenu ne sont journalises.
             logger.error("[EMAIL] Echec d'envoi notification via Resend (%s)", type(exc).__name__)
             raise EmailDeliveryException("Echec d'envoi de l'email de notification") from exc
+
+    def send_password_reset_email(self, recipient: str, token: str) -> None:
+        if not self.is_resend_configured():
+            raise EmailDeliveryException("RESEND_API_KEY ou RESEND_FROM_EMAIL manquant")
+
+        resend.api_key = self.resend_api_key
+        resend.default_http_client = resend.RequestsClient(timeout=RESEND_TIMEOUT_SECONDS)
+        reset_url = _absolute_url(f"/reset-password?token={token}")
+        params: resend.Emails.SendParams = {
+            "from": self.resend_from,
+            "to": [recipient],
+            "subject": PASSWORD_RESET_EMAIL_SUBJECT,
+            "text": render_password_reset_email_text(reset_url),
+            "html": render_password_reset_email_html(reset_url),
+        }
+        idempotency_key = hashlib.sha256(f"password-reset:{token}".encode()).hexdigest()
+        try:
+            resend.Emails.send(params, options={"idempotency_key": idempotency_key})
+        except Exception as exc:
+            logger.error("[EMAIL] Echec d'envoi password reset via Resend (%s)", type(exc).__name__)
+            raise EmailDeliveryException("Echec d'envoi de l'email de réinitialisation") from exc
 
     def send_jit_alert(self, recipient: str, sujet: str, contenu: str):
         """Envoie la liste d'achats JIT ou une alerte au fondateur"""

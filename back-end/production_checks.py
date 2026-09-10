@@ -17,6 +17,9 @@ def validate_production_config():
         "SOUKI_DEPOT_LNG",
         "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
         "GOOGLE_CLIENT_ID",
+        "SOUKI_PUBLIC_URL",
+        "RESEND_API_KEY",
+        "RESEND_FROM_EMAIL",
     )
     missing = [key for key in required if not os.getenv(key, "").strip()]
     if missing:
@@ -29,6 +32,8 @@ def validate_production_config():
         raise RuntimeError(
             "NEXT_PUBLIC_GOOGLE_CLIENT_ID et GOOGLE_CLIENT_ID doivent être identiques."
         )
+    if os.environ["SOUKI_PUBLIC_URL"].rstrip("/") != "https://souki.io":
+        raise RuntimeError("SOUKI_PUBLIC_URL doit être https://souki.io en production.")
     for key, limit in (("SOUKI_DEPOT_LAT", 90), ("SOUKI_DEPOT_LNG", 180)):
         try:
             value = float(os.environ[key])

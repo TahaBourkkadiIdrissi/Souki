@@ -111,6 +111,9 @@ class ProductionConfigurationTests(unittest.TestCase):
             "SOUKI_DEPOT_LNG": "-5.0003",
             "NEXT_PUBLIC_GOOGLE_CLIENT_ID": "souki-test.apps.googleusercontent.com",
             "GOOGLE_CLIENT_ID": "souki-test.apps.googleusercontent.com",
+            "SOUKI_PUBLIC_URL": "https://souki.io",
+            "RESEND_API_KEY": "re_test_only",
+            "RESEND_FROM_EMAIL": "SOUKI <no-reply@souki.io>",
         }
 
     def test_valid_production_configuration_is_accepted(self):

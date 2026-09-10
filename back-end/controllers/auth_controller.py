@@ -16,12 +16,14 @@ from config import (
 from dto.user_dto import (
     AdminLoginRequest,
     CurrentUserResponse,
+    ForgotPasswordRequest,
     GoogleLoginRequest,
     LoginRequest,
     OTPResendRequest,
     OTPVerificationResponse,
     OTPVerifyRequest,
     RegisterResponse,
+    ResetPasswordRequest,
     UserRegister,
 )
 from services.auth_service import AuthService
@@ -34,6 +36,7 @@ from services.rate_limit_service import (
     ip_action_quota,
     login_rate_limiter,
 )
+from services.password_reset_service import PasswordResetService
 from services.user_session_service import UserSessionService
 
 auth_router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -71,6 +74,28 @@ def register(data: UserRegister, request: Request):
         "register", client_ip, SIGNUP_IP_MAX_ATTEMPTS, SIGNUP_IP_WINDOW_SECONDS
     )
     return AuthService().register(data, client_ip=client_ip)
+
+
+@auth_router.post("/forgot-password")
+def forgot_password(data: ForgotPasswordRequest, request: Request):
+    ip_action_quota.ensure_within_quota(
+        "forgot-password",
+        extract_client_ip(request),
+        SIGNUP_IP_MAX_ATTEMPTS,
+        SIGNUP_IP_WINDOW_SECONDS,
+    )
+    return PasswordResetService().request_reset(str(data.email))
+
+
+@auth_router.post("/reset-password")
+def reset_password(data: ResetPasswordRequest, request: Request):
+    ip_action_quota.ensure_within_quota(
+        "reset-password",
+        extract_client_ip(request),
+        SIGNUP_IP_MAX_ATTEMPTS,
+        SIGNUP_IP_WINDOW_SECONDS,
+    )
+    return PasswordResetService().reset_password(data.token, data.new_password)
 
 
 @auth_router.post("/login")

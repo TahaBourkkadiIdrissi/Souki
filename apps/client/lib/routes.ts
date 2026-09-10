@@ -3,7 +3,7 @@ export type AppRole = "PUBLIC" | "CLIENT" | "LIVREUR" | "ADMIN" | "ADMIN_SUPER"
 export const normalizePath = (path: string) => path.split("?")[0].replace(/\/+$/, "") || "/"
 export const getDefaultDashboard = (_user: User | null) => "/"
 const LOGIN = "/login/client"
-const PUBLIC = ["/login", "/verify", "/offline", "/politique-confidentialite", "/", "/pwa-welcome", "/catalogue", "/abonnements", "/onboarding"]
+const PUBLIC = ["/login", "/verify", "/forgot-password", "/reset-password", "/offline", "/politique-confidentialite", "/", "/pwa-welcome", "/catalogue", "/abonnements", "/onboarding"]
 export type RouteAccessDecision = { allowed: boolean; reason?: "loading" | "login_required" | "missing_role"; redirectTo?: string }
 export function canAccessRoute({ pathname, user, isAuthenticated, isLoading }: { pathname: string; user: User | null; isAuthenticated: boolean; isLoading: boolean; searchParams?: URLSearchParams }): RouteAccessDecision {
   const path = normalizePath(pathname)
