@@ -93,7 +93,7 @@ const steps = [
   {
     num: "03",
     icon: PackageCheck,
-    kicker: "Entre 8h et 13h",
+    kicker: "Entre 8h et 15h",
     title: "Vous êtes livré",
     desc: "Un panier frais, pesé et contrôlé, remis en main propre à votre porte.",
   },
@@ -201,13 +201,13 @@ export default function HomePage() {
               className="mt-7 font-[family-name:var(--font-poppins)] text-[clamp(2.75rem,5.2vw,4.35rem)] font-bold leading-[1.05] tracking-[-0.03em] text-[#14301B] text-balance"
               segments={[
                 { text: "Le vrai goût du marché," },
-                { text: "livré demain matin.", block: true, className: "text-[#1E8A3C]" },
+                { text: "livré demain entre 8h et 15h.", block: true, className: "text-[#1E8A3C]" },
               ]}
             />
 
             <p className="mt-6 max-w-[34rem] text-[17px] leading-[1.65] text-[#5F6F61] animate-fade-in-up-delay-2">
               SOUKI sélectionne vos légumes au marché de gros de Fès, prépare
-              votre panier et le livre entre 8h et 13h.{" "}
+              votre panier et le livre entre 8h et 15h.{" "}
               <span className="font-semibold text-[#3D3D3D]">Commandez ce soir avant 20h.</span>
             </p>
 
@@ -313,7 +313,7 @@ export default function HomePage() {
               <span>
                 <span className="block text-[13px] font-bold text-[#14301B]">Livraison demain</span>
                 <span className="flex items-center gap-1 text-[13px] font-semibold text-[#1E8A3C]">
-                  8h – 13h <Check className="h-3.5 w-3.5" />
+                  8h – 15h <Check className="h-3.5 w-3.5" />
                 </span>
               </span>
             </div>
@@ -755,7 +755,7 @@ export default function HomePage() {
                 Prêt à goûter la différence du marché&nbsp;?
               </h2>
               <p className="max-w-[34rem] text-[17px] leading-[1.65] text-[#5F6F61]">
-                Commandez ce soir avant 20h — vos légumes arrivent demain entre 8h et 13h.
+                Commandez avant 20h — vos légumes arrivent demain entre 8h et 15h.
               </p>
               <div className="mt-2 flex flex-col items-start gap-4">
                 <button

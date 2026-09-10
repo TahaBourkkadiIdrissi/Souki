@@ -248,7 +248,7 @@ function ClientLoginContent() {
             Du champ au panier, le matin même.
           </h1>
           <p className="text-xl text-white/80 mb-8 max-w-md">
-            Légumes frais du marché de gros de Fès, livrés chez vous entre 8h et 13h.
+            Légumes frais du marché de gros de Fès, livrés chez vous entre 8h et 15h.
           </p>
 
           <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-2xl p-4 max-w-sm">

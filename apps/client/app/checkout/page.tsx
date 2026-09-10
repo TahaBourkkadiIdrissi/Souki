@@ -1044,7 +1044,7 @@ function CheckoutContent() {
               {timeError ? (
                 <p className="mt-3 text-xs font-semibold text-red-500">{timeError}</p>
               ) : (
-                <p className="mt-3 text-sm text-[#8A8A8A]">Livraison le lendemain matin, à l&apos;heure choisie.</p>
+                <p className="mt-3 text-sm text-[#8A8A8A]">Livraison le lendemain entre 8h et 15h, à l&apos;heure choisie.</p>
               )}
             </div>
 

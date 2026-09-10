@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 from dao.checkout_dao import CheckoutDaoBD
 from dto.checkout_dto import CheckoutItemDTO, CheckoutRequestDTO
@@ -64,7 +65,7 @@ def _product(product_id=1, stock=5.0, prix=10.0):
 def _payload(quantity, product_id=1):
     return CheckoutRequestDTO(
         items=[CheckoutItemDTO(product_id=product_id, quantity=quantity)],
-        creneau_livraison="8-10",
+        creneau_livraison="08:00",
         mode_paiement="cod",
         contact_phone="+212612345678",
         delivery_address="Rue Ibn Khaldoun",
@@ -182,6 +183,32 @@ class OrderCutoffTests(unittest.TestCase):
             with self.assertRaises(HTTPException) as ctx:
                 service.create_checkout(1, _payload(quantity=1))
         self.assertEqual(ctx.exception.status_code, 403)
+
+
+class DeliveryTimeValidationTests(unittest.TestCase):
+    def test_bornes_du_creneau_sont_acceptees(self):
+        for delivery_time in ("08:00", "10:30", "15:00"):
+            with self.subTest(delivery_time=delivery_time):
+                payload = CheckoutRequestDTO(
+                    items=[CheckoutItemDTO(product_id=1, quantity=1)],
+                    creneau_livraison=delivery_time,
+                )
+                self.assertEqual(payload.creneau_livraison, delivery_time)
+
+    def test_heures_hors_creneau_sont_refusees(self):
+        for delivery_time in ("07:59", "15:01", "23:00"):
+            with self.subTest(delivery_time=delivery_time), self.assertRaises(ValidationError):
+                CheckoutRequestDTO(
+                    items=[CheckoutItemDTO(product_id=1, quantity=1)],
+                    creneau_livraison=delivery_time,
+                )
+
+    def test_format_libre_est_refuse(self):
+        with self.assertRaises(ValidationError):
+            CheckoutRequestDTO(
+                items=[CheckoutItemDTO(product_id=1, quantity=1)],
+                creneau_livraison="8h-10h",
+            )
 
 
 if __name__ == "__main__":
