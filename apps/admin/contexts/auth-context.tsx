@@ -133,40 +133,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Source de verite = cookie httpOnly. On interroge /auth/me avec credentials:"include"
   // (le navigateur joint le cookie automatiquement) ; aucun token n'est requis cote JS.
   const fetchCurrentUser = async (): Promise<{ user: User | null; networkError: boolean }> => {
-    try {
-      const response = await fetchWithTimeout(`${API_BASE_URL}/auth/me`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-      }, NETWORK_TIMEOUT_MS)
+    for (let attempt = 1; attempt <= NETWORK_RETRY_ATTEMPTS; attempt += 1) {
+      try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/auth/me`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        }, NETWORK_TIMEOUT_MS)
 
-      if (!response.ok) {
+        // Un 401/403 signifie simplement que le visiteur n'a pas de session :
+        // le rejouer ne peut pas le reconnecter et surcharge inutilement le backend.
+        if (!response.ok) {
+          return { user: null, networkError: false }
+        }
+
+        const userData = normalizeUser(await response.json())
+        setUser(userData)
+        return { user: userData, networkError: false }
+      } catch (error) {
+        const isNetworkError = isRequestTimeoutError(error) || isNetworkFetchError(error)
+        if (isNetworkError && attempt < NETWORK_RETRY_ATTEMPTS) {
+          await wait(NETWORK_RETRY_DELAY_MS)
+          continue
+        }
+
+        if (isRequestTimeoutError(error)) {
+          toast.error("Le serveur met trop de temps à répondre. Réessayez dans un instant.", {
+            id: "auth-network",
+          })
+          return { user: null, networkError: true }
+        }
+        if (isNetworkFetchError(error)) {
+          toast.error("Service momentanément indisponible. Vérifiez votre connexion.", {
+            id: "auth-network",
+          })
+          return { user: null, networkError: true }
+        }
+        console.warn(
+          "Session refresh error:",
+          error instanceof Error ? error.message : String(error)
+        )
         return { user: null, networkError: false }
       }
-
-      const userData = normalizeUser(await response.json())
-      setUser(userData)
-      return { user: userData, networkError: false }
-    } catch (error) {
-      if (isRequestTimeoutError(error)) {
-        // Feedback UX propre (et non plus un simple message console), dedoublonne par id.
-        toast.error("Le serveur met trop de temps à répondre. Réessayez dans un instant.", {
-          id: "auth-network",
-        })
-        return { user: null, networkError: true }
-      }
-      if (isNetworkFetchError(error)) {
-        toast.error("Service momentanément indisponible. Vérifiez votre connexion.", {
-          id: "auth-network",
-        })
-        return { user: null, networkError: true }
-      }
-      console.warn(
-        "Session refresh error:",
-        error instanceof Error ? error.message : String(error)
-      )
-      return { user: null, networkError: false }
     }
+
+    return { user: null, networkError: true }
   }
 
   const clearLocalSession = () => {
@@ -218,22 +229,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshSession = (): Promise<User | null> => syncAuthState("")
 
   useEffect(() => {
-    const retrySessionRefresh = async () => {
-      for (let attempt = 1; attempt <= NETWORK_RETRY_ATTEMPTS; attempt += 1) {
-        const nextUser = await refreshSession()
-        if (nextUser) {
-          return
-        }
-        if (attempt < NETWORK_RETRY_ATTEMPTS) {
-          await wait(NETWORK_RETRY_DELAY_MS)
-        }
-      }
-    }
-
     const initializeAuth = async () => {
       setIsLoading(true)
       // On tente toujours une reprise de session via le cookie httpOnly.
-      await retrySessionRefresh()
+      await refreshSession()
       setIsLoading(false)
     }
 
