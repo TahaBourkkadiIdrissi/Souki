@@ -1,5 +1,6 @@
 from operating_mode import preorders_enabled
 import json
+import logging
 import os
 import re
 import threading
@@ -24,6 +25,7 @@ except ImportError:  # pragma: no cover
 
 DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
 VALID_LEVELS = (1, 2, 3)
+logger = logging.getLogger(__name__)
 
 
 class MLModelUnavailableError(RuntimeError):
@@ -87,7 +89,16 @@ class MLPanierService:
 
             generated = self._cached_composition(payload)
             if generated is None:
-                generated = self.generate_composition_json(payload, products, dish)
+                try:
+                    generated = self.generate_composition_json(payload, products, dish)
+                    generated["_source"] = "groq_llama"
+                except BasketGenerationError as exc:
+                    # Le panier reste disponible si Groq est lent, en panne ou si
+                    # sa reponse est invalide. Le repli utilise uniquement le
+                    # catalogue vivant et passe dans les memes validations de prix,
+                    # de stock et de paliers que la composition IA.
+                    logger.warning("Composition Groq indisponible, repli catalogue: %s", exc)
+                    generated = self.build_catalogue_fallback(payload, products, dish)
                 self._store_composition(payload, generated)
 
             # En mode plat, on garde strictement la composition du plat (pas de
@@ -103,7 +114,7 @@ class MLPanierService:
             sous_total = round(sum(line.sous_total for line in lignes), 2)
             return PanierResponseDTO(
                 status="success",
-                source="groq_llama",
+                source=str(generated.get("_source") or "groq_llama"),
                 panier_id=panier_id,
                 criteres={
                     "budget": payload.budget,
@@ -115,7 +126,11 @@ class MLPanierService:
                 lignes_panier=lignes,
                 total_dh=sous_total,
                 nombre_articles=len(lignes),
-                model_warning=None,
+                model_warning=(
+                    "Composition optimisee a partir du catalogue disponible."
+                    if generated.get("_source") == "catalogue_fallback"
+                    else None
+                ),
             )
 
     def _resolve_dish(self, payload: PanierRequestDTO) -> dict[str, Any] | None:
@@ -164,6 +179,57 @@ class MLPanierService:
         raise BasketGenerationError(
             f"Generation du panier impossible apres nouvelle tentative: {last_error}"
         )
+
+    def build_catalogue_fallback(
+        self,
+        payload: PanierRequestDTO,
+        products: list[Product],
+        dish: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Compose un point de depart deterministe sans service externe.
+
+        Le moteur existant complete ensuite la variete et ajuste les quantites au
+        budget. Pour un plat, seuls les ingredients resolus du plat sont repris.
+        """
+        available = [
+            product
+            for product in products
+            if int(product.niveau or 0) in VALID_LEVELS
+            and float(product.stock or 0) > 0
+            and self._unit_price(product) > 0
+        ]
+        if not available:
+            raise MLModelUnavailableError("Le catalogue produit est vide.")
+
+        if dish is not None:
+            products_by_id = {int(product.id): product for product in available}  # type: ignore[arg-type]
+            scale = float(payload.personnes) / max(float(dish.get("default_servings") or 4), 1.0)
+            composition = []
+            for ingredient in dish.get("ingredients", []):
+                product_id = ingredient.get("catalog_product_id")
+                product = products_by_id.get(int(product_id)) if product_id else None
+                if product is None:
+                    continue
+                base_quantity = self._positive_float(ingredient.get("quantity")) or 1.0
+                composition.append(
+                    {"produit_id": int(product.id), "quantite": max(base_quantity * scale, 0.5)}
+                )
+        else:
+            # Un produit abordable par niveau donne au moteur de budget un panier
+            # valide et varie a completer, sans inventer de reference catalogue.
+            composition = []
+            for level in VALID_LEVELS:
+                candidates = [product for product in available if int(product.niveau or 0) == level]
+                if not candidates:
+                    continue
+                product = min(candidates, key=lambda item: (self._unit_price(item), int(item.id)))
+                minimum_quantity = 0.5 if str(product.unite or "kg").lower() == "kg" else 1.0
+                composition.append({"produit_id": int(product.id), "quantite": minimum_quantity})
+
+        if not composition:
+            raise MLModelUnavailableError("Aucun produit exploitable pour cette composition.")
+
+        return {"composition": composition, "_source": "catalogue_fallback"}
 
     def build_system_prompt(self, products: list[Product]) -> str:
         """Assemble instructions + catalogue produit en direct + schema JSON strict.

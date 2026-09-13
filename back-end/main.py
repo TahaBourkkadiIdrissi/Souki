@@ -142,15 +142,14 @@ def bootstrap_database_data() -> None:
 def initialize_application() -> None:
     if env_flag("SOUKI_SKIP_DB_INIT", is_production_environment()):
         print("[STARTUP] Initialisation base ignoree par SOUKI_SKIP_DB_INIT")
-        return
-
-    try:
-        sync_database_schema()
-    except OperationalError as exc:
-        raise RuntimeError(
-            "Connexion a la base impossible au demarrage. Verifie back-end/.env "
-            "(user, password, host, port, dbname) ainsi que l'acces reseau a PostgreSQL/Supabase."
-        ) from exc
+    else:
+        try:
+            sync_database_schema()
+        except OperationalError as exc:
+            raise RuntimeError(
+                "Connexion a la base impossible au demarrage. Verifie back-end/.env "
+                "(user, password, host, port, dbname) ainsi que l'acces reseau a PostgreSQL/Supabase."
+            ) from exc
 
     if env_flag("SOUKI_SKIP_DATA_BOOTSTRAP", False):
         print("[STARTUP] Bootstrap donnees ignore par SOUKI_SKIP_DATA_BOOTSTRAP")

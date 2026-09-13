@@ -77,7 +77,7 @@ def _order_ref(data: dict[str, Any]) -> str:
 
 def _order_url(data: dict[str, Any]) -> str:
     commande_id = data.get("commande_id")
-    return f"/historique?commande={commande_id}" if commande_id else "/historique"
+    return f"/suivi-commande?commande={commande_id}" if commande_id else "/historique"
 
 
 # --- Rendus : client --------------------------------------------------------
@@ -91,7 +91,7 @@ def _render_order_confirmed(data: dict[str, Any]) -> NotificationContent:
         body=f"Votre commande {_order_ref(data)}{montant_txt} est enregistree. Preparation en cours.",
         url=_order_url(data),
         email_subject=f"Votre commande SOUKI {_order_ref(data)} est confirmee",
-        email_cta_label="Suivre ma commande",
+        email_cta_label="Voir l'avancement de ma commande",
     )
 
 

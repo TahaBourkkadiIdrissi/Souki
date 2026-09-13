@@ -24,6 +24,7 @@ import {
   fetchOrderHistory,
   resolveCatalogueImage,
 } from "@/lib/catalogue"
+import { getOrderStatusClassName, getOrderStatusLabel } from "@/lib/order-status"
 import { cn } from "@/lib/utils"
 
 type RecentProduct = {
@@ -55,51 +56,6 @@ const formatOrderDate = (value?: string | null) => {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date)
-}
-
-const getOrderStatusClassName = (status?: string | null) => {
-  const normalizedStatus = (status || "").toUpperCase()
-  if (normalizedStatus === "LIVRE") {
-    return "border-[#BFE6C4] bg-[#EAF8EC] text-[#1E8A3C]"
-  }
-  if (normalizedStatus === "EN_ROUTE") {
-    return "border-[#B9D7F2] bg-[#EEF7FF] text-[#1A5F96]"
-  }
-  if (["ABSENT", "REFUS", "ANNULE", "ANNULEE", "REFUS_LIVREUR"].includes(normalizedStatus)) {
-    return "border-[#F1C6C6] bg-[#FFF1F1] text-[#B42318]"
-  }
-  return "border-[#F5D7B8] bg-[#FFF7EE] text-[#9A5C11]"
-}
-
-const getOrderStatusLabel = (status?: string | null) => {
-  const normalizedStatus = (status || "").toUpperCase()
-  const labels: Record<string, string> = {
-    BROUILLON: "Brouillon",
-    EN_ATTENTE: "En attente",
-    CONFIRMEE: "Confirmée",
-    VERROUILLEE: "En préparation",
-    EN_ATTENTE_LIVREUR: "En attente livreur",
-    REFUS_LIVREUR: "Réassignation en cours",
-    A_LIVRER: "À livrer",
-    PLANIFIEE: "Planifiée",
-    EN_ROUTE: "En route",
-    RETOUR_DEPOT: "Retour dépôt",
-    LIVRE: "Livrée",
-    ABSENT: "Absent",
-    REFUS: "Refusée",
-    ANNULE: "Annulée",
-    ANNULEE: "Annulée",
-  }
-  if (labels[normalizedStatus]) {
-    return labels[normalizedStatus]
-  }
-  // Statut inconnu : humanise la valeur brute (EN_ATTENTE_X -> "En attente x")
-  // plutôt que d'afficher la constante base de données.
-  if (normalizedStatus) {
-    const humanized = normalizedStatus.replace(/_/g, " ").toLowerCase()
-    return humanized.charAt(0).toUpperCase() + humanized.slice(1)
-  }
-  return "Statut inconnu"
 }
 
 function HistoriqueContent() {
@@ -376,6 +332,12 @@ function HistoriqueContent() {
                       <span className="font-bold text-[#264129]">Total</span>
                       <span className="text-xl font-black text-[#F07C00]">{formatDh(order.montant_total || 0)}</span>
                     </div>
+                    <Link
+                      href={`/suivi-commande?commande=${order.id}`}
+                      className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[#F0FAF1] px-4 text-sm font-bold text-[#176B2E] transition-colors hover:bg-[#E4F5E7] active:translate-y-px"
+                    >
+                      Voir l’avancement
+                    </Link>
                   </div>
                 </article>
               ))}

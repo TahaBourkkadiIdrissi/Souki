@@ -153,3 +153,24 @@ class ProductionConfigurationTests(unittest.TestCase):
         with patch.dict(os.environ, mismatched_environment, clear=True), self.assertRaises(RuntimeError) as context:
             validate_production_config()
         self.assertIn("doivent être identiques", str(context.exception))
+
+
+class ProductionBootstrapTests(unittest.TestCase):
+    def test_schema_skip_preserves_reference_data_bootstrap(self):
+        import main
+
+        environment = {
+            "SOUKI_ENV": "production",
+            "SOUKI_SKIP_DB_INIT": "1",
+            "SOUKI_SKIP_DATA_BOOTSTRAP": "0",
+            "SOUKI_SKIP_STORAGE_BOOTSTRAP": "1",
+        }
+        with (
+            patch.dict(os.environ, environment, clear=True),
+            patch.object(main, "sync_database_schema") as sync_schema,
+            patch.object(main, "bootstrap_database_data") as bootstrap_data,
+        ):
+            main.initialize_application()
+
+        sync_schema.assert_not_called()
+        bootstrap_data.assert_called_once_with()

@@ -247,6 +247,38 @@ def test_generate_leve_si_validation_echoue_deux_fois(monkeypatch, service, prod
         service.generate_composition_json(payload, products)
 
 
+def test_generation_utilise_le_catalogue_si_groq_est_indisponible(monkeypatch, products, payload):
+    panier_dao = MagicMock()
+    panier_dao.get_active_products_for_ml.return_value = products
+    service = MLPanierService(panier_dao)
+    monkeypatch.setattr(
+        service,
+        "generate_composition_json",
+        MagicMock(side_effect=BasketGenerationError("service externe indisponible")),
+    )
+
+    result = service.generer_panier(payload, user_id=None)
+
+    assert result.status == "success"
+    assert result.source == "catalogue_fallback"
+    assert result.lignes_panier
+    assert result.model_warning is not None
+
+
+def test_repli_catalogue_respecte_strictement_les_ingredients_du_plat(service, dish):
+    products = [
+        _product(12, "Oranges", "Portoqal", 2, prix=10.0),
+        _product(13, "Citrons", "Hamed", 2, prix=15.0),
+        _product(99, "Pommes de terre", "Batata", 1, prix=7.0),
+    ]
+    payload = PanierRequestDTO(budget=100, personnes=8, duree=7, plat="jus-orange")
+
+    result = service.build_catalogue_fallback(payload, products, dish)
+
+    assert {item["produit_id"] for item in result["composition"]} == {12, 13}
+    assert result["_source"] == "catalogue_fallback"
+
+
 # ── Construction des lignes / remplissage budget (sans réseau) ────────────────
 
 def _lots_product(product_id: int, niveau: int, prix: float):

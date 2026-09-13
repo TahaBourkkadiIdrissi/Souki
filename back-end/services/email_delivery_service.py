@@ -3,6 +3,7 @@ import logging
 import os
 import smtplib
 from email.message import EmailMessage
+from urllib.parse import urlsplit
 
 import resend
 
@@ -15,7 +16,16 @@ RESEND_TIMEOUT_SECONDS = 15
 
 def get_public_base_url() -> str:
     """Racine publique du front, utilisee pour les liens des emails."""
-    return os.getenv("SOUKI_PUBLIC_URL", "https://souki.io").rstrip("/")
+    configured_url = os.getenv("SOUKI_PUBLIC_URL", "https://souki.io").strip().rstrip("/")
+    parsed_url = urlsplit(configured_url)
+
+    # L'ancien domaine a pu rester dans un secret de deploiement. Les liens
+    # transactionnels ne doivent jamais renvoyer les clients vers souki.app,
+    # meme si cette ancienne valeur est encore presente dans l'environnement.
+    if parsed_url.hostname in {"souki.app", "www.souki.app"}:
+        return "https://souki.io"
+
+    return configured_url or "https://souki.io"
 
 
 def _absolute_url(url: str) -> str:
@@ -117,7 +127,7 @@ def render_password_reset_email_html(reset_url: str) -> str:
 def render_notification_email_text(*, title: str, body: str, url: str, cta_label: str | None) -> str:
     """Version texte d'une notification (alternative envoyée avec le HTML)."""
     lines = ["Bonjour,", "", title, "", body, "", f"{cta_label or 'Ouvrir SOUKI'} : {_absolute_url(url)}"]
-    lines += ["", "Vous recevez cet email selon vos preferences de notification.", "Pour les modifier : " + _absolute_url("/parametres")]
+    lines += ["", "Vous recevez cet email selon vos preferences de notification.", "Pour les modifier : " + _absolute_url("/parametres/notifications")]
     return "\n".join(lines)
 
 
@@ -129,7 +139,7 @@ def render_notification_email_html(*, title: str, body: str, url: str, cta_label
     """
     link = _absolute_url(url)
     label = cta_label or "Ouvrir SOUKI"
-    settings_link = _absolute_url("/parametres")
+    settings_link = _absolute_url("/parametres/notifications")
     return f"""\
 <!DOCTYPE html>
 <html lang="fr">
