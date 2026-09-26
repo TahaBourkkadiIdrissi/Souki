@@ -16,6 +16,7 @@ import {
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { API_BASE_URL } from "@/lib/api"
 import { shouldShowOnboarding } from "@/lib/onboarding"
+import { safeInternalRedirect } from "@/lib/routes"
 
 const RESEND_DELAY_SECONDS = 60
 
@@ -23,10 +24,12 @@ function OTPVerificationForm({
   userId,
   channel,
   target,
+  redirectTarget,
 }: {
   userId: number
   channel: string
   target?: string
+  redirectTarget: string | null
 }) {
   const router = useRouter()
   const [otp, setOtp] = useState("")
@@ -98,8 +101,10 @@ function OTPVerificationForm({
         id: userId,
         onboarding_completed: data.onboarding_completed,
       })
-        ? "/onboarding"
-        : data.default_dashboard || "/"
+        ? redirectTarget
+          ? `/onboarding?redirect=${encodeURIComponent(redirectTarget)}`
+          : "/onboarding"
+        : redirectTarget || data.default_dashboard || "/"
       window.setTimeout(() => router.push(destination), 900)
     } catch (err: any) {
       setError(err.message || "La vérification a échoué.")
@@ -274,6 +279,7 @@ function OTPVerificationForm({
 
 function VerifyContent() {
   const searchParams = useSearchParams()
+  const redirectTarget = safeInternalRedirect(searchParams.get("redirect"))
   const userId = Number(searchParams.get("userId") || "0")
   const channel = searchParams.get("channel") || "email"
   const target = searchParams.get("target") || ""
@@ -329,7 +335,7 @@ function VerifyContent() {
           </div>
 
           {isValidPayload ? (
-            <OTPVerificationForm userId={userId} channel={channel} target={target} />
+            <OTPVerificationForm userId={userId} channel={channel} target={target} redirectTarget={redirectTarget} />
           ) : (
             <div className="rounded-[28px] border border-red-200 bg-white p-8 shadow-lg">
               <h2 className="text-2xl font-bold text-[#2E3A31]">Lien de vérification invalide</h2>

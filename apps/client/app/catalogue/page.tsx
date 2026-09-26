@@ -510,6 +510,7 @@ function CatalogueContent() {
 
   const [products, setProducts] = useState<CatalogueProduct[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
+  const [cartHydrated, setCartHydrated] = useState(false)
   const [selectedCategory, setSelectedCategory] =
     useState<(typeof categories)[number]["id"]>("tous")
   const [sortBy, setSortBy] = useState<(typeof sortOptions)[number]["id"]>("popular")
@@ -645,6 +646,7 @@ function CatalogueContent() {
 
     loadCatalogue(true)
     setCart(loadStoredCart())
+    setCartHydrated(true)
     const interval = window.setInterval(() => {
       loadCatalogue()
     }, CATALOGUE_REFRESH_INTERVAL_MS)
@@ -656,9 +658,12 @@ function CatalogueContent() {
   }, [])
 
   useEffect(() => {
+    if (!cartHydrated) {
+      return
+    }
     saveStoredCart(cart)
     window.dispatchEvent(new Event("souki:cart-updated"))
-  }, [cart])
+  }, [cart, cartHydrated])
 
   useEffect(() => {
     const isParamSet = searchParams.get("open_cart") === "1"
@@ -676,7 +681,7 @@ function CatalogueContent() {
   }, [router, searchParams])
 
   useEffect(() => {
-    if (isLoading || !isAuthenticated || cart.length === 0) {
+    if (isLoading || cart.length === 0) {
       setPricingSuggestions([])
       return
     }
@@ -697,7 +702,7 @@ function CatalogueContent() {
       })
 
     return () => controller.abort()
-  }, [cart, isAuthenticated, isLoading])
+  }, [cart, isLoading])
 
   useEffect(() => {
     if (isLoading) {
@@ -817,7 +822,7 @@ function CatalogueContent() {
   useEffect(() => {
     const addProductName = searchParams.get("add_product")
     const qtyStr = searchParams.get("qty")
-    if (addProductName && qtyStr && products.length > 0 && isAuthenticated) {
+    if (addProductName && qtyStr && products.length > 0) {
       const qty = Number(qtyStr)
       const product = products.find((p) => p.name === addProductName)
       if (product && !Number.isNaN(qty)) {
@@ -826,7 +831,7 @@ function CatalogueContent() {
         router.replace("/catalogue")
       }
     }
-  }, [searchParams, products, isAuthenticated, router])
+  }, [searchParams, products, router])
 
   // Arrivee depuis l'accueil PWA (?product=<id>) : on ouvre directement la fiche
   // du produit touche, description comprise, puis on nettoie l'URL pour qu'un
@@ -846,7 +851,7 @@ function CatalogueContent() {
   }, [searchParams, products, router])
 
   const redirectToLogin = (redirectTarget: string) => {
-    router.push(`/login?redirect=${encodeURIComponent(redirectTarget)}`)
+    router.push(`/login/client?redirect=${encodeURIComponent(redirectTarget)}`)
   }
 
   const requireAuth = (redirectTarget: string, action: () => void) => {
@@ -861,24 +866,21 @@ function CatalogueContent() {
   }
 
   const handleAddToCart = (id: number | string, quantity: number) => {
-    requireAuth("/catalogue", () => {
-      const normalizedId = Number(id)
-      const product = products.find((item) => item.id === normalizedId)
-      if (!product) {
-        return
-      }
-      setCart((currentCart) => upsertCartItem(currentCart, product, quantity))
-      triggerAvatarCelebrate()
-      haptic("medium")
-      // Mobile : on n'ouvre plus le tiroir panier a chaque ajout (trop intrusif).
-      // La barre panier sticky basse suffit ; un toast discret confirme l'ajout.
-      // Web/tablette/desktop : comportement inchange (ouverture du panier).
-      if (isMobileViewport()) {
-        toast.success(`${product.name} ajouté au panier`)
-      } else {
-        setShowCart(true)
-      }
-    })
+    const normalizedId = Number(id)
+    const product = products.find((item) => item.id === normalizedId)
+    if (!product) {
+      return
+    }
+    setCart((currentCart) => upsertCartItem(currentCart, product, quantity))
+    triggerAvatarCelebrate()
+    haptic("medium")
+    // Mobile : la barre panier sticky suffit ; un toast discret confirme l'ajout.
+    // Web/tablette/desktop : ouverture du panier.
+    if (isMobileViewport()) {
+      toast.success(`${product.name} ajouté au panier`)
+    } else {
+      setShowCart(true)
+    }
   }
 
   const handleProductView = (id: number | string) => {
@@ -929,19 +931,17 @@ function CatalogueContent() {
   }
 
   const handleAddSuggestionToCart = (product: CatalogueProduct) => {
-    requireAuth("/catalogue", () => {
-      setAddedSuggestionIds((currentIds) =>
-        currentIds.includes(product.id) ? currentIds : [...currentIds, product.id]
-      )
-      setCart((currentCart) => upsertCartItem(currentCart, product, product.quantityStep))
-      triggerAvatarCelebrate()
-      haptic("medium")
-      if (isMobileViewport()) {
-        toast.success(`${product.name} ajouté au panier`)
-      } else {
-        setShowCart(true)
-      }
-    })
+    setAddedSuggestionIds((currentIds) =>
+      currentIds.includes(product.id) ? currentIds : [...currentIds, product.id]
+    )
+    setCart((currentCart) => upsertCartItem(currentCart, product, product.quantityStep))
+    triggerAvatarCelebrate()
+    haptic("medium")
+    if (isMobileViewport()) {
+      toast.success(`${product.name} ajouté au panier`)
+    } else {
+      setShowCart(true)
+    }
   }
 
   const handleApplySelections = (selections: BasketSelection[]) => {
@@ -1088,7 +1088,7 @@ function CatalogueContent() {
   }
 
   const handleCheckout = () => {
-    requireAuth("/checkout", async () => {
+    requireAuth("/catalogue?open_cart=1", async () => {
       if (cart.length === 0) {
         showFeedback({
           tone: "info",
@@ -1277,7 +1277,7 @@ function CatalogueContent() {
         // Réserve l'espace bas : barre de nav mobile seule (pb-24) ou barre de nav
         // + barre panier sticky quand le panier est rempli (pb-44), pour que le
         // dernier contenu ne soit jamais masqué au bas du scroll.
-        isAuthenticated && cart.length > 0 ? "pb-44" : "pb-24",
+        cart.length > 0 ? "pb-44" : "pb-24",
       )}
     >
       {/* Avancement du scroll : l'utilisateur voit quand il approche de la fin */}
@@ -1465,14 +1465,8 @@ function CatalogueContent() {
             {!isAuthenticated && !isLoading && (
               <div className="rounded-3xl border border-[#F3D8B2] bg-[#FFF7EE] p-5">
                 <p className="text-sm font-semibold text-[#9A5C11]">
-                  Connectez-vous pour ajouter des produits au panier et valider votre commande.
+                  Vous pouvez ajouter des produits au panier avant de vous connecter pour valider la commande.
                 </p>
-                <button
-                  onClick={() => redirectToLogin("/catalogue")}
-                  className="mt-4 w-full rounded-2xl bg-[#F07C00] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#D66B00]"
-                >
-                  Se connecter
-                </button>
               </div>
             )}
           </div>
@@ -2200,26 +2194,12 @@ function CatalogueContent() {
               <h2 className="text-xl font-black">Votre panier</h2>
             </div>
             <p className="mt-2 text-sm text-[#6F8070]">
-              {isAuthenticated
-                ? "Ajustez vos quantités puis validez votre commande."
-                : "Le panier est réservé aux utilisateurs connectés."}
+              Ajustez vos quantités puis validez votre commande.
             </p>
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 xl:p-4">
-            {!isAuthenticated && !isLoading ? (
-              <div className="rounded-[28px] border border-[#F3D8B2] bg-[#FFF7EE] p-5">
-                <p className="text-sm font-semibold text-[#9A5C11]">
-                  Connectez-vous pour utiliser le panier, modifier les quantités et commander.
-                </p>
-                <button
-                  onClick={() => redirectToLogin("/catalogue")}
-                  className="mt-4 w-full rounded-2xl bg-[#F07C00] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#D66B00]"
-                >
-                  Aller à la connexion
-                </button>
-              </div>
-            ) : cart.length === 0 ? (
+            {cart.length === 0 ? (
               <div className="py-10 text-center animate-fade-in-up">
                 <img
                   src="/illustrations/empty-basket.webp"
@@ -2417,7 +2397,7 @@ function CatalogueContent() {
             )}
           </div>
 
-          {isAuthenticated && cart.length > 0 && (
+          {cart.length > 0 && (
             <div className="border-t border-[#EEF2EE] p-4 xl:p-5">
               <div className="space-y-2 text-sm">
                 <div className="flex items-center justify-between text-[#6F8070]">
@@ -2467,7 +2447,7 @@ function CatalogueContent() {
           Visible quand le panier contient des articles et que le tiroir panier est
           ferme. Remonte au-dessus de la barre de navigation. md:hidden via le
           primitif StickyBottomBar (desktop inchange). */}
-      {isAuthenticated && cart.length > 0 && !showCart && (
+      {cart.length > 0 && !showCart && (
         <StickyBottomBar aboveNav>
           <button
             type="button"
