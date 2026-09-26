@@ -177,7 +177,7 @@ function ClientLoginContent() {
         }
 
         router.push(
-          `/verify?userId=${data.id}&channel=${data.verification_channel}&target=${encodeURIComponent(data.verification_target || "")}&role=${String(data.role || selectedRole).toLowerCase()}`
+          `/verify?userId=${data.id}&channel=${data.verification_channel}&target=${encodeURIComponent(data.verification_target || "")}&role=${String(data.role || selectedRole).toLowerCase()}${redirectTarget !== "/" ? `&redirect=${encodeURIComponent(redirectTarget)}` : ""}`
         );
         toast.success("Compte cree avec succes. Vous pouvez maintenant vous connecter.")
         return;
