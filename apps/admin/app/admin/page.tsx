@@ -1,5 +1,6 @@
 "use client"
 
+import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import type { LucideIcon } from "lucide-react"
@@ -485,14 +486,7 @@ export default function AdminDashboard() {
             <button type="button" onClick={() => setSidebarOpen(true)} className="rounded-lg p-2 text-[#1F2937] hover:bg-gray-100 lg:hidden">
               <Menu className="h-5 w-5" />
             </button>
-            <Link href="/admin" className="flex items-center gap-2">
-              <div className="flex items-center justify-center rounded-xl bg-white p-1">
-                <img src="/logo3.png" alt="SOUKI" className="h-8 w-auto object-contain" />
-              </div>
-              <div className="hidden sm:block">
-                <span className="ml-1 text-sm font-bold text-[#6B7280]">Admin</span>
-              </div>
-            </Link>
+            <SoukiLogoLink height={36} priority />
           </div>
 
           <div className="hidden text-center md:block">

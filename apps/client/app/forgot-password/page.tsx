@@ -1,7 +1,7 @@
 "use client"
 
+import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { FormEvent, useState } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { ArrowLeft, CheckCircle2, Loader2, Mail } from "lucide-react"
 
@@ -51,12 +51,9 @@ export default function ForgotPasswordPage() {
           Retour à la connexion
         </Link>
 
-        <div className="mb-8 flex items-center gap-3">
-          <Image src="/logo3.png" alt="SOUKI" width={48} height={48} className="h-12 w-12 rounded-xl object-cover" />
-          <div>
-            <p className="text-xl font-bold text-[#1E8A3C]">SOUKI</p>
-            <p className="text-sm text-[#8A8A8A]">Récupération du compte</p>
-          </div>
+        <div className="mb-8 flex flex-col items-center gap-3">
+          <SoukiLogoLink variant="secondary" height={104} priority />
+          <p className="text-sm text-[#8A8A8A]">Récupération du compte</p>
         </div>
 
         <h1 className="text-2xl font-bold text-[#3D3D3D]">Mot de passe oublié ?</h1>

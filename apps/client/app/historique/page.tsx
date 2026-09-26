@@ -1,5 +1,6 @@
 "use client"
 
+import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { Suspense, useCallback, useEffect, useState, type CSSProperties } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
@@ -156,12 +157,7 @@ function HistoriqueContent() {
             <ArrowLeft className="h-4 w-4" />
             Catalogue
           </Link>
-          <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-white p-0.5 shadow-sm">
-              <img src="/logo3.png" alt="SOUKI" className="h-full w-[175%] max-w-none object-cover" style={{ objectPosition: "left center" }} />
-            </div>
-            <span className="text-xl font-bold text-[#1E8A3C]">SOUKI</span>
-          </Link>
+          <SoukiLogoLink height={36} priority />
         </div>
       </header>
 

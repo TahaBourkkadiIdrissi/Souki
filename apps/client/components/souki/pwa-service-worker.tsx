@@ -39,7 +39,7 @@ export function PwaServiceWorker() {
     }
 
     void navigator.serviceWorker
-      .register("/sw.js", { scope: "/" })
+      .register("/sw.js", { scope: "/", updateViaCache: "none" })
       .then((registration) => {
         void updateRegistration(registration)
 

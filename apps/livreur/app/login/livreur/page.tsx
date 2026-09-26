@@ -1,5 +1,6 @@
 "use client"
 
+import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { useState, type FormEvent } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -37,11 +38,8 @@ export default function LoginLivreur() {
         <div aria-hidden="true" className="absolute -bottom-24 -right-12 h-96 w-96 rounded-full bg-[#F6B323]/20 blur-3xl" />
 
         <div className="relative flex items-center gap-3">
-          <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-white p-0.5 shadow-[0_16px_45px_-22px_rgba(20,48,27,0.65)]">
-            <Image src="/logo3.png" alt="" width={96} height={56} className="h-full w-[175%] max-w-none object-cover" style={{ objectPosition: "left center" }} />
-          </span>
+          <SoukiLogoLink variant="secondary" height={104} support priority />
           <div>
-            <p className="text-2xl font-black leading-none">SOUKI</p>
             <p className="mt-1 text-sm font-semibold text-white/75">Espace livreur</p>
           </div>
         </div>
@@ -64,11 +62,8 @@ export default function LoginLivreur() {
         <div aria-hidden="true" className="absolute inset-x-0 top-0 h-56 bg-[radial-gradient(circle_at_top_right,rgba(76,184,74,0.18),transparent_62%)] lg:hidden" />
         <div className="relative w-full max-w-md">
           <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <span className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-white p-0.5 shadow-sm">
-              <Image src="/logo3.png" alt="" width={84} height={48} className="h-full w-[175%] max-w-none object-cover" style={{ objectPosition: "left center" }} />
-            </span>
+            <SoukiLogoLink variant="secondary" height={104} support priority />
             <div>
-              <p className="text-xl font-black leading-none text-[#1E8A3C]">SOUKI</p>
               <p className="mt-1 text-xs font-semibold text-[#6F8070]">Espace livreur</p>
             </div>
           </div>

@@ -1,5 +1,6 @@
 "use client"
 
+import { SoukiLogo } from "@/components/souki/souki-logo"
 import { WifiOff, RefreshCw } from "lucide-react"
 
 import { RecolteAvatar } from "@/components/avatar/recolte-avatar"
@@ -20,7 +21,7 @@ export default function OfflinePage() {
             <WifiOff className="size-4" aria-hidden="true" />
           </div>
         </div>
-        <p className="mt-5 text-xs font-semibold uppercase tracking-[0.25em] text-[#6E8B73]">SOUKI</p>
+        <SoukiLogo variant="secondary" height={104} className="mb-4" />
         <h1 className="mt-2 text-2xl font-bold text-[#1E8A3C]">Vous etes hors ligne</h1>
         <p className="mt-3 text-sm leading-6 text-[#677669]">
           Impossible de joindre le marche pour le moment. Verifiez votre connexion puis reessayez.

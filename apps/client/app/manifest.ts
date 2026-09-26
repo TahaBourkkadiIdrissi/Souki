@@ -1,3 +1,4 @@
+import { BRAND_GREEN, brandPwaIcons } from "@/lib/branding"
 import type { MetadataRoute } from "next"
 
 export default function manifest(): MetadataRoute.Manifest {
@@ -18,27 +19,8 @@ export default function manifest(): MetadataRoute.Manifest {
     display_override: ["standalone", "minimal-ui"],
     orientation: "portrait",
     background_color: "#FFFFFF",
-    theme_color: "#1E8A3C",
-    icons: [
-      {
-        src: "/pwa-icon-192.png",
-        sizes: "192x192",
-        type: "image/png",
-        purpose: "any",
-      },
-      {
-        src: "/pwa-icon-512.png",
-        sizes: "512x512",
-        type: "image/png",
-        purpose: "any",
-      },
-      {
-        src: "/pwa-icon-maskable-512.png",
-        sizes: "512x512",
-        type: "image/png",
-        purpose: "maskable",
-      },
-    ],
+    theme_color: BRAND_GREEN,
+    icons: brandPwaIcons,
     shortcuts: [
       { name: "Catalogue", short_name: "Catalogue", url: "/catalogue" },
       { name: "Mes commandes", short_name: "Commandes", url: "/historique" },

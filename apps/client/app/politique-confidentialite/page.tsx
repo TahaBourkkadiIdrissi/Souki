@@ -1,5 +1,6 @@
 "use client"
 
+import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import {
@@ -194,17 +195,7 @@ export default function PolitiqueConfidentialitePage() {
               >
                 <ArrowLeft className="w-5 h-5" />
               </Link>
-              <Link href="/" className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-xl shadow-sm overflow-hidden flex items-center justify-center bg-white p-0.5 pointer-events-none">
-                  <img
-                    src="/logo3.png"
-                    alt="SOUKI"
-                    className="w-[175%] h-full max-w-none object-cover"
-                    style={{ objectPosition: "left center" }}
-                  />
-                </div>
-                <span className="font-bold text-[#1E8A3C]">SOUKI</span>
-              </Link>
+              <SoukiLogoLink height={36} priority />
             </div>
             <span className="text-sm text-[#8A8A8A] hidden sm:block">Politique de Confidentialité</span>
           </div>
