@@ -7,11 +7,11 @@ const securityHeaders = [
     value: [
       "default-src 'self'",
       // Next.js injecte des scripts/styles inline ; Mapbox utilise blob: et workers.
-      "script-src 'self' 'unsafe-inline' blob: https://accounts.google.com https://api.mapbox.com",
+      "script-src 'self' 'unsafe-inline' blob: https://accounts.google.com https://api.mapbox.com https://www.googletagmanager.com",
       "style-src 'self' 'unsafe-inline' https://accounts.google.com https://api.mapbox.com",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
-      "connect-src 'self' blob: https://accounts.google.com https://oauth2.googleapis.com https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com",
+      "connect-src 'self' blob: https://accounts.google.com https://oauth2.googleapis.com https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com https://www.google-analytics.com https://region1.google-analytics.com",
       "worker-src 'self' blob:",
       "frame-src https://accounts.google.com",
       "object-src 'none'",

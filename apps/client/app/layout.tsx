@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next'
 import { Suspense } from 'react'
 import localFont from 'next/font/local'
+import Script from 'next/script'
+import { SITE_URL } from '@/lib/seo'
 // import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { AuthProvider } from '@/contexts/auth-context'
@@ -27,6 +29,7 @@ const poppins = localFont({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   applicationName: 'SOUKI',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
@@ -59,7 +62,34 @@ export const metadata: Metadata = {
     description: 'Légumes frais du marché de gros, livrés chez vous le lendemain entre 8h et 15h.',
     type: 'website',
     locale: 'fr_MA',
+    images: ['/opengraph-image'],
   },
+  twitter: { card: 'summary_large_image' },
+}
+
+const organizationSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'SOUKI',
+  url: SITE_URL,
+  logo: `${SITE_URL}/logo-souki.png`,
+}
+
+const websiteSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'SOUKI',
+  url: SITE_URL,
+  inLanguage: 'fr-MA',
+}
+
+const serviceSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Service',
+  name: 'Livraison de légumes frais à Fès',
+  provider: { '@type': 'Organization', name: 'SOUKI', url: SITE_URL },
+  areaServed: { '@type': 'City', name: 'Fès' },
+  serviceType: 'Livraison de produits frais',
 }
 
 /**
@@ -104,6 +134,14 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <head>
+        {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+          <Script id="souki-ga4" strategy="beforeInteractive">
+            {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}window.gtag=gtag;gtag('js',new Date());gtag('config',${JSON.stringify(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID)});`}
+          </Script>
+        )}
+        {[organizationSchema, websiteSchema, serviceSchema].map((schema) => (
+          <script key={schema['@type']} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema).replace(/</g, '\\u003c') }} />
+        ))}
         {/*
           Amorcage de l'app installee, AVANT la premiere peinture — doit rester inline
           et synchrone. Deux roles :
@@ -137,6 +175,9 @@ export default function RootLayout({
         ))}
       </head>
       <body className={`${poppins.variable} font-sans antialiased overflow-x-hidden`}>
+        {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+          <Script src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}`} strategy="afterInteractive" />
+        )}
         <AuthProvider>
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
             <MobilePullToRefresh />

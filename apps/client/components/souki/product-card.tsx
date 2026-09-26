@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
+import Image from "next/image"
 import { Check, Heart, Minus, Plus, ShoppingCart } from "lucide-react"
 
 import { formatQuantity, isIllustrationImage } from "@/lib/catalogue"
@@ -9,6 +11,7 @@ import { cn } from "@/lib/utils"
 interface ProductCardProps {
   id: number | string
   name: string
+  href?: string
   image: string
   fallbackImage?: string
   price: number
@@ -47,6 +50,7 @@ interface ProductCardProps {
 export function ProductCard({
   id,
   name,
+  href,
   image,
   fallbackImage,
   price,
@@ -123,7 +127,7 @@ export function ProductCard({
 
   return (
     <article
-      onClick={() => onView?.(id)}
+      onClick={href ? undefined : () => onView?.(id)}
       className={cn(
         "group flex h-full flex-col bg-white transition-all duration-300",
         // md: identique a l'origine dans les deux variantes.
@@ -154,9 +158,11 @@ export function ProductCard({
               : (featured ? "aspect-square sm:aspect-[4/3]" : "aspect-[4/3] md:aspect-square")
         )}
       >
-        <img
+        <Image
           src={resolvedImage}
-          alt={name}
+          alt={`${name} frais disponible chez SOUKI`}
+          fill
+          sizes={isMinimal ? "(max-width: 768px) 50vw, 192px" : "(max-width: 768px) 50vw, 256px"}
           onError={() => {
             if (fallbackImage && resolvedImage !== fallbackImage) {
               setResolvedImage(fallbackImage)
@@ -171,6 +177,7 @@ export function ProductCard({
               : "object-cover",
           )}
         />
+        {href && <Link href={href} className="absolute inset-0" aria-label={`Voir ${name}`} />}
         {isOutOfStock ? (
           <>
             <span
@@ -253,7 +260,9 @@ export function ProductCard({
         )}
       >
         <div className={cn("min-w-0", isMinimal ? "mb-1 md:mb-2" : "mb-1.5 sm:mb-2")}>
-          <h3 className="truncate text-sm font-bold text-[#264129] sm:text-base">{name}</h3>
+          <h3 className="truncate text-sm font-bold text-[#264129] sm:text-base">
+            {href ? <Link href={href} className="hover:underline">{name}</Link> : name}
+          </h3>
           <p
             className={cn(
               "mt-0.5 truncate text-[11px] leading-4 text-[#6C7E6E] sm:text-xs",
