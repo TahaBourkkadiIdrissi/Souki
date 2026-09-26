@@ -1,6 +1,10 @@
 import type { User } from "@/contexts/auth-context"
 export type AppRole = "PUBLIC" | "CLIENT" | "LIVREUR" | "ADMIN" | "ADMIN_SUPER"
 export const normalizePath = (path: string) => path.split("?")[0].replace(/\/+$/, "") || "/"
+export const safeInternalRedirect = (path: string | null) =>
+  path?.startsWith("/") && !path.startsWith("//") && !/[\\\u0000-\u0020]/.test(path)
+    ? path
+    : null
 export const getDefaultDashboard = (_user: User | null) => "/"
 const LOGIN = "/login/client"
 const PUBLIC = ["/login", "/verify", "/forgot-password", "/reset-password", "/offline", "/politique-confidentialite", "/", "/pwa-welcome", "/catalogue", "/abonnements", "/onboarding"]

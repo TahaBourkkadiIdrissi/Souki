@@ -6,6 +6,7 @@ import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
 import { useAuth } from "@/hooks/useAuth"
 import { markOnboardingCompleted } from "@/lib/onboarding"
 import { isPwaStandalone } from "@/lib/pwa"
+import { safeInternalRedirect } from "@/lib/routes"
 
 type OnboardingStep = {
   expression: "welcome" | "explain" | "celebrate"
@@ -59,7 +60,8 @@ export default function OnboardingPage() {
   const completeOnboarding = useCallback(() => {
     // Persistance serveur en arriere-plan : la navigation reste instantanee.
     void markOnboardingCompleted(user)
-    const destination = isPwaStandalone() ? "/pwa-welcome" : "/"
+    const redirectTarget = safeInternalRedirect(new URLSearchParams(window.location.search).get("redirect"))
+    const destination = redirectTarget || (isPwaStandalone() ? "/pwa-welcome" : "/")
     router.push(destination)
   }, [router, user])
 
