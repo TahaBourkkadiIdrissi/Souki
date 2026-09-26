@@ -102,7 +102,10 @@ class SettingsService:
                 raise HTTPException(status_code=404, detail="Utilisateur introuvable")
 
             address = self._preferred_address(db, user_id)
-            prenom, nom = self._derive_name_parts(user)
+            if user.prenom is None and user.nom is None:
+                prenom, nom = self._derive_name_parts(user)
+            else:
+                prenom, nom = user.prenom or "", user.nom or ""
             return {
                 "prenom": prenom,
                 "nom": nom,
@@ -140,6 +143,8 @@ class SettingsService:
                     raise HTTPException(status_code=400, detail="Ce numero de telephone est deja utilise.")
 
             email_changed = (user.email or "").lower() != data.email.lower()
+            user.prenom = data.prenom
+            user.nom = data.nom
             user.email = data.email
             user.phone = data.telephone
             if email_changed:
@@ -147,7 +152,7 @@ class SettingsService:
                 user.is_verified = bool(user.is_phone_verified)
 
             db.commit()
-            return {"success": True, "email_changed": email_changed, "name_fields_supported": False}
+            return {"success": True, "email_changed": email_changed}
         except IntegrityError:
             db.rollback()
             raise HTTPException(status_code=400, detail="Informations deja utilisees.")
