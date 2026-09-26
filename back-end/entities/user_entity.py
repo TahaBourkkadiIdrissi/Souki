@@ -10,6 +10,8 @@ class User(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     email = Column(String(128), unique=True, index=True, nullable=True)
     phone = Column(String(20), unique=True, index=True, nullable=True)
+    prenom = Column(String(100), nullable=True)
+    nom = Column(String(100), nullable=True)
     password = Column(String(128), nullable=True)
     role = Column(String(20), default="CLIENT")
     is_verified = Column(Boolean, default=False)
