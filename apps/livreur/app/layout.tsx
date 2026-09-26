@@ -6,7 +6,11 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { RouteGuard } from "@/components/routing/route-guard"
 import { Toaster } from "@/components/ui/sonner"
 import { PwaServiceWorker } from "@/components/souki/pwa-service-worker"
-export const metadata: Metadata = { title: "Souki Livreur", manifest: "/manifest.webmanifest" }
+export const metadata: Metadata = {
+ title: "Souki Livreur",
+ manifest: "/manifest.webmanifest",
+ robots: { index: false, follow: false },
+}
 export default function Layout({children}: {children: React.ReactNode}) {
  return <html lang="fr" suppressHydrationWarning><body className="font-sans antialiased"><AuthProvider><ThemeProvider attribute="class" defaultTheme="light"><Suspense fallback={null}><RouteGuard>{children}</RouteGuard></Suspense><Toaster /><PwaServiceWorker /></ThemeProvider></AuthProvider></body></html>
 }
