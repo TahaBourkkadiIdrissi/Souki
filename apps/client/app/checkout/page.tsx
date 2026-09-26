@@ -1,7 +1,7 @@
 "use client"
 
 import { SoukiLogoLink } from "@/components/souki/souki-logo"
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useSearchParams, useRouter } from "next/navigation"
@@ -32,6 +32,7 @@ import {
 } from "@/lib/api"
 import { isValidMoroccanPhone, normalizeMoroccanPhone, PHONE_ERROR_MSG } from "@/lib/phoneValidator"
 import { cn } from "@/lib/utils"
+import { trackEvent } from "@/lib/analytics"
 import {
   DELIVERY_FEE,
   FREE_DELIVERY_THRESHOLD,
@@ -120,6 +121,16 @@ function CheckoutContent() {
 
   // On initialise le panier vide, on le remplira dynamiquement dans le useEffect
   const [cart, setCart] = useState<CartItem[]>([])
+  const trackedCheckout = useRef(false)
+  useEffect(() => {
+    if (trackedCheckout.current || cart.length === 0) return
+    trackedCheckout.current = true
+    trackEvent("begin_checkout", {
+      currency: "MAD",
+      value: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+      items: cart.map((item) => ({ item_id: item.id, item_name: item.name, price: item.price, quantity: item.quantity })),
+    })
+  }, [cart])
 
   // Profile data
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
@@ -585,6 +596,13 @@ function CheckoutContent() {
 
       if (res.ok) {
         const data = await res.json()
+        trackEvent("purchase", {
+          transaction_id: String(data.commande_id),
+          currency: "MAD",
+          value: total,
+          shipping: deliveryFee,
+          items: cart.map((item) => ({ item_id: item.id, item_name: item.name, price: item.price, quantity: item.quantity })),
+        })
         // L'overlay anime remplace le toast comme feedback immediat ; la
         // redirection existante est juste differee le temps de la celebration.
         setConfirmedOrderId(data.commande_id)

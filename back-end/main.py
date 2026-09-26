@@ -51,6 +51,7 @@ from services.jit_schema_sync_service import JITSchemaSyncService
 from services.logistics_schema_sync_service import LogisticsSchemaSyncService
 from services.notification_schema_sync_service import NotificationSchemaSyncService
 from services.onboarding_schema_sync_service import OnboardingSchemaSyncService
+from services.profile_schema_sync_service import ProfileSchemaSyncService
 from services.perf_index_sync_service import PerfIndexSyncService
 from services.rbac_bootstrap_service import RBACBootstrapService
 from services.scheduler_service import start_scheduler, stop_scheduler
@@ -113,6 +114,7 @@ def sync_database_schema() -> None:
     Base.metadata.create_all(bind=engine)
     run_tasks(
         (
+            AppTask("profile name columns sync", ProfileSchemaSyncService.sync),
             AppTask("wallet schema sync", WalletSchemaSyncService.sync),
             AppTask("delivery schema sync", DeliverySchemaSyncService.sync),
             AppTask("dispatch schema sync", DispatchSchemaSyncService.sync),

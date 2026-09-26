@@ -9,6 +9,14 @@ class PersonalInfoUpdateDTO(BaseModel):
     email: EmailStr
     telephone: str
 
+    @field_validator("prenom", "nom")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        value = value.strip()
+        if len(value) > 100:
+            raise ValueError("Le nom ne doit pas depasser 100 caracteres")
+        return value
+
     @field_validator("telephone")
     @classmethod
     def validate_phone(cls, value: str) -> str:

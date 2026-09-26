@@ -2,7 +2,7 @@
 
 import { SoukiLogo } from "@/components/souki/souki-logo"
 import { useEffect, useMemo, useState } from "react"
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 
 import { useAuth } from "@/hooks/useAuth"
 import { canAccessRoute, getAccessDeniedMessage, normalizePath } from "@/lib/routes"
@@ -21,13 +21,12 @@ function buildRedirectUrl(targetPath: string, currentPath: string, reason: strin
 export function RouteGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { isLoading, isAuthenticated, user } = useAuth()
   const [accessError, setAccessError] = useState<string | null>(null)
 
   const decision = useMemo(
-    () => canAccessRoute({ pathname, searchParams, user, isAuthenticated, isLoading }),
-    [isAuthenticated, isLoading, pathname, searchParams, user]
+    () => canAccessRoute({ pathname, user, isAuthenticated, isLoading }),
+    [isAuthenticated, isLoading, pathname, user]
   )
 
   useEffect(() => {
@@ -39,20 +38,20 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
   }, [decision.allowed, decision.reason, decision.redirectTo, pathname, router])
 
   useEffect(() => {
-    const reason = searchParams.get("access_error")
+    const params = new URLSearchParams(window.location.search)
+    const reason = params.get("access_error")
     setAccessError(reason ? getAccessDeniedMessage(reason as Parameters<typeof getAccessDeniedMessage>[0]) : null)
 
     if (!reason) {
       return
     }
 
-    const params = new URLSearchParams(searchParams.toString())
     params.delete("access_error")
     params.delete("redirect")
 
     const nextQuery = params.toString()
     router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false })
-  }, [pathname, router, searchParams])
+  }, [pathname, router])
 
   useEffect(() => {
     if (!accessError) {

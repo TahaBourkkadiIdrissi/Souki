@@ -31,6 +31,7 @@ import {
   SmartBasketResponse,
 } from "@/lib/catalogue"
 import { cn } from "@/lib/utils"
+import { trackEvent } from "@/lib/analytics"
 
 interface LigneCommandeDTO {
   product_id: number
@@ -340,6 +341,7 @@ export function AIModals({
           }
 
           const data = (await response.json()) as VoiceBasketResponseDTO
+          trackEvent("voice_order_used")
           setResult(data)
         } catch (voiceError) {
           setError(
