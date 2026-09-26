@@ -1,7 +1,7 @@
 "use client"
 
+import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { Suspense, useState } from "react"
-import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { AlertCircle, Eye, EyeOff, Lock, Mail, Shield, Loader2 } from "lucide-react"
 
@@ -48,15 +48,7 @@ function AdminLoginContent() {
         </div>
 
         <div className="relative z-10">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-14 h-14 rounded-2xl shadow-lg overflow-hidden flex items-center justify-center bg-white p-0.5 pointer-events-none">
-              <img src="/logo3.png" alt="SOUKI" className="w-[175%] h-full max-w-none object-cover" style={{ objectPosition: "left center" }} />
-            </div>
-            <div>
-              <span className="text-3xl font-bold text-white">SOUKI</span>
-              <span className="text-lg text-white/80 ml-2">Administration</span>
-            </div>
-          </Link>
+          <SoukiLogoLink variant="secondary" height={104} support priority />
         </div>
 
         <div className="relative z-10 max-w-lg">
@@ -78,6 +70,7 @@ function AdminLoginContent() {
 
       <div className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-md rounded-[32px] border border-[#DDE7DE] bg-white p-8 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.25)]">
+          <SoukiLogoLink variant="secondary" height={104} priority className="mb-6 lg:hidden" />
           <div className="mb-8">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#6E8B73]">Back-office</p>
             <h2 className="mt-2 text-3xl font-bold text-[#223126]">Connexion admin</h2>

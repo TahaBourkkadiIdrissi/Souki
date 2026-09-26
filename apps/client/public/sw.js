@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "souki-pwa"
-const CACHE_VERSION = "v10"
+const CACHE_VERSION = "v11-brand2026"
 const RUNTIME_CACHE = `${CACHE_PREFIX}-${CACHE_VERSION}`
 
 // Page de repli affichee quand une navigation echoue hors ligne.
@@ -11,10 +11,15 @@ const START_URL = "/pwa-welcome"
 
 const STATIC_ASSETS = [
   "/manifest.webmanifest",
-  "/logo3.png",
-  "/pwa-icon-192.png",
-  "/pwa-icon-512.png",
-  "/apple-icon.png",
+  "/brand/souki-2026/horizontal.png",
+  "/brand/souki-2026/secondary.png",
+  "/brand/souki-2026/symbol.png",
+  "/brand/souki-2026/pwa-192.png",
+  "/brand/souki-2026/pwa-512.png",
+  "/brand/souki-2026/pwa-maskable-192.png",
+  "/brand/souki-2026/pwa-maskable-512.png",
+  "/brand/souki-2026/apple-touch-icon.png",
+  "/brand/souki-2026/favicon.ico",
   // Heros generes (Higgsfield, detoures) : couronne de l'animation d'entree
   // (~180 KB) et panier des generations IA (~65 KB) — precaches pour que le
   // premier lancement et les premieres generations soient complets, meme
@@ -29,7 +34,7 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(RUNTIME_CACHE)
-      .then((cache) => cache.addAll(STATIC_ASSETS))
+      .then((cache) => cache.addAll([...new Set(STATIC_ASSETS)]))
       .catch(() => undefined)
       .then(() => self.skipWaiting()),
   )
@@ -42,7 +47,7 @@ self.addEventListener("activate", (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key.startsWith(CACHE_PREFIX) && key !== RUNTIME_CACHE)
+            .filter((key) => key.startsWith(`${CACHE_PREFIX}-`) && /^v\d/.test(key.slice(CACHE_PREFIX.length + 1)) && key !== RUNTIME_CACHE)
             .map((key) => caches.delete(key)),
         ),
       )
@@ -58,8 +63,8 @@ self.addEventListener("message", (event) => {
 
 // --- Notifications push -----------------------------------------------------
 
-const NOTIFICATION_ICON = "/pwa-icon-192.png"
-const NOTIFICATION_BADGE = "/pwa-icon-192.png"
+const NOTIFICATION_ICON = "/brand/souki-2026/pwa-192.png"
+const NOTIFICATION_BADGE = "/brand/souki-2026/pwa-192.png"
 
 self.addEventListener("push", (event) => {
   // Un push sans donnees lisibles reste affiche : ne jamais laisser une
@@ -156,6 +161,7 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (
+    url.pathname === "/manifest.webmanifest" ||
     url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/avatar/") ||
     url.pathname.match(/\.(?:png|jpg|jpeg|svg|webp|ico|css|js|woff2?)$/)

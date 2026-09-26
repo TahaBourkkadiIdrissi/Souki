@@ -1,5 +1,6 @@
 "use client"
 
+import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
 import Image from "next/image"
@@ -692,12 +693,7 @@ function CheckoutContent() {
                 <span>Modifier dans le catalogue</span>
               </Link>
             </div>
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-xl shadow-sm overflow-hidden flex items-center justify-center bg-white p-0.5 pointer-events-none">
-                <img src="/logo3.png" alt="SOUKI" className="w-[175%] h-full max-w-none object-cover" style={{ objectPosition: "left center" }} />
-              </div>
-              <span className="text-lg font-bold text-[#1E8A3C]">SOUKI</span>
-            </Link>
+            <SoukiLogoLink height={36} priority />
           </div>
         </div>
       </header>

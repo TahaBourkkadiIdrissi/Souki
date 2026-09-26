@@ -1,5 +1,6 @@
 "use client"
 
+import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -108,22 +109,7 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
           aria-label="Navigation principale"
         >
           <div className="flex h-14 items-center justify-between px-4">
-            <Link href={homeHref} className="flex items-center gap-2.5">
-              <span className="pointer-events-none flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-white p-0.5 shadow-sm">
-                <img
-                  src="/logo3.png"
-                  alt="SOUKI"
-                  className="h-full w-[175%] max-w-none object-cover"
-                  style={{ objectPosition: "left center" }}
-                />
-              </span>
-              <span className="flex flex-col justify-center">
-                <span className="text-lg font-bold leading-none tracking-tight text-[#1E8A3C]">SOUKI</span>
-                <span className="mt-0.5 text-[9px] font-medium uppercase tracking-wider text-[#8A8A8A]">
-                  Fresh Market
-                </span>
-              </span>
-            </Link>
+            <SoukiLogoLink href={homeHref} height={36} priority />
 
             <div className="flex items-center gap-2">
               <Link

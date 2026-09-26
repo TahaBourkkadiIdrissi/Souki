@@ -1,5 +1,6 @@
 "use client"
 
+import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import Link from "next/link"
 import { UserRound } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
@@ -14,22 +15,7 @@ export function Navbar() {
       <nav className="sticky top-0 z-50 hidden bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100/50 transition-all md:block">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-20 items-center justify-between">
-            <Link href="/" className="flex items-center gap-3">
-              <div className="pointer-events-none flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-white p-0.5 shadow-sm">
-                <img
-                  src="/logo3.png"
-                  alt="SOUKI"
-                  className="h-full w-[175%] max-w-none object-cover"
-                  style={{ objectPosition: "left center" }}
-                />
-              </div>
-              <div className="flex flex-col justify-center">
-                <span className="text-xl font-bold leading-none tracking-tight text-[#1E8A3C]">SOUKI</span>
-                <span className="mt-0.5 text-[11px] font-medium uppercase tracking-wider text-[#8A8A8A]">
-                  Fresh Market
-                </span>
-              </div>
-            </Link>
+            <SoukiLogoLink height={36} priority />
 
             <div className="hidden items-center gap-8 md:flex">
               <Link href="/" className="text-sm font-semibold tracking-wide text-[#1E8A3C]">

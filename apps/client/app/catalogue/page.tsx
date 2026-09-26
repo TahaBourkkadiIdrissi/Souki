@@ -1,5 +1,6 @@
 "use client"
 
+import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -1348,22 +1349,7 @@ function CatalogueContent() {
             >
               <Menu className="h-6 w-6" />
             </button>
-            <Link href="/" className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-white p-0.5 shadow-sm">
-                <img
-                  src="/logo3.png"
-                  alt="SOUKI"
-                  className="h-full w-[175%] max-w-none object-cover"
-                  style={{ objectPosition: "left center" }}
-                />
-              </div>
-              <div className="hidden sm:block">
-                <span className="block text-xl font-bold leading-none text-[#1E8A3C]">SOUKI</span>
-                <span className="text-[11px] uppercase tracking-widest text-[#7B8B7D]">
-                  Fresh market
-                </span>
-              </div>
-            </Link>
+            <SoukiLogoLink height={36} priority />
           </div>
 
           <div className="flex items-center gap-3">

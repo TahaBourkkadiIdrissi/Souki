@@ -1,0 +1,841 @@
+{
+  "screens": [
+    {
+      "name": "home-desktop",
+      "width": 1440,
+      "height": 1000,
+      "dark": false,
+      "overflow": false,
+      "logos": [
+        {
+          "src": "/brand/souki-2026/horizontal.png",
+          "loaded": true,
+          "width": 108,
+          "height": 36,
+          "inViewport": true,
+          "link": "SOUKI — Accueil",
+          "href": "/"
+        }
+      ],
+      "icons": [
+        {
+          "rel": "shortcut icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": null
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": "16x16 32x32 48x48"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-16.png",
+          "sizes": "16x16"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-32.png",
+          "sizes": "32x32"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-48.png",
+          "sizes": "48x48"
+        },
+        {
+          "rel": "apple-touch-icon",
+          "href": "/brand/souki-2026/apple-touch-icon.png",
+          "sizes": "180x180"
+        }
+      ]
+    },
+    {
+      "name": "home-mobile",
+      "width": 390,
+      "height": 844,
+      "dark": false,
+      "overflow": false,
+      "logos": [
+        {
+          "src": "/brand/souki-2026/horizontal.png",
+          "loaded": true,
+          "width": 108,
+          "height": 36,
+          "inViewport": true,
+          "link": "SOUKI — Accueil",
+          "href": "/"
+        }
+      ],
+      "icons": [
+        {
+          "rel": "shortcut icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": null
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": "16x16 32x32 48x48"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-16.png",
+          "sizes": "16x16"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-32.png",
+          "sizes": "32x32"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-48.png",
+          "sizes": "48x48"
+        },
+        {
+          "rel": "apple-touch-icon",
+          "href": "/brand/souki-2026/apple-touch-icon.png",
+          "sizes": "180x180"
+        }
+      ]
+    },
+    {
+      "name": "home-mobile-320",
+      "width": 320,
+      "height": 740,
+      "dark": false,
+      "overflow": false,
+      "logos": [
+        {
+          "src": "/brand/souki-2026/horizontal.png",
+          "loaded": true,
+          "width": 108,
+          "height": 36,
+          "inViewport": true,
+          "link": "SOUKI — Accueil",
+          "href": "/"
+        }
+      ],
+      "icons": [
+        {
+          "rel": "shortcut icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": null
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": "16x16 32x32 48x48"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-16.png",
+          "sizes": "16x16"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-32.png",
+          "sizes": "32x32"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-48.png",
+          "sizes": "48x48"
+        },
+        {
+          "rel": "apple-touch-icon",
+          "href": "/brand/souki-2026/apple-touch-icon.png",
+          "sizes": "180x180"
+        }
+      ]
+    },
+    {
+      "name": "catalogue-desktop",
+      "width": 1440,
+      "height": 1000,
+      "dark": false,
+      "overflow": false,
+      "logos": [
+        {
+          "src": "/brand/souki-2026/horizontal.png",
+          "loaded": true,
+          "width": 108,
+          "height": 36,
+          "inViewport": true,
+          "link": "SOUKI — Accueil",
+          "href": "/"
+        }
+      ],
+      "icons": [
+        {
+          "rel": "shortcut icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": null
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": "16x16 32x32 48x48"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-16.png",
+          "sizes": "16x16"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-32.png",
+          "sizes": "32x32"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-48.png",
+          "sizes": "48x48"
+        },
+        {
+          "rel": "apple-touch-icon",
+          "href": "/brand/souki-2026/apple-touch-icon.png",
+          "sizes": "180x180"
+        }
+      ]
+    },
+    {
+      "name": "catalogue-mobile",
+      "width": 390,
+      "height": 844,
+      "dark": false,
+      "overflow": false,
+      "logos": [
+        {
+          "src": "/brand/souki-2026/horizontal.png",
+          "loaded": true,
+          "width": 108,
+          "height": 36,
+          "inViewport": true,
+          "link": "SOUKI — Accueil",
+          "href": "/"
+        }
+      ],
+      "icons": [
+        {
+          "rel": "shortcut icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": null
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": "16x16 32x32 48x48"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-16.png",
+          "sizes": "16x16"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-32.png",
+          "sizes": "32x32"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-48.png",
+          "sizes": "48x48"
+        },
+        {
+          "rel": "apple-touch-icon",
+          "href": "/brand/souki-2026/apple-touch-icon.png",
+          "sizes": "180x180"
+        }
+      ]
+    },
+    {
+      "name": "login-desktop",
+      "width": 1440,
+      "height": 1000,
+      "dark": false,
+      "overflow": false,
+      "logos": [
+        {
+          "src": "/brand/souki-2026/secondary.png",
+          "loaded": true,
+          "width": 107,
+          "height": 104,
+          "inViewport": true,
+          "link": "SOUKI — Accueil",
+          "href": "/"
+        }
+      ],
+      "icons": [
+        {
+          "rel": "shortcut icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": null
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": "16x16 32x32 48x48"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-16.png",
+          "sizes": "16x16"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-32.png",
+          "sizes": "32x32"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-48.png",
+          "sizes": "48x48"
+        },
+        {
+          "rel": "apple-touch-icon",
+          "href": "/brand/souki-2026/apple-touch-icon.png",
+          "sizes": "180x180"
+        }
+      ]
+    },
+    {
+      "name": "login-mobile",
+      "width": 390,
+      "height": 844,
+      "dark": false,
+      "overflow": false,
+      "logos": [
+        {
+          "src": "/brand/souki-2026/secondary.png",
+          "loaded": true,
+          "width": 107,
+          "height": 104,
+          "inViewport": true,
+          "link": "SOUKI — Accueil",
+          "href": "/"
+        }
+      ],
+      "icons": [
+        {
+          "rel": "shortcut icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": null
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": "16x16 32x32 48x48"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-16.png",
+          "sizes": "16x16"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-32.png",
+          "sizes": "32x32"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-48.png",
+          "sizes": "48x48"
+        },
+        {
+          "rel": "apple-touch-icon",
+          "href": "/brand/souki-2026/apple-touch-icon.png",
+          "sizes": "180x180"
+        }
+      ]
+    },
+    {
+      "name": "signup-mobile",
+      "width": 390,
+      "height": 844,
+      "dark": false,
+      "overflow": false,
+      "logos": [
+        {
+          "src": "/brand/souki-2026/secondary.png",
+          "loaded": true,
+          "width": 107,
+          "height": 104,
+          "inViewport": true,
+          "link": "SOUKI — Accueil",
+          "href": "/"
+        }
+      ],
+      "icons": [
+        {
+          "rel": "shortcut icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": null
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": "16x16 32x32 48x48"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-16.png",
+          "sizes": "16x16"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-32.png",
+          "sizes": "32x32"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-48.png",
+          "sizes": "48x48"
+        },
+        {
+          "rel": "apple-touch-icon",
+          "href": "/brand/souki-2026/apple-touch-icon.png",
+          "sizes": "180x180"
+        }
+      ]
+    },
+    {
+      "name": "login-dark",
+      "width": 390,
+      "height": 844,
+      "dark": true,
+      "overflow": false,
+      "logos": [
+        {
+          "src": "/brand/souki-2026/secondary.png",
+          "loaded": true,
+          "width": 107,
+          "height": 104,
+          "inViewport": true,
+          "link": "SOUKI — Accueil",
+          "href": "/"
+        }
+      ],
+      "icons": [
+        {
+          "rel": "shortcut icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": null
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": "16x16 32x32 48x48"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-16.png",
+          "sizes": "16x16"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-32.png",
+          "sizes": "32x32"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-48.png",
+          "sizes": "48x48"
+        },
+        {
+          "rel": "apple-touch-icon",
+          "href": "/brand/souki-2026/apple-touch-icon.png",
+          "sizes": "180x180"
+        }
+      ]
+    },
+    {
+      "name": "livreur-login-desktop",
+      "width": 1440,
+      "height": 1000,
+      "dark": false,
+      "overflow": false,
+      "logos": [
+        {
+          "src": "/brand/souki-2026/secondary.png",
+          "loaded": true,
+          "width": 107,
+          "height": 104,
+          "inViewport": true,
+          "link": "SOUKI — Accueil",
+          "href": "/"
+        }
+      ],
+      "icons": [
+        {
+          "rel": "shortcut icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": null
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": "16x16 32x32 48x48"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-16.png",
+          "sizes": "16x16"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-32.png",
+          "sizes": "32x32"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-48.png",
+          "sizes": "48x48"
+        },
+        {
+          "rel": "apple-touch-icon",
+          "href": "/brand/souki-2026/apple-touch-icon.png",
+          "sizes": "180x180"
+        }
+      ]
+    },
+    {
+      "name": "livreur-login-mobile",
+      "width": 390,
+      "height": 844,
+      "dark": false,
+      "overflow": false,
+      "logos": [
+        {
+          "src": "/brand/souki-2026/secondary.png",
+          "loaded": true,
+          "width": 107,
+          "height": 104,
+          "inViewport": true,
+          "link": "SOUKI — Accueil",
+          "href": "/"
+        }
+      ],
+      "icons": [
+        {
+          "rel": "shortcut icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": null
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": "16x16 32x32 48x48"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-16.png",
+          "sizes": "16x16"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-32.png",
+          "sizes": "32x32"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-48.png",
+          "sizes": "48x48"
+        },
+        {
+          "rel": "apple-touch-icon",
+          "href": "/brand/souki-2026/apple-touch-icon.png",
+          "sizes": "180x180"
+        }
+      ]
+    },
+    {
+      "name": "admin-login-desktop",
+      "width": 1440,
+      "height": 1000,
+      "dark": false,
+      "overflow": false,
+      "logos": [
+        {
+          "src": "/brand/souki-2026/secondary.png",
+          "loaded": true,
+          "width": 107,
+          "height": 104,
+          "inViewport": true,
+          "link": "SOUKI — Accueil",
+          "href": "/"
+        }
+      ],
+      "icons": [
+        {
+          "rel": "shortcut icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": null
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": "16x16 32x32 48x48"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-16.png",
+          "sizes": "16x16"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-32.png",
+          "sizes": "32x32"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-48.png",
+          "sizes": "48x48"
+        },
+        {
+          "rel": "apple-touch-icon",
+          "href": "/brand/souki-2026/apple-touch-icon.png",
+          "sizes": "180x180"
+        }
+      ]
+    },
+    {
+      "name": "admin-login-mobile",
+      "width": 390,
+      "height": 844,
+      "dark": false,
+      "overflow": false,
+      "logos": [
+        {
+          "src": "/brand/souki-2026/secondary.png",
+          "loaded": true,
+          "width": 107,
+          "height": 104,
+          "inViewport": true,
+          "link": "SOUKI — Accueil",
+          "href": "/"
+        }
+      ],
+      "icons": [
+        {
+          "rel": "shortcut icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": null
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon.ico",
+          "sizes": "16x16 32x32 48x48"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-16.png",
+          "sizes": "16x16"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-32.png",
+          "sizes": "32x32"
+        },
+        {
+          "rel": "icon",
+          "href": "/brand/souki-2026/favicon-48.png",
+          "sizes": "48x48"
+        },
+        {
+          "rel": "apple-touch-icon",
+          "href": "/brand/souki-2026/apple-touch-icon.png",
+          "sizes": "180x180"
+        }
+      ]
+    }
+  ],
+  "pwa": [
+    {
+      "role": "client",
+      "manifest": {
+        "id": "/",
+        "name": "SOUKI Fresh Market",
+        "short_name": "SOUKI",
+        "description": "Legumes frais du marche de gros de Fes, livres chez vous le matin meme.",
+        "lang": "fr",
+        "dir": "ltr",
+        "categories": [
+          "shopping",
+          "food"
+        ],
+        "start_url": "/pwa-welcome",
+        "scope": "/",
+        "display": "standalone",
+        "display_override": [
+          "standalone",
+          "minimal-ui"
+        ],
+        "orientation": "portrait",
+        "background_color": "#FFFFFF",
+        "theme_color": "#005B43",
+        "icons": [
+          {
+            "src": "/brand/souki-2026/pwa-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+          },
+          {
+            "src": "/brand/souki-2026/pwa-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+          },
+          {
+            "src": "/brand/souki-2026/pwa-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+          },
+          {
+            "src": "/brand/souki-2026/pwa-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+          }
+        ],
+        "shortcuts": [
+          {
+            "name": "Catalogue",
+            "short_name": "Catalogue",
+            "url": "/catalogue"
+          },
+          {
+            "name": "Mes commandes",
+            "short_name": "Commandes",
+            "url": "/historique"
+          },
+          {
+            "name": "Mon Wallet",
+            "short_name": "Wallet",
+            "url": "/wallet"
+          }
+        ]
+      },
+      "browserManifestErrors": [],
+      "installability": {
+        "installabilityErrors": [
+          {
+            "errorId": "in-incognito",
+            "errorArguments": []
+          }
+        ]
+      },
+      "cached": [
+        "/brand/souki-2026/horizontal.png",
+        "/brand/souki-2026/secondary.png",
+        "/brand/souki-2026/symbol.png",
+        "/brand/souki-2026/pwa-512.png",
+        "/brand/souki-2026/pwa-maskable-192.png",
+        "/brand/souki-2026/pwa-maskable-512.png",
+        "/brand/souki-2026/apple-touch-icon.png",
+        "/brand/souki-2026/favicon.ico",
+        "/images/launch/wreath.webp",
+        "/images/launch/basket.webp",
+        "/pwa-welcome",
+        "/offline",
+        "/manifest.webmanifest",
+        "/brand/souki-2026/pwa-192.png"
+      ],
+      "offlineAssets": {
+        "image": true,
+        "manifest": true,
+        "localStorage": "preserved",
+        "unrelatedCache": "preserved"
+      },
+      "offlineNavigation": "passed"
+    },
+    {
+      "role": "livreur",
+      "manifest": {
+        "id": "/",
+        "name": "Souki Livreur",
+        "short_name": "Souki Livreur",
+        "start_url": "/livreur",
+        "scope": "/",
+        "display": "standalone",
+        "background_color": "#FFFFFF",
+        "theme_color": "#005B43",
+        "icons": [
+          {
+            "src": "/brand/souki-2026/pwa-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+          },
+          {
+            "src": "/brand/souki-2026/pwa-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+          },
+          {
+            "src": "/brand/souki-2026/pwa-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+          },
+          {
+            "src": "/brand/souki-2026/pwa-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+          }
+        ]
+      },
+      "browserManifestErrors": [],
+      "installability": {
+        "installabilityErrors": [
+          {
+            "errorId": "in-incognito",
+            "errorArguments": []
+          }
+        ]
+      },
+      "cached": [
+        "/brand/souki-2026/horizontal.png",
+        "/brand/souki-2026/secondary.png",
+        "/brand/souki-2026/symbol.png",
+        "/brand/souki-2026/pwa-512.png",
+        "/brand/souki-2026/pwa-maskable-192.png",
+        "/brand/souki-2026/pwa-maskable-512.png",
+        "/brand/souki-2026/apple-touch-icon.png",
+        "/brand/souki-2026/favicon.ico",
+        "/offline",
+        "/manifest.webmanifest",
+        "/brand/souki-2026/pwa-192.png"
+      ],
+      "offlineAssets": {
+        "image": true,
+        "manifest": true,
+        "localStorage": "preserved",
+        "unrelatedCache": "preserved"
+      },
+      "offlineNavigation": "passed"
+    }
+  ],
+  "failures": [],
+  "limitations": [
+    "No real Android/iOS device or OS-level PWA installation",
+    "Business APIs are not running; no real account/login/order operation tested"
+  ],
+  "animation": {
+    "suppliedSecondary": true,
+    "screenshotTimeMs": 1450,
+    "timeoutExtendedForScreenshotOnly": true,
+    "reducedMotionDismissal": "passed"
+  },
+  "standalonePreview": {
+    "mockedSession": true,
+    "emulatedNavigatorStandalone": true,
+    "overflow": false,
+    "logo": "horizontal on white support"
+  }
+}

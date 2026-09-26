@@ -1,3 +1,4 @@
+import { BRAND_GREEN, BRAND_PATH, brandIcons } from "@/lib/branding"
 import type { Metadata, Viewport } from 'next'
 import { Suspense } from 'react'
 import localFont from 'next/font/local'
@@ -37,19 +38,7 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
-  icons: {
-    icon: [
-      { url: '/favicon.ico', sizes: 'any' },
-      { url: '/pwa-icon-192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/pwa-icon-512.png', sizes: '512x512', type: 'image/png' },
-    ],
-    apple: [
-      { url: '/apple-icon-120.png', sizes: '120x120', type: 'image/png' },
-      { url: '/apple-icon-152.png', sizes: '152x152', type: 'image/png' },
-      { url: '/apple-icon-167.png', sizes: '167x167', type: 'image/png' },
-      { url: '/apple-icon.png', sizes: '180x180', type: 'image/png' },
-    ],
-  },
+  icons: brandIcons,
   title: 'SOUKI Fresh Market | Du champ au panier, le matin même',
   description: 'Légumes frais du marché de gros de Fès, livrés chez vous le lendemain. Commandé avant 20h00, livré demain entre 8h et 15h.',
   keywords: ['légumes frais', 'marché de gros', 'Fès', 'Maroc', 'livraison', 'fruits', 'herbes'],
@@ -81,14 +70,14 @@ const APPLE_SPLASH_LINKS = APPLE_SPLASH_DEVICES.flatMap(([cssWidth, cssHeight, d
         ? [cssWidth * dpr, cssHeight * dpr]
         : [cssHeight * dpr, cssWidth * dpr]
     return {
-      href: `/splash/apple-splash-${width}-${height}.png`,
+      href: `${BRAND_PATH}/splash/apple-splash-${width}-${height}.png`,
       media: `(device-width: ${cssWidth}px) and (device-height: ${cssHeight}px) and (-webkit-device-pixel-ratio: ${dpr}) and (orientation: ${orientation})`,
     }
   })
 )
 
 export const viewport: Viewport = {
-  themeColor: '#1E8A3C',
+  themeColor: BRAND_GREEN,
   width: 'device-width',
   initialScale: 1,
   // Indispensable pour que env(safe-area-inset-*) renvoie de vraies valeurs
@@ -119,7 +108,7 @@ export default function RootLayout({
         */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var q=location.search.indexOf("souki-launch-preview")>-1;var m=window.matchMedia;var s=(m&&(m("(display-mode: standalone)").matches||m("(display-mode: fullscreen)").matches))||navigator.standalone===true;if(!s&&!q)return;if(location.pathname==="/"){location.replace("/pwa-welcome"+location.search+location.hash);return}if(q||!sessionStorage.getItem("souki-launched")){if(!q)sessionStorage.setItem("souki-launched","1");document.documentElement.setAttribute("data-souki-launch","");var l=document.createElement("link");l.rel="preload";l.as="image";l.href="/images/launch/wreath.webp";document.head.appendChild(l)}}catch(e){}})()`,
+            __html: `(function(){try{var q=location.search.indexOf("souki-launch-preview")>-1;var m=window.matchMedia;var s=(m&&(m("(display-mode: standalone)").matches||m("(display-mode: fullscreen)").matches))||navigator.standalone===true;if(!s&&!q)return;if(location.pathname==="/"){location.replace("/pwa-welcome"+location.search+location.hash);return}if(q||!sessionStorage.getItem("souki-launched")){if(!q)sessionStorage.setItem("souki-launched","1");document.documentElement.setAttribute("data-souki-launch","");var l=document.createElement("link");l.rel="preload";l.as="image";l.href="/images/launch/wreath.webp";document.head.appendChild(l);var b=document.createElement("link");b.rel="preload";b.as="image";b.href="/brand/souki-2026/secondary.png";document.head.appendChild(b)}}catch(e){}})()`,
           }}
         />
         <meta name="mobile-web-app-capable" content="yes" />

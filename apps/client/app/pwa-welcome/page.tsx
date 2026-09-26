@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 
 import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
+import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import type { CatalogueProduct } from "@/lib/catalogue"
 import {
   fetchCatalogueProducts,
@@ -440,6 +441,7 @@ export default function PwaWelcomePage() {
               opacity: reduceMotion ? 1 : Math.max(1 - scrollY / 700, 0.55),
             }}
           >
+            <SoukiLogoLink href="/pwa-welcome" height={32} support priority className="mb-4" />
             {/* Ligne 1 : pilule de localisation (verre dépoli) + favoris + profil */}
             <div className="flex items-center justify-between">
               <button

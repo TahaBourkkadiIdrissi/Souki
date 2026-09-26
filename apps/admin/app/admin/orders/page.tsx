@@ -1,5 +1,6 @@
 "use client"
 
+import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { Fragment, type ReactNode, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import {
@@ -1597,16 +1598,7 @@ export default function AdminOrdersPage() {
             </Link>
 
             <div className="flex items-center gap-3 min-w-0">
-              <Link href="/" className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-xl shadow-sm overflow-hidden flex items-center justify-center bg-white border border-gray-100 p-0.5">
-                  <img
-                    src="/logo3.png"
-                    alt="SOUKI"
-                    className="w-[175%] h-full max-w-none object-cover"
-                    style={{ objectPosition: "left center" }}
-                  />
-                </div>
-              </Link>
+              <SoukiLogoLink variant="symbol" height={36} />
               <div className="hidden h-6 w-px bg-gray-200 sm:block" />
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">

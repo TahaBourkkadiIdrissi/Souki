@@ -1,5 +1,6 @@
 "use client"
 
+import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { Suspense, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -295,15 +296,7 @@ function VerifyContent() {
         </div>
 
         <div className="relative z-10">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-14 h-14 rounded-2xl shadow-lg overflow-hidden flex items-center justify-center bg-white p-0.5 pointer-events-none">
-              <img src="/logo3.png" alt="SOUKI" className="w-[175%] h-full max-w-none object-cover" style={{ objectPosition: "left center" }} />
-            </div>
-            <div>
-              <span className="text-3xl font-bold text-white">SOUKI</span>
-              <span className="text-lg text-white/80 ml-2">Fresh Market</span>
-            </div>
-          </Link>
+          <SoukiLogoLink variant="secondary" height={104} support priority />
         </div>
 
         <div className="relative z-10 flex-1 flex flex-col justify-center">
@@ -326,12 +319,7 @@ function VerifyContent() {
       <div className="flex-1 flex flex-col justify-center bg-[#FCFDFC] px-4 py-12 sm:px-6 lg:px-12 xl:px-20">
         <div className="mx-auto w-full max-w-xl">
           <div className="lg:hidden mb-8">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-xl shadow-sm overflow-hidden flex items-center justify-center bg-white p-0.5 pointer-events-none">
-                <img src="/logo3.png" alt="SOUKI" className="w-[175%] h-full max-w-none object-cover" style={{ objectPosition: "left center" }} />
-              </div>
-              <span className="text-xl font-bold text-[#1E8A3C]">SOUKI Fresh Market</span>
-            </Link>
+            <SoukiLogoLink variant="secondary" height={104} support priority />
           </div>
 
           {isValidPayload ? (

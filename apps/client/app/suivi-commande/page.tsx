@@ -1,7 +1,7 @@
 "use client"
 
+import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { ArrowLeft, CalendarDays, MapPin, ReceiptText, RefreshCw, ShoppingBasket } from "lucide-react"
@@ -76,12 +76,7 @@ function TrackingContent() {
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             Mes commandes
           </Link>
-          <Link href="/" className="flex items-center gap-2.5" aria-label="Accueil Souki">
-            <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-white p-0.5 shadow-sm">
-              <Image src="/logo3.png" alt="" width={84} height={48} className="h-full w-[175%] max-w-none object-cover" style={{ objectPosition: "left center" }} />
-            </span>
-            <span className="hidden text-xl font-bold text-[#1E8A3C] sm:block">SOUKI</span>
-          </Link>
+          <SoukiLogoLink height={36} priority />
         </div>
       </header>
 

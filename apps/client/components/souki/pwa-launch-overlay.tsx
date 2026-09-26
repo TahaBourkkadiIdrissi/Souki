@@ -1,5 +1,5 @@
 "use client"
-
+import { SoukiLogo } from "@/components/souki/souki-logo"
 import { useEffect, useState, type CSSProperties } from "react"
 
 /**
@@ -9,7 +9,7 @@ import { useEffect, useState, type CSSProperties } from "react"
  * → aube verte + lueur safran + rayons de soleil derriere lui → une couronne de
  * legumes photorealiste (generee via Higgsfield, detouree) vient se poser autour
  * du logo avec une physique de ressort, doublee d'une copie floutee plus large
- * pour la profondeur → reflet sur le logo → lettres SOUKI + devise → finale :
+ * pour la profondeur → reflet sur le logo secondaire fourni → devise → finale :
  * le vert profond de l'accueil jaillit du coeur du logo (disque qui inonde
  * l'ecran) et l'overlay s'efface dessus — le dernier frame du splash porte deja
  * la couleur du hero de /pwa-welcome, aucune coupure de luminance.
@@ -39,8 +39,6 @@ const SPARKLES = [
   { x: -112, y: 76, size: 6, color: "#F5C400", delay: 1530 },
   { x: -138, y: -24, size: 5, color: "#FFFFFF", delay: 1650 },
 ]
-
-const WORDMARK = ["S", "O", "U", "K", "I"]
 
 export function PwaLaunchOverlay() {
   const [done, setDone] = useState(false)
@@ -119,30 +117,18 @@ export function PwaLaunchOverlay() {
           />
         ))}
 
-        {/* Le logo respire au coeur de la couronne, puis un reflet le balaie.
-            logo3.png est opaque (fond blanc) : le cercle + overflow-hidden le
-            transforme en medaillon blanc — jamais de carte rectangulaire. */}
-        <div className="souki-launch-logo-wrap relative h-36 w-36 overflow-hidden rounded-full bg-white">
-          <img src="/logo3.png" alt="" className="souki-launch-logo h-full w-full object-contain" />
-          <span className="souki-launch-shine absolute inset-0" />
+        {/* Le secondaire fourni reste entier sur un support blanc discret. */}
+        <div className="souki-launch-logo-wrap relative rounded-2xl bg-white p-3">
+          <SoukiLogo variant="secondary" height={112} priority decorative />
+          <span className="souki-launch-shine absolute inset-3" />
         </div>
 
-        {/* Lettrage SOUKI + devise, sous la couronne */}
+        {/* Devise, sous la couronne ; le nom appartient au logo fourni. */}
         <div
           className="souki-launch-wordmark absolute inset-x-0 text-center"
           style={{ top: "calc(50% + min(52vmin, 212px))" }}
         >
-          <div className="text-[28px] font-black tracking-[0.32em] text-[#163019]">
-            {WORDMARK.map((letter, index) => (
-              <span
-                key={`${letter}-${index}`}
-                className="souki-launch-letter inline-block"
-                style={{ "--d": `${index * 60}ms` } as CSSProperties}
-              >
-                {letter}
-              </span>
-            ))}
-          </div>
+
           <p className="souki-launch-tagline mt-1.5 text-[11px] font-semibold tracking-wide text-gray-500">
             Du champ au panier, le matin même
           </p>

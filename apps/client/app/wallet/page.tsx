@@ -1,5 +1,6 @@
 "use client"
 
+import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -188,15 +189,7 @@ export default function WalletPage() {
               <Link href="/" className="p-2 text-[#3D3D3D] hover:text-[#1E8A3C] hover:bg-[#F0FAF1] rounded-xl transition-colors">
                 <ArrowLeft className="w-5 h-5" />
               </Link>
-              <Link href="/" className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl shadow-sm overflow-hidden flex items-center justify-center bg-white p-0.5 pointer-events-none">
-                  <img src="/logo3.png" alt="SOUKI" className="w-[175%] h-full max-w-none object-cover" style={{ objectPosition: "left center" }} />
-                </div>
-                <div className="flex flex-col justify-center">
-                  <span className="text-xl font-bold text-[#1E8A3C] leading-none tracking-tight">SOUKI</span>
-                  <span className="text-[11px] font-medium text-[#8A8A8A] mt-0.5 uppercase tracking-wider">Fresh Market</span>
-                </div>
-              </Link>
+              <SoukiLogoLink height={36} priority />
             </div>
             <div>
               <h1 className="text-lg font-bold text-[#3D3D3D]">Espace Wallet</h1>

@@ -11,6 +11,7 @@
  * En PWA standalone, redirige vers l'accueil dédié /pwa-welcome.
  */
 
+import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { useState, useEffect, type CSSProperties } from "react"
 import Link from "next/link"
 import Image from "next/image"
@@ -781,15 +782,7 @@ export default function HomePage() {
         <div className="mx-auto w-full max-w-[1200px] px-6 lg:px-8">
           <div className="mb-10 grid gap-10 md:grid-cols-4 md:gap-8">
             <div className="md:col-span-2">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="pointer-events-none flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-white p-0.5 shadow-sm">
-                  <img src="/logo3.png" alt="SOUKI" className="h-full w-[175%] max-w-none object-cover" style={{ objectPosition: "left center" }} />
-                </div>
-                <div className="flex flex-col justify-center">
-                  <span className="text-2xl font-bold leading-none tracking-tight" style={display}>SOUKI</span>
-                  <span className="mt-1 text-xs font-medium uppercase tracking-wider text-white/70">Fresh Market</span>
-                </div>
-              </div>
+              <SoukiLogoLink height={40} support className="mb-4" />
               <p className="mb-5 max-w-sm text-[15px] leading-[1.6] text-white/70">
                 Du champ au panier, le matin même. Légumes frais du marché de gros de Fès livrés chez vous.
               </p>

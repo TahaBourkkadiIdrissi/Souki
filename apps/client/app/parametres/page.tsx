@@ -1,5 +1,6 @@
 "use client"
 
+import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -447,7 +448,7 @@ export default function ParametresPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F0] pb-24 md:pb-0">
-      <header className="sticky top-0 z-50 hidden bg-white/80 backdrop-blur-md border-b border-gray-100/50 shadow-[0_4px_30px_rgba(0,0,0,0.03)] md:block"><div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8"><div className="flex items-center justify-between h-20"><div className="flex items-center gap-4"><Link href="/" className="p-2 text-[#3D3D3D] hover:text-[#1E8A3C] hover:bg-[#F0FAF1] rounded-xl transition-colors"><ArrowLeft className="w-5 h-5" /></Link><Link href="/" className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl shadow-sm overflow-hidden flex items-center justify-center bg-white p-0.5 pointer-events-none"><img src="/logo3.png" alt="SOUKI" className="w-[175%] h-full max-w-none object-cover" style={{ objectPosition: "left center" }} /></div><div className="flex flex-col justify-center"><span className="text-xl font-bold text-[#1E8A3C] leading-none tracking-tight">SOUKI</span><span className="text-[11px] font-medium text-[#8A8A8A] mt-0.5 uppercase tracking-wider">Fresh Market</span></div></Link></div><div><h1 className="text-lg font-bold text-[#3D3D3D]">Paramètres</h1><p className="text-xs text-[#8A8A8A]">Gérez votre compte et vos préférences</p></div></div></div></header>
+      <header className="sticky top-0 z-50 hidden bg-white/80 backdrop-blur-md border-b border-gray-100/50 shadow-[0_4px_30px_rgba(0,0,0,0.03)] md:block"><div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8"><div className="flex items-center justify-between h-20"><div className="flex items-center gap-4"><Link href="/" className="p-2 text-[#3D3D3D] hover:text-[#1E8A3C] hover:bg-[#F0FAF1] rounded-xl transition-colors"><ArrowLeft className="w-5 h-5" /></Link><SoukiLogoLink height={36} priority /></div><div><h1 className="text-lg font-bold text-[#3D3D3D]">Paramètres</h1><p className="text-xs text-[#8A8A8A]">Gérez votre compte et vos préférences</p></div></div></div></header>
       <div className="mx-auto max-w-6xl px-4 pt-5 md:hidden">
         <h1 className="text-2xl font-black text-[#1E8A3C]">Paramètres</h1>
         <p className="mt-1 text-sm font-medium text-[#6F8070]">Gérez votre compte et vos préférences.</p>

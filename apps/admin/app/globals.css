@@ -606,11 +606,11 @@
     );
     background-size: 250% 100%;
     background-repeat: no-repeat;
-    -webkit-mask-image: url("/logo3.png");
+    -webkit-mask-image: url("/brand/souki-2026/secondary.png");
     -webkit-mask-size: contain;
     -webkit-mask-position: center;
     -webkit-mask-repeat: no-repeat;
-    mask-image: url("/logo3.png");
+    mask-image: url("/brand/souki-2026/secondary.png");
     mask-size: contain;
     mask-position: center;
     mask-repeat: no-repeat;
