@@ -30,6 +30,10 @@ Le domaine secondaire est exclu.
   catalogue isolé en 200/308/404/502, cache, en-têtes uniques, protection privée,
   sitemap et Product/Offer. Preuves et captures dans `outputs/seo/runtime/`.
   Le `nginx -t` du conteneur de production reste obligatoire.
+- Nouvelle vérification locale du 27/09 : trois builds et typage réussis,
+  191 tests backend et 6 tests GA4 réussis. Le lancement `node --test` a été
+  refusé par le bac à sable (`spawn EPERM`) ; l'exécution directe du même
+  fichier de tests GA4 a réussi.
 - Image locale identique : **110 424 octets** en PNG → **4 434 octets** en WebP
   à 384 px, soit environ −96 %. Cette mesure locale ne prouve pas un gain de LCP
   en production. Accueil/catalogue/fiche vérifiés à 390 px, photos visibles
@@ -44,23 +48,37 @@ reproduction sont versionnés. Voir [la procédure de livraison](SEO_DEPLOYMENT.
 
 | Phase | Correction locale | Reste à prouver |
 | --- | --- | --- |
-| 0 — Référence | HTML/matrice HTTP capturés, audit conservé | PageSpeed complet : LCP/images/scripts ; rapports Search Console actuels |
-| 1 — Découverte | Accueil sur catalogue actif, liens HTML ; sitemap comparé au catalogue | Livraison, sitemap Google accepté, inspections, J+7/J+14/J+28 |
-| 2 — Cache/sécurité | Doublons masqués, pages sans cache partagé, assets en erreur sans cache long, `X-Robots-Tag` privé | Configuration et réponses du conteneur/production |
-| 3 — Mobile | Next Image, WebP, tailles/priorités, replis locaux, modales IA différées, mesure de poids | PageSpeed avant/après comparable, coût JS initial, terrain et parcours réel achat/PWA |
+| 0 — Référence | HTML/matrice HTTP capturés, audit conservé ; PageSpeed mobile et Search Console relus le 27/09 | Identifier précisément les éléments LCP/scripts ; rapport Pages encore en traitement |
+| 1 — Découverte | Accueil sur catalogue actif, liens HTML ; sitemap comparé au catalogue ; inspections Google effectuées | Livraison, sitemap Google accepté, tests directs des produits, J+7/J+14/J+28 |
+| 2 — Cache/sécurité | Doublons masqués, pages sans cache partagé, assets en erreur sans cache long, `X-Robots-Tag` privé | Déployer : la production a encore des en-têtes dupliqués, du HTML `s-maxage=31536000` et aucun `X-Robots-Tag` admin/livreur ; vérifier ensuite le conteneur |
+| 3 — Mobile | Next Image, WebP, tailles/priorités, replis locaux, modales IA différées, mesure de poids | PageSpeed après déploiement (production actuelle : 64/100, LCP 7,6/8,2 s), coût JS initial, terrain et parcours réel achat/PWA |
 | 4 — Fraîcheur/schémas | Migration suivie par Git, date API→sitemap, disponibilité API→Offer/UI ; Organization/Service conservés | Migration réelle, Rich Results Test/inspection, règles commerciales et données locales |
 | 5 — GA4 | Données serveur, déduplication, développement désactivé, debug et Web Vitals, tests | DebugView des cinq événements, filtres du compte, achat unique et rapports hors debug |
-| 6 — Bing/local | Remise directe confirmée ; informations inconnues non inventées | Accès Bing, propriété/sitemap, fiche existante/unique, informations officielles et suivi local |
+| 6 — Bing/local | Remise directe confirmée ; propriété Bing accessible ; informations inconnues non inventées | Sitemap Bing, fiche existante/unique, informations officielles et suivi local |
 
 ## Accès et décisions
 
-L'utilisateur indique disposer de Search Console et GA4. L'inventaire de cette
-session ne contient aucun navigateur connecté ; Chrome renvoie « Browser is
-not available ». Aucune soumission, inspection ou configuration GA4 n'a donc
-été effectuée. Aucun accès au serveur ni Docker local n'est disponible ici.
-La nouvelle vérification de cette session confirme un inventaire navigateur
-vide. Le client SSH existe, mais aucune connexion serveur utilisable n'a été
-fournie. Une demande précise d'accès serveur et navigateur est en attente.
+Une session Chrome SOUKI est désormais accessible. Le contrôle du 27/09/2026
+à 17h–17h22 (heure de Fès) a permis de lire Search Console, GA4, Bing et
+PageSpeed. Aucun accès au serveur de déploiement n'a été fourni. Le contrôle
+HTTP depuis le terminal standard échouait avec `WinError 10061` à cause de
+la restriction réseau locale ; une exécution en lecture seule avec accès réseau
+a ensuite réussi. Son relevé est dans `outputs/seo/verify-network-2026-09-27/`.
+
+Le contrôle strict de production échoue sur 129 constats, regroupés en 117
+occurrences d'en-têtes de sécurité dupliqués, 9 HTML avec cache d'un an, 2
+sous-domaines privés sans `X-Robots-Tag` et 1 accueil sans lien produit dans
+le HTML brut. Les 32 URL publiques du sitemap répondent en 200 avec leurs
+canoniques et sans `noindex`, `/checkout` reste en meta `noindex`, et `www`
+redirige en 308. Le catalogue contient 26 liens produit dans le HTML brut.
+
+La production visible dans Chrome n'expose aucun lien de fiche produit sur
+l'accueil, alors que `apps/client/app/home-client.tsx` contient désormais des
+`ProductCard` avec `href`. Les 26 produits et leurs liens sont visibles dans
+le catalogue public. Ce décalage montre au minimum que la correction de
+l'accueil n'est pas observable en production ; vérifier la version réellement
+déployée avant de soumettre les URL pour indexation. Le sitemap public contient
+32 URL (6 pages statiques et 26 produits), sans erreur XML visible.
 
 La réponse « oui » confirme la remise directe. Elle ne fournit pas d'adresse,
 coordonnées, zones précises ou règles de retour, et n'établit pas l'existence
@@ -71,10 +89,16 @@ Google Business restent conditionnés aux informations exactes.
 
 | Contrôle | Date | Statut actuel | Preuve attendue |
 | --- | --- | --- | --- |
-| Google — sitemap | À renseigner | Non effectué ici | Statut accepté, URL découvertes, erreurs |
-| Google — catalogue/produits | À renseigner | Non effectué ici | Test direct, canonical choisie, indexation |
-| Bing — propriété/sitemap | À renseigner | Accès indisponible | Propriété vérifiée, XML traité |
-| GA4 — événements/achat | À renseigner | DebugView inaccessible ici | Paramètres, transaction unique, rapports ultérieurs |
+| Google — sitemap | 27/09/2026 | 0 sitemap envoyé dans la propriété `sc-domain:souki.io` | Soumettre après déploiement, puis vérifier traitement/URL découvertes |
+| Google — accueil | 27/09/2026 | `https://souki.io/` est indexée | Suivre impressions et requêtes |
+| Google — catalogue/produits | 27/09/2026 | `/catalogue`, `/produit/tomates-38` et `/produit/pommes-de-terre-1` inconnues de Google, sans sitemap référent ni exploration ; test actif du catalogue : URL accessible et indexable | Tester les produits en direct après déploiement, puis demander l'indexation |
+| Google — performances | 27/09/2026 | Rapport Web à 0 clic et 0 impression sur les dates traitées (22–24/09) ; rapport Pages encore « traitement en cours » | Suivre après soumission et éviter d'interpréter ces données incomplètes comme un classement définitif |
+| Recherche Google locale | 27/09/2026 | Requête `Souki Fès livraison légumes` depuis Fès, sans personnalisation : `/a-propos` et `/faq` apparaissent sur la première page ; l'accueil est indexé selon l'inspection, mais n'apparaît pas dans ce relevé sans personnalisation | Répéter la même méthode après déploiement et suivre Search Console |
+| Bing — propriété/sitemap | 27/09/2026 | Propriété `https://souki.io/` accessible ; 0 sitemap, rapports en cours de traitement | Soumettre le sitemap après déploiement, vérifier statut/URL découvertes |
+| GA4 — événements/achat | 27/09/2026 | Flux `Souki Website` actif dans les 48 h, ID `G-E83WRB1CEL` cohérent avec la configuration prévue ; seuls `first_visit`, `form_start`, `page_view`, `scroll`, `session_start`, `user_engagement` observés récemment ; DebugView 0 appareil | Contrôler les 5 événements métier en mode debug après déploiement, l'achat unique et les rapports hors debug |
+| GA4 — filtres | 27/09/2026 | Seul filtre `Internal Traffic`, en état `Test` ; aucun filtre développeur visible | Configurer et valider l'exclusion du trafic de test selon la politique retenue |
+| PageSpeed mobile — accueil | 27/09/2026 17h17 | Score 64, LCP 7,6 s, CLS 0, aucune donnée terrain ; économie d'image estimée 2 779 KiB | Refaire après déploiement et analyser l'élément LCP |
+| PageSpeed mobile — catalogue | 27/09/2026 17h21 | Score 64, LCP 8,2 s, CLS 0, aucune donnée terrain ; économie d'image estimée 4 972 KiB | Refaire après déploiement et analyser l'élément LCP |
 | Google Business | À renseigner | Informations partielles | Compte/fiche existante, éligibilité et données exactes |
 
 | Depuis J0 réel | Catalogue | Pommes de terre | Tomates | Pages/exploration | Action |
