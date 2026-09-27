@@ -14,7 +14,9 @@
 **/.rbac_bootstrap_hash
 front-end
 Documentation
-prisma
 tmp
+outputs
+assets
+tools
 skills-lock.json
 package-lock.json

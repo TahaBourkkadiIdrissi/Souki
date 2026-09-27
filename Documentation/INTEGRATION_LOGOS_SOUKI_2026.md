@@ -1,6 +1,6 @@
 # Intégration des logos SOUKI — 26 septembre 2026
 
-Les interfaces actives sont `apps/client`, `apps/livreur` et `apps/admin`, utilisées par `docker-compose.yml`. Le dossier historique `front-end` n'est pas exécuté par cette configuration et n'a pas été modifié. Aucun déploiement ni changement de logique métier.
+Les interfaces actives sont `apps/client`, `apps/livreur` et `apps/admin`, utilisées par `docker-compose.yml`. Aucun déploiement ni changement de logique métier n'a été effectué lors de cette intégration.
 
 ## Déclinaisons retenues
 
@@ -65,18 +65,7 @@ La vérification navigateur attend les serveurs de production locaux client/livr
 
 ## Captures et fichiers
 
-- [Liste complète des fichiers de code et ressources modifiés ou ajoutés](../outputs/branding/files-modified.txt)
-- [Accueil ordinateur](../outputs/branding/screenshots/home-desktop.png), [mobile](../outputs/branding/screenshots/home-mobile.png), [320 px](../outputs/branding/screenshots/home-mobile-320.png)
-- [Catalogue ordinateur](../outputs/branding/screenshots/catalogue-desktop.png), [mobile](../outputs/branding/screenshots/catalogue-mobile.png)
-- [Pied de page sombre](../outputs/branding/screenshots/footer-desktop.png)
-- [Connexion ordinateur](../outputs/branding/screenshots/login-desktop.png), [mobile](../outputs/branding/screenshots/login-mobile.png), [préférence sombre](../outputs/branding/screenshots/login-dark.png)
-- [Inscription mobile](../outputs/branding/screenshots/signup-mobile.png)
-- [Connexion livreur ordinateur](../outputs/branding/screenshots/livreur-login-desktop.png), [mobile](../outputs/branding/screenshots/livreur-login-mobile.png)
-- [Connexion admin ordinateur](../outputs/branding/screenshots/admin-login-desktop.png), [mobile](../outputs/branding/screenshots/admin-login-mobile.png)
-- [Accueil PWA en aperçu simulé](../outputs/branding/screenshots/pwa-welcome-mobile.png)
-- [Animation mobile](../outputs/branding/screenshots/animation-mobile.png)
-- [Page hors ligne client](../outputs/branding/screenshots/client-offline.png), [livreur](../outputs/branding/screenshots/livreur-offline.png)
-- [Résultats navigateur détaillés](../outputs/branding/browser-checks.json), [contrôles des images](../outputs/branding/asset-checks.json)
+Les captures et rapports de vérification sont générés localement dans `outputs/branding/`, qui n'est pas versionné. Pour les recréer, lancer les commandes reproductibles ci-dessus après avoir démarré les trois applications sur les ports 3100, 3101 et 3102. Les sources graphiques restent dans `assets/branding/source/` et les ressources servies dans le dossier `public/` de chaque application.
 
 ## Limites
 

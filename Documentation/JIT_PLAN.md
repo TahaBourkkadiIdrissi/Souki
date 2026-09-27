@@ -18,9 +18,9 @@
   - Champs : `id`, `actif`, `poids_garanti`, `frequence` (contribution abonnements à définir).
 
 ## 3. Fichiers impliqués (code)
-- Service principal : `back-end/services/jit_service.py` — logique d'agrégation, verrouillage/déverrouillage, exécution. ([back-end/services/jit_service.py](back-end/services/jit_service.py#L1-L400))
-- Controller / API : `back-end/controllers/jit_controller.py` — endpoints `/api/jit/*`. ([back-end/controllers/jit_controller.py](back-end/controllers/jit_controller.py#L1-L300))
-- DAO logs : `back-end/dao/jit_dao.py` — création et lecture de `t_jit_logs`. ([back-end/dao/jit_dao.py](back-end/dao/jit_dao.py#L1-L400))
+- Service principal : `back-end/services/jit_service.py` — logique d'agrégation, verrouillage/déverrouillage, exécution. ([back-end/services/jit_service.py](../back-end/services/jit_service.py#L1-L400))
+- Controller / API : `back-end/controllers/jit_controller.py` — endpoints `/api/jit/*`. ([back-end/controllers/jit_controller.py](../back-end/controllers/jit_controller.py#L1-L300))
+- DAO logs : `back-end/dao/jit_dao.py` — création et lecture de `t_jit_logs`. ([back-end/dao/jit_dao.py](../back-end/dao/jit_dao.py#L1-L400))
 - Interface DAO : `back-end/interfaces/jit_dao_interface.py`.
 - DTOs : `back-end/dto/jit_dto.py` — `DetailProduitJIT`, `ResultatAgregationJIT`, `JITLogDTO`.
 - Entités : `back-end/entities/commande_entity.py`, `panier_entity.py`, `ligne_panier_entity.py`, `product_entity.py`, `abonnement_entity.py`, `jit_log_entity.py`.

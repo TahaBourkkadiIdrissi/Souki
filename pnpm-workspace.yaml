@@ -1,8 +1,6 @@
 packages:
   - apps/*
-  - packages/*
 allowBuilds:
-  ffmpeg-static: true
   sharp: true
   unrs-resolver: true
 overrides:

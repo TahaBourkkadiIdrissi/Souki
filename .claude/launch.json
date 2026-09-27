@@ -2,13 +2,13 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "souki-front",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "front-end", "run", "dev"],
+      "name": "souki-client",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev:client"],
       "port": 3000
     },
     {
-      "name": "souki-front-attach",
+      "name": "souki-client-attach",
       "url": "http://localhost:3000",
       "port": 3000
     }

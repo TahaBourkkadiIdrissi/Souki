@@ -154,26 +154,18 @@ back-end/sql/*
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-.venv
 .pnpm-store/
 
 regles.txt
-*.md
+# Fichiers locaux d'outillage et resultats reproductibles
+/.agents/
+/CLAUDE.md
+/SKILL.md
+/outputs/
+/tmp/
+/front-end/
+**/.pytest_cache/
 *.mmd
-# La documentation projet reste versionnee (dont le standard d'autorisations
-# exige par l'audit HAMZA-05).
-!Documentation/**/*.md
-!README.md
-!mobile/AGENTS.md
-!mobile/CLAUDE.md
-
-# Expo mobile
-mobile/node_modules
-mobile/.expo
-mobile/dist
-mobile/web-build
-mobile/.env
-mobile/*.log
 
 # Secrets locaux des clients REST (VULN-001) : jamais versionnes
 http-client.private.env.json

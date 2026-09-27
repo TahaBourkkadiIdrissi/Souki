@@ -4,7 +4,6 @@ import { Suspense } from 'react'
 import localFont from 'next/font/local'
 import Script from 'next/script'
 import { SITE_URL } from '@/lib/seo'
-// import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { AuthProvider } from '@/contexts/auth-context'
 import { ThemeProvider } from "@/components/theme-provider"
