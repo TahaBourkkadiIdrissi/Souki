@@ -14,6 +14,10 @@ import { PwaServiceWorker } from "@/components/souki/pwa-service-worker"
 import { RouteGuard } from "@/components/routing/route-guard"
 import { PwaNavShell } from "@/components/souki/pwa-nav-shell"
 import { Toaster } from "@/components/ui/sonner"
+import { WebVitals } from "@/components/souki/web-vitals"
+
+const analyticsEnabled = Boolean(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID) &&
+  (process.env.NODE_ENV === "production" || process.env.NEXT_PUBLIC_GA_DEBUG === "true")
 
 // Police unique du site : Poppins pour toutes les écritures (corps + titres).
 // On charge les graisses 400→900 car l'UI utilise abondamment font-extrabold
@@ -122,9 +126,9 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <head>
-        {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+        {analyticsEnabled && (
           <Script id="souki-ga4" strategy="beforeInteractive">
-            {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}window.gtag=gtag;gtag('js',new Date());gtag('config',${JSON.stringify(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID)});`}
+            {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}window.gtag=gtag;gtag('js',new Date());gtag('config',${JSON.stringify(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID)},{debug_mode:${process.env.NEXT_PUBLIC_GA_DEBUG === "true"}||new URLSearchParams(location.search).get('ga_debug')==='1'});`}
           </Script>
         )}
         {[organizationSchema, websiteSchema, serviceSchema].map((schema) => (
@@ -163,10 +167,11 @@ export default function RootLayout({
         ))}
       </head>
       <body className={`${poppins.variable} font-sans antialiased overflow-x-hidden`}>
-        {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+        {analyticsEnabled && (
           <Script src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}`} strategy="afterInteractive" />
         )}
         <AuthProvider>
+          <WebVitals />
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
             <MobilePullToRefresh />
             <Suspense fallback={null}>

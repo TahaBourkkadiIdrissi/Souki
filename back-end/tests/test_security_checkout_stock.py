@@ -150,6 +150,15 @@ class CheckoutStockAtomiqueTests(unittest.TestCase):
         CheckoutDaoBD().get_products_by_ids(session, [1, 2], for_update=False)
         query_mock.with_for_update.assert_not_called()
 
+    def test_confirmation_exposes_server_prices_and_delivery_for_analytics(self):
+        self.dao.products[1].prix_affiche = 17.5
+        result = _run_checkout(self.service, self.dao, _payload(quantity=4))
+        self.assertEqual(result.sous_total, 70)
+        self.assertEqual(result.montant_total, result.sous_total + result.frais_livraison)
+        self.assertEqual(result.lignes[0].product_id, 1)
+        self.assertEqual(result.lignes[0].prix_unitaire, 17.5)
+        self.assertEqual(result.lignes[0].quantite, 4)
+
 
 class OrderCutoffTests(unittest.TestCase):
     """BUG-001 : le cutoff backend est restaure et actif par defaut."""

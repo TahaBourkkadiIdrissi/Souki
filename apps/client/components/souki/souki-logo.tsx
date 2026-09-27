@@ -27,8 +27,9 @@ export function SoukiLogo({ variant = "horizontal", height = 36, support = false
       <Image
         src={`/brand/souki-2026/${variant}.png`}
         alt={decorative ? "" : "SOUKI"}
-        width={width}
-        height={originalHeight}
+        width={renderedWidth}
+        height={height}
+        sizes={`${renderedWidth}px`}
         priority={priority}
         className="block max-w-none object-contain"
         style={{ width: renderedWidth, height }}

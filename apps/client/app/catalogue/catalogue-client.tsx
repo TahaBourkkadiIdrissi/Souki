@@ -30,7 +30,8 @@ import {
   type LucideIcon,
 } from "lucide-react"
 
-import { AIModals } from "@/components/souki/ai-modals"
+import dynamic from "next/dynamic"
+const AIModals = dynamic(() => import("@/components/souki/ai-modals").then((module) => module.AIModals))
 import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
 import { ScrollProgressBar } from "@/components/souki/scroll-progress-bar"
 import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
@@ -57,6 +58,7 @@ import {
   fetchPanierDetails,
   formatQuantity,
   getCataloguePresentation,
+  getCatalogueFallbackImage,
   loadStoredCart,
   mergeSelectionsIntoCart,
   resolveCatalogueImage,
@@ -593,10 +595,12 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
       unit: product.unite,
       displayUnit: presentation.displayUnit || product.unite,
       image: resolveCatalogueImage(product.nom_fr, product.image_url),
-      fallbackImage: presentation.image,
+      fallbackImage: getCatalogueFallbackImage(product.nom_fr),
       category: presentation.category,
       quantityStep: presentation.quantityStep || (product.unite === "kg" ? 0.5 : 1),
       stock: product.stock,
+      availability: product.availability,
+      updatedAt: product.updated_at,
     }
   }
 
@@ -878,7 +882,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
     requireAuth("/catalogue", () => {
       const normalizedId = Number(id)
       const product = products.find((item) => item.id === normalizedId)
-      if (!product) {
+      if (!product || product.availability === "out_of_stock") {
         return
       }
       setCart((currentCart) => upsertCartItem(currentCart, product, quantity))
@@ -2025,6 +2029,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                                 name={product.name}
                                 href={productPath(product)}
                                 image={product.image}
+                                fallbackImage={product.fallbackImage}
                                 price={product.price}
                                 prixKhddarEstime={product.prix_khddar_estime}
                                 niveau={product.niveau}
@@ -2032,6 +2037,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                                 displayUnit={product.displayUnit}
                                 quantityStep={product.quantityStep}
                                 stock={product.stock}
+                                availability={product.availability}
                                 variant="minimal"
                                 isFavorite={isFavorite(product.id)}
                                 onToggleFavorite={() => toggleFavorite(product.id)}
@@ -2098,6 +2104,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                                     name={product.name}
                                     href={productPath(product)}
                                     image={product.image}
+                                fallbackImage={product.fallbackImage}
                                     price={product.price}
                                     prixKhddarEstime={product.prix_khddar_estime}
                                     niveau={product.niveau}
@@ -2105,6 +2112,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                                     displayUnit={product.displayUnit}
                                     quantityStep={product.quantityStep}
                                     stock={product.stock}
+                                availability={product.availability}
                                     variant="minimal"
                                     isFavorite={isFavorite(product.id)}
                                     onToggleFavorite={() => toggleFavorite(product.id)}
@@ -2165,6 +2173,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                             name={product.name}
                             href={productPath(product)}
                             image={product.image}
+                                fallbackImage={product.fallbackImage}
                             price={product.price}
                             prixKhddarEstime={product.prix_khddar_estime}
                             niveau={product.niveau}
@@ -2172,6 +2181,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                             displayUnit={product.displayUnit}
                             quantityStep={product.quantityStep}
                             stock={product.stock}
+                                availability={product.availability}
                             variant="minimal"
                             isFavorite={isFavorite(product.id)}
                             onToggleFavorite={() => toggleFavorite(product.id)}
@@ -2522,6 +2532,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
         onToggleFavorite={() => detailProduct && toggleFavorite(detailProduct.id)}
       />
 
+      {activeModal && (
       <AIModals
         isOpen={activeModal !== null}
         onClose={() => setActiveModal(null)}
@@ -2529,6 +2540,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
         products={products}
         onApplySelections={handleApplySelections}
       />
+      )}
 
       {pendingDeleteOrderId !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#122018]/55 px-4 py-6 backdrop-blur-sm">

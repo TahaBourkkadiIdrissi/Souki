@@ -1,9 +1,11 @@
 import "server-only"
+import { cache } from "react"
 
 import type { CatalogueProductDTO } from "@/lib/api"
 import {
   type CatalogueProduct,
   getCataloguePresentation,
+  getCatalogueFallbackImage,
   resolveCatalogueImage,
 } from "@/lib/catalogue"
 
@@ -11,9 +13,11 @@ const backendUrl =
   process.env.BACKEND_INTERNAL_URL ||
   (process.env.NODE_ENV === "production" ? "http://backend:8000" : "http://127.0.0.1:8000")
 
-export async function getSeoCatalogue(): Promise<CatalogueProduct[]> {
+export const getSeoCatalogue = cache(async function getSeoCatalogue(): Promise<CatalogueProduct[]> {
   const response = await fetch(`${backendUrl.replace(/\/$/, "")}/api/catalogue`, {
-    next: { revalidate: 3600 },
+    // Prices and availability must match checkout; React deduplicates requests
+    // within a render without retaining stale catalogue data across requests.
+    cache: "no-store",
     signal: AbortSignal.timeout(8000),
   })
 
@@ -34,10 +38,12 @@ export async function getSeoCatalogue(): Promise<CatalogueProduct[]> {
       unit: product.unite,
       displayUnit: presentation.displayUnit || product.unite,
       image: resolveCatalogueImage(product.nom_fr, product.image_url),
-      fallbackImage: presentation.image,
+      fallbackImage: getCatalogueFallbackImage(product.nom_fr),
       category: presentation.category,
       quantityStep: presentation.quantityStep || (product.unite === "kg" ? 0.5 : 1),
       stock: product.stock,
+      updatedAt: product.updated_at,
+      availability: product.availability ?? (product.stock > 0 ? "in_stock" : "out_of_stock"),
     }
   })
-}
+})

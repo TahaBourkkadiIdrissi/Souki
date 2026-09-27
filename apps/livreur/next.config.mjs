@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const securityHeaders = [
+  { key: "X-Robots-Tag", value: "noindex, nofollow" },
   {
     key: "Content-Security-Policy",
     value: [

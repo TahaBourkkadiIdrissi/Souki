@@ -58,7 +58,7 @@ export function ProductDetailSheet({
   if (!open || !product) return null
 
   const displayUnit = product.displayUnit || product.unit
-  const isOutOfStock = false
+  const isOutOfStock = product?.availability === "out_of_stock"
   const oldPrice =
     typeof product.prix_khddar_estime === "number" && product.prix_khddar_estime > product.price
       ? product.prix_khddar_estime

@@ -10,6 +10,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [
     ...staticPaths.map((path) => ({ url: absoluteUrl(path), changeFrequency: "weekly" as const })),
-    ...products.map((product) => ({ url: absoluteUrl(productPath(product)), changeFrequency: "weekly" as const })),
+    ...products.map((product) => ({
+      url: absoluteUrl(productPath(product)),
+      ...(product.updatedAt && Number.isFinite(Date.parse(product.updatedAt))
+        ? { lastModified: new Date(product.updatedAt) } : {}),
+      changeFrequency: "weekly" as const,
+    })),
   ]
 }

@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import Image from "next/image"
+import Image from "@/components/souki/optimized-image"
 import Link from "next/link"
 import { notFound, permanentRedirect } from "next/navigation"
 import { Navbar } from "@/components/souki/navbar"
@@ -59,7 +59,8 @@ export default async function ProductPage({ params }: Props) {
       url: absoluteUrl(canonical),
       priceCurrency: "MAD",
       price: product.price.toFixed(2),
-      availability: product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/PreOrder",
+      availability: product.availability === "in_stock" ? "https://schema.org/InStock"
+        : product.availability === "preorder" ? "https://schema.org/PreOrder" : "https://schema.org/OutOfStock",
       seller: { "@type": "Organization", name: "SOUKI" },
     },
   }
@@ -79,9 +80,10 @@ export default async function ProductPage({ params }: Props) {
             <div className="relative aspect-square overflow-hidden rounded-[2rem] bg-[#F2F8F2]">
               <Image
                 src={product.image}
+                fallbackImage={product.fallbackImage}
                 alt={`${product.name} frais proposé par SOUKI à Fès`}
                 fill
-                sizes="(max-width: 1024px) 100vw, 50vw"
+                sizes="(max-width: 640px) calc(100vw - 40px), (max-width: 1024px) calc(100vw - 64px), 544px"
                 priority
                 className={isIllustrationImage(product.image) ? "object-contain p-8" : "object-cover"}
               />
@@ -93,6 +95,7 @@ export default async function ProductPage({ params }: Props) {
               <p className="mt-6 text-lg leading-8 text-[#394C3C]">{description}</p>
               <div className="mt-8 rounded-3xl border border-[#DDEFE0] bg-white p-6 shadow-sm">
                 <p className="text-3xl font-black text-[#F07C00]">{product.price.toFixed(2)} DH <span className="text-base font-medium text-[#607361]">/ {product.displayUnit}</span></p>
+                <p className="mt-3 text-sm text-[#607361]">{product.availability === "in_stock" ? "En stock" : product.availability === "preorder" ? "Disponible en précommande" : "Indisponible"}</p>
                 <ProductPurchase product={product} />
               </div>
               <Link href="/catalogue" className="mt-7 font-semibold text-[#1E8A3C] underline underline-offset-4">Voir tous les produits</Link>

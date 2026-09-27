@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from config import LocalSession
-from dto.checkout_dto import CheckoutRequestDTO, CheckoutResponseDTO
+from dto.checkout_dto import CheckoutLineDTO, CheckoutRequestDTO, CheckoutResponseDTO
 from decimal import Decimal
 from interfaces.checkout_dao_interface import ICheckoutDao
 from interfaces.checkout_service_interface import ICheckoutService
@@ -131,6 +131,7 @@ class CheckoutService(ICheckoutService):
             total_articles = 0
             total_legumes = 0.0
             sous_total = 0.0
+            confirmed_lines = []
 
             for item in payload.items:
                 if item.quantity <= 0:
@@ -154,6 +155,10 @@ class CheckoutService(ICheckoutService):
                     else float(product.prix_kg) # type: ignore
                 )
                 line_total = round(unit_price * requested_quantity, 2)
+                confirmed_lines.append(CheckoutLineDTO(
+                    product_id=int(product.id), nom_produit=str(product.nom_fr),
+                    prix_unitaire=unit_price, quantite=requested_quantity,
+                ))
                 sous_total += line_total
                 total_legumes += requested_quantity
                 total_articles += 1
@@ -254,6 +259,7 @@ class CheckoutService(ICheckoutService):
                 frais_livraison=frais_livraison,
                 montant_total=montant_total,
                 message="Commande enregistree avec succes.",
+                lignes=confirmed_lines,
             )
         except Exception:
             session.rollback()

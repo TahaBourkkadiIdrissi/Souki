@@ -1,5 +1,8 @@
 import type { Metadata } from "next"
 import HomeClient from "./home-client"
+import { getSeoCatalogue } from "@/lib/seo-catalogue"
+
+export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
   title: "Livraison de légumes frais à Fès | SOUKI",
@@ -14,6 +17,7 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image" },
 }
 
-export default function HomePage() {
-  return <HomeClient />
+export default async function HomePage() {
+  const products = await getSeoCatalogue()
+  return <HomeClient products={products.slice(0, 9)} />
 }

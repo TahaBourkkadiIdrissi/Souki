@@ -3,7 +3,7 @@
 import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { useState, useEffect, useRef, Suspense } from "react"
 import Link from "next/link"
-import Image from "next/image"
+import Image from "@/components/souki/optimized-image"
 import { useSearchParams, useRouter } from "next/navigation"
 import {
   ArrowLeft,
@@ -32,7 +32,7 @@ import {
 } from "@/lib/api"
 import { isValidMoroccanPhone, normalizeMoroccanPhone, PHONE_ERROR_MSG } from "@/lib/phoneValidator"
 import { cn } from "@/lib/utils"
-import { trackEvent } from "@/lib/analytics"
+import { trackEvent, trackPurchase } from "@/lib/analytics"
 import {
   DELIVERY_FEE,
   FREE_DELIVERY_THRESHOLD,
@@ -519,7 +519,7 @@ function CheckoutContent() {
     !isCityMissing &&
     !(isCodBlocked && selectedPayment === "cod") &&
     !isOrderCutoffActive &&
-    !isSubmitting
+    !isSubmitting && !confirmedOrderId
 
   const submitLiftRequest = async () => {
     if (!token) {
@@ -596,13 +596,7 @@ function CheckoutContent() {
 
       if (res.ok) {
         const data = await res.json()
-        trackEvent("purchase", {
-          transaction_id: String(data.commande_id),
-          currency: "MAD",
-          value: total,
-          shipping: deliveryFee,
-          items: cart.map((item) => ({ item_id: item.id, item_name: item.name, price: item.price, quantity: item.quantity })),
-        })
+        trackPurchase(data)
         // L'overlay anime remplace le toast comme feedback immediat ; la
         // redirection existante est juste differee le temps de la celebration.
         setConfirmedOrderId(data.commande_id)

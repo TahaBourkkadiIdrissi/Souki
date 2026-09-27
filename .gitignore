@@ -110,6 +110,7 @@ dist
 # Python virtual environment
 back-end/.venv/
 back-end/sql/*
+!back-end/sql/2026-09-27_product_public_updated_at.sql
 !back-end/sql/2026-04-25_add_avatar_storage.sql
 !back-end/sql/2026-09-26_profile_names.sql
 !back-end/sql/migration_produit_pricing.sql

@@ -35,7 +35,16 @@ const nextConfig = {
   outputFileTracingRoot: workspaceRoot,
   turbopack: { root: workspaceRoot },
   typescript: { ignoreBuildErrors: false },
-  images: { unoptimized: true },
+  images: {
+    formats: ["image/webp"],
+    remotePatterns: [
+      { protocol: "https", hostname: "images.unsplash.com", pathname: "/**" },
+      { protocol: "https", hostname: "cdn.pixabay.com", pathname: "/photo/**" },
+      { protocol: "https", hostname: "reowdwijnmkjujcqqztx.supabase.co", pathname: "/storage/v1/object/public/products/**" },
+      { protocol: "https", hostname: "tse1.mm.bing.net", pathname: "/th/id/**" },
+    ],
+    minimumCacheTTL: 3600,
+  },
   async rewrites() {
     if (process.env.NODE_ENV === "production") return [];
     return [{ source: "/backend/:path*", destination: `${process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:8000"}/:path*` }];

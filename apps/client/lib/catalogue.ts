@@ -19,6 +19,8 @@ export interface CatalogueProduct {
   category: CatalogueCategory
   quantityStep: number
   stock: number
+  updatedAt?: string | null
+  availability?: "in_stock" | "preorder" | "out_of_stock"
 }
 
 export interface CartItem extends CatalogueProduct {
@@ -341,13 +343,28 @@ export function isIllustrationImage(image?: string | null): boolean {
 
 export function resolveCatalogueImage(name: string, imageUrl?: string | null) {
   const presentation = getCataloguePresentation(name)
-  // Produits du catalogue de référence : on impose toujours la photo curatée
-  // (Pixabay HD), en ignorant une éventuelle image distante en base, pour
-  // garantir un visuel net et fidèle (comme l'ancien forçage des illustrations).
-  if (presentation.image.startsWith("https://cdn.pixabay.com/")) {
-    return presentation.image
+  // A maintained product image is public page data: admin image updates must
+  // actually reach the page whose updated_at/lastmod changes. Generic historical
+  // placeholders still use the curated presentation.
+  if (imageUrl && !/\/(placeholder[^/]*|generic[^/]*)\.(svg|png|jpe?g|webp)(?:\?|$)/i.test(imageUrl)) {
+    return imageUrl
   }
-  return imageUrl || presentation.image
+  return presentation.image
+}
+
+export function getCatalogueFallbackImage(name: string): string {
+  const localImages: Record<string, string> = {
+    "Pommes de terre": "pomme-de-terre", "Oignons rouge": "oignon", "Tomates": "tomate",
+    "Carottes": "carotte", "Courgettes": "courgette", "Piments": "piment",
+    "Aubergines": "aubergine", "Concombres": "concombre", "Poivrons": "poivron-rouge",
+    "Haricots verts": "haricot-vert", "Laitue": "laitue", "Épinards": "epinard",
+    "Ail": "ail", "Betteraves": "betterave", "Navets": "navet", "Céleri": "celeri",
+    "Brocoli": "brocoli", "Chou-fleur": "chou-fleur", "Petits pois": "petit-pois",
+  }
+  const presentation = getCataloguePresentation(name)
+  if (presentation.image === getCataloguePresentation("").image) return "/placeholder.svg"
+  const match = Object.entries(localImages).find(([key]) => getCataloguePresentation(key).image === presentation.image)
+  return match ? `/images/legumes/${match[1]}.png` : "/placeholder.svg"
 }
 
 export async function fetchCatalogueProducts(): Promise<CatalogueProduct[]> {
@@ -366,10 +383,12 @@ export async function fetchCatalogueProducts(): Promise<CatalogueProduct[]> {
       unit: product.unite,
       displayUnit: presentation.displayUnit || product.unite,
       image: resolveCatalogueImage(product.nom_fr, product.image_url),
-      fallbackImage: presentation.image,
+      fallbackImage: getCatalogueFallbackImage(product.nom_fr),
       category: presentation.category,
       quantityStep: presentation.quantityStep || (product.unite === "kg" ? 0.5 : 1),
       stock: product.stock,
+      updatedAt: product.updated_at,
+      availability: product.availability,
     }
   })
 }

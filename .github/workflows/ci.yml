@@ -77,6 +77,8 @@ jobs:
         run: pnpm lint
       - name: Typecheck (bloquant, BUG-003)
         run: pnpm typecheck
+      - name: Tests des evenements SEO/ecommerce
+        run: pnpm test:seo
       - name: Build (ignoreBuildErrors=false)
         run: pnpm build
       - name: Audit des dependances de production

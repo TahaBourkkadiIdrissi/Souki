@@ -1,4 +1,5 @@
-from typing import Optional
+from typing import Literal, Optional
+from datetime import datetime
 
 from pydantic import BaseModel, Field
 
@@ -15,6 +16,8 @@ class ProductResponseDTO(BaseModel):
     niveau: int = 2
     unite: str
     stock: float
+    updated_at: Optional[datetime] = None
+    availability: Literal["in_stock", "preorder", "out_of_stock"] = "out_of_stock"
 
     class Config:
         from_attributes = True

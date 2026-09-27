@@ -3,7 +3,7 @@
 import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { useState } from "react"
 import Link from "next/link"
-import Image from "next/image"
+import Image from "@/components/souki/optimized-image"
 import {
   Leaf,
   CheckCircle,

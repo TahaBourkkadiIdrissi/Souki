@@ -75,6 +75,8 @@ export interface CatalogueProductDTO {
   niveau: ProduitNiveau
   unite: string
   stock: number
+  updated_at?: string | null
+  availability?: "in_stock" | "preorder" | "out_of_stock"
 }
 
 

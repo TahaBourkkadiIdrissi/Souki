@@ -14,7 +14,7 @@
 import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { useState, useEffect, type CSSProperties } from "react"
 import Link from "next/link"
-import Image from "next/image"
+import Image from "@/components/souki/optimized-image"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import { isPwaStandalone } from "@/lib/pwa"
@@ -50,24 +50,15 @@ import {
 import { ProductCard } from "@/components/souki/product-card"
 import { Navbar } from "@/components/souki/navbar"
 import { PolicyLink } from "@/components/souki/policy-link"
-import { AIModals } from "@/components/souki/ai-modals"
+import dynamic from "next/dynamic"
+import type { CatalogueProduct } from "@/lib/catalogue"
+import { productPath } from "@/lib/seo"
+const AIModals = dynamic(() => import("@/components/souki/ai-modals").then((module) => module.AIModals))
 import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
 import { LetterReveal } from "@/components/souki/letter-reveal"
 import { useScrollReveal } from "@/hooks/useScrollReveal"
 
 /* ── Données (identiques à l'accueil actuel — parité fonctionnelle) ─────── */
-
-const products = [
-  { id: "1", name: "Tomates Marocaines", price: 7, unit: "kg", image: "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&h=300&fit=crop", badge: "fresh" as const },
-  { id: "2", name: "Pommes de Terre", price: 6, unit: "kg", image: "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400&h=300&fit=crop" },
-  { id: "3", name: "Oignons", price: 9, unit: "kg", image: "https://images.unsplash.com/photo-1620574387735-3624d75b2dbc?w=400&h=300&fit=crop" },
-  { id: "4", name: "Carottes", price: 8.5, unit: "kg", image: "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400&h=300&fit=crop", badge: "promo" as const, originalPrice: 10 },
-  { id: "5", name: "Courgettes", price: 13, unit: "kg", image: "https://images.unsplash.com/photo-1768405741410-71317eceb565?w=1200&h=900&fit=crop&auto=format" },
-  { id: "6", name: "Piments", price: 12, unit: "kg", image: "https://images.unsplash.com/photo-1583119022894-919a68a3d0e3?w=400&h=300&fit=crop", badge: "fresh" as const },
-  { id: "7", name: "Aubergines", price: 8, unit: "kg", image: "https://images.unsplash.com/photo-1736831969575-f8c0a1f1ed67?w=1200&h=900&fit=crop&auto=format" },
-  { id: "8", name: "Concombres", price: 11, unit: "kg", image: "https://images.unsplash.com/photo-1449300079323-02e209d9d3a6?w=400&h=300&fit=crop" },
-  { id: "9", name: "Herbes Fraîches", price: 3, unit: "lot", image: "https://images.unsplash.com/photo-1466637574441-749b8f19452f", badge: "promo" as const, originalPrice: 5 },
-]
 
 const testimonials = [
   { name: "Fatima B.", city: "Fès", rating: 5, text: "Service exceptionnel ! Les légumes sont toujours frais et la livraison est ponctuelle. Je recommande vivement.", avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop" },
@@ -103,7 +94,7 @@ const steps = [
 /* Police d'affichage (Poppins) — appliquée via la variable next/font. */
 const display = { fontFamily: "var(--font-poppins), sans-serif" }
 
-export default function HomePage() {
+export default function HomePage({ products }: { products: CatalogueProduct[] }) {
   const { isAuthenticated } = useAuth()
   const router = useRouter()
   const [activeModal, setActiveModal] = useState<"voice" | "smart" | null>(null)
@@ -127,7 +118,7 @@ export default function HomePage() {
   const handleAddToCart = (id: number | string, quantity: number) => {
     requireAuth(() => {
       const normalizedId = String(id)
-      const product = products.find((item) => item.id === normalizedId)
+      const product = products.find((item) => String(item.id) === normalizedId)
       if (product) {
         let backendName = product.name
         if (backendName === "Tomates Marocaines") backendName = "Tomates"
@@ -214,14 +205,13 @@ export default function HomePage() {
 
             {/* CTA — une action dominante, deux chemins IA secondaires */}
             <div className="mt-9 flex flex-wrap items-center gap-4 animate-fade-in-up-delay-2">
-              <button
-                onClick={() => requireAuth(() => router.push("/catalogue"))}
+              <Link href="/catalogue"
                 className={`group inline-flex min-h-14 items-center justify-center gap-3 rounded-full bg-[#1E8A3C] px-8 text-[16px] font-bold text-white shadow-[0_18px_40px_-14px_rgba(30,138,60,0.55)] transition-transform hover:scale-[1.03] hover:bg-[#176B2E] active:scale-[0.98] ${focusRing}`}
               >
                 <ShoppingCart className="h-5 w-5" />
                 Composer mon panier
                 <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </button>
+              </Link>
 
               <button
                 onClick={() => requireAuth(() => setActiveModal("smart"))}
@@ -268,7 +258,6 @@ export default function HomePage() {
                 src="https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=1000&q=80"
                 alt="Étal de légumes frais du marché de Fès"
                 fill
-                priority
                 sizes="(max-width: 1024px) 90vw, 460px"
                 className="object-cover"
               />
@@ -428,7 +417,7 @@ export default function HomePage() {
                 data-delay={String((index % 3) + 1)}
                 className="min-w-[270px] shrink-0 snap-start sm:min-w-[300px] md:min-w-0 md:shrink"
               >
-                <ProductCard {...product} compactImage onAddToCart={handleAddToCart} />
+                <ProductCard {...product} href={productPath(product)} compactImage disabled={product.availability === "out_of_stock"} onAddToCart={handleAddToCart} />
               </div>
             ))}
           </div>

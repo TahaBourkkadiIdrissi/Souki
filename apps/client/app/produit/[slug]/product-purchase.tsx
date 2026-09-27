@@ -10,11 +10,12 @@ export default function ProductPurchase({ product }: { product: CatalogueProduct
     trackEvent("view_item", {
       currency: "MAD",
       value: product.price,
-      items: [{ item_id: String(product.id), item_name: product.name, price: product.price }],
+      items: [{ item_id: String(product.id), item_name: product.name, price: product.price, quantity: 1 }],
     })
   }, [product.id, product.name, product.price])
 
   const addToCart = () => {
+    if (product.availability === "out_of_stock") return
     saveStoredCart(upsertCartItem(loadStoredCart(), product, product.quantityStep))
     window.dispatchEvent(new Event("souki:cart-updated"))
     trackEvent("add_to_cart", {
@@ -26,8 +27,8 @@ export default function ProductPurchase({ product }: { product: CatalogueProduct
   }
 
   return (
-    <button type="button" onClick={addToCart} className="mt-6 w-full rounded-2xl bg-[#1E8A3C] px-6 py-4 text-base font-bold text-white hover:bg-[#176B2E]">
-      Ajouter au panier
+    <button type="button" disabled={product.availability === "out_of_stock"} onClick={addToCart} className="mt-6 w-full rounded-2xl bg-[#1E8A3C] px-6 py-4 text-base font-bold text-white hover:bg-[#176B2E] disabled:opacity-50">
+      {product.availability === "out_of_stock" ? "Indisponible" : "Ajouter au panier"}
     </button>
   )
 }

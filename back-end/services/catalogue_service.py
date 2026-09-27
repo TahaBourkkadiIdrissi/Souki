@@ -92,6 +92,12 @@ class CatalogueService(ICatalogueService):
             niveau=int(produit.niveau or 2),
             unite=str(produit.unite),
             stock=float(produit.stock),# type: ignore
+            updated_at=getattr(produit, "updated_at", None),
+            availability=(
+                "in_stock" if bool(produit.is_active) and float(produit.stock) > 0
+                else "preorder" if bool(produit.is_active) and preorders_enabled()
+                else "out_of_stock"
+            ),
         )
 
     def get_catalogue_complet(self) -> List[ProductResponseDTO]:

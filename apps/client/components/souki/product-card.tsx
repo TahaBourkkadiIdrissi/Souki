@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import Image from "next/image"
+import Image from "@/components/souki/optimized-image"
 import { Check, Heart, Minus, Plus, ShoppingCart } from "lucide-react"
 
 import { formatQuantity, isIllustrationImage } from "@/lib/catalogue"
@@ -21,6 +21,7 @@ interface ProductCardProps {
   displayUnit?: string
   quantityStep?: number
   stock?: number
+  availability?: "in_stock" | "preorder" | "out_of_stock"
   disabled?: boolean
   disabledLabel?: string
   featured?: boolean
@@ -60,6 +61,7 @@ export function ProductCard({
   displayUnit,
   quantityStep = unit === "kg" ? 0.5 : 1,
   stock,
+  availability,
   disabled = false,
   disabledLabel = "Indisponible",
   featured = false,
@@ -80,7 +82,7 @@ export function ProductCard({
     setResolvedImage(image)
   }, [image])
 
-  const isOutOfStock = false // Précommande : la disponibilité est gérée par le catalogue actif.
+  const isOutOfStock = availability === "out_of_stock"
   const isUnavailable = isOutOfStock || disabled
   // Illustration locale (fond blanc) : rendu poli `contain`+`multiply` UNIQUEMENT
   // sur mobile/PWA (< md). Le desktop web (md:) est reinitialise a l'identique

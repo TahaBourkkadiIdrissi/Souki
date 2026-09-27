@@ -1,4 +1,17 @@
 server_tokens off;
+map $upstream_http_content_security_policy $souki_csp {
+    default $upstream_http_content_security_policy;
+    "" "default-src 'none'; base-uri 'none'; frame-ancestors 'none'";
+}
+# Failed/missing assets must never inherit a year of browser caching.
+map $status $souki_static_cache {
+    default "no-store";
+    ~^(200|206|304)$ "public, max-age=31536000, immutable";
+}
+map $status $souki_image_cache {
+    default "no-store";
+    ~^(200|206|304)$ "public, max-age=86400";
+}
 proxy_cache_path /var/cache/nginx/souki_static
     levels=1:2
     keys_zone=souki_static:20m
@@ -27,9 +40,11 @@ server {
     ssl_certificate_key /etc/nginx/certs/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     client_max_body_size 15m;
+    include /etc/nginx/proxy.conf;
     location /backend/ {
         include /etc/nginx/proxy.conf;
         proxy_pass http://backend:8000/;
+        proxy_hide_header Cache-Control;
         add_header Cache-Control "no-store" always;
     }
     location ^~ /_next/static/ {
@@ -40,18 +55,31 @@ server {
         proxy_cache_lock on;
         proxy_cache_valid 200 7d;
         proxy_hide_header Cache-Control;
-        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        add_header Cache-Control $souki_static_cache always;
     }
     location ~* ^/(?!backend/).+\.(?:avif|gif|ico|jpe?g|png|svg|webp)$ {
         include /etc/nginx/proxy.conf;
         proxy_pass http://client:3000;
         proxy_buffering off;
         proxy_hide_header Cache-Control;
-        add_header Cache-Control "public, max-age=86400" always;
+        add_header Cache-Control $souki_image_cache always;
+    }
+    # Metadata is revalidated immediately; optimized public images keep Next's cache.
+    location ~ ^/(robots\.txt|sitemap\.xml)$ {
+        include /etc/nginx/proxy.conf;
+        proxy_pass http://client:3000;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "public, max-age=0, must-revalidate" always;
+    }
+    location = /_next/image {
+        include /etc/nginx/proxy.conf;
+        proxy_pass http://client:3000;
     }
     location / {
         include /etc/nginx/proxy.conf;
         proxy_pass http://client:3000;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "no-store" always;
     }
 }
 server {
@@ -61,31 +89,45 @@ server {
     ssl_certificate_key /etc/nginx/certs/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     client_max_body_size 15m;
+    include /etc/nginx/proxy.conf;
+    proxy_hide_header X-Robots-Tag;
+    add_header X-Robots-Tag "noindex, nofollow" always;
     location /backend/ {
         include /etc/nginx/proxy.conf;
+        proxy_hide_header X-Robots-Tag;
+        add_header X-Robots-Tag "noindex, nofollow" always;
         proxy_pass http://backend:8000/;
+        proxy_hide_header Cache-Control;
         add_header Cache-Control "no-store" always;
     }
     location ^~ /_next/static/ {
         include /etc/nginx/proxy.conf;
+        proxy_hide_header X-Robots-Tag;
+        add_header X-Robots-Tag "noindex, nofollow" always;
         proxy_pass http://livreur:3000;
         proxy_cache souki_static;
         proxy_cache_key "$scheme$request_method$host$request_uri";
         proxy_cache_lock on;
         proxy_cache_valid 200 7d;
         proxy_hide_header Cache-Control;
-        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        add_header Cache-Control $souki_static_cache always;
     }
     location ~* ^/(?!backend/).+\.(?:avif|gif|ico|jpe?g|png|svg|webp)$ {
         include /etc/nginx/proxy.conf;
+        proxy_hide_header X-Robots-Tag;
+        add_header X-Robots-Tag "noindex, nofollow" always;
         proxy_pass http://livreur:3000;
         proxy_buffering off;
         proxy_hide_header Cache-Control;
-        add_header Cache-Control "public, max-age=86400" always;
+        add_header Cache-Control $souki_image_cache always;
     }
     location / {
         include /etc/nginx/proxy.conf;
+        proxy_hide_header X-Robots-Tag;
+        add_header X-Robots-Tag "noindex, nofollow" always;
         proxy_pass http://livreur:3000;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "no-store" always;
     }
 }
 server {
@@ -95,30 +137,44 @@ server {
     ssl_certificate_key /etc/nginx/certs/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     client_max_body_size 15m;
+    include /etc/nginx/proxy.conf;
+    proxy_hide_header X-Robots-Tag;
+    add_header X-Robots-Tag "noindex, nofollow" always;
     location /backend/ {
         include /etc/nginx/proxy.conf;
+        proxy_hide_header X-Robots-Tag;
+        add_header X-Robots-Tag "noindex, nofollow" always;
         proxy_pass http://backend:8000/;
+        proxy_hide_header Cache-Control;
         add_header Cache-Control "no-store" always;
     }
     location ^~ /_next/static/ {
         include /etc/nginx/proxy.conf;
+        proxy_hide_header X-Robots-Tag;
+        add_header X-Robots-Tag "noindex, nofollow" always;
         proxy_pass http://admin:3000;
         proxy_cache souki_static;
         proxy_cache_key "$scheme$request_method$host$request_uri";
         proxy_cache_lock on;
         proxy_cache_valid 200 7d;
         proxy_hide_header Cache-Control;
-        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        add_header Cache-Control $souki_static_cache always;
     }
     location ~* ^/(?!backend/).+\.(?:avif|gif|ico|jpe?g|png|svg|webp)$ {
         include /etc/nginx/proxy.conf;
+        proxy_hide_header X-Robots-Tag;
+        add_header X-Robots-Tag "noindex, nofollow" always;
         proxy_pass http://admin:3000;
         proxy_buffering off;
         proxy_hide_header Cache-Control;
-        add_header Cache-Control "public, max-age=86400" always;
+        add_header Cache-Control $souki_image_cache always;
     }
     location / {
         include /etc/nginx/proxy.conf;
+        proxy_hide_header X-Robots-Tag;
+        add_header X-Robots-Tag "noindex, nofollow" always;
         proxy_pass http://admin:3000;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "no-store" always;
     }
 }

@@ -2,7 +2,7 @@ import re
 from datetime import time
 from typing import List, Optional
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, Field, validator
 
 from dto.phone_validator import validate_moroccan_phone
 
@@ -39,6 +39,13 @@ class CheckoutRequestDTO(BaseModel):
         return normalized
 
 
+class CheckoutLineDTO(BaseModel):
+    product_id: int
+    nom_produit: str
+    prix_unitaire: float
+    quantite: float
+
+
 class CheckoutResponseDTO(BaseModel):
     status: str
     commande_id: int
@@ -47,4 +54,5 @@ class CheckoutResponseDTO(BaseModel):
     sous_total: float
     frais_livraison: float
     montant_total: float
+    lignes: List[CheckoutLineDTO] = Field(default_factory=list)
     message: str

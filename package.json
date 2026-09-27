@@ -9,6 +9,7 @@
     "build": "pnpm -r --filter \"@souki/*\" build",
     "typecheck": "pnpm -r --filter \"@souki/*\" typecheck",
     "lint": "pnpm -r --filter \"@souki/*\" lint",
+    "test:seo": "node --test tools/seo-analytics.test.cjs",
     "dev:client": "pnpm --filter @souki/client dev",
     "dev:livreur": "pnpm --filter @souki/livreur dev",
     "dev:admin": "pnpm --filter @souki/admin dev",
