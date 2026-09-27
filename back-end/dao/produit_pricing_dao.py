@@ -91,6 +91,7 @@ class ProduitPricingDaoBD(IProduitPricingDao):
 
     def create_product(self, session: Session, data: ProductCreateDTO) -> Product:
         product = Product(
+            description=data.description,
             nom_fr=data.nom_fr,
             nom_darija=data.nom_darija,
             prix_kg=data.prix_kg,
@@ -117,6 +118,7 @@ class ProduitPricingDaoBD(IProduitPricingDao):
         """Reactive un produit soft-supprime en lui appliquant les donnees du formulaire,
         comme une creation (l'id et l'historique de commandes sont conserves)."""
         product.nom_fr = data.nom_fr
+        product.description = data.description
         product.nom_darija = data.nom_darija
         product.prix_kg = data.prix_kg
         product.unite = data.unite
@@ -198,6 +200,7 @@ class ProduitPricingDaoBD(IProduitPricingDao):
             alerte = None
 
         return ProduitPricingDTO(
+            description=produit.description,
             id=int(produit.id),
             nom_fr=str(produit.nom_fr),
             nom_darija=str(produit.nom_darija),

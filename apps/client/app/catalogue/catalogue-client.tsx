@@ -69,6 +69,7 @@ import {
 } from "@/lib/catalogue"
 import { cn } from "@/lib/utils"
 import { productPath } from "@/lib/seo"
+import { isPwaStandalone } from "@/lib/pwa"
 import { trackEvent } from "@/lib/analytics"
 
 const CATALOGUE_REFRESH_INTERVAL_MS = 5 * 60 * 1000
@@ -940,11 +941,14 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
   // fiche détaillée (fenêtre avec infos, quantité, favori et ajout au panier).
   const openProductDetail = (id: number | string) => {
     handleProductView(id)
+    if (!isMobileViewport() && !isPwaStandalone()) return false
     const product = products.find((item) => item.id === Number(id))
     if (product) {
       haptic("light")
       setDetailProduct(product)
+      return true
     }
+    return false
   }
 
   const handleAddSuggestionToCart = (product: CatalogueProduct) => {
@@ -2028,6 +2032,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                                 id={product.id}
                                 name={product.name}
                                 href={productPath(product)}
+                                onView={openProductDetail}
                                 image={product.image}
                                 fallbackImage={product.fallbackImage}
                                 price={product.price}
@@ -2103,6 +2108,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                                     id={product.id}
                                     name={product.name}
                                     href={productPath(product)}
+                                    onView={openProductDetail}
                                     image={product.image}
                                 fallbackImage={product.fallbackImage}
                                     price={product.price}
@@ -2172,6 +2178,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                             id={product.id}
                             name={product.name}
                             href={productPath(product)}
+                            onView={openProductDetail}
                             image={product.image}
                                 fallbackImage={product.fallbackImage}
                             price={product.price}

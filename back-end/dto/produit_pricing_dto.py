@@ -1,9 +1,10 @@
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ProduitPricingDTO(BaseModel):
+    description: Optional[str] = None
     id: int
     nom_fr: str
     nom_darija: str
@@ -24,6 +25,7 @@ class ProduitPricingDTO(BaseModel):
 
 
 class ProduitPricingUpdateDTO(BaseModel):
+    description: Optional[str] = Field(default=None, max_length=5000)
     marge_cible: Optional[float] = None
     coussin_securite: Optional[float] = None
     niveau: Optional[int] = None
@@ -34,6 +36,7 @@ class ProduitPricingUpdateDTO(BaseModel):
 
 
 class ProductCreateDTO(BaseModel):
+    description: Optional[str] = Field(default=None, max_length=5000)
     nom_fr: str
     nom_darija: str
     prix_kg: float

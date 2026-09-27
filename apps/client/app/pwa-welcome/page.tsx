@@ -115,6 +115,7 @@ function mapDtoToCatalogueProduct(dto: CatalogueProductDTO): CatalogueProduct {
   return {
     id: dto.id,
     name: dto.nom_fr,
+    description: dto.description,
     alias: dto.nom_darija,
     price: dto.prix_affiche ?? dto.prix_kg,
     prix_khddar_estime: dto.prix_khddar_estime,

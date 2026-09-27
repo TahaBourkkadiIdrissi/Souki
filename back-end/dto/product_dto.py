@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 
 class ProductResponseDTO(BaseModel):
+    description: Optional[str] = None
     id: int
     nom_fr: str
     nom_darija: str

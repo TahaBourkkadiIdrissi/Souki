@@ -64,6 +64,7 @@ export type ProduitNiveau = 1 | 2 | 3
 
 
 export interface CatalogueProductDTO {
+  description?: string | null
   id: number
   nom_fr: string
   nom_darija: string

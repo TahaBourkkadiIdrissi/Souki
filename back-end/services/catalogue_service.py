@@ -77,6 +77,7 @@ class CatalogueService(ICatalogueService):
             )
         )
         return ProductResponseDTO(
+            description=getattr(produit, "description", None),
             id=int(produit.id),# type: ignore
             nom_fr=str(produit.nom_fr),
             nom_darija=str(produit.nom_darija),

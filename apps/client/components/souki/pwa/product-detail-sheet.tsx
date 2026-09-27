@@ -193,7 +193,7 @@ export function ProductDetailSheet({
             <div className="mt-4">
               <h3 className="text-sm font-black uppercase tracking-wide text-[#264129]">Description</h3>
               <p className="mt-1.5 text-sm leading-relaxed text-[#5F735F]">
-                {getProductDescription(product.name)}
+                {product.description ?? getProductDescription(product.name)}
               </p>
             </div>
 

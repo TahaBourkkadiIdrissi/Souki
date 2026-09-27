@@ -44,7 +44,8 @@ interface ProductCardProps {
    */
   isFavorite?: boolean
   onToggleFavorite?: (id: number | string) => void
-  onView?: (id: number | string) => void
+  /** Return true when the parent opens a detail sheet instead of following href. */
+  onView?: (id: number | string) => boolean | void
   onAddToCart?: (id: number | string, quantity: number) => void
 }
 
@@ -127,6 +128,10 @@ export function ProductCard({
     setQuantity((currentQuantity) => Math.max(quantityStep, currentQuantity - quantityStep))
   }
 
+  const handleNavigate = (event: { preventDefault: () => void }) => {
+    if (onView?.(id) === true) event.preventDefault()
+  }
+
   return (
     <article
       onClick={href ? undefined : () => onView?.(id)}
@@ -179,7 +184,7 @@ export function ProductCard({
               : "object-cover",
           )}
         />
-        {href && <Link href={href} className="absolute inset-0" aria-label={`Voir ${name}`} />}
+        {href && <Link href={href} onNavigate={handleNavigate} className="absolute inset-0" aria-label={`Voir ${name}`} />}
         {isOutOfStock ? (
           <>
             <span
@@ -263,7 +268,7 @@ export function ProductCard({
       >
         <div className={cn("min-w-0", isMinimal ? "mb-1 md:mb-2" : "mb-1.5 sm:mb-2")}>
           <h3 className="truncate text-sm font-bold text-[#264129] sm:text-base">
-            {href ? <Link href={href} className="hover:underline">{name}</Link> : name}
+            {href ? <Link href={href} onNavigate={handleNavigate} className="hover:underline">{name}</Link> : name}
           </h3>
           <p
             className={cn(

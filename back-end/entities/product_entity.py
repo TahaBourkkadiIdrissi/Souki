@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Float
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Float, Text
 from sqlalchemy.orm import relationship
 from config import Base
 
@@ -14,6 +14,7 @@ class Product(Base):
     stock      = Column(Float,       nullable=False, default=0.0)
     is_active  = Column(Boolean,     default=True)
     image_url  = Column(String(500), nullable=True)
+    description = Column(Text, nullable=True)
     # Populated by the versioned public-page freshness trigger, never backfilled.
     updated_at = Column(DateTime(timezone=True), nullable=True)
 

@@ -86,6 +86,7 @@ const niveauOptions: ProduitNiveau[] = [1, 2, 3]
 const volatiliteOptions: ProduitVolatilite[] = ["STABLE", "VARIABLE", "SAISONNIER"]
 
 interface EditValues {
+  description: string
   prix_gros_saisi: string
   prix_khddar_reel: string
   prix_vente_manuel: string
@@ -97,6 +98,7 @@ interface EditValues {
 }
 
 interface CreateValues {
+  description: string
   nom_fr: string
   nom_darija: string
   prix_kg: string
@@ -111,6 +113,7 @@ interface CreateValues {
 }
 
 const defaultCreateValues: CreateValues = {
+  description: "",
   nom_fr: "",
   nom_darija: "",
   prix_kg: "",
@@ -412,6 +415,7 @@ export default function AdminPricingPage() {
   function startEdit(produit: ProduitPricingDTO) {
     setEditingId(produit.id)
     setEditValues({
+      description: produit.description ?? "",
       prix_gros_saisi: produit.prix_gros_saisi === null ? "" : String(produit.prix_gros_saisi),
       prix_khddar_reel: produit.prix_khddar_reel == null ? "" : String(produit.prix_khddar_reel),
       prix_vente_manuel: produit.prix_vente_manuel == null ? "" : String(produit.prix_vente_manuel),
@@ -542,6 +546,7 @@ export default function AdminPricingPage() {
     }
 
     const payload: ProduitPricingUpdateDTO = {
+      description: editValues.description.trim() || null,
       prix_gros_saisi: prixGros,
       prix_khddar_reel: prixKhddarReel,
       prix_vente_manuel: prixVenteManuel,
@@ -644,6 +649,7 @@ export default function AdminPricingPage() {
     }
 
     const payload: ProductCreateDTO = {
+      description: createValues.description.trim() || null,
       nom_fr: createValues.nom_fr.trim(),
       nom_darija: createValues.nom_darija.trim(),
       prix_kg: prixKg,
@@ -806,6 +812,18 @@ export default function AdminPricingPage() {
             </div>
 
             <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <label className="grid gap-1.5 text-sm font-semibold text-gray-700 md:col-span-2">
+                Description du produit
+                <textarea
+                  value={createValues.description}
+                  onChange={(event) => updateCreateValue("description", event.target.value)}
+                  maxLength={5000}
+                  rows={3}
+                  placeholder="Description affichée dans la fiche produit"
+                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                />
+                <span className="text-xs font-normal text-gray-500">Laissez vide pour utiliser la description par défaut.</span>
+              </label>
               <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
                 Nom FR
                 <input
@@ -1249,6 +1267,22 @@ export default function AdminPricingPage() {
                                 )}
                                 <div>
                                   <p className="font-semibold text-gray-950">{produit.nom_fr}</p>
+                                  {isEditing && editValues ? (
+                                    <label className="mt-2 grid gap-1 text-xs font-semibold text-gray-700">
+                                      Description du produit
+                                      <textarea
+                                        value={editValues.description}
+                                        onChange={(event) => updateEditValue("description", event.target.value)}
+                                        maxLength={5000}
+                                        rows={3}
+                                        placeholder="Description affichée dans la fiche produit"
+                                        className="min-w-56 rounded-lg border border-gray-200 px-3 py-2 text-sm font-normal outline-none focus:border-[#1E8A3C]"
+                                      />
+                                      <span className="font-normal text-gray-500">Vide : description par défaut.</span>
+                                    </label>
+                                  ) : produit.description ? (
+                                    <p className="mt-1 max-w-xs whitespace-pre-wrap text-xs text-gray-500">{produit.description}</p>
+                                  ) : null}
                                   <p className="text-xs text-gray-500">#{produit.id} - {formatMoney(produit.prix_kg)} / {produit.unite}</p>
                                 </div>
                               </div>

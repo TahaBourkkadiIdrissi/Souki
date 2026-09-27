@@ -8,6 +8,7 @@ export type ApiCatalogueProduct = CatalogueProductDTO
 export interface CatalogueProduct {
   id: number
   name: string
+  description?: string | null
   alias: string
   price: number
   prix_khddar_estime?: number | null
@@ -376,6 +377,7 @@ export async function fetchCatalogueProducts(): Promise<CatalogueProduct[]> {
     return {
       id: product.id,
       name: product.nom_fr,
+      description: product.description,
       alias: product.nom_darija,
       price: product.prix_affiche ?? product.prix_kg,
       prix_khddar_estime: product.prix_khddar_estime,
