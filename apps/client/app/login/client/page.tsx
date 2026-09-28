@@ -233,7 +233,7 @@ function ClientLoginContent() {
         </div>
 
         <div className="relative z-10">
-          <SoukiLogoLink variant="secondary" height={72} support priority />
+          <SoukiLogoLink variant="symbol" height={48} support priority />
         </div>
 
         <div className="relative z-10 flex-1 flex flex-col justify-center">
@@ -265,7 +265,7 @@ function ClientLoginContent() {
         <div className="max-w-md mx-auto w-full">
           {/* Mobile logo */}
           <div className="lg:hidden mb-4">
-            <SoukiLogoLink variant="secondary" height={72} support priority />
+            <SoukiLogoLink variant="symbol" height={48} support priority />
           </div>
 
           {/* Tabs */}
