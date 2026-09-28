@@ -78,7 +78,8 @@ for (const app of ["client", "livreur", "admin"]) {
       const [width, height] = match.slice(1).map(Number)
       const dpr = densities.get(`${width}-${height}`)
       if (!dpr) throw new Error(`Splash device not declared: ${file}`)
-      const image = await sharp(croppedSecondary).resize({ width: 112 * dpr, height: 112 * dpr, fit: "inside" }).png().toBuffer()
+      const size = Math.round(Math.min(Math.min(width, height) * 0.34, 136 * dpr))
+      const image = await sharp(path.join(source, "submark.png")).resize(size, size).png().toBuffer()
       await sharp({ create: { width, height, channels: 3, background: "#FFFFFF" } })
         .composite([{ input: image, gravity: "centre" }]).removeAlpha().png().toFile(path.join(splashDir, file))
     }

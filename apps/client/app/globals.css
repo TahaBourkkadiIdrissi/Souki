@@ -581,6 +581,9 @@
 }
 
 .souki-launch-logo-wrap {
+  width: min(34vmin, 136px);
+  height: min(34vmin, 136px);
+  border-radius: 50%;
   box-shadow: 0 18px 40px rgba(18, 53, 31, 0.16);
   animation:
     souki-launch-logo 760ms cubic-bezier(0.34, 1.56, 0.64, 1) both,

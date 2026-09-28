@@ -75,7 +75,7 @@ try {
     ["admin-login-mobile", 3102, "/admin/login", 390, 844],
   ]) if (!report.screens.some(s => s.name === args[0])) await screen(...args)
 
-  for (const [role, port, cacheName] of [["client", 3100, "souki-pwa-v11-brand2026"], ["livreur", 3101, "souki-livreur-pwa-v11-brand2026"]]) {
+  for (const [role, port, cacheName] of [["client", 3100, "souki-pwa-v12-launch-circle"], ["livreur", 3101, "souki-livreur-pwa-v11-brand2026"]]) {
     if (report.pwa.some(p => p.role === role)) continue
     const context = await browser.newContext()
     const page = await context.newPage()

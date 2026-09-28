@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "souki-pwa"
-const CACHE_VERSION = "v11-brand2026"
+const CACHE_VERSION = "v12-launch-circle"
 const RUNTIME_CACHE = `${CACHE_PREFIX}-${CACHE_VERSION}`
 
 // Page de repli affichee quand une navigation echoue hors ligne.
@@ -13,6 +13,7 @@ const STATIC_ASSETS = [
   "/manifest.webmanifest",
   "/brand/souki-2026/horizontal.png",
   "/brand/souki-2026/secondary.png",
+  "/brand/souki-2026/launch-circle.webp",
   "/brand/souki-2026/symbol.png",
   "/brand/souki-2026/pwa-192.png",
   "/brand/souki-2026/pwa-512.png",

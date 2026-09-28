@@ -133,6 +133,7 @@ function mapDtoToCatalogueProduct(dto: CatalogueProductDTO): CatalogueProduct {
 export default function PwaWelcomePage() {
   const router = useRouter()
   const { user, token, isAuthenticated, isLoading } = useAuth()
+  const userId = user?.id
   const [isReady, setIsReady] = useState(false)
   const [products, setProducts] = useState<CatalogueProduct[]>([])
   const [personalized, setPersonalized] = useState<CatalogueProduct[]>([])
@@ -156,6 +157,8 @@ export default function PwaWelcomePage() {
   // televersement fait pendant la session.
   const { getProfile } = useProfile()
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null)
+  const [profileName, setProfileName] = useState<{ userId: number; name: string } | null>(null)
+  const [profileVersion, setProfileVersion] = useState(0)
   const [photoVersion, setPhotoVersion] = useState(() =>
     typeof window !== "undefined" ? Number(localStorage.getItem("souki_photo_version") || "0") : 0
   )
@@ -170,11 +173,20 @@ export default function PwaWelcomePage() {
   }, [])
 
   useEffect(() => {
-    if (!isAuthenticated) return
+    const refreshProfile = () => setProfileVersion((version) => version + 1)
+    window.addEventListener("souki:profile-updated", refreshProfile)
+    return () => window.removeEventListener("souki:profile-updated", refreshProfile)
+  }, [])
+
+  useEffect(() => {
+    if (!isAuthenticated || userId === undefined) return
     let isMounted = true
     getProfile()
       .then((profile) => {
-        if (isMounted) setProfilePhotoUrl(profile.photo_url ?? profile.avatar_url ?? null)
+        if (isMounted) {
+          setProfilePhotoUrl(profile.photo_url ?? profile.avatar_url ?? null)
+          setProfileName({ userId, name: profile.prenom.trim() || profile.nom.trim() })
+        }
       })
       .catch(() => {
         if (isMounted) setProfilePhotoUrl(null)
@@ -182,7 +194,7 @@ export default function PwaWelcomePage() {
     return () => {
       isMounted = false
     }
-  }, [isAuthenticated, getProfile, photoVersion])
+  }, [isAuthenticated, userId, getProfile, photoVersion, profileVersion])
 
   // PWA standalone check
   useEffect(() => {
@@ -341,13 +353,14 @@ export default function PwaWelcomePage() {
 
   const userName = useMemo(() => {
     if (!user) return null
+    if (profileName?.userId === user.id && profileName.name) return profileName.name
     if (user.email) {
       const name = user.email.split("@")[0]
       return name.charAt(0).toUpperCase() + name.slice(1)
     }
     if (user.phone) return user.phone
     return null
-  }, [user])
+  }, [user, profileName])
 
   // Salutation contextuelle : rythmée par l'heure locale (matin/après-midi/soir)
   // et par le fait que l'utilisateur soit un habitué. Rendu 100% client (post-mount),
@@ -442,12 +455,12 @@ export default function PwaWelcomePage() {
               opacity: reduceMotion ? 1 : Math.max(1 - scrollY / 700, 0.55),
             }}
           >
-            <SoukiLogoLink href="/pwa-welcome" height={32} support priority className="mb-4" />
             {/* Ligne 1 : pilule de localisation (verre dépoli) + favoris + profil */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
+              <SoukiLogoLink href="/pwa-welcome" variant="symbol" height={32} support priority />
               <button
                 onClick={() => router.push("/parametres")}
-                className="flex items-center gap-2 rounded-full bg-white/10 py-1.5 pl-1.5 pr-3.5 ring-1 ring-white/20 backdrop-blur-md transition-transform active:scale-95 animate-slide-in-down"
+                className="flex min-w-0 items-center gap-1.5 rounded-full bg-white/10 py-1.5 pl-1.5 pr-2 ring-1 ring-white/20 backdrop-blur-md transition-transform active:scale-95 animate-slide-in-down"
                 aria-label="Adresse de livraison"
               >
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15">
@@ -455,14 +468,14 @@ export default function PwaWelcomePage() {
                 </span>
                 <span className="flex flex-col items-start leading-none">
                   <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#9BE7AE]">Livraison à</span>
-                  <span className="mt-1 flex items-center gap-0.5 text-[14px] font-black text-white drop-shadow-sm">
+                  <span className="mt-1 flex items-center gap-0.5 whitespace-nowrap text-[12px] sm:text-[14px] font-black text-white drop-shadow-sm">
                     Fès, Maroc
                     <ChevronDown className="h-3.5 w-3.5 text-white/80" />
                   </span>
                 </span>
               </button>
 
-              <div className="flex items-center gap-2.5">
+              <div className="flex shrink-0 items-center gap-1.5">
                 <button
                   onClick={() => router.push("/favoris")}
                   className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white shadow-lg ring-1 ring-white/20 backdrop-blur-md transition-transform active:scale-90 animate-bounce-in"
@@ -515,7 +528,7 @@ export default function PwaWelcomePage() {
                   {greeting} 👋
                 </h1>
                 {userName && (
-                  <p className="mt-0.5 text-[24px] font-black leading-tight tracking-tight">
+                  <p className="mt-0.5 text-[24px] font-black leading-tight tracking-tight [overflow-wrap:anywhere]">
                     <span
                       className="animate-pwa-text-sheen bg-clip-text text-transparent"
                       style={{

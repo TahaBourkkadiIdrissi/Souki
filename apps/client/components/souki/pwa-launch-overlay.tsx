@@ -1,5 +1,4 @@
 "use client"
-import { SoukiLogo } from "@/components/souki/souki-logo"
 import { useEffect, useState, type CSSProperties } from "react"
 
 /**
@@ -9,7 +8,7 @@ import { useEffect, useState, type CSSProperties } from "react"
  * → aube verte + lueur safran + rayons de soleil derriere lui → une couronne de
  * legumes photorealiste (generee via Higgsfield, detouree) vient se poser autour
  * du logo avec une physique de ressort, doublee d'une copie floutee plus large
- * pour la profondeur → reflet sur le logo secondaire fourni → devise → finale :
+ * pour la profondeur → medaillon circulaire fourni → devise → finale :
  * le vert profond de l'accueil jaillit du coeur du logo (disque qui inonde
  * l'ecran) et l'overlay s'efface dessus — le dernier frame du splash porte deja
  * la couleur du hero de /pwa-welcome, aucune coupure de luminance.
@@ -117,13 +116,12 @@ export function PwaLaunchOverlay() {
           />
         ))}
 
-        {/* Le secondaire fourni reste entier sur un support blanc discret. */}
-        <div className="souki-launch-logo-wrap relative rounded-2xl bg-white p-3">
-          <SoukiLogo variant="secondary" height={112} priority decorative />
-          <span className="souki-launch-shine absolute inset-3" />
+        {/* Medaillon fourni en haute definition, au centre de la couronne. */}
+        <div className="souki-launch-logo-wrap relative overflow-hidden rounded-full bg-white">
+          <img src="/brand/souki-2026/launch-circle.webp" width={136} height={136} alt="" fetchPriority="high" className="block h-full w-full rounded-full" />
         </div>
 
-        {/* Devise, sous la couronne ; le nom appartient au logo fourni. */}
+        {/* Devise sous la couronne. */}
         <div
           className="souki-launch-wordmark absolute inset-x-0 text-center"
           style={{ top: "calc(50% + min(52vmin, 212px))" }}

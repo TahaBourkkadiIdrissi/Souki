@@ -46,7 +46,7 @@ for (const role of ["client", "livreur", "admin"]) {
   const listeners = new Map()
   const deleted = []
   const old = role === "client" ? "souki-pwa-v10" : "souki-livreur-pwa-v10"
-  const current = old.replace("v10", "v11-brand2026")
+  const current = old.replace("v10", role === "client" ? "v12-launch-circle" : "v11-brand2026")
   const unrelated = ["souki-user-data", "other-app-cache", old.replace("v10", "user-data")]
   let staticAssets = []
   vm.runInNewContext(source, {

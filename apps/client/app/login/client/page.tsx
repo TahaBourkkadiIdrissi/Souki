@@ -222,7 +222,7 @@ function ClientLoginContent() {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-dvh flex">
       {/* Left Side - Brand Visual */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#1E8A3C] to-[#4CB84A] p-12 flex-col justify-between relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
@@ -233,7 +233,7 @@ function ClientLoginContent() {
         </div>
 
         <div className="relative z-10">
-          <SoukiLogoLink variant="secondary" height={104} support priority />
+          <SoukiLogoLink variant="secondary" height={72} support priority />
         </div>
 
         <div className="relative z-10 flex-1 flex flex-col justify-center">
@@ -261,11 +261,11 @@ function ClientLoginContent() {
       </div>
 
       {/* Right Side - Form */}
-      <div className="flex-1 flex flex-col justify-center px-6 lg:px-12 xl:px-20 py-12 bg-white overflow-y-auto">
+      <div className="min-w-0 flex-1 flex flex-col justify-center px-5 lg:px-12 xl:px-20 py-5 lg:py-12 bg-white">
         <div className="max-w-md mx-auto w-full">
           {/* Mobile logo */}
-          <div className="lg:hidden mb-8">
-            <SoukiLogoLink variant="secondary" height={104} support priority />
+          <div className="lg:hidden mb-4">
+            <SoukiLogoLink variant="secondary" height={72} support priority />
           </div>
 
           {/* Tabs */}
@@ -346,7 +346,7 @@ function ClientLoginContent() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <div
                     onClick={() => setRememberMe(!rememberMe)}
@@ -356,9 +356,9 @@ function ClientLoginContent() {
                   >
                     {rememberMe && <Check className="w-3 h-3 text-white" />}
                   </div>
-                  <span className="text-sm text-[#3D3D3D]">Se souvenir de moi</span>
+                  <span className="text-xs sm:text-sm text-[#3D3D3D]">Se souvenir de moi</span>
                 </label>
-                <Link href="/forgot-password" className="text-sm text-[#1A4F8A] hover:underline">
+                <Link href="/forgot-password" className="text-xs sm:text-sm text-[#1A4F8A] hover:underline">
                   Mot de passe oublié ?
                 </Link>
               </div>

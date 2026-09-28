@@ -23,8 +23,11 @@ export function useProfile() {
 
   const getProfile = useCallback(() => callApi<ProfileData>("/api/user/profile"), [callApi])
   const updateProfile = useCallback(
-    (payload: Pick<ProfileData, "prenom" | "nom" | "email" | "telephone">) =>
-      callApi<{ success: boolean; email_changed: boolean }>("/api/user/profile", "PUT", payload),
+    async (payload: Pick<ProfileData, "prenom" | "nom" | "email" | "telephone">) => {
+      const result = await callApi<{ success: boolean; email_changed: boolean }>("/api/user/profile", "PUT", payload)
+      if (result.success) window.dispatchEvent(new Event("souki:profile-updated"))
+      return result
+    },
     [callApi]
   )
   const updateAddress = useCallback(
