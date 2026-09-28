@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (`/produit/${slug}` !== canonical) permanentRedirect(canonical)
 
   const title = `${product.name} frais à Fès | SOUKI`
-  const description = `${product.name} frais à ${product.price.toFixed(2)} DH/${product.displayUnit}. Commandez en ligne avec SOUKI et faites-vous livrer à Fès.`
+  const description = product.description ?? `${product.name} frais à ${product.price.toFixed(2)} DH/${product.displayUnit}. Commandez en ligne avec SOUKI et faites-vous livrer à Fès.`
   return {
     title,
     description,
@@ -46,7 +46,7 @@ export default async function ProductPage({ params }: Props) {
   const canonical = productPath(product)
   if (`/produit/${slug}` !== canonical) permanentRedirect(canonical)
 
-  const description = getProductDescription(product.name)
+  const description = product.description ?? getProductDescription(product.name)
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "Product",

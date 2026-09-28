@@ -75,6 +75,18 @@ try {
   await dialog.waitFor()
   assert.match(await dialog.innerText(), /Tomates de test pour salade/)
   console.log('PASS: catalogue and home clicks use the same product sheet; descriptions are product-specific.')
+  const web = await browser.newPage({ viewport: { width: 1440, height: 1000 }, bypassCSP: true })
+  await web.route('**/*', route => new URL(route.request().url()).hostname === '127.0.0.1' ? route.continue() : route.abort())
+  async function checkWebDescription(expected) {
+    await web.goto('http://127.0.0.1:3410/produit/tomates-1', { timeout: 120000 })
+    await web.locator('main').getByText(expected, { exact: true }).waitFor()
+    assert.equal(await web.locator('meta[name="description"]').getAttribute('content'), expected)
+    assert.equal(await web.locator('meta[property="og:description"]').getAttribute('content'), expected)
+    const productSchema = await web.locator('script[type="application/ld+json"]').evaluateAll(nodes =>
+      nodes.map(node => JSON.parse(node.textContent)).find(value => value['@type'] === 'Product'))
+    assert.equal(productSchema.description, expected)
+  }
+  await checkWebDescription(products[0].description)
   const admin = await browser.newPage({ viewport: { width: 1600, height: 1000 }, bypassCSP: true })
   admin.setDefaultTimeout(60000)
   await admin.goto('http://127.0.0.1:3411/admin/pricing', { timeout: 120000 })
@@ -88,13 +100,24 @@ try {
   await admin.getByLabel('Description du produit').waitFor({ state: 'hidden' })
   await admin.getByText('Description modifiée depuis admin.', { exact: true }).waitFor()
   assert.equal(products[0].description, 'Description modifiée depuis admin.')
+  await checkWebDescription('Description modifiée depuis admin.')
+  console.log('PASS: saved admin description appears on desktop, metadata and Product JSON-LD.')
   await page.reload()
   await page.getByRole('link', { name: 'Voir Tomates', exact: true }).first().click()
   await dialog.waitFor()
   assert.match(await dialog.innerText(), /Description modifiée depuis admin/)
   await mkdir(path.join(root, 'outputs/product-detail'), { recursive: true })
   await page.screenshot({ path: path.join(root, 'outputs/product-detail/mobile.png') })
-  console.log('PASS: admin saves the description and the client displays the updated text.')
+  await web.screenshot({ path: path.join(root, 'outputs/product-detail/web.png') })
+  // A cleared admin description is normalized to null by the real backend.
+  products[0].description = null
+  await web.reload()
+  const fallback = await web.locator('script[type="application/ld+json"]').evaluateAll(nodes =>
+    nodes.map(node => JSON.parse(node.textContent)).find(value => value['@type'] === 'Product').description)
+  assert(fallback.length > 0)
+  assert.notEqual(fallback, 'Description modifiée depuis admin.')
+  await web.locator('main').getByText(fallback, { exact: true }).waitFor()
+  console.log('PASS: admin save updates PWA, web, metadata and JSON-LD; empty descriptions retain a fallback.')
 } finally {
   await browser?.close()
   for (const child of children) child.kill()

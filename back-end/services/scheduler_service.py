@@ -6,6 +6,7 @@ Uses APScheduler to schedule the JIT, COD alert, and daily dispatch jobs.
 import os
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+import tzdata
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.base import SchedulerAlreadyRunningError
@@ -203,6 +204,11 @@ def start_scheduler():
 
             scheduler.start()
             print("[SCHEDULER] Scheduler demarre")
+            print(f"[SCHEDULER] Fuseau={MOROCCO_TIMEZONE.key} "
+                  f"heure_locale={datetime.now(MOROCCO_TIMEZONE).isoformat()} "
+                  f"tzdata={tzdata.__version__} IANA={tzdata.IANA_VERSION}")
+            for job in scheduler.get_jobs():
+                print(f"[SCHEDULER] {job.id}: prochain declenchement={job.next_run_time.isoformat()}")
             print("[SCHEDULER] Job alerte COD configure a 18h00 chaque jour")
             print("[SCHEDULER] Job JIT configure a 20h00 chaque jour")
             print("[SCHEDULER] Job dispatch configure a 21h35 chaque jour")
