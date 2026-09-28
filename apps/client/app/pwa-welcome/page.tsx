@@ -457,7 +457,7 @@ export default function PwaWelcomePage() {
           >
             {/* Ligne 1 : pilule de localisation (verre dépoli) + favoris + profil */}
             <div className="flex items-center justify-between gap-2">
-              <SoukiLogoLink href="/pwa-welcome" variant="symbol" height={32} priority className="p-2" />
+              <SoukiLogoLink href="/pwa-welcome" variant="symbol" height={32} priority className="relative -left-2 p-2 focus-visible:outline-white [&_img]:brightness-0 [&_img]:invert" />
               <button
                 onClick={() => router.push("/parametres")}
                 className="flex min-w-0 items-center gap-1.5 rounded-full bg-white/10 py-1.5 pl-1.5 pr-2 ring-1 ring-white/20 backdrop-blur-md transition-transform active:scale-95 animate-slide-in-down"
