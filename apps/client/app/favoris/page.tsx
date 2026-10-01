@@ -8,11 +8,10 @@ import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
 import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
 import { ProductCard } from "@/components/souki/product-card"
 import { PwaHeader, PwaScreen, ProductDetailSheet } from "@/components/souki/pwa"
-import type { CatalogueProduct } from "@/lib/catalogue"
+import { useClientCollection } from "@/hooks/useClientCollection"
+import type { CartItem, CatalogueProduct } from "@/lib/catalogue"
 import {
   fetchCatalogueProducts,
-  loadStoredCart,
-  saveStoredCart,
   upsertCartItem,
 } from "@/lib/catalogue"
 import { isPwaStandalone } from "@/lib/pwa"
@@ -39,7 +38,8 @@ export default function FavorisPage() {
   const [isFetching, setIsFetching] = useState(true)
   const [detailProduct, setDetailProduct] = useState<CatalogueProduct | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
-  const [cartCount, setCartCount] = useState(0)
+  const [cart, setCart] = useClientCollection<CartItem>("cart")
+  const cartCount = cart.length
 
   // Garde standalone (identique a l'accueil PWA).
   useEffect(() => {
@@ -79,9 +79,6 @@ export default function FavorisPage() {
     }
   }, [isReady])
 
-  useEffect(() => {
-    setCartCount(loadStoredCart().length)
-  }, [])
 
   const favoriteProducts = useMemo(
     () => products.filter((product) => favoriteIds.includes(product.id)),
@@ -91,8 +88,7 @@ export default function FavorisPage() {
   const handleAddToCart = (id: number | string, quantity: number) => {
     const product = products.find((item) => item.id === Number(id))
     if (!product) return
-    saveStoredCart(upsertCartItem(loadStoredCart(), product, quantity))
-    setCartCount(loadStoredCart().length)
+    setCart((current) => upsertCartItem(current, product, quantity))
     haptic("success")
   }
 

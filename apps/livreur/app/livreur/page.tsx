@@ -55,11 +55,13 @@ import {
 } from "@/lib/api"
 import {
   clearLegacyDeliverySyncStorage,
+  DELIVERY_QUEUE_CHANGED,
   enqueueDeliverySyncEvent,
   getAllDeliverySyncEvents,
   removeDeliverySyncEvent,
   type DeliverySyncQueueItem,
 } from "@/lib/delivery-sync-queue"
+import { deliverySyncFailure, deliveryRetryDelay } from "@/lib/delivery-sync-policy"
 import { cn } from "@/lib/utils"
 
 const CACHE_KEY = "souki_tournee_today"
@@ -834,6 +836,9 @@ export default function LivreurPage() {
   const lastDriverLocationRef = useRef<DriverLocation | null>(null)
   const isLocationRequestPendingRef = useRef(false)
   const isQueueSyncInFlightRef = useRef(false)
+  const retryState = useRef({ attempts: 0, nextAt: 0, sessionPaused: false })
+  const [pendingSyncCount, setPendingSyncCount] = useState(0)
+  const [syncSessionPaused, setSyncSessionPaused] = useState(false)
   const lastDirectionsRequestRef = useRef<{
     origin: [number, number]
     stopsKey: string
@@ -1249,7 +1254,7 @@ export default function LivreurPage() {
   })
 
   const flushDeliverySyncQueue = useEffectEvent(async () => {
-    if (typeof window === "undefined" || !token || !userId || !window.navigator.onLine || isQueueSyncInFlightRef.current) {
+    if (typeof window === "undefined" || !token || !userId || !window.navigator.onLine || isQueueSyncInFlightRef.current || retryState.current.sessionPaused || Date.now() < retryState.current.nextAt) {
       return
     }
 
@@ -1268,13 +1273,25 @@ export default function LivreurPage() {
           })
           await removeDeliverySyncEvent(userId, queuedEvent.clientEventId)
           applyServerDeliveryEvent(response)
+          retryState.current.attempts = 0
+          retryState.current.nextAt = 0
         } catch (error) {
-          if (error instanceof ApiError) {
+          const failure = deliverySyncFailure(error instanceof ApiError ? error.status : undefined)
+          if (failure === "session") {
+            retryState.current.sessionPaused = true
+            setSyncSessionPaused(true)
+            setNotice({ tone: "error", message: "Session expirée ou accès refusé. Reconnectez-vous : vos actions restent en attente." })
+            break
+          }
+          if (failure === "conflict" || failure === "reject") {
             await removeDeliverySyncEvent(userId, queuedEvent.clientEventId)
             shouldRefreshTournee = true
-            setNotice({ tone: "error", message: error.message })
+            setNotice({ tone: "error", message: failure === "conflict" ? "Cette livraison a changé sur le serveur. Tournée actualisée ; vérifiez son statut." : error instanceof Error ? error.message : "Action refusée." })
             continue
           }
+          retryState.current.attempts += 1
+          retryState.current.nextAt = Date.now() + deliveryRetryDelay(retryState.current.attempts)
+          setNotice({ tone: "info", message: "Serveur momentanément indisponible. Actions conservées ; nouvelle tentative automatique." })
 
           break
         }
@@ -1282,7 +1299,7 @@ export default function LivreurPage() {
     } finally {
       isQueueSyncInFlightRef.current = false
       if (shouldRefreshTournee) {
-        void refreshTourneeFromApi()
+        void refreshTourneeFromServer()
       }
     }
   })
@@ -1323,14 +1340,26 @@ export default function LivreurPage() {
         createdAt: Date.now(),
       }
 
+      try {
+        await enqueueDeliverySyncEvent(userId, queueItem)
+      } catch {
+        setNotice({ tone: "error", message: "Impossible de sauvegarder cette action sur cet appareil. Réessayez avant de poursuivre." })
+        return false
+      }
       applyLocalDeliveryMutation(delivery.id, targetStatus, delivery.statusVersion + 1)
-      await enqueueDeliverySyncEvent(userId, queueItem)
+      const pending = await getAllDeliverySyncEvents(userId)
+      if (pending.length > 1 || isQueueSyncInFlightRef.current || retryState.current.sessionPaused || Date.now() < retryState.current.nextAt) {
+        setNotice({ tone: "info", message: "Action sauvegardée en attente de synchronisation." })
+        void flushDeliverySyncQueue()
+        return true
+      }
 
       if (typeof window !== "undefined" && !window.navigator.onLine) {
         setNotice({ tone: "info", message: offlineMessage })
         return true
       }
 
+      isQueueSyncInFlightRef.current = true
       try {
         const response = await envoyerEvenementLivraison(token, delivery.id, {
           target_status: queueItem.targetStatus,
@@ -1341,19 +1370,31 @@ export default function LivreurPage() {
 
         await removeDeliverySyncEvent(userId, clientEventId)
         applyServerDeliveryEvent(response)
+        retryState.current = { attempts: 0, nextAt: 0, sessionPaused: false }
         setNotice({ tone: "success", message: response.message })
         return true
       } catch (error) {
-        if (error instanceof ApiError) {
+        const failure = deliverySyncFailure(error instanceof ApiError ? error.status : undefined)
+        if (failure === "session") {
+          retryState.current.sessionPaused = true
+          setSyncSessionPaused(true)
+          setNotice({ tone: "error", message: "Session expirée ou accès refusé. Reconnectez-vous : votre action est sauvegardée." })
+          return true
+        }
+        if (failure === "conflict" || failure === "reject") {
           await removeDeliverySyncEvent(userId, clientEventId)
           applyLocalDeliverySnapshot(previousSnapshot)
           await refreshTourneeFromServer()
-          setNotice({ tone: "error", message: error.message })
+          setNotice({ tone: "error", message: failure === "conflict" ? "Cette livraison a changé sur le serveur. Vérifiez son statut actualisé." : error instanceof Error ? error.message : "Action refusée." })
           return false
         }
+        retryState.current.attempts += 1
+        retryState.current.nextAt = Date.now() + deliveryRetryDelay(retryState.current.attempts)
 
         setNotice({ tone: "info", message: offlineMessage })
         return true
+      } finally {
+        isQueueSyncInFlightRef.current = false
       }
     }
   )
@@ -1667,21 +1708,25 @@ export default function LivreurPage() {
   }, [hasLivreurAccess, isAuthLoading, token, userId])
 
   useEffect(() => {
-    if (!token || typeof window === "undefined") {
-      return
+    if (!token || !userId) { setPendingSyncCount(0); return }
+    let active = true
+    retryState.current = { attempts: 0, nextAt: 0, sessionPaused: false }
+    setSyncSessionPaused(false)
+    const updateCount = () => {
+      void getAllDeliverySyncEvents(userId).then((events) => { if (active) setPendingSyncCount(events.length) }).catch(() => {
+        if (active) setNotice({ tone: "error", message: "Lecture des actions en attente impossible. Vérifiez le stockage de cet appareil." })
+      })
     }
-
-    void flushDeliverySyncQueue()
-
-    const handleOnline = () => {
-      void flushDeliverySyncQueue()
-    }
-
-    window.addEventListener("online", handleOnline)
-    return () => {
-      window.removeEventListener("online", handleOnline)
-    }
-  }, [flushDeliverySyncQueue, token])
+    const retry = () => { void flushDeliverySyncQueue().catch(() => {
+      setNotice({ tone: "error", message: "Synchronisation interrompue. Vos actions sauvegardées seront réessayées." })
+    }) }
+    updateCount()
+    retry()
+    const timer = window.setInterval(retry, 5000)
+    window.addEventListener("online", retry)
+    window.addEventListener(DELIVERY_QUEUE_CHANGED, updateCount)
+    return () => { active = false; window.clearInterval(timer); window.removeEventListener("online", retry); window.removeEventListener(DELIVERY_QUEUE_CHANGED, updateCount) }
+  }, [token, userId, user])
 
   const mappableDeliveries = deliveryList.filter((item) => hasEffectiveCoordinates(item, deliveryCoordinateOverrides))
   const pickupCoordinates =
@@ -2984,6 +3029,13 @@ export default function LivreurPage() {
           {loadSource === "cache" && !beforeSeven && (
             <div className="rounded-2xl bg-[#FFF3E0]/95 px-4 py-3 text-sm text-[#8A5A00] shadow-sm backdrop-blur">
               Mode hors ligne actif. La dernière tournée sauvegardée est affichée.
+            </div>
+          )}
+
+          {pendingSyncCount > 0 && (
+            <div role="status" className="rounded-2xl bg-[#FFF3E0]/95 px-4 py-3 text-sm text-[#8A5A00] shadow-sm">
+              {pendingSyncCount} action{pendingSyncCount > 1 ? "s" : ""} en attente de synchronisation.
+              {syncSessionPaused ? " Reconnectez-vous pour reprendre." : " Envoi automatique au retour du service."}
             </div>
           )}
 

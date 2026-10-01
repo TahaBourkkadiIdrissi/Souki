@@ -39,12 +39,14 @@ import {
   CatalogueProduct,
   fetchCatalogueProducts,
   getCataloguePresentation,
+  loadStoredCart,
 } from "@/lib/catalogue"
 import { MapboxLocator } from "@/components/souki/mapbox-locator"
 import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
 import { SuggestionCard } from "@/components/souki/suggestion-card"
 import { PolicyLink } from "@/components/souki/policy-link"
 import { PwaHeader, StickyBottomBar } from "@/components/souki/pwa"
+import { useClientStorageOwner } from "@/hooks/useClientCollection"
 import { useAuth } from "@/hooks/useAuth"
 import { useHaptic } from "@/hooks/useHaptic"
 import { useOrderLock } from "@/hooks/useOrderLock"
@@ -160,7 +162,8 @@ function CheckoutContent() {
   const [liftRequestMessage, setLiftRequestMessage] = useState("")
   // VULN-010 : plus aucun JWT dans le localStorage. `token` est un simple marqueur
   // de session non secret ; l'authentification reelle passe par le cookie httpOnly.
-  const { token } = useAuth()
+  const { token, isLoading: isAuthLoading } = useAuth()
+  const storageOwner = useClientStorageOwner()
   // Verrou de commande restaure (BUG-004), aligne sur le cutoff backend.
   const { isLocked: isOrderCutoffActive, message: orderLockMessage } = useOrderLock()
 
@@ -357,6 +360,7 @@ function CheckoutContent() {
 
   // Récupération des données et INITIALISATION DU PANIER au bon moment
   useEffect(() => {
+    if (isAuthLoading) return
     const cartOverride = getCartOverrideFromUrl()
 
     if (commandeId) {
@@ -407,14 +411,9 @@ function CheckoutContent() {
       // Si on vient de l'ancien système d'URL (sans voix)
       setCart(cartOverride ?? [])
     } else {
-      // Faux panier par défaut si on accède à la page sans rien
-      setCart([
-        { id: "1", name: "Tomates Marocaines", price: 7, quantity: 5, unit: "kg", image: "https://images.unsplash.com/photo-1592924357228-91a4daadcfea" },
-        { id: "3", name: "Oignons", price: 9, quantity: 3, unit: "kg", image: "https://images.unsplash.com/photo-1620574387735-3624d75b2dbc" },
-        { id: "4", name: "Carottes", price: 8.5, quantity: 2, unit: "kg", image: "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400&h=300&fit=crop" },
-      ])
+      setCart(buildCartItems(loadStoredCart(storageOwner)))
     }
-  }, [commandeId, panierId, cartParam, catalogueImages, cataloguePrices, token])
+  }, [commandeId, panierId, cartParam, catalogueImages, cataloguePrices, token, storageOwner, isAuthLoading])
 
   const merchantPrice = cart.reduce((sum, item) => sum + (item.price * 1.1) * item.quantity, 0)
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
@@ -618,7 +617,7 @@ function CheckoutContent() {
     }
   }
 
-  if (isLoading) {
+  if (isLoading || isAuthLoading) {
     return (
       <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center">
         <div className="text-center">
@@ -637,6 +636,18 @@ function CheckoutContent() {
           <Link href="/" className="text-[#1E8A3C] font-bold hover:underline">Retour à l'accueil</Link>
         </div>
       </div>
+    )
+  }
+
+  if (cart.length === 0) {
+    return (
+      <main className="flex min-h-dvh items-center justify-center bg-[#F5F5F0] p-6">
+        <div className="max-w-md rounded-2xl bg-white p-8 text-center shadow-sm">
+          <h1 className="text-xl font-bold text-[#264129]">Votre panier est vide</h1>
+          <p className="mt-3 text-[#596D5C]">Choisissez vos produits avant de passer commande.</p>
+          <Link href="/catalogue" className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-[#1E8A3C] px-5 font-bold text-white">Découvrir le catalogue</Link>
+        </div>
+      </main>
     )
   }
 
@@ -1247,13 +1258,14 @@ function CheckoutContent() {
 }
 
 export default function CheckoutPage() {
+  const owner = useClientStorageOwner()
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center">
         <div className="text-[#1E8A3C]">Chargement...</div>
       </div>
     }>
-      <CheckoutContent />
+      <CheckoutContent key={owner === undefined ? "loading" : owner ?? "guest"} />
     </Suspense>
   )
 }

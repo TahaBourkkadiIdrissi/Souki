@@ -38,6 +38,8 @@ import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
 import { ProductCard } from "@/components/souki/product-card"
 import { SuggestionCard } from "@/components/souki/suggestion-card"
 import { ProductDetailSheet, StickyBottomBar } from "@/components/souki/pwa"
+import { useOrderCountdown } from "@/hooks/useOrderCountdown"
+import { useClientCollection } from "@/hooks/useClientCollection"
 import { useAuth } from "@/hooks/useAuth"
 import { useFavorites } from "@/hooks/useFavorites"
 import { useHaptic } from "@/hooks/useHaptic"
@@ -60,10 +62,8 @@ import {
   formatQuantity,
   getCataloguePresentation,
   getCatalogueFallbackImage,
-  loadStoredCart,
   mergeSelectionsIntoCart,
   resolveCatalogueImage,
-  saveStoredCart,
   submitClaim,
   submitManualBasket,
   upsertCartItem,
@@ -310,43 +310,13 @@ function RecolteWarmWelcome() {
    montage (le serveur rend la phrase statique) pour eviter tout mismatch
    d'hydratation ; une seule ligne dans les deux cas, donc pas de CLS. */
 function JitCutoffBanner() {
-  const [now, setNow] = useState<Date | null>(null)
-
-  useEffect(() => {
-    setNow(new Date())
-    const timer = window.setInterval(() => setNow(new Date()), 1000)
-    return () => window.clearInterval(timer)
-  }, [])
-
-  const cutoff = now ? new Date(now) : null
-  cutoff?.setHours(20, 0, 0, 0)
-  const beforeCutoff = now && cutoff && now < cutoff
-
-  if (!beforeCutoff) {
-    return (
-      <div className="bg-[#F07C00] px-4 py-3 text-center text-sm font-semibold text-white">
-        Paniers ouverts après 20h - Livraison demain, prix recalculés au moment de la validation
-      </div>
-    )
-  }
-
-  const diffMs = cutoff.getTime() - now.getTime()
-  const hours = Math.floor(diffMs / 3_600_000)
-  const minutes = Math.floor((diffMs % 3_600_000) / 60_000)
-  const seconds = Math.floor((diffMs % 60_000) / 1000)
-  const pad = (value: number) => String(value).padStart(2, "0")
-  const urgent = diffMs < 3_600_000
-
+  const cutoff = useOrderCountdown()
+  const pad = (n: number) => String(n).padStart(2, "0")
   return (
     <div className="bg-[#F07C00] px-4 py-3 text-center text-sm font-semibold text-white">
-      Clôture des paniers à 20h00 —{" "}
-      <span
-        className={cn("souki-tabular-nums", urgent && "animate-countdown-urgent")}
-        aria-label={`Temps restant avant la clôture : ${hours} heures ${minutes} minutes`}
-      >
-        {pad(hours)}:{pad(minutes)}:{pad(seconds)}
-      </span>{" "}
-      pour être livré demain entre 8h et 15h
+      {cutoff?.closed ? "Commandes fermées — Réouverture à 08h00" : "Clôture des paniers à 20h00"}
+      {cutoff && <span className="souki-tabular-nums"> — {pad(cutoff.hours)}:{pad(cutoff.minutes)}:{pad(cutoff.seconds)}</span>}
+      {" · Heure du Maroc"}
     </div>
   )
 }
@@ -524,7 +494,8 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
   const { isAuthenticated, isLoading } = useAuth()
 
   const [products, setProducts] = useState<CatalogueProduct[]>(initialProducts)
-  const [cart, setCart] = useState<CartItem[]>([])
+  const [cart, setCart] = useClientCollection<CartItem>("cart")
+  const [, setRecentProducts] = useClientCollection<{ id: number; name: string; image: string; price: number; unit: string; displayUnit: string; viewedAt: string }>("recent-products")
   const [selectedCategory, setSelectedCategory] =
     useState<(typeof categories)[number]["id"]>("tous")
   const [sortBy, setSortBy] = useState<(typeof sortOptions)[number]["id"]>("popular")
@@ -663,7 +634,6 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
     // The initial catalogue is rendered in the server HTML. Refresh it in the
     // browser for current prices without hiding the indexed product list.
     loadCatalogue(false)
-    setCart(loadStoredCart())
     const interval = window.setInterval(() => {
       loadCatalogue()
     }, CATALOGUE_REFRESH_INTERVAL_MS)
@@ -672,12 +642,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
       isMounted = false
       window.clearInterval(interval)
     }
-  }, [])
-
-  useEffect(() => {
-    saveStoredCart(cart)
-    window.dispatchEvent(new Event("souki:cart-updated"))
-  }, [cart])
+  }, [setCart])
 
   useEffect(() => {
     const isParamSet = searchParams.get("open_cart") === "1"
@@ -923,19 +888,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
       viewedAt: new Date().toISOString(),
     }
 
-    try {
-      const rawHistory = window.localStorage.getItem("souki_recent_products")
-      const currentHistory = rawHistory ? JSON.parse(rawHistory) : []
-      const nextHistory = [
-        viewedProduct,
-        ...(Array.isArray(currentHistory) ? currentHistory : []).filter(
-          (item: { id?: number }) => item.id !== product.id
-        ),
-      ].slice(0, 12)
-      window.localStorage.setItem("souki_recent_products", JSON.stringify(nextHistory))
-    } catch {
-      window.localStorage.setItem("souki_recent_products", JSON.stringify([viewedProduct]))
-    }
+    setRecentProducts((current) => [viewedProduct, ...current.filter((item) => item.id !== product.id)].slice(0, 12))
   }
 
   // Clic sur une carte produit : on enregistre la vue récente puis on ouvre la
@@ -1144,7 +1097,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
           // Rediriger vers checkout avec panier_id
           router.push(`/checkout?panier_id=${result.panier_id}`)
           // Vider le panier local après succès
-          saveStoredCart([])
+          setCart([])
         } else {
           showFeedback({
             tone: "error",

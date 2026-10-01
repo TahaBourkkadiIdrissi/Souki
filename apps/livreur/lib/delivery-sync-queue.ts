@@ -10,6 +10,7 @@ export interface DeliverySyncQueueItem {
 const DB_NAME = "souki-livreur-sync"
 const STORE_NAME = "sync_queue"
 const DB_VERSION = 1
+export const DELIVERY_QUEUE_CHANGED = "souki:delivery-queue-changed"
 
 export function clearLegacyDeliverySyncStorage() {
   if (typeof window === "undefined") return
@@ -58,10 +59,12 @@ async function runTransaction<T>(
 
 export async function enqueueDeliverySyncEvent(userId: number, item: DeliverySyncQueueItem) {
   await runTransaction(userId, "readwrite", (store) => store.put(item))
+  window.dispatchEvent(new Event(DELIVERY_QUEUE_CHANGED))
 }
 
 export async function removeDeliverySyncEvent(userId: number, clientEventId: string) {
   await runTransaction(userId, "readwrite", (store) => store.delete(clientEventId))
+  window.dispatchEvent(new Event(DELIVERY_QUEUE_CHANGED))
 }
 
 export async function getAllDeliverySyncEvents(userId: number) {

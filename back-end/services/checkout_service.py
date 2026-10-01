@@ -25,7 +25,7 @@ MOROCCO_TIMEZONE = ZoneInfo("Africa/Casablanca")
 ORDER_CUTOFF_START = time(20, 0)
 ORDER_CUTOFF_END = time(8, 0)
 ORDER_CUTOFF_MESSAGE = (
-    "Les commandes restent enregistrees en attente pour la livraison du lendemain."
+    "Les commandes sont fermées pour préparer les livraisons. Réouverture à 08h00 (heure du Maroc). Votre commande n’a pas été enregistrée."
 )
 # Garde-fou metier (BUG-001) : le cutoff backend est actif par defaut. Il ne peut etre
 # desactive que par decision explicite d'exploitation (SOUKI_ORDER_CUTOFF_ENABLED=0),

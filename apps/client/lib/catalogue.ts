@@ -1,3 +1,4 @@
+import { readClientCollection, writeClientCollection, type StorageOwner } from "@/lib/client-storage"
 import type { CatalogueProductDTO, CommandeHistoriqueDTO } from "@/lib/api"
 import { apiCall } from "@/lib/api"
 
@@ -63,7 +64,7 @@ export interface SmartBasketResponse {
   model_warning?: string | null
 }
 
-export const CART_STORAGE_KEY = "souki-cart"
+export const CART_COLLECTION = "cart"
 export const FREE_DELIVERY_THRESHOLD = 300
 export const DELIVERY_FEE = 15
 // Photos réalistes haute définition (Pixabay CDN, variante _1280) — une image
@@ -395,24 +396,12 @@ export async function fetchCatalogueProducts(): Promise<CatalogueProduct[]> {
   })
 }
 
-export function loadStoredCart(): CartItem[] {
-  if (typeof window === "undefined") {
-    return []
-  }
-
-  try {
-    const rawCart = window.localStorage.getItem(CART_STORAGE_KEY)
-    return rawCart ? (JSON.parse(rawCart) as CartItem[]) : []
-  } catch {
-    return []
-  }
+export function loadStoredCart(owner: StorageOwner): CartItem[] {
+  return readClientCollection<CartItem>(CART_COLLECTION, owner)
 }
 
-export function saveStoredCart(cart: CartItem[]) {
-  if (typeof window === "undefined") {
-    return
-  }
-  window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart))
+export function saveStoredCart(cart: CartItem[], owner: StorageOwner) {
+  writeClientCollection(CART_COLLECTION, owner, cart)
 }
 
 export function formatQuantity(quantity: number, unit: string) {
