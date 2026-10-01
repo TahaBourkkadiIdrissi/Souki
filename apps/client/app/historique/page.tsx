@@ -17,6 +17,7 @@ import {
 
 import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
 import { SoukiEmptyState } from "@/components/souki/empty-state"
+import { useClientCollection } from "@/hooks/useClientCollection"
 import { useAuth } from "@/hooks/useAuth"
 import { useScrollReveal } from "@/hooks/useScrollReveal"
 import type { CommandeHistoriqueDTO } from "@/lib/api"
@@ -63,22 +64,12 @@ function HistoriqueContent() {
   const searchParams = useSearchParams()
   const { isAuthenticated, isLoading } = useAuth()
   const revealRef = useScrollReveal<HTMLDivElement>()
-  const [recentProducts, setRecentProducts] = useState<RecentProduct[]>([])
+  const [recentProducts] = useClientCollection<RecentProduct>("recent-products")
   const [catalogueImages, setCatalogueImages] = useState<Record<string, string>>({})
   const [orderHistory, setOrderHistory] = useState<CommandeHistoriqueDTO[]>([])
   const [isFetchingOrders, setIsFetchingOrders] = useState(false)
   const [historyError, setHistoryError] = useState("")
   const successOrderId = searchParams.get("commande_validee")
-
-  const loadRecentProducts = () => {
-    try {
-      const rawHistory = window.localStorage.getItem("souki_recent_products")
-      const parsedHistory = rawHistory ? JSON.parse(rawHistory) : []
-      setRecentProducts(Array.isArray(parsedHistory) ? parsedHistory.slice(0, 12) : [])
-    } catch {
-      setRecentProducts([])
-    }
-  }
 
   const loadOrderHistory = useCallback(async () => {
     if (!isAuthenticated) {
@@ -99,9 +90,6 @@ function HistoriqueContent() {
     }
   }, [isAuthenticated])
 
-  useEffect(() => {
-    loadRecentProducts()
-  }, [])
 
   useEffect(() => {
     let isMounted = true
@@ -185,7 +173,6 @@ function HistoriqueContent() {
             <button
               type="button"
               onClick={() => {
-                loadRecentProducts()
                 void loadOrderHistory()
               }}
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#CFE6D2] bg-white px-4 py-3 text-sm font-bold text-[#1E8A3C] transition-colors hover:bg-[#F0FAF1]"

@@ -19,14 +19,17 @@ import {
 import { SuggestionCard } from "@/components/souki/suggestion-card"
 import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
 import { SoukiLogoLink } from "@/components/souki/souki-logo"
-import type { CatalogueProduct } from "@/lib/catalogue"
+import { MarketStatus, MarketCountdown } from "@/components/souki/market-clock"
+import { SearchHint } from "@/components/souki/search-hint"
+import { useHomeParallax } from "@/hooks/useHomeParallax"
+import { MOROCCO_TIME_ZONE } from "@/lib/order-hours"
+import { useClientCollection } from "@/hooks/useClientCollection"
+import type { CartItem, CatalogueProduct } from "@/lib/catalogue"
 import {
   fetchCatalogueProducts,
   FREE_DELIVERY_THRESHOLD,
   getCataloguePresentation,
-  loadStoredCart,
   resolveCatalogueImage,
-  saveStoredCart,
   upsertCartItem,
 } from "@/lib/catalogue"
 import { fetchPersonalizedSuggestions } from "@/lib/api"
@@ -49,15 +52,6 @@ type SuggestionLevel = {
 
 const CATALOGUE_REFRESH_INTERVAL_MS = 5 * 60 * 1000
 
-// Placeholders de recherche qui defilent (effet "marketplace vivante").
-const SEARCH_HINTS = [
-  "Tomates fraîches…",
-  "Pommes de terre…",
-  "Menthe & coriandre…",
-  "Oranges de saison…",
-  "Courgettes du jour…",
-]
-
 // Rail de categories facon Glovo, reinterprete pour le marche frais.
 // Chaque tuile filtre reellement le catalogue (deep-link ?category=).
 const CATEGORY_TILES = [
@@ -66,45 +60,6 @@ const CATEGORY_TILES = [
   { label: "Fruits", href: "/catalogue?focus=fruits", emoji: "🍊", from: "#F07C00", to: "#FFB347" },
   { label: "Herbes", href: "/catalogue?focus=herbes", emoji: "🌿", from: "#1A4F2C", to: "#4CB84A" },
 ] as const
-
-// Heure de clôture des commandes du jour (20h) : au-delà, on décompte vers
-// la clôture du lendemain. 100% présentation — aucun appel réseau.
-const DAILY_CUTOFF_HOUR = 20
-
-type Countdown = { hours: number; minutes: number; seconds: number; closed: boolean }
-
-function computeCountdown(): Countdown {
-  const now = new Date()
-  const target = new Date(now)
-  target.setHours(DAILY_CUTOFF_HOUR, 0, 0, 0)
-  let closed = false
-  if (target.getTime() <= now.getTime()) {
-    // Clôture déjà passée : on vise 20h le lendemain.
-    target.setDate(target.getDate() + 1)
-    closed = true
-  }
-  const diff = target.getTime() - now.getTime()
-  return {
-    hours: Math.floor(diff / 3_600_000),
-    minutes: Math.floor((diff % 3_600_000) / 60_000),
-    seconds: Math.floor((diff % 60_000) / 1_000),
-    closed,
-  }
-}
-
-// Décompte vivant vers la clôture du jour (mis à jour chaque seconde,
-// initialisé côté client pour éviter tout écart d'hydratation).
-function useDailyCutoff(): Countdown | null {
-  const [countdown, setCountdown] = useState<Countdown | null>(null)
-  useEffect(() => {
-    setCountdown(computeCountdown())
-    const id = window.setInterval(() => setCountdown(computeCountdown()), 1000)
-    return () => window.clearInterval(id)
-  }, [])
-  return countdown
-}
-
-const pad = (value: number) => value.toString().padStart(2, "0")
 
 // Mappe un produit renvoye par l'API vers le modele d'affichage du catalogue
 // (image resolue, prix affiche, unite de presentation...).
@@ -132,21 +87,20 @@ export default function PwaWelcomePage() {
   const router = useRouter()
   const { user, token, isAuthenticated, isLoading } = useAuth()
   const userId = user?.id
+  const [, setCart] = useClientCollection<CartItem>("cart")
   const [isReady, setIsReady] = useState(false)
   const [products, setProducts] = useState<CatalogueProduct[]>([])
-  const [personalized, setPersonalized] = useState<CatalogueProduct[]>([])
+  const [personalizedState, setPersonalized] = useState<{ userId: number; products: CatalogueProduct[] } | null>(null)
+  const personalized = personalizedState && personalizedState.userId === userId ? personalizedState.products : []
   const [isFetching, setIsFetching] = useState(true)
   const [addedProductId, setAddedProductId] = useState<number | null>(null)
   const [searchValue, setSearchValue] = useState("")
-  const [hintIndex, setHintIndex] = useState(0)
-  const [scrollY, setScrollY] = useState(0)
   const heroRef = useRef<HTMLDivElement>(null)
   // Reveal au scroll des sections sous la ligne de flottaison (fail-safe :
   // le contenu reste visible si l'observer ne se declenche pas).
   const revealRef = useScrollReveal<HTMLElement>()
   const haptic = useHaptic()
   const { favorites: favoriteIds, isFavorite, toggleFavorite } = useFavorites()
-  const cutoff = useDailyCutoff()
 
   // Photo de profil (televersee dans Parametres) : le bouton profil du header
   // l'affiche des qu'elle existe, initiale en repli. Meme mecanique que
@@ -225,32 +179,7 @@ export default function PwaWelcomePage() {
     }
   }, [isReady, isAuthenticated, user, router])
 
-  const [reduceMotion, setReduceMotion] = useState(false)
-
-  // Respecte prefers-reduced-motion pour tout mouvement piloté en JS (parallax).
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)")
-    setReduceMotion(mq.matches)
-    const handler = (event: MediaQueryListEvent) => setReduceMotion(event.matches)
-    mq.addEventListener("change", handler)
-    return () => mq.removeEventListener("change", handler)
-  }, [])
-
-  // Parallax scroll listener
-  useEffect(() => {
-    const handleScroll = () => setScrollY(window.scrollY)
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
-
-  // Placeholder de recherche qui change toutes les 2.6s
-  useEffect(() => {
-    const interval = window.setInterval(
-      () => setHintIndex((i) => (i + 1) % SEARCH_HINTS.length),
-      2600,
-    )
-    return () => window.clearInterval(interval)
-  }, [])
+  useHomeParallax(heroRef, isReady && !isLoading && isAuthenticated)
 
   // Load catalogue
   useEffect(() => {
@@ -272,7 +201,7 @@ export default function PwaWelcomePage() {
     }
 
     void loadCatalogue(true)
-    const interval = window.setInterval(() => { void loadCatalogue() }, CATALOGUE_REFRESH_INTERVAL_MS)
+    const interval = window.setInterval(() => { if (!document.hidden) void loadCatalogue() }, CATALOGUE_REFRESH_INTERVAL_MS)
 
     return () => {
       isMounted = false
@@ -282,19 +211,19 @@ export default function PwaWelcomePage() {
 
   // Load personalized suggestions (serveur : favoris + achats mis en avant)
   useEffect(() => {
-    if (!isReady || !token) return
+    if (!isReady || !token || userId === undefined) return
 
     let isMounted = true
 
     const loadPersonalized = async () => {
       const dtos = await fetchPersonalizedSuggestions(token)
       if (!isMounted) return
-      setPersonalized(dtos.map(mapDtoToCatalogueProduct))
+      setPersonalized({ userId, products: dtos.map(mapDtoToCatalogueProduct) })
     }
 
     void loadPersonalized()
     return () => { isMounted = false }
-  }, [isReady, token])
+  }, [isReady, token, userId])
 
   // Favoris explicites (coeur) presents dans le catalogue courant, reactifs au toggle.
   const favoriteProducts = useMemo(
@@ -318,9 +247,7 @@ export default function PwaWelcomePage() {
   }, [products])
 
   const handleQuickAdd = (product: CatalogueProduct) => {
-    const cart = loadStoredCart()
-    const updated = upsertCartItem(cart, product, product.quantityStep)
-    saveStoredCart(updated)
+    setCart((current) => upsertCartItem(current, product, product.quantityStep))
     setAddedProductId(product.id)
     window.setTimeout(() => setAddedProductId(null), 1200)
     haptic("medium")
@@ -371,12 +298,12 @@ export default function PwaWelcomePage() {
 
   // Date du jour formatée (« mardi 20 juillet ») pour ancrer l'en-tête dans le réel.
   const todayLabel = useMemo(
-    () => new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }),
+    () => new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: MOROCCO_TIME_ZONE }),
     [],
   )
 
   // Décalage de parallax : neutralisé si l'utilisateur préfère moins d'animations.
-  const heroShift = reduceMotion ? 0 : scrollY
+
 
   // Splash tant que le mode standalone ou la session ne sont pas confirmes :
   // l'accueil PWA ne doit jamais apparaitre sans session (redirection /login).
@@ -391,7 +318,7 @@ export default function PwaWelcomePage() {
   }
 
   return (
-    <main ref={revealRef} className="min-h-dvh bg-[#F2F6F3] text-[#3D3D3D] font-sans">
+    <main ref={revealRef} className="min-h-dvh bg-[#F2F6F3] text-[#3D3D3D] font-sans pwa-home-motion">
       <section className="mx-auto flex min-h-dvh w-full max-w-md flex-col pb-24 md:pb-0">
 
         {/* ===== HEADER — vitrine « app store » : dégradé profond, texture botanique,
@@ -405,7 +332,7 @@ export default function PwaWelcomePage() {
           {/* Halos colorés — profondeur douce, dérive lente au scroll (parallax) */}
           <div
             className="pointer-events-none absolute inset-0 will-change-transform"
-            style={{ transform: `translateY(${heroShift * 0.14}px)` }}
+            style={{ transform: "translateY(var(--hero-slow, 0px))" }}
           >
             <div className="absolute -right-14 -top-20 h-56 w-56 rounded-full bg-[#5BD174]/30 blur-3xl" />
             <div className="absolute -left-16 top-10 h-48 w-48 rounded-full bg-[#0A2814]/60 blur-3xl" />
@@ -425,7 +352,7 @@ export default function PwaWelcomePage() {
           {/* Feuilles flottantes — rares, douces, identité Récolte (parallax rapide) */}
           <div
             className="pointer-events-none absolute inset-0 z-0 overflow-hidden will-change-transform"
-            style={{ transform: `translateY(${heroShift * 0.3}px)` }}
+            style={{ transform: "translateY(var(--hero-fast, 0px))" }}
           >
             {[...Array(3)].map((_, i) => (
               <Leaf
@@ -449,8 +376,8 @@ export default function PwaWelcomePage() {
           <header
             className="relative z-10 px-5 pb-8 pt-[max(env(safe-area-inset-top),1.25rem)] will-change-transform"
             style={{
-              transform: `translateY(${heroShift * 0.12}px)`,
-              opacity: reduceMotion ? 1 : Math.max(1 - scrollY / 700, 0.55),
+              transform: "translateY(var(--hero-header, 0px))",
+              opacity: "var(--hero-opacity, 1)",
             }}
           >
             {/* Ligne 1 : pilule de localisation (verre dépoli) + favoris + profil */}
@@ -510,17 +437,7 @@ export default function PwaWelcomePage() {
             <div className="mt-6 flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1 animate-slide-in-up">
                 {/* Éyebrow live : statut du marché ancré dans la date du jour */}
-                <span className="inline-flex items-center gap-2 rounded-full bg-white/10 py-1 pl-2 pr-3 ring-1 ring-white/15 backdrop-blur-md">
-                  <span className="relative flex h-2 w-2">
-                    {!cutoff?.closed && (
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#7BE495] opacity-75 motion-reduce:hidden" />
-                    )}
-                    <span className={cn("relative inline-flex h-2 w-2 rounded-full", cutoff?.closed ? "bg-[#F5C400]" : "bg-[#4CB84A]")} />
-                  </span>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#CDEBD6]">
-                    {cutoff?.closed ? "Livraison en préparation" : "Marché ouvert"} · {todayLabel}
-                  </span>
-                </span>
+                <MarketStatus todayLabel={todayLabel} />
 
                 <h1 className="mt-3 text-[30px] font-black leading-[1.05] tracking-tight text-white drop-shadow-md">
                   {greeting} 👋
@@ -586,14 +503,7 @@ export default function PwaWelcomePage() {
                     aria-label="Rechercher un produit frais"
                     className="peer w-full bg-transparent text-[15px] font-semibold text-[#264129] outline-none placeholder:text-transparent"
                   />
-                  {searchValue.length === 0 && (
-                    <span
-                      key={hintIndex}
-                      className="pointer-events-none absolute inset-y-0 left-0 flex items-center text-[15px] font-medium text-[#9BB29E] animate-fade-in"
-                    >
-                      {SEARCH_HINTS[hintIndex]}
-                    </span>
-                  )}
+                  {searchValue.length === 0 && <SearchHint />}
                 </div>
                 {searchValue.trim().length > 0 && (
                   <button
@@ -637,40 +547,7 @@ export default function PwaWelcomePage() {
                 Offre du jour
               </span>
 
-              <div>
-                <h2 className="text-[22px] font-black leading-tight text-white drop-shadow-sm">
-                  Le marché ferme à 20h
-                </h2>
-                <p className="mt-1 max-w-[16rem] text-[13px] font-medium leading-snug text-[#D3EEDB]">
-                  Commandez avant 20h, livré demain entre 8h et 15h — frais du marché de gros.
-                </p>
-              </div>
-
-              {/* Chips de décompte (façon "Flash Deal") — vivant, mis à jour chaque seconde */}
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wide text-[#A7D7B5]">
-                  {cutoff?.closed ? "Réouverture dans" : "Clôture dans"}
-                </span>
-                <span className="flex items-center gap-1" aria-hidden="true">
-                  {cutoff ? (
-                    [pad(cutoff.hours), pad(cutoff.minutes), pad(cutoff.seconds)].map((segment, index) => (
-                      <span key={index} className="flex items-center gap-1">
-                        {index > 0 && <span className="text-sm font-black text-white/70">:</span>}
-                        <span
-                          className={cn(
-                            "min-w-[26px] rounded-lg bg-white/15 px-1.5 py-1 text-center text-[15px] font-black tabular-nums text-white ring-1 ring-white/20 backdrop-blur",
-                            index === 2 && "animate-pwa-tick-pulse",
-                          )}
-                        >
-                          {segment}
-                        </span>
-                      </span>
-                    ))
-                  ) : (
-                    <span className="min-w-[26px] rounded-lg bg-white/15 px-3 py-1 text-[15px] font-black text-white/70">—</span>
-                  )}
-                </span>
-              </div>
+              <MarketCountdown />
 
               <button
                 onClick={() => router.push("/catalogue")}

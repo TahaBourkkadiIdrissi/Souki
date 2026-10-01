@@ -192,6 +192,8 @@ class OrderCutoffTests(unittest.TestCase):
             with self.assertRaises(HTTPException) as ctx:
                 service.create_checkout(1, _payload(quantity=1))
         self.assertEqual(ctx.exception.status_code, 403)
+        self.assertIn("08h00", ctx.exception.detail)
+        self.assertIn("n’a pas été enregistrée", ctx.exception.detail)
 
 
 class DeliveryTimeValidationTests(unittest.TestCase):

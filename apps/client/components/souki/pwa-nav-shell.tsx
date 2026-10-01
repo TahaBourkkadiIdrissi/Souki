@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
-import { loadStoredCart } from "@/lib/catalogue"
+import type { CartItem } from "@/lib/catalogue"
+import { useClientCollection } from "@/hooks/useClientCollection"
 import { isPwaStandalone } from "@/lib/pwa"
 import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
 import { ProfileAvatar } from "@/components/souki/profile-avatar"
@@ -25,20 +26,12 @@ export function PwaNavShell() {
   const pathname = usePathname()
   const { isAuthenticated } = useAuth()
   const [isStandalone, setIsStandalone] = useState(false)
-  const [cartCount, setCartCount] = useState(0)
+  const [cart] = useClientCollection<CartItem>("cart")
+  const cartCount = cart.length
 
   useEffect(() => {
     setIsStandalone(isPwaStandalone())
-    setCartCount(loadStoredCart().length)
 
-    const updateCartCount = () => setCartCount(loadStoredCart().length)
-    window.addEventListener("souki:cart-updated", updateCartCount)
-    window.addEventListener("storage", updateCartCount)
-
-    return () => {
-      window.removeEventListener("souki:cart-updated", updateCartCount)
-      window.removeEventListener("storage", updateCartCount)
-    }
   }, [])
 
   if (!isStandalone || isNavHidden(pathname)) return null

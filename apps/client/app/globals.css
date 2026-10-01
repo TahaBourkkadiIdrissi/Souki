@@ -2137,3 +2137,10 @@ html {
     top: 3.5rem;
   }
 }
+
+/* Pause decorative home animations when hidden or reduced motion is requested. */
+.pwa-home-motion[data-motion-paused="true"] *,
+.pwa-home-motion[data-motion-paused="true"] *::before,
+.pwa-home-motion[data-motion-paused="true"] *::after {
+  animation-play-state: paused !important;
+}
