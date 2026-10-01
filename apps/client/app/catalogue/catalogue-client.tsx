@@ -36,6 +36,7 @@ import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
 import { ScrollProgressBar } from "@/components/souki/scroll-progress-bar"
 import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
 import { ProductCard } from "@/components/souki/product-card"
+import { SuggestionCard } from "@/components/souki/suggestion-card"
 import { ProductDetailSheet, StickyBottomBar } from "@/components/souki/pwa"
 import { useAuth } from "@/hooks/useAuth"
 import { useFavorites } from "@/hooks/useFavorites"
@@ -2354,15 +2355,15 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
 
                 {/* Suggestions / upsell : section du bas, apres les produits choisis. */}
                 {pricingSuggestions.length > 0 && (
-                  <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 shadow-sm">
+                  <div className="rounded-2xl border border-[#DDEBDD] bg-[#F3F8F1] p-3">
                     <div className="mb-3 flex items-center gap-3">
                       <span className="h-px flex-1 bg-gray-200" />
-                      <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                      <span className="text-sm font-bold text-[#264129]">
                         À ne pas manquer
                       </span>
                       <span className="h-px flex-1 bg-gray-200" />
                     </div>
-                    <div className="grid grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-1 gap-3">
                       {pricingSuggestions.map((suggestion) => {
                         const niveau = suggestion.niveau || 2
                         const isInCart = cart.some((item) => item.id === suggestion.id)
@@ -2371,65 +2372,16 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                         const suffitPourSeuil = resteSuggestions > 0 && suggestion.price >= resteSuggestions
 
                         return (
-                        <div
+                        <SuggestionCard
                           key={suggestion.id}
-                          className={cn(
-                            "overflow-hidden rounded-xl border bg-white shadow-sm transition-shadow hover:shadow-md",
-                            niveau === 3
-                              ? "border-2 border-amber-400"
-                              : isFeaturedLevelTwo
-                                ? "border-2 border-[#1E8A3C]"
-                                : "border-gray-200"
-                          )}
-                        >
-                          <div className="relative flex aspect-square items-center justify-center bg-gray-50">
-                            <img
-                              src={suggestion.image}
-                              alt={suggestion.name}
-                              onError={(event) => applyImageFallback(event, suggestion.fallbackImage)}
-                              className="h-full w-full object-cover"
-                            />
-                            <span className={cn(
-                              "absolute left-2 top-2 rounded-full px-2 py-1 text-[10px] font-bold",
-                              suffitPourSeuil
-                                ? "bg-amber-100 text-amber-700"
-                                : "hidden"
-                            )}>
-                              Suffit pour livraison gratuite
-                            </span>
-                            {suggestion.prix_khddar_estime && (
-                              <span className="absolute bottom-2 right-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] text-gray-400 line-through">
-                                {suggestion.prix_khddar_estime.toFixed(2)} DH
-                              </span>
-                            )}
-                          </div>
-                          <div className="p-3">
-                            <p className="truncate text-[13px] font-medium text-[#264129]">
-                              {suggestion.name}
-                            </p>
-                            <p className="mt-1 truncate text-[11px] text-gray-400">
-                              Ajout malin pour compléter ton panier
-                            </p>
-                            <div className="mt-3 flex items-center justify-between gap-2">
-                              <span className="text-[15px] font-medium text-[#1E8A3C]">
-                                {suggestion.price.toFixed(2)} DH
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleAddSuggestionToCart(suggestion)}
-                                className={cn(
-                                  "flex h-8 w-8 items-center justify-center rounded-full border text-sm font-bold transition-colors",
-                                  isInCart
-                                    ? "border-[#1E8A3C] bg-[#1E8A3C] text-white"
-                                    : "border-gray-300 bg-white text-[#264129] hover:border-[#1E8A3C] hover:text-[#1E8A3C]"
-                                )}
-                                aria-label={`Ajouter ${suggestion.name}`}
-                              >
-                                {isInCart ? "✓" : "+"}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
+                          product={suggestion}
+                          compact
+                          featured={isFeaturedLevelTwo}
+                          isAdded={isInCart}
+                          onAdd={handleAddSuggestionToCart}
+                          showReferencePrice
+                          badge={suffitPourSeuil ? "Suffit pour livraison gratuite" : undefined}
+                        />
                         )
                       })}
                     </div>

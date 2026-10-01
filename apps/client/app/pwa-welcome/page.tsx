@@ -4,20 +4,19 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   ArrowRight,
-  Check,
   ChevronDown,
   ChevronRight,
   Clock,
   Heart,
   MapPin,
   Mic,
-  Plus,
   Search,
   ShoppingBasket,
   Truck,
   Leaf,
 } from "lucide-react"
 
+import { SuggestionCard } from "@/components/souki/suggestion-card"
 import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
 import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import type { CatalogueProduct } from "@/lib/catalogue"
@@ -25,7 +24,6 @@ import {
   fetchCatalogueProducts,
   FREE_DELIVERY_THRESHOLD,
   getCataloguePresentation,
-  isIllustrationImage,
   loadStoredCart,
   resolveCatalogueImage,
   saveStoredCart,
@@ -892,25 +890,25 @@ function CarouselSection({
 }) {
   return (
     <section className="mt-7" data-reveal="up">
-      <div className="flex items-end justify-between px-6">
+      <div className="flex items-start justify-between gap-3 px-5">
         <div>
           <h2 className="text-[18px] font-black leading-tight text-[#3D3D3D]">{title}</h2>
-          {subtitle && <p className="mt-0.5 text-[13px] font-medium text-[#8A8A8A]">{subtitle}</p>}
+          {subtitle && <p className="mt-0.5 text-[13px] font-medium text-[#647366]">{subtitle}</p>}
         </div>
         {onSeeAll && (
           <button
             type="button"
             onClick={onSeeAll}
-            className="flex shrink-0 items-center gap-0.5 text-[13px] font-bold text-[#1E8A3C] active:opacity-70"
+            className="flex min-h-11 shrink-0 items-center gap-0.5 rounded-lg px-1 text-[13px] font-bold text-[#176B2E] focus-visible:outline-2 focus-visible:outline-[#1E8A3C] active:opacity-70"
           >
             Voir tout
             <ChevronRight className="h-4 w-4" />
           </button>
         )}
       </div>
-      {/* scroll-px-6 : les cartes snap-start se posent a 24px du bord au lieu de
+      {/* scroll-px-5 : les cartes snap-start se posent a 20px du bord au lieu de
           coller aux extremites de l'ecran (le snap ignore le padding seul). */}
-      <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-6 pb-2 scroll-px-6 scrollbar-none">
+      <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-3 scroll-px-5 scrollbar-none">
         {children}
       </div>
     </section>
@@ -933,75 +931,15 @@ function ProductCard({
   onToggleFavorite?: (id: number) => void
 }) {
   return (
-    // Le « + » ajoute au panier sans quitter l'accueil ; toucher la carte emmene
-    // sur la page Produits, ou l'utilisateur poursuit ses achats.
-    <article
-      role="button"
-      tabIndex={0}
-      aria-label={`Voir ${product.name}`}
-      onClick={() => onOpen(product)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault()
-          onOpen(product)
-        }
-      }}
-      className="w-[148px] shrink-0 cursor-pointer snap-start rounded-3xl bg-white p-2 shadow-sm shadow-gray-200/50 border border-gray-100 transition hover:shadow-md active:scale-[0.98]"
-    >
-      <div className="group relative aspect-square overflow-hidden rounded-2xl bg-gradient-to-b from-[#EFF7F0] to-[#F7FBF7]">
-        <img
-          src={product.image}
-          alt={product.name}
-          className={cn(
-            "h-full w-full transition-transform duration-300 ease-out group-active:scale-[1.07]",
-            isIllustrationImage(product.image)
-              ? "object-contain p-2 mix-blend-multiply"
-              : "object-cover",
-          )}
-          loading="lazy"
-        />
-        {onToggleFavorite && (
-          <button
-            type="button"
-            aria-label={isFavorite ? `Retirer ${product.name} des favoris` : `Ajouter ${product.name} aux favoris`}
-            aria-pressed={isFavorite}
-            onClick={(event) => {
-              event.stopPropagation()
-              onToggleFavorite(product.id)
-            }}
-            className="absolute left-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur transition-transform active:scale-90"
-          >
-            <Heart
-              className={cn(
-                "h-4 w-4 transition-colors",
-                isFavorite ? "fill-[#E4405F] text-[#E4405F]" : "text-[#7C8B7D]",
-              )}
-            />
-          </button>
-        )}
-        <button
-          type="button"
-          aria-label={`Ajouter ${product.name}`}
-          onClick={(event) => {
-            event.stopPropagation()
-            onQuickAdd(product)
-          }}
-          className={cn(
-            "absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full shadow-md transition-all active:scale-90",
-            isAdded
-              ? "bg-[#1E8A3C] text-white scale-110"
-              : "bg-white text-[#1E8A3C] hover:bg-[#F0FAF1]"
-          )}
-        >
-          {isAdded ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-        </button>
-      </div>
-      <div className="mt-2.5 px-1 pb-1">
-        <p className="truncate text-[14px] font-bold text-[#3D3D3D]">{product.name}</p>
-        <p className="mt-0.5 text-[13px] font-black text-[#1E8A3C]">
-          {product.price.toFixed(2)} DH <span className="text-[10px] font-medium text-gray-400">/ {product.displayUnit}</span>
-        </p>
-      </div>
-    </article>
+    <div className="w-[172px] shrink-0 snap-start">
+      <SuggestionCard
+        product={product}
+        isAdded={isAdded}
+        onAdd={onQuickAdd}
+        onOpen={onOpen}
+        isFavorite={isFavorite}
+        onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(product.id) : undefined}
+      />
+    </div>
   )
 }

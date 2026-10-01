@@ -42,6 +42,7 @@ import {
 } from "@/lib/catalogue"
 import { MapboxLocator } from "@/components/souki/mapbox-locator"
 import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
+import { SuggestionCard } from "@/components/souki/suggestion-card"
 import { PolicyLink } from "@/components/souki/policy-link"
 import { PwaHeader, StickyBottomBar } from "@/components/souki/pwa"
 import { useAuth } from "@/hooks/useAuth"
@@ -904,25 +905,13 @@ function CheckoutContent() {
                           {group.items.length} suggestion{group.items.length > 1 ? "s" : ""}
                         </span>
                       </div>
-                      <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:grid-cols-3">
                         {group.items.map((product) => (
-                          <div key={product.id} className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-                            <img src={product.image} alt={product.name} className="h-24 w-full object-cover" />
-                            <div className="p-3">
-                              <p className="truncate text-sm font-semibold text-[#264129]">{product.name}</p>
-                              <p className="mt-1 text-xs font-medium text-[#6F8070]">
-                                {product.price.toFixed(2)} DH/{product.displayUnit}
-                              </p>
-                              <button
-                                type="button"
-                                onClick={() => addSuggestionToCart(product)}
-                                className="mt-3 flex min-h-9 w-full items-center justify-center gap-2 rounded-xl bg-[#1E8A3C] px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-[#176B2E]"
-                              >
-                                <Plus className="h-4 w-4" />
-                                Ajouter
-                              </button>
-                            </div>
-                          </div>
+                          <SuggestionCard
+                            key={product.id}
+                            product={product}
+                            onAdd={addSuggestionToCart}
+                          />
                         ))}
                       </div>
                     </div>
