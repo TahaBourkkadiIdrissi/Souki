@@ -21,6 +21,10 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#FFFFFF",
     theme_color: BRAND_GREEN,
     icons: brandPwaIcons,
+    screenshots: [
+      { src: "/screenshots/home-narrow.png", sizes: "375x812", type: "image/png", form_factor: "narrow", label: "Votre marché frais avec Souki" },
+      { src: "/screenshots/home-wide.png", sizes: "1280x800", type: "image/png", form_factor: "wide", label: "Accueil Souki" },
+    ],
     shortcuts: [
       { name: "Catalogue", short_name: "Catalogue", url: "/catalogue" },
       { name: "Mes commandes", short_name: "Commandes", url: "/historique" },

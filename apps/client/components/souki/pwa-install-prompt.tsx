@@ -7,10 +7,8 @@ import { Button } from "@/components/ui/button"
 import { isPwaStandalone } from "@/lib/pwa"
 import { useAuth } from "@/hooks/useAuth"
 
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>
-  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>
-}
+import { chromeIntent, installPlatform, type InstallPromptEvent } from "@/lib/pwa-install"
+import { IosInstallGuide } from "@/components/souki/pwa/ios-install-guide"
 
 // Seul l'admin ne voit PAS la banniere d'installation. Tous les autres profils
 // Les clients et les visiteurs anonymes peuvent installer cette PWA.
@@ -18,24 +16,15 @@ const EXCLUDED_ROLES = ["ADMIN"]
 
 export function PwaInstallPrompt() {
   const { user } = useAuth()
-  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
-  const [isMobile, setIsMobile] = useState(false)
+  const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null)
   const [isStandalone, setIsStandalone] = useState(true)
   const [dismissed, setDismissed] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
 
-  // Detection mobile + standalone (cote client uniquement). Tant que l'effet
-  // n'a pas tourne, isMobile=false / isStandalone=true => rien ne s'affiche
-  // (pas de flash au rendu serveur).
+  // Hide until the installed display mode is known, on every screen size.
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 767px)")
-    const updateIsMobile = () => setIsMobile(mediaQuery.matches)
-    updateIsMobile()
-    mediaQuery.addEventListener("change", updateIsMobile)
-
     setIsStandalone(isPwaStandalone())
-
-    return () => mediaQuery.removeEventListener("change", updateIsMobile)
+    setInstallPrompt(window.soukiInstallPrompt ?? null)
   }, [])
 
   useEffect(() => {
@@ -43,10 +32,11 @@ export function PwaInstallPrompt() {
       // On capture l'evenement pour declencher l'installation au clic.
       event.preventDefault()
       if (isPwaStandalone()) return
-      setInstallPrompt(event as BeforeInstallPromptEvent)
+      setInstallPrompt(event as InstallPromptEvent)
     }
 
     const handleAppInstalled = () => {
+      window.soukiInstallPrompt = null
       setInstallPrompt(null)
       setDismissed(true)
     }
@@ -69,19 +59,32 @@ export function PwaInstallPrompt() {
       .some((role) => EXCLUDED_ROLES.includes(role))
 
   const handleDownload = async () => {
-    if (installPrompt) {
-      await installPrompt.prompt()
-      await installPrompt.userChoice
-      setInstallPrompt(null)
-      setDismissed(true)
+    const platform = installPlatform()
+    if (platform.embedded && platform.android) {
+      window.location.href = chromeIntent(window.location.href)
+      setShowHelp(true)
       return
     }
-    // Pas de prompt natif disponible (iOS, ou criteres pas encore remplis) :
-    // on deplie les instructions manuelles.
-    setShowHelp((value) => !value)
+    const prompt = installPrompt ?? window.soukiInstallPrompt
+    try {
+      if (prompt) {
+        await prompt.prompt()
+        const choice = await prompt.userChoice
+        window.soukiInstallPrompt = null
+        setInstallPrompt(null)
+        if (choice.outcome === "accepted") setDismissed(true)
+        return
+      }
+      const installer = navigator as Navigator & { install?: () => Promise<unknown> }
+      if (typeof installer.install === "function") {
+        await installer.install()
+        return
+      }
+    } catch { /* Unsupported or rejected: retain the manual installation guide. */ }
+    setShowHelp(true)
   }
 
-  if (isStandalone || !isMobile || isExcludedUser || dismissed) {
+  if (isStandalone || isExcludedUser || dismissed) {
     return null
   }
 
@@ -122,12 +125,9 @@ export function PwaInstallPrompt() {
         Télécharger l&apos;application
       </Button>
 
-      {showHelp && (
-        <p className="mt-3 rounded-xl bg-[#1E8A3C]/10 px-3 py-2 text-xs font-medium leading-5 text-[#1E8A3C]">
-          Sur iPhone : appuyez sur <strong>Partager</strong> puis « Sur l&apos;écran d&apos;accueil ».
-          Sur Android : menu <strong>⋮</strong> puis « Installer l&apos;application ».
-        </p>
-      )}
+      {showHelp && (installPlatform().ios
+        ? <IosInstallGuide onClose={() => setShowHelp(false)} />
+        : <p className="mt-3 rounded-xl bg-green-50 px-3 py-2 text-sm text-green-900">Ouvrez le menu <strong>⋮</strong> du navigateur, puis « Installer l’application ». Si cette option manque, ouvrez Souki dans Chrome ou Edge.</p>)}
     </div>
   )
 }
