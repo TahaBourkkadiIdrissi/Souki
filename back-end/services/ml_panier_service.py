@@ -1,4 +1,5 @@
 from operating_mode import preorders_enabled
+from services.basket_composer_service import compose, prompt_context
 import json
 import logging
 import os
@@ -39,11 +40,9 @@ class BasketGenerationError(RuntimeError):
 class MLPanierService:
     """Service de generation du panier intelligent SOUKI via Groq (Llama).
 
-    Le panier est genere par prompt engineering: un prompt systeme decrivant le
-    catalogue produit en direct + un schema JSON strict est envoye a l'API Groq
-    (mode JSON), puis la composition retournee est validee contre le catalogue et
-    convertie en lignes de panier. Aucun modele n'est entraine ou fine-tune, et
-    aucune base de compositions interne n'est lue.
+    Groq proposes variety against the live catalogue and household targets.
+    The deterministic composer enforces quantities, stock and budget for balanced
+    baskets, including when Groq is unavailable. Dish mode retains its own rules.
     """
 
     def __init__(self, panier_dao: IPanierDao | None = None) -> None:
@@ -126,7 +125,7 @@ class MLPanierService:
                 lignes_panier=lignes,
                 total_dh=sous_total,
                 nombre_articles=len(lignes),
-                model_warning=(
+                model_warning=generated.get("_warning") or (
                     "Composition optimisee a partir du catalogue disponible."
                     if generated.get("_source") == "catalogue_fallback"
                     else None
@@ -158,6 +157,8 @@ class MLPanierService:
         """
         system_prompt = self.build_system_prompt(products)
         user_input = self._build_user_input(payload, dish)
+        if dish is None:
+            system_prompt += "\nRespecte ces fourchettes, priorise les essentiels, arrete quand les besoins sont couverts.\n" + prompt_context(products, payload)
 
         last_error: Exception | None = None
         for attempt in range(2):
@@ -168,8 +169,8 @@ class MLPanierService:
             else:
                 # La contrainte de répartition 1/2/3 ne s'applique qu'au panier
                 # équilibré: un plat/jus peut légitimement tenir sur un seul niveau.
-                if self.validate_composition(data, products, require_levels=(dish is None)):
-                    return data
+                if self.validate_composition(data, products, require_levels=False):
+                    return self._apply_guardrails(data, products, payload) if dish is None else data
                 last_error = BasketGenerationError(
                     "Composition Groq invalide (validation semantique echouee)."
                 )
@@ -188,9 +189,10 @@ class MLPanierService:
     ) -> dict[str, Any]:
         """Compose un point de depart deterministe sans service externe.
 
-        Le moteur existant complete ensuite la variete et ajuste les quantites au
-        budget. Pour un plat, seuls les ingredients resolus du plat sont repris.
+        Balanced baskets use household targets. Dishes keep only their resolved ingredients.
         """
+        if dish is None:
+            return {**compose(products, payload), "_source": "catalogue_fallback"}
         available = [
             product
             for product in products
@@ -214,18 +216,6 @@ class MLPanierService:
                 composition.append(
                     {"produit_id": int(product.id), "quantite": max(base_quantity * scale, 0.5)}
                 )
-        else:
-            # Un produit abordable par niveau donne au moteur de budget un panier
-            # valide et varie a completer, sans inventer de reference catalogue.
-            composition = []
-            for level in VALID_LEVELS:
-                candidates = [product for product in available if int(product.niveau or 0) == level]
-                if not candidates:
-                    continue
-                product = min(candidates, key=lambda item: (self._unit_price(item), int(item.id)))
-                minimum_quantity = 0.5 if str(product.unite or "kg").lower() == "kg" else 1.0
-                composition.append({"produit_id": int(product.id), "quantite": minimum_quantity})
-
         if not composition:
             raise MLModelUnavailableError("Aucun produit exploitable pour cette composition.")
 
@@ -284,16 +274,7 @@ class MLPanierService:
             return json.dumps(
                 {
                     "mode": "panier_equilibre",
-                    "consigne": (
-                        "Compose un panier equilibre et varie couvrant a la fois des legumes ET des "
-                        "fruits du catalogue, reparti sur les niveaux 1, 2 et 3. IMPORTANT: vise a "
-                        "UTILISER la majeure partie du budget (cible ~85-100% du budget_dh), sans "
-                        "jamais le depasser. Un budget eleve => panier plus grand et plus varie: "
-                        "ajoute DAVANTAGE de produits differents du catalogue et augmente les "
-                        "quantites de facon realiste pour t'approcher du budget. N'envoie pas un "
-                        "petit panier quand le budget est grand. Adapte au nombre de personnes et a "
-                        "la duree (plus de jours => plus de quantite)."
-                    ),
+                    "consigne": "Respecte les cibles du foyer et les priorités. Choisis la variété et les substitutions disponibles. Ne cherche pas à épuiser le budget.",
                     **criteres,
                 },
                 ensure_ascii=False,
@@ -417,7 +398,7 @@ class MLPanierService:
 
     # ── Cache TTL des compositions ─────────────────────────────────────────────
     def _cache_key(self, payload: PanierRequestDTO) -> tuple[float, int, int, str]:
-        plat = (payload.plat or "equilibre").strip() or "equilibre"
+        plat = "household-v2:" + ((payload.plat or "equilibre").strip() or "equilibre")
         return (float(payload.budget), int(payload.personnes), int(payload.duree), plat)
 
     def _cached_composition(self, payload: PanierRequestDTO) -> dict[str, Any] | None:
@@ -495,176 +476,13 @@ class MLPanierService:
                     line.product_id,
                 ),
             )
-        lines = self._ensure_three_level_basket(lines, products, products_by_id, payload)
-        # Mode équilibré: le budget est une cible d'achat. On complète le panier
-        # (variété puis quantités) pour s'approcher du budget si Groq est resté en
-        # dessous, en respectant stock et paliers.
-        lines = self._fill_to_budget(lines, products, products_by_id, payload)
-        return sorted(
-            lines,
-            key=lambda line: (
-                int(getattr(products_by_id.get(line.product_id), "niveau", 2) or 2),
-                line.product_id,
-            ),
-        )
+        corrected = self._apply_guardrails(generated, products, payload)
+        generated["_warning"] = corrected.get("_warning")
+        return [line for item in corrected["composition"]
+                if (line := self._line_for_product(products_by_id[item["produit_id"]], item["quantite"])) is not None]
 
-    # Part minimale du budget qu'un panier équilibré doit viser à atteindre.
-    _BUDGET_FILL_TARGET = 0.85
-    # Facteur d'échelle maximal (garde-fou anti-emballement; la cible budget borne déjà).
-    _BUDGET_FILL_MAX_FACTOR = 8.0
-
-    def _fill_to_budget(
-        self,
-        lines: list[LignePanierResponseDTO],
-        products: list[Product],
-        products_by_id: dict[int, Product],
-        payload: PanierRequestDTO,
-    ) -> list[LignePanierResponseDTO]:
-        target = max(float(payload.budget), 0.0)
-        floor = target * self._BUDGET_FILL_TARGET
-
-        def total() -> float:
-            return sum(line.sous_total for line in lines)
-
-        # Déjà dans la fourchette acceptable [~85%, 100%] du budget: on respecte les
-        # quantités du modèle sans rien retoucher.
-        if target <= 0 or floor <= total() <= target:
-            return lines
-
-        used_ids = {line.product_id for line in lines}
-
-        # 1) Variété (seulement si SOUS le budget): ajoute des produits du catalogue
-        #    encore absents (du moins cher au plus cher) tant qu'on est sous la cible.
-        if total() < floor:
-            candidates = sorted(
-                (
-                    product
-                    for product in products
-                    if int(product.id) not in used_ids  # type: ignore[arg-type]
-                    and float(product.stock or 0) > 0
-                    and int(product.niveau or 0) in VALID_LEVELS
-                ),
-                key=lambda product: self._unit_price(product),
-            )
-            for product in candidates:
-                if total() >= floor:
-                    break
-                remaining = max(target - total(), 0.0)
-                quantity = self._fill_quantity(product, remaining)
-                line = self._line_for_product(product, quantity)
-                if line and total() + line.sous_total <= target:
-                    lines.append(line)
-                    used_ids.add(line.product_id)
-
-        # 2) Mise à l'échelle des seules lignes en kg (elles varient en continu et gardent
-        #    des décimales exactes). Objectif: rester dans une fourchette raisonnable du
-        #    budget. On ne touche à rien tant que le panier est déjà entre ~85% et 100% du
-        #    budget (on respecte alors les quantités du modèle). Sinon on ajuste vers ~97%
-        #    (remplissage) ou juste sous le budget (si le modèle a dépassé). Les lots/unités
-        #    (entiers, choisis par le modèle) ne sont jamais modifiés.
-        current = total()
-        if current < floor or current > target:
-            kg_lines = [
-                (index, line)
-                for index, line in enumerate(lines)
-                if products_by_id.get(line.product_id) is not None
-                and str(products_by_id[line.product_id].unite or "kg").lower() == "kg"
-            ]
-            kg_total = sum(line.sous_total for _, line in kg_lines)
-            if kg_total > 0:
-                # Marge sous le budget car l'arrondi aux paliers de 0.5 kg peut remonter le total.
-                aim = target * (0.90 if current < floor else 0.85)
-                desired_kg_total = aim - (current - kg_total)
-                factor = min(
-                    max(desired_kg_total / kg_total, 0.05),
-                    self._BUDGET_FILL_MAX_FACTOR,
-                )
-                for index, line in kg_lines:
-                    product = products_by_id[line.product_id]
-                    lines[index] = self._line_for_product(product, line.quantite_kg * factor) or line
-
-        return lines
-
-    def _ensure_three_level_basket(
-        self,
-        lines: list[LignePanierResponseDTO],
-        products: list[Product],
-        products_by_id: dict[int, Product],
-        payload: PanierRequestDTO,
-    ) -> list[LignePanierResponseDTO]:
-        available_levels = {
-            int(product.niveau or 0)
-            for product in products
-            if int(product.niveau or 0) in VALID_LEVELS and float(product.stock or 0) > 0
-        }
-        present_levels = {
-            int(getattr(products_by_id.get(line.product_id), "niveau", 0) or 0)
-            for line in lines
-        }
-        used_ids = {line.product_id for line in lines}
-        target_total = max(float(payload.budget), 1.0)
-
-        for level in VALID_LEVELS:
-            if level not in available_levels or level in present_levels:
-                continue
-            candidate = self._best_level_candidate(products, level, used_ids, target_total)
-            if not candidate:
-                continue
-            remaining_budget = max(target_total - sum(line.sous_total for line in lines), 0.0)
-            quantity = self._fill_quantity(candidate, remaining_budget)
-            line = self._line_for_product(candidate, quantity)
-            if line:
-                lines.append(line)
-                used_ids.add(line.product_id)
-                present_levels.add(level)
-
-        return sorted(
-            lines,
-            key=lambda line: (
-                int(getattr(products_by_id.get(line.product_id), "niveau", 2) or 2),
-                line.product_id,
-            ),
-        )
-
-    def _best_level_candidate(
-        self,
-        products: list[Product],
-        level: int,
-        used_ids: set[int],
-        budget: float,
-    ) -> Product | None:
-        candidates = [
-            product
-            for product in products
-            if int(product.niveau or 0) == level
-            and int(product.id) not in used_ids  # type: ignore[arg-type]
-            and float(product.stock or 0) > 0
-        ]
-        if not candidates:
-            return None
-
-        return min(
-            candidates,
-            key=lambda product: (
-                0 if self._unit_price(product) <= budget else 1,
-                self._unit_price(product),
-                int(product.id),  # type: ignore[arg-type]
-            ),
-        )
-
-    def _fill_quantity(self, product: Product, remaining_budget: float) -> float:
-        """Quantité de base modeste pour un produit ajouté au remplissage/backfill.
-
-        Une base réaliste (≈1.5 kg, ou 1 unité/lot), plafonnée par ce que le budget
-        restant permet — la mise à l'échelle proportionnelle fait ensuite le reste.
-        Aucune sur-quantité dictée par un gros budget.
-        """
-        unit = str(product.unite or "kg").lower()
-        base = 1.5 if unit == "kg" else 1.0
-        price = max(self._unit_price(product), 0.01)
-        if remaining_budget <= 0:
-            return base
-        return max(0.0, min(base, remaining_budget / price))
+    def _apply_guardrails(self, generated, products, payload):
+        return compose(products, payload, generated)
 
     def _line_for_product(self, product: Product, quantity: float) -> LignePanierResponseDTO | None:
         stock = max(float(product.stock or 0), 0.0)
