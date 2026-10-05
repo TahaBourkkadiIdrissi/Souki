@@ -4,11 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   ArrowRight,
-  ChevronDown,
   ChevronRight,
   Clock,
-  Heart,
-  MapPin,
   Mic,
   Search,
   ShoppingBasket,
@@ -18,7 +15,7 @@ import {
 
 import { SuggestionCard } from "@/components/souki/suggestion-card"
 import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
-import { SoukiLogoLink } from "@/components/souki/souki-logo"
+import { PwaHomeHeader } from "@/components/souki/pwa/pwa-home-header"
 import { MarketStatus, MarketCountdown } from "@/components/souki/market-clock"
 import { SearchHint } from "@/components/souki/search-hint"
 import { useHomeParallax } from "@/hooks/useHomeParallax"
@@ -108,6 +105,7 @@ export default function PwaWelcomePage() {
   // le cache, et evenement souki:photo-updated pour refleter immediatement un
   // televersement fait pendant la session.
   const { getProfile } = useProfile()
+  const [profileAddress, setProfileAddress] = useState<{ userId: number; text: string } | null>(null)
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null)
   const [profileName, setProfileName] = useState<{ userId: number; name: string } | null>(null)
   const [profileVersion, setProfileVersion] = useState(0)
@@ -138,6 +136,7 @@ export default function PwaWelcomePage() {
         if (isMounted) {
           setProfilePhotoUrl(profile.photo_url ?? profile.avatar_url ?? null)
           setProfileName({ userId, name: profile.prenom.trim() || profile.nom.trim() })
+          setProfileAddress({ userId, text: profile.address?.adresse?.trim() ? [profile.address.adresse, profile.address.ville].filter(Boolean).join(", ") : "" })
         }
       })
       .catch(() => {
@@ -374,64 +373,10 @@ export default function PwaWelcomePage() {
           </div>
 
           <header
-            className="relative z-10 px-5 pb-8 pt-[max(env(safe-area-inset-top),1.25rem)] will-change-transform"
-            style={{
-              transform: "translateY(var(--hero-header, 0px))",
-              opacity: "var(--hero-opacity, 1)",
-            }}
-          >
-            {/* Ligne 1 : pilule de localisation (verre dépoli) + favoris + profil */}
-            <div className="flex items-center justify-between gap-2">
-              <SoukiLogoLink href="/pwa-welcome" variant="symbol" height={32} priority className="relative -left-2 p-2 focus-visible:outline-white [&_img]:brightness-0 [&_img]:invert" />
-              <button
-                onClick={() => router.push("/parametres")}
-                className="flex min-w-0 items-center gap-1.5 rounded-full bg-white/10 py-1.5 pl-1.5 pr-2 ring-1 ring-white/20 backdrop-blur-md transition-transform active:scale-95 animate-slide-in-down"
-                aria-label="Adresse de livraison"
-              >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15">
-                  <MapPin className="h-4 w-4 text-[#9BE7AE]" />
-                </span>
-                <span className="flex flex-col items-start leading-none">
-                  <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#9BE7AE]">Livraison à</span>
-                  <span className="mt-1 flex items-center gap-0.5 whitespace-nowrap text-[12px] sm:text-[14px] font-black text-white drop-shadow-sm">
-                    Fès, Maroc
-                    <ChevronDown className="h-3.5 w-3.5 text-white/80" />
-                  </span>
-                </span>
-              </button>
+            className="relative z-10 px-5 pb-8 pt-[max(env(safe-area-inset-top),1.25rem)]"
 
-              <div className="flex shrink-0 items-center gap-1.5">
-                <button
-                  onClick={() => router.push("/favoris")}
-                  className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white shadow-lg ring-1 ring-white/20 backdrop-blur-md transition-transform active:scale-90 animate-bounce-in"
-                  aria-label="Mes favoris"
-                >
-                  <Heart className="h-5 w-5" />
-                  {favoriteIds.length > 0 && (
-                    <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#E4405F] px-1 text-[10px] font-black text-white ring-2 ring-[#0F3F21]">
-                      {favoriteIds.length}
-                    </span>
-                  )}
-                </button>
-                {isAuthenticated && userName && (
-                  <button
-                    onClick={() => router.push("/parametres")}
-                    className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#F4FFF6] to-[#C4EBCF] text-[15px] font-black text-[#14522A] shadow-lg ring-2 ring-white/40 transition-transform active:scale-90 animate-bounce-in"
-                    aria-label="Profil et paramètres"
-                  >
-                    {profilePhotoUrl ? (
-                      <img
-                        src={`${profilePhotoUrl}${profilePhotoUrl.includes("?") ? "&" : "?"}v=${photoVersion}`}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      userName.charAt(0).toUpperCase()
-                    )}
-                  </button>
-                )}
-              </div>
-            </div>
+          >
+            <PwaHomeHeader address={profileAddress?.userId === userId ? profileAddress?.text ?? "" : ""} name={userName ?? ""} photo={profileName?.userId === userId && profilePhotoUrl ? `${profilePhotoUrl}${profilePhotoUrl.includes("?") ? "&" : "?"}v=${photoVersion}` : null} favorites={favoriteIds.length} />
 
             {/* Ligne 2 : salutation contextuelle + médaillon-mascotte (pièce maîtresse) */}
             <div className="mt-6 flex items-center justify-between gap-3">
