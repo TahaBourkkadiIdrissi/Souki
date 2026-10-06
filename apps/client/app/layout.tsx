@@ -126,6 +126,7 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: `window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.soukiInstallPrompt=e});window.addEventListener('appinstalled',function(){window.soukiInstallPrompt=null});` }} />
         {analyticsEnabled && (
           <Script id="souki-ga4" strategy="beforeInteractive">
             {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}window.gtag=gtag;gtag('js',new Date());gtag('config',${JSON.stringify(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID)},{debug_mode:${process.env.NEXT_PUBLIC_GA_DEBUG === "true"}||new URLSearchParams(location.search).get('ga_debug')==='1'});`}

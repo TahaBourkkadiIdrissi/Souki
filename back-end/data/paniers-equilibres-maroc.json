@@ -1,0 +1,394 @@
+{
+  "normes": {
+    "pommes_terre": {
+      "min": 0.12,
+      "max": 0.15,
+      "priority": 1,
+      "role": "essentiel"
+    },
+    "tomates": {
+      "min": 0.1,
+      "max": 0.12,
+      "priority": 1,
+      "role": "essentiel"
+    },
+    "oignons": {
+      "min": 0.07,
+      "max": 0.09,
+      "priority": 1,
+      "role": "essentiel"
+    },
+    "carottes": {
+      "min": 0.04,
+      "max": 0.06,
+      "priority": 2,
+      "role": "tajine"
+    },
+    "courgettes": {
+      "min": 0.04,
+      "max": 0.06,
+      "priority": 2,
+      "role": "tajine"
+    },
+    "poivrons": {
+      "min": 0.04,
+      "max": 0.06,
+      "priority": 2,
+      "role": "tajine"
+    },
+    "navets": {
+      "min": 0.04,
+      "max": 0.06,
+      "priority": 2,
+      "role": "tajine"
+    },
+    "aubergines": {
+      "min": 0.02,
+      "max": 0.04,
+      "priority": 3,
+      "role": "secondaire"
+    },
+    "haricots": {
+      "min": 0.02,
+      "max": 0.04,
+      "priority": 3,
+      "role": "secondaire"
+    },
+    "pois": {
+      "min": 0.02,
+      "max": 0.04,
+      "priority": 3,
+      "role": "secondaire"
+    },
+    "choufleur": {
+      "min": 0.02,
+      "max": 0.04,
+      "priority": 3,
+      "role": "secondaire"
+    },
+    "persil": {
+      "min": 1,
+      "max": 1,
+      "priority": 2,
+      "role": "aromate"
+    },
+    "coriandre": {
+      "min": 1,
+      "max": 1,
+      "priority": 2,
+      "role": "aromate"
+    },
+    "menthe": {
+      "min": 1,
+      "max": 1,
+      "priority": 2,
+      "role": "aromate"
+    },
+    "ail": {
+      "min": 1,
+      "max": 1,
+      "priority": 2,
+      "role": "aromate"
+    },
+    "oranges": {
+      "min": 0.1,
+      "max": 0.15,
+      "priority": 3,
+      "role": "fruit"
+    },
+    "bananes": {
+      "min": 0.1,
+      "max": 0.15,
+      "priority": 3,
+      "role": "fruit"
+    },
+    "pommes": {
+      "min": 0.1,
+      "max": 0.15,
+      "priority": 3,
+      "role": "fruit"
+    },
+    "fraises": {
+      "min": 0.1,
+      "max": 0.15,
+      "priority": 3,
+      "role": "fruit"
+    },
+    "citrons": {
+      "min": 0.02,
+      "max": 0.04,
+      "priority": 3,
+      "role": "secondaire"
+    }
+  },
+  "alias": {
+    "pommes_terre": [
+      "Pommes de terre",
+      "Pomme de terre",
+      "Batata"
+    ],
+    "tomates": [
+      "Tomates",
+      "Tomate",
+      "Maticha"
+    ],
+    "oignons": [
+      "Oignons",
+      "Oignon",
+      "Bssla",
+      "Bessla",
+      "Oignons rouge",
+      "Oignons rouges",
+      "Oignon rouge",
+      "Oignons blancs"
+    ],
+    "carottes": [
+      "Carottes",
+      "Carotte",
+      "Khizzou"
+    ],
+    "courgettes": [
+      "Courgettes",
+      "Courgette",
+      "Garaa"
+    ],
+    "poivrons": [
+      "Poivrons",
+      "Poivron",
+      "Felfla"
+    ],
+    "navets": [
+      "Navets",
+      "Navet",
+      "Left"
+    ],
+    "aubergines": [
+      "Aubergines",
+      "Aubergine",
+      "Denjal"
+    ],
+    "haricots": [
+      "Haricots verts",
+      "Loubia"
+    ],
+    "pois": [
+      "Petits pois",
+      "Jelbana",
+      "Petit pois"
+    ],
+    "choufleur": [
+      "Chou-fleur",
+      "Chou fleur"
+    ],
+    "persil": [
+      "Persil",
+      "Maadnous"
+    ],
+    "coriandre": [
+      "Coriandre",
+      "Qezbour"
+    ],
+    "menthe": [
+      "Menthe",
+      "Naanaa",
+      "Menthe fraiche"
+    ],
+    "ail": [
+      "Ail",
+      "Touma"
+    ],
+    "oranges": [
+      "Oranges",
+      "Orange",
+      "Portoqal"
+    ],
+    "bananes": [
+      "Bananes",
+      "Banane"
+    ],
+    "pommes": [
+      "Pommes",
+      "Pomme",
+      "Teffah"
+    ],
+    "fraises": [
+      "Fraises",
+      "Fraise",
+      "Toot"
+    ],
+    "citrons": [
+      "Citrons",
+      "Citron",
+      "Hamed"
+    ]
+  },
+  "paniers_reference": [
+    {
+      "budget": 100,
+      "personnes": 4,
+      "jours": 7,
+      "composition": {
+        "pommes_terre": 3.5,
+        "tomates": 3,
+        "oignons": 2
+      },
+      "note": "Exemple indicatif; prix du catalogue et plafonds priment, budget non obligatoirement depense."
+    },
+    {
+      "budget": 150,
+      "personnes": 4,
+      "jours": 7,
+      "composition": {
+        "pommes_terre": 3.5,
+        "tomates": 3,
+        "oignons": 2,
+        "carottes": 1.5,
+        "courgettes": 1,
+        "persil": 1,
+        "coriandre": 1
+      },
+      "note": "Exemple indicatif; prix du catalogue et plafonds priment, budget non obligatoirement depense."
+    },
+    {
+      "budget": 200,
+      "personnes": 4,
+      "jours": 7,
+      "composition": {
+        "pommes_terre": 3.5,
+        "tomates": 3,
+        "oignons": 2,
+        "carottes": 1.5,
+        "courgettes": 1,
+        "persil": 1,
+        "coriandre": 1,
+        "poivrons": 1,
+        "oranges": 3
+      },
+      "note": "Exemple indicatif; prix du catalogue et plafonds priment, budget non obligatoirement depense."
+    },
+    {
+      "budget": 250,
+      "personnes": 4,
+      "jours": 7,
+      "composition": {
+        "pommes_terre": 3.5,
+        "tomates": 3,
+        "oignons": 2,
+        "carottes": 1.5,
+        "courgettes": 1,
+        "persil": 1,
+        "coriandre": 1,
+        "poivrons": 1,
+        "oranges": 3,
+        "navets": 1,
+        "aubergines": 1
+      },
+      "note": "Exemple indicatif; prix du catalogue et plafonds priment, budget non obligatoirement depense."
+    },
+    {
+      "budget": 300,
+      "personnes": 4,
+      "jours": 7,
+      "composition": {
+        "pommes_terre": 3.5,
+        "tomates": 3,
+        "oignons": 2,
+        "carottes": 1.5,
+        "courgettes": 1,
+        "persil": 1,
+        "coriandre": 1,
+        "poivrons": 1,
+        "oranges": 3,
+        "navets": 1,
+        "aubergines": 1,
+        "bananes": 2,
+        "haricots": 1
+      },
+      "note": "Exemple indicatif; prix du catalogue et plafonds priment, budget non obligatoirement depense."
+    },
+    {
+      "budget": 350,
+      "personnes": 4,
+      "jours": 7,
+      "composition": {
+        "pommes_terre": 3.5,
+        "tomates": 3,
+        "oignons": 2,
+        "carottes": 1.5,
+        "courgettes": 1,
+        "persil": 1,
+        "coriandre": 1,
+        "poivrons": 1,
+        "oranges": 3,
+        "navets": 1,
+        "aubergines": 1,
+        "bananes": 2,
+        "haricots": 1
+      },
+      "note": "Exemple indicatif; prix du catalogue et plafonds priment, budget non obligatoirement depense."
+    },
+    {
+      "budget": 400,
+      "personnes": 4,
+      "jours": 7,
+      "composition": {
+        "pommes_terre": 3.5,
+        "tomates": 3,
+        "oignons": 2,
+        "carottes": 1.5,
+        "courgettes": 1,
+        "persil": 1,
+        "coriandre": 1,
+        "poivrons": 1,
+        "oranges": 3,
+        "navets": 1,
+        "aubergines": 1,
+        "bananes": 2,
+        "haricots": 1
+      },
+      "note": "Exemple indicatif; prix du catalogue et plafonds priment, budget non obligatoirement depense."
+    },
+    {
+      "budget": 450,
+      "personnes": 4,
+      "jours": 7,
+      "composition": {
+        "pommes_terre": 3.5,
+        "tomates": 3,
+        "oignons": 2,
+        "carottes": 1.5,
+        "courgettes": 1,
+        "persil": 1,
+        "coriandre": 1,
+        "poivrons": 1,
+        "oranges": 3,
+        "navets": 1,
+        "aubergines": 1,
+        "bananes": 2,
+        "haricots": 1
+      },
+      "note": "Exemple indicatif; prix du catalogue et plafonds priment, budget non obligatoirement depense."
+    },
+    {
+      "budget": 500,
+      "personnes": 4,
+      "jours": 7,
+      "composition": {
+        "pommes_terre": 3.5,
+        "tomates": 3,
+        "oignons": 2,
+        "carottes": 1.5,
+        "courgettes": 1,
+        "persil": 1,
+        "coriandre": 1,
+        "poivrons": 1,
+        "oranges": 3,
+        "navets": 1,
+        "aubergines": 1,
+        "bananes": 2,
+        "haricots": 1
+      },
+      "note": "Exemple indicatif; prix du catalogue et plafonds priment, budget non obligatoirement depense."
+    }
+  ]
+}

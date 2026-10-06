@@ -460,7 +460,8 @@ export function AIModals({
       const encodedCart = encodeURIComponent(JSON.stringify(checkoutCart))
       const panierQuery = data.panier_id ? `&panier_id=${data.panier_id}` : ""
       closeModal()
-      router.push(`/checkout?source=smart${panierQuery}&cart=${encodedCart}`)
+      const warningQuery = data.model_warning ? `&basket_warning=${encodeURIComponent(data.model_warning)}` : ""
+      router.push(`/checkout?source=smart${panierQuery}&cart=${encodedCart}${warningQuery}`)
     } catch (generationError) {
       window.clearInterval(progressIntervalId)
       window.clearInterval(etaIntervalId)
@@ -498,7 +499,8 @@ export function AIModals({
     const encodedCart = encodeURIComponent(JSON.stringify(checkoutCart))
     const panierQuery = smartResult.panier_id ? `&panier_id=${smartResult.panier_id}` : ""
     closeModal()
-    router.push(`/checkout?source=smart${panierQuery}&cart=${encodedCart}`)
+    const warningQuery = smartResult.model_warning ? `&basket_warning=${encodeURIComponent(smartResult.model_warning)}` : ""
+    router.push(`/checkout?source=smart${panierQuery}&cart=${encodedCart}${warningQuery}`)
   }
 
   const smartPreview = (smartResult?.lignes_panier ?? []).map((line: SmartBasketLine) => {

@@ -31,7 +31,11 @@ export function useProfile() {
     [callApi]
   )
   const updateAddress = useCallback(
-    (payload: ProfileData["address"]) => callApi<{ success: boolean }>("/api/user/address", "PUT", payload),
+    async (payload: ProfileData["address"]) => {
+      const result = await callApi<{ success: boolean }>("/api/user/address", "PUT", payload)
+      if (result.success) window.dispatchEvent(new Event("souki:profile-updated"))
+      return result
+    },
     [callApi]
   )
   const uploadPhoto = useCallback(async (file: File) => {

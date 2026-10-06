@@ -107,6 +107,7 @@ function CheckoutContent() {
   const panierId = searchParams.get('panier_id')
   const cartParam = searchParams.get('cart')
   const isSmartBasket = searchParams.get('source') === 'smart'
+  const basketWarning = isSmartBasket ? searchParams.get('basket_warning')?.slice(0, 500) : null
   const editCartHref = isSmartBasket
     ? "/catalogue?assistant=smart"
     : panierId
@@ -899,6 +900,7 @@ function CheckoutContent() {
               </div>
             </div>
 
+            {basketWarning && <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">{basketWarning}</p>}
             {isSmartBasket && suggestionsByLevel.length > 0 && (
               <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
                 <div className="border-b border-gray-100 p-5 sm:p-6">
