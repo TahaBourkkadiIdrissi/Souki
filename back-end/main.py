@@ -39,6 +39,7 @@ from controllers.supplier_products_controller import router_supplier_products
 from controllers.jit_controller import router_jit
 from controllers.livreur_controller import router_livreur
 from controllers.panier_controller import router_panier
+from controllers.assistant_controller import router_assistant
 from controllers.produit_pricing_controller import router as pricing_router
 from controllers.profile_controller import profile_router
 from controllers.push_controller import push_router
@@ -71,6 +72,7 @@ API_ROUTERS: tuple[APIRouter, ...] = (
     router_catalogue,
     router_voice,
     router_panier,
+    router_assistant,
     router_checkout,
     client_blacklist_router,
     pricing_router,

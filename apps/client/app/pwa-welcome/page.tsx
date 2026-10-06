@@ -15,6 +15,7 @@ import {
 
 import { SuggestionCard } from "@/components/souki/suggestion-card"
 import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
+import { MascotChatSheet } from "@/components/souki/pwa/mascot-chat-sheet"
 import { PwaHomeHeader } from "@/components/souki/pwa/pwa-home-header"
 import { MarketStatus, MarketCountdown } from "@/components/souki/market-clock"
 import { SearchHint } from "@/components/souki/search-hint"
@@ -82,6 +83,8 @@ function mapDtoToCatalogueProduct(dto: CatalogueProductDTO): CatalogueProduct {
 
 export default function PwaWelcomePage() {
   const router = useRouter()
+  const [chatOpen, setChatOpen] = useState(false)
+  const [chatHint, setChatHint] = useState(false)
   const { user, token, isAuthenticated, isLoading } = useAuth()
   const userId = user?.id
   const [, setCart] = useClientCollection<CartItem>("cart")
@@ -146,6 +149,17 @@ export default function PwaWelcomePage() {
       isMounted = false
     }
   }, [isAuthenticated, userId, getProfile, photoVersion, profileVersion])
+
+  useEffect(() => {
+    if (!isReady || !isAuthenticated) return
+    try {
+      if (localStorage.getItem("souki-chat-hint")) return
+      localStorage.setItem("souki-chat-hint", "seen")
+    } catch { /* The hint can still appear without storage. */ }
+    setChatHint(true)
+    const timer = window.setTimeout(() => setChatHint(false), 6000)
+    return () => clearTimeout(timer)
+  }, [isReady, isAuthenticated])
 
   // PWA standalone check
   useEffect(() => {
@@ -407,7 +421,8 @@ export default function PwaWelcomePage() {
               </div>
 
               {/* Médaillon de la mascotte — verre dépoli, halo étagé, accent feuille */}
-              <div className="relative shrink-0 animate-bounce-in">
+              <button type="button" onClick={() => { setChatOpen(true); setChatHint(false) }} aria-label="Discuter avec Souki" className="relative shrink-0 animate-bounce-in focus-visible:outline-2 focus-visible:outline-white">
+                {chatHint && <span className="absolute -top-9 right-0 whitespace-nowrap rounded-full bg-white px-3 py-2 text-xs font-bold text-[#14522A]">Une question ? 👋</span>}
                 <span className="pointer-events-none absolute inset-0 -m-2 rounded-full bg-[#7BE495]/25 blur-xl" />
                 {/* Anneau conique « comète » qui tourne lentement autour du médaillon */}
                 <span
@@ -431,7 +446,7 @@ export default function PwaWelcomePage() {
                     <Leaf className="h-3.5 w-3.5 text-white" strokeWidth={2.2} />
                   </span>
                 </div>
-              </div>
+              </button>
             </div>
 
             {/* Ligne 3 : BARRE DE RECHERCHE (element cle, absente avant) */}
@@ -695,6 +710,7 @@ export default function PwaWelcomePage() {
         {/* Espace bas pour la barre de navigation */}
         <div className="h-6" />
       </section>
+      {userId !== undefined && <MascotChatSheet key={userId} open={chatOpen} onClose={() => setChatOpen(false)} userId={userId} />}
     </main>
   )
 }
