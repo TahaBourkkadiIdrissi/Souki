@@ -57,6 +57,9 @@ def changer_statut(
         statut_actuel == "VERROUILLEE"
         and statut_cible == "CONFIRMEE"
         and reason == "JIT_UNLOCK"
+    ) and not (
+        reason == "COD_CONFIRMATION" and statut_cible == "ANNULEE"
+        and statut_actuel in {"EN_ATTENTE_LIVREUR", "A_LIVRER"}
     ) and statut_cible not in TRANSITIONS.get(statut_actuel, []):
         raise CommandeTransitionError(f"Transition interdite: {statut_actuel} -> {statut_cible}.")
 
@@ -99,6 +102,7 @@ def changer_statut(
         commande_id=int(commande.id),
         new_status=statut_cible,
         data={
+            "date_livraison": str(commande.date_livraison) if getattr(commande, "date_livraison", None) else None,
             "creneau_livraison": commande.creneau_livraison,
             "montant_total": float(commande.montant_total) if commande.montant_total is not None else None,
             "motif": reason or None,

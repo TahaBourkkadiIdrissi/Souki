@@ -1,3 +1,5 @@
+> Mise a jour du 9 octobre 2026 : les anciens horaires de ce document sont remplaces par [la reference commandes 08 h - 01 h](changement-horraire.md). Cloture a 01 h, reouverture a 08 h, traitement par date de livraison.
+
 # Correction de l'heure marocaine — septembre 2026
 
 Le scheduler utilise déjà `Africa/Casablanca`. L'image verrouillait toutefois `tzdata==2026.1`, antérieure au retour permanent à GMT du 20 septembre 2026. Les règles IANA 2026c intègrent ce changement : https://www.iana.org/time-zones/releases/2026c.

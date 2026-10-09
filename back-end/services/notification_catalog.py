@@ -86,9 +86,11 @@ def _order_url(data: dict[str, Any]) -> str:
 def _render_order_confirmed(data: dict[str, Any]) -> NotificationContent:
     montant = data.get("montant_total")
     montant_txt = f" ({float(montant):.2f} DH)" if montant is not None else ""
+    delivery = data.get("date_livraison")
+    delivery_txt = f" Livraison le {delivery}, créneau {data.get('creneau_livraison') or 'à confirmer'}." if delivery else ""
     return NotificationContent(
         title="Commande confirmee",
-        body=f"Votre commande {_order_ref(data)}{montant_txt} est enregistree. Preparation en cours.",
+        body=f"Votre commande {_order_ref(data)}{montant_txt} est enregistree.{delivery_txt}",
         url=_order_url(data),
         email_subject=f"Votre commande SOUKI {_order_ref(data)} est confirmee",
         email_cta_label="Voir l'avancement de ma commande",
@@ -227,10 +229,22 @@ def _render_supplier_pickup_scheduled(data: dict[str, Any]) -> NotificationConte
 
 # --- Catalogue --------------------------------------------------------------
 
+def _render_order_updated(data: dict[str, Any]) -> NotificationContent:
+    return NotificationContent(
+        title="Commande modifiée",
+        body=f"Votre commande {_order_ref(data)} a été modifiée. Nouveau total : {float(data.get('montant_total') or 0):.2f} DH. Livraison le {data.get('date_livraison')}.",
+        url=_order_url(data),
+        email_subject=f"Votre commande SOUKI {_order_ref(data)} a été modifiée",
+    )
+
 EVENTS: dict[str, NotificationEvent] = {
     event.key: event
     for event in (
         # Client
+        NotificationEvent(
+            key="ORDER_UPDATED", category=CATEGORY_ORDER_UPDATES,
+            channels=(CHANNEL_PUSH, CHANNEL_EMAIL), render=_render_order_updated,
+        ),
         NotificationEvent(
             key="ORDER_CONFIRMED",
             category=CATEGORY_ORDER_UPDATES,

@@ -8,6 +8,18 @@ class IJITDao(ABC):
     """Interface pour le DAO JIT Log"""
 
     @abstractmethod
+    def lock_order_batch(self, session: Session, key: int) -> None:
+        pass
+
+    @abstractmethod
+    def get_completed_log(self, session: Session, zone_id: Optional[int] = None) -> Optional[JITLogDTO]:
+        pass
+
+    @abstractmethod
+    def invalidate_completed_logs(self, session: Session, zone_id: Optional[int] = None) -> None:
+        pass
+
+    @abstractmethod
     def create_log(
         self,
         session: Session,

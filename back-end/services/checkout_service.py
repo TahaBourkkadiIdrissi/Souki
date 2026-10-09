@@ -16,16 +16,19 @@ from interfaces.checkout_service_interface import ICheckoutService
 from entities.souki_wallet_entity import SoukiWallet
 from entities.transaction_wallet_entity import TransactionWallet
 from services.notification_service import notification_service
+from services.order_schedule import (
+    ORDER_BATCH_LOCK_ID, ORDER_CLOSED_MESSAGE, delivery_date_for_order, local_now, orders_closed,
+)
 
 PANIER_MINIMUM_DH = 50.0
 SEUIL_LIVRAISON_GRATUITE = 300.0
 FRAIS_LIVRAISON = 15.0
 DELIVERY_FEE = FRAIS_LIVRAISON
 MOROCCO_TIMEZONE = ZoneInfo("Africa/Casablanca")
-ORDER_CUTOFF_START = time(20, 0)
+ORDER_CUTOFF_START = time(1, 0)
 ORDER_CUTOFF_END = time(8, 0)
 ORDER_CUTOFF_MESSAGE = (
-    "Les commandes sont fermées pour préparer les livraisons. Réouverture à 08h00 (heure du Maroc). Votre commande n’a pas été enregistrée."
+    ORDER_CLOSED_MESSAGE
 )
 # Garde-fou metier (BUG-001) : le cutoff backend est actif par defaut. Il ne peut etre
 # desactive que par decision explicite d'exploitation (SOUKI_ORDER_CUTOFF_ENABLED=0),
@@ -39,11 +42,7 @@ ORDER_CUTOFF_ENABLED = os.getenv("SOUKI_ORDER_CUTOFF_ENABLED", "1").strip().lowe
 
 
 def is_order_cutoff_active(now: Optional[datetime] = None) -> bool:
-    current_datetime = now or datetime.now(MOROCCO_TIMEZONE)
-    if current_datetime.tzinfo is None:
-        current_datetime = current_datetime.replace(tzinfo=MOROCCO_TIMEZONE)
-    current_time = current_datetime.astimezone(MOROCCO_TIMEZONE).time()
-    return current_time >= ORDER_CUTOFF_START or current_time < ORDER_CUTOFF_END
+    return orders_closed(now)
 
 
 class CheckoutService(ICheckoutService):
@@ -87,6 +86,12 @@ class CheckoutService(ICheckoutService):
         session = self._ensure_session()
 
         try:
+            # JIT takes the exclusive counterpart before reading the closed batch.
+            self.checkout_dao.lock_order_batch(session, ORDER_BATCH_LOCK_ID)
+            accepted_at = local_now()
+            if ORDER_CUTOFF_ENABLED and is_order_cutoff_active(accepted_at):
+                raise HTTPException(status_code=403, detail=ORDER_CUTOFF_MESSAGE)
+            delivery_date = delivery_date_for_order(accepted_at)
             client = self.checkout_dao.get_or_create_client(session, user_id)
             if bool(client.is_blacklisted) and self._is_cod_mode(payload.mode_paiement):
                 raise HTTPException(
@@ -234,6 +239,7 @@ class CheckoutService(ICheckoutService):
                 creneau_livraison=payload.creneau_livraison,
                 mode_paiement=payload.mode_paiement,
                 montant_total=montant_total,
+                date_livraison=delivery_date,
             )
 
             notification_service.notify(
@@ -244,6 +250,7 @@ class CheckoutService(ICheckoutService):
                     "commande_id": int(commande.id),  # type: ignore[arg-type]
                     "montant_total": montant_total,
                     "creneau_livraison": payload.creneau_livraison,
+                    "date_livraison": delivery_date.isoformat(),
                 },
                 dedupe_suffix=str(commande.id),
             )
@@ -259,6 +266,7 @@ class CheckoutService(ICheckoutService):
                 frais_livraison=frais_livraison,
                 montant_total=montant_total,
                 message="Commande enregistree avec succes.",
+                date_livraison=delivery_date,
                 lignes=confirmed_lines,
             )
         except Exception:

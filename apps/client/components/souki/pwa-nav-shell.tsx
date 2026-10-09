@@ -15,6 +15,7 @@ const HIDDEN_ROUTES = [
   "/onboarding",
   "/catalogue",
   "/checkout",
+  "/commandes/",
   "/historique",
 ]
 

@@ -27,6 +27,9 @@ class _FakeCheckoutDao:
         self.for_update_calls = []
         self.snapshots = []
 
+    def lock_order_batch(self, session, key):
+        pass
+
     def get_or_create_client(self, session, user_id):
         return SimpleNamespace(user_id=user_id, is_blacklisted=False, abonnement_actif=False)
 
@@ -84,6 +87,9 @@ class _FakeSession:
 
     def commit(self):
         pass
+
+    def get_bind(self):
+        return SimpleNamespace(dialect=SimpleNamespace(name="sqlite"))
 
     def rollback(self):
         if self._dao.snapshots:
@@ -179,7 +185,10 @@ class OrderCutoffTests(unittest.TestCase):
         from zoneinfo import ZoneInfo
 
         casablanca = ZoneInfo("Africa/Casablanca")
-        self.assertTrue(is_order_cutoff_active(datetime(2026, 7, 8, 21, 0, tzinfo=casablanca)))
+        self.assertFalse(is_order_cutoff_active(datetime(2026, 7, 8, 21, 0, tzinfo=casablanca)))
+        self.assertFalse(is_order_cutoff_active(datetime(2026, 7, 8, 0, 59, 59, tzinfo=casablanca)))
+        self.assertTrue(is_order_cutoff_active(datetime(2026, 7, 8, 1, 0, tzinfo=casablanca)))
+        self.assertFalse(is_order_cutoff_active(datetime(2026, 7, 8, 8, 0, tzinfo=casablanca)))
         self.assertTrue(is_order_cutoff_active(datetime(2026, 7, 8, 7, 30, tzinfo=casablanca)))
         self.assertFalse(is_order_cutoff_active(datetime(2026, 7, 8, 12, 0, tzinfo=casablanca)))
 
@@ -193,7 +202,7 @@ class OrderCutoffTests(unittest.TestCase):
                 service.create_checkout(1, _payload(quantity=1))
         self.assertEqual(ctx.exception.status_code, 403)
         self.assertIn("08h00", ctx.exception.detail)
-        self.assertIn("n’a pas été enregistrée", ctx.exception.detail)
+        self.assertIn("01h00 à 08h00", ctx.exception.detail)
 
 
 class DeliveryTimeValidationTests(unittest.TestCase):

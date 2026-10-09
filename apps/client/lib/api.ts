@@ -2,6 +2,61 @@
 
 export const API_BASE_URL = "/backend"
 
+export interface OrderEditLine {
+  product_id: number
+  name: string
+  unit: string
+  quantity: number
+  unit_price: number
+  subtotal: number
+}
+
+export interface OrderEditResponse {
+  commande_id: number
+  version: number
+  editable: boolean
+  reason: string | null
+  deadline: string | null
+  server_time: string
+  date_livraison: string | null
+  creneau_livraison: string | null
+  mode_paiement: string
+  items: OrderEditLine[]
+  subtotal: number
+  delivery_fee: number
+  total: number
+  previous_total: number
+  difference: number
+}
+
+export interface OrderEditRequest {
+  items: { product_id: number; quantity: number }[]
+  expected_version: number
+}
+
+export function getOrderForEdit(id: number, signal?: AbortSignal) {
+  return apiCall<OrderEditResponse>(`/api/commandes/${id}/modification`, { cache: "no-store", signal })
+}
+
+export function previewOrderEdit(id: number, body: OrderEditRequest) {
+  return apiCall<OrderEditResponse>(`/api/commandes/${id}/modification/apercu`, { method: "POST", body })
+}
+
+export function saveOrderEdit(id: number, body: OrderEditRequest & { expected_total: number }) {
+  return apiCall<OrderEditResponse>(`/api/commandes/${id}/modification`, { method: "PATCH", body })
+}
+
+export interface OrderScheduleDTO {
+  closed: boolean
+  server_time: string
+  next_transition: string
+  delivery_date: string | null
+}
+
+export function getOrderSchedule() {
+  return apiCall<OrderScheduleDTO>("/api/order-schedule", { cache: "no-store", signal: AbortSignal.timeout(5000) })
+}
+
 
 interface ApiOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
@@ -51,6 +106,7 @@ export interface CommandeHistoriqueDTO {
   mode_paiement?: string | null
   payment_validated?: boolean | null
   montant_a_encaisser?: number | null
+  date_livraison?: string | null
   creneau_livraison?: string | null
   enroute_at?: string | null
   delivered_at?: string | null

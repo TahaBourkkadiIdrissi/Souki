@@ -12,6 +12,10 @@ from dto.commande_dto import (
 class ICODConfirmationService(ABC):
 
     @abstractmethod
+    def get_alerte_cod(self) -> dict:
+        pass
+
+    @abstractmethod
     def __enter__(self):
         pass
 

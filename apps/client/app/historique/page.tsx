@@ -1,5 +1,8 @@
 "use client"
 
+import { formatDeliveryDate } from "@/lib/order-hours"
+import { OrderEditLink } from "@/components/souki/order-edit-link"
+
 import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { Suspense, useCallback, useEffect, useState, type CSSProperties } from "react"
 import Link from "next/link"
@@ -70,6 +73,7 @@ function HistoriqueContent() {
   const [isFetchingOrders, setIsFetchingOrders] = useState(false)
   const [historyError, setHistoryError] = useState("")
   const successOrderId = searchParams.get("commande_validee")
+  const editedOrderId = searchParams.get("commande_modifiee")
 
   const loadOrderHistory = useCallback(async () => {
     if (!isAuthenticated) {
@@ -122,7 +126,7 @@ function HistoriqueContent() {
     }
 
     void loadOrderHistory()
-  }, [isLoading, loadOrderHistory])
+  }, [isLoading, loadOrderHistory, editedOrderId])
 
   const resolveOrderProductImage = (product: CommandeHistoriqueDTO["produits"][number]) => {
     const productWithImage = product as CommandeHistoriqueDTO["produits"][number] & { image?: string | null }
@@ -150,6 +154,7 @@ function HistoriqueContent() {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 md:py-8 lg:px-8">
+        {editedOrderId && <div role="status" className="mb-5 rounded-2xl border border-[#BFE6C4] bg-[#EAF8EC] px-5 py-4 text-sm font-semibold text-[#1E8A3C]">Votre commande N-{editedOrderId} a été modifiée avec succès.</div>}
         {successOrderId && (
           <div className="mb-5 rounded-2xl border border-[#BFE6C4] bg-[#EAF8EC] px-5 py-4 text-sm font-semibold text-[#1E8A3C]">
             Votre commande N-{successOrderId} a été enregistrée avec succès.
@@ -289,6 +294,7 @@ function HistoriqueContent() {
                     <div>
                       <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#7B8B7D]">Commande N-{order.id}</p>
                       <h3 className="mt-1 text-lg font-black text-[#264129]">{formatOrderDate(order.date_commande)}</h3>
+                      <p className="mt-1 text-sm text-[#264129]">Livraison : {formatDeliveryDate(order.date_livraison)} · {order.creneau_livraison}</p>
                     </div>
                     <span className={cn("rounded-full border px-3 py-1 text-xs font-bold", getOrderStatusClassName(order.statut))}>
                       {getOrderStatusLabel(order.statut)}
@@ -321,6 +327,7 @@ function HistoriqueContent() {
                     >
                       Voir l’avancement
                     </Link>
+                    <OrderEditLink order={order} />
                   </div>
                 </article>
               ))}

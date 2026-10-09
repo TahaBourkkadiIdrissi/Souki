@@ -71,14 +71,14 @@ const steps = [
   {
     num: "01",
     icon: Clock,
-    kicker: "Ce soir, avant 20h",
+    kicker: "De 8h à 1h du matin",
     title: "Vous commandez",
     desc: "Panier manuel, vocal ou composé par l'IA — en moins de trois minutes.",
   },
   {
     num: "02",
     icon: Sunrise,
-    kicker: "Demain, à l'aube",
+    kicker: "À l'aube de la livraison",
     title: "SOUKI achète au gros",
     desc: "Notre équipe sélectionne les meilleurs produits du marché de gros de Fès.",
   },
@@ -193,14 +193,14 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
               className="mt-7 font-[family-name:var(--font-poppins)] text-[clamp(2.75rem,5.2vw,4.35rem)] font-bold leading-[1.05] tracking-[-0.03em] text-[#14301B] text-balance"
               segments={[
                 { text: "Le vrai goût du marché," },
-                { text: "livré demain entre 8h et 15h.", block: true, className: "text-[#1E8A3C]" },
+                { text: "livré entre 8h et 15h à la date confirmée.", block: true, className: "text-[#1E8A3C]" },
               ]}
             />
 
             <p className="mt-6 max-w-[34rem] text-[17px] leading-[1.65] text-[#5F6F61] animate-fade-in-up-delay-2">
               SOUKI sélectionne vos légumes au marché de gros de Fès, prépare
               votre panier et le livre entre 8h et 15h.{" "}
-              <span className="font-semibold text-[#3D3D3D]">Commandez ce soir avant 20h.</span>
+              <span className="font-semibold text-[#3D3D3D]">Commandez de 8h à 1h du matin.</span>
             </p>
 
             {/* CTA — une action dominante, deux chemins IA secondaires */}
@@ -301,7 +301,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
                 <Truck className="h-5 w-5 text-[#1E8A3C]" />
               </span>
               <span>
-                <span className="block text-[13px] font-bold text-[#14301B]">Livraison demain</span>
+                <span className="block text-[13px] font-bold text-[#14301B]">Livraison de produits frais</span>
                 <span className="flex items-center gap-1 text-[13px] font-semibold text-[#1E8A3C]">
                   8h – 15h <Check className="h-3.5 w-3.5" />
                 </span>
@@ -745,7 +745,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
                 Prêt à goûter la différence du marché&nbsp;?
               </h2>
               <p className="max-w-[34rem] text-[17px] leading-[1.65] text-[#5F6F61]">
-                Commandez avant 20h — vos légumes arrivent demain entre 8h et 15h.
+                Commandez avant 1h du matin — vos légumes arrivent entre 8h et 15h à la date confirmée.
               </p>
               <div className="mt-2 flex flex-col items-start gap-4">
                 <button
@@ -758,7 +758,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
                 </button>
                 <span className="inline-flex items-center gap-2 text-[13px] font-semibold text-[#5F6F61]">
                   <Clock className="h-4 w-4 text-[#F5C400]" />
-                  Commande avant 20h, livraison dès 8h demain
+                  Commande avant 1h du matin, livraison entre 8h et 15h
                 </span>
               </div>
             </div>

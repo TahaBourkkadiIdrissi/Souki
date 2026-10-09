@@ -44,6 +44,7 @@ export interface TourneeItem {
   details: string | null
   full_address: string
   colis_count: number
+  date_livraison?: string | null
   creneau_livraison: string | null
   statut: string
   status_version: number

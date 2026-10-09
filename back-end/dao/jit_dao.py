@@ -1,6 +1,7 @@
 import json
 from datetime import date, datetime, time
 from typing import List, Optional
+from services.date_utils import today_morocco
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -12,6 +13,27 @@ from interfaces.jit_dao_interface import IJITDao
 
 class JITDaoBD(IJITDao):
     """DAO pour la gestion des logs JIT en base de données"""
+
+    def lock_order_batch(self, session: Session, key: int) -> None:
+        if session.get_bind().dialect.name == "postgresql":
+            from sqlalchemy import text
+            session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": key})
+
+    def get_completed_log(self, session: Session, zone_id: Optional[int] = None) -> Optional[JITLogDTO]:
+        log = session.query(JITLog).filter(
+            JITLog.date_livraison == today_morocco(), JITLog.zone_id == zone_id,
+            JITLog.statut.in_(("succès", "aucune_commande")),
+        ).order_by(JITLog.id.desc()).first()
+        return self._to_dto(log) if log is not None else None
+
+    def invalidate_completed_logs(self, session: Session, zone_id: Optional[int] = None) -> None:
+        logs = session.query(JITLog).filter(JITLog.date_livraison == today_morocco())
+        if zone_id is not None:
+            logs = logs.filter(JITLog.zone_id == zone_id)
+        logs.filter(JITLog.statut.in_(("succès", "aucune_commande"))).update(
+            {JITLog.statut: "reouvert"}, synchronize_session=False,
+        )
+        session.flush()
 
     def _to_dto(self, jit_log: JITLog) -> JITLogDTO:
         date_exec = jit_log.date_execution
@@ -46,6 +68,7 @@ class JITDaoBD(IJITDao):
     ) -> Optional[JITLogDTO]:
         try:
             jit_log = JITLog(
+                date_livraison=today_morocco(),
                 volume_total=volume_total,
                 nombre_commandes=nombre_commandes,
                 nombre_abonnements=nombre_abonnements,
@@ -133,16 +156,15 @@ class JITDaoBD(IJITDao):
 
     def zone_deja_executee_aujourd_hui(self, session: Session, zone_id: int) -> bool:
         try:
-            today = date.today()
+            today = today_morocco()
             start = datetime.combine(today, time.min)
             end = datetime.combine(today, time.max)
             count = (
                 session.query(JITLog)
                 .filter(
                     JITLog.zone_id == zone_id,
-                    JITLog.statut == "succès",
-                    JITLog.date_execution >= start,
-                    JITLog.date_execution <= end,
+                    JITLog.statut.in_(("succès", "aucune_commande")),
+                    JITLog.date_livraison == today,
                 )
                 .count()
             )

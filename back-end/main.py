@@ -30,6 +30,7 @@ from controllers.auth_controller import auth_router
 from controllers.catalogue_controller import router_catalogue
 from controllers.claim_controller import claim_router
 from controllers.checkout_controller import router_checkout
+from controllers.order_edit_controller import router_order_edit
 from controllers.client_blacklist_controller import client_blacklist_router
 from controllers.commande_controller import router_voice
 from controllers.dispatch_controller import anomalies_router, dispatch_router
@@ -54,6 +55,7 @@ from services.notification_schema_sync_service import NotificationSchemaSyncServ
 from services.onboarding_schema_sync_service import OnboardingSchemaSyncService
 from services.profile_schema_sync_service import ProfileSchemaSyncService
 from services.product_description_schema_sync_service import ProductDescriptionSchemaSyncService
+from services.order_schedule_schema_sync_service import OrderScheduleSchemaSyncService
 from services.perf_index_sync_service import PerfIndexSyncService
 from services.rbac_bootstrap_service import RBACBootstrapService
 from services.scheduler_service import start_scheduler, stop_scheduler
@@ -74,6 +76,7 @@ API_ROUTERS: tuple[APIRouter, ...] = (
     router_panier,
     router_assistant,
     router_checkout,
+    router_order_edit,
     client_blacklist_router,
     pricing_router,
     claim_router,
@@ -126,6 +129,7 @@ def sync_database_schema() -> None:
             AppTask("logistics schema sync", LogisticsSchemaSyncService.sync),
             AppTask("fournisseur produits schema sync", FournisseurProduitSchemaSyncService.sync),
             AppTask("jit schema sync", JITSchemaSyncService.sync),
+            AppTask("order delivery date sync", OrderScheduleSchemaSyncService.sync),
             AppTask("notification schema sync", NotificationSchemaSyncService.sync),
             AppTask("perf index sync", PerfIndexSyncService.sync),
             AppTask("avatar column sync", avatar_storage_service.ensure_avatar_column),

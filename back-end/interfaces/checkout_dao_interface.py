@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
+from datetime import date
 
 from sqlalchemy.orm import Session
 
@@ -11,6 +12,10 @@ from entities.product_entity import Product
 
 
 class ICheckoutDao(ABC):
+
+    @abstractmethod
+    def lock_order_batch(self, session: Session, key: int) -> None:
+        pass
 
     @abstractmethod
     def get_products_by_ids(
@@ -70,5 +75,6 @@ class ICheckoutDao(ABC):
         creneau_livraison: str,
         mode_paiement: str,
         montant_total: float,
+        date_livraison: Optional[date] = None,
     ) -> Commande:
         pass

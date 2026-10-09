@@ -1,5 +1,7 @@
 "use client"
 
+import { formatDeliveryDate } from "@/lib/order-hours"
+
 import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { useState, useEffect, useRef, Suspense } from "react"
 import Link from "next/link"
@@ -150,6 +152,7 @@ function CheckoutContent() {
   const [instructions, setInstructions] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   // Commande validee par l'API : declenche l'overlay de celebration avant la redirection.
+  const [confirmedDeliveryDate, setConfirmedDeliveryDate] = useState<string | null>(null)
   const [confirmedOrderId, setConfirmedOrderId] = useState<number | null>(null)
   const [catalogueImages, setCatalogueImages] = useState<Record<number, string>>({})
   const [cataloguePrices, setCataloguePrices] = useState<Record<number, number>>({})
@@ -166,7 +169,7 @@ function CheckoutContent() {
   const { token, isLoading: isAuthLoading } = useAuth()
   const storageOwner = useClientStorageOwner()
   // Verrou de commande restaure (BUG-004), aligne sur le cutoff backend.
-  const { isLocked: isOrderCutoffActive, message: orderLockMessage } = useOrderLock()
+  const { isLocked: isOrderCutoffActive, message: orderLockMessage, deliveryDate } = useOrderLock()
 
   const isGenericImage = (imageUrl: string) =>
     imageUrl.includes("photo-1542838132-92c53300491e")
@@ -601,6 +604,7 @@ function CheckoutContent() {
         // L'overlay anime remplace le toast comme feedback immediat ; la
         // redirection existante est juste differee le temps de la celebration.
         setConfirmedOrderId(data.commande_id)
+        setConfirmedDeliveryDate(data.date_livraison)
         if (typeof navigator !== "undefined" && "vibrate" in navigator) {
           navigator.vibrate([15, 40, 20])
         }
@@ -681,7 +685,7 @@ function CheckoutContent() {
             Commande N-{confirmedOrderId} confirmée
           </p>
           <p className="mt-2 text-sm text-[#66756B] animate-fade-in-up-delay-1">
-            Vos produits frais arrivent demain matin, du champ au panier.
+            Livraison le {formatDeliveryDate(confirmedDeliveryDate)}, à {selectedTimeSlot}.
           </p>
           <img
             src="/illustrations/checkout-celebration.webp"
@@ -1005,7 +1009,7 @@ function CheckoutContent() {
                 Heure de livraison
               </h3>
               <p className="mb-4 text-sm text-[#8A8A8A]">
-                Choisissez l&apos;heure exacte, demain entre 8h00 et 15h00.
+                Livraison le {formatDeliveryDate(deliveryDate)}. Choisissez une heure entre 8h00 et 15h00.
               </p>
 
               {/* Heure choisie mise en avant + sélecteur précis */}
@@ -1054,7 +1058,7 @@ function CheckoutContent() {
               {timeError ? (
                 <p className="mt-3 text-xs font-semibold text-red-500">{timeError}</p>
               ) : (
-                <p className="mt-3 text-sm text-[#8A8A8A]">Livraison le lendemain entre 8h et 15h, à l&apos;heure choisie.</p>
+                <p className="mt-3 text-sm text-[#8A8A8A]">Livraison le {formatDeliveryDate(deliveryDate)}, entre 8h et 15h, à l&apos;heure choisie.</p>
               )}
             </div>
 

@@ -74,12 +74,18 @@ class CODConfirmationService(ICODConfirmationService):
                     adresse=row.get("adresse"),
                     is_blacklisted=row.get("is_blacklisted"),
                     montant=row.get("montant"),
+                    date_livraison=row.get("date_livraison"),
                     creneau_livraison=row.get("creneau_livraison"),
                     statut_confirmation_cod=str(latest_log.statut) if latest_log else NON_CONFIRMEE,
                 )
             )
 
         return commandes
+
+    def get_alerte_cod(self) -> dict:
+        commandes = self.get_commandes_cod_demain()
+        count = sum(c.statut_confirmation_cod == NON_CONFIRMEE for c in commandes)
+        return {"alerte_active": count > 0, "nb_non_confirmees": count, "depuis": None}
 
     def update_confirmation_cod(
         self,
@@ -189,10 +195,10 @@ class CODConfirmationService(ICODConfirmationService):
         current_status = str(commande.statut or "").strip().upper()
         if current_status == "ANNULEE":
             raise HTTPException(status_code=409, detail="Cette commande COD est deja annulee.")
-        if current_status != "VERROUILLEE":
+        if current_status not in {"VERROUILLEE", "EN_ATTENTE_LIVREUR", "A_LIVRER"}:
             raise HTTPException(
                 status_code=409,
-                detail="Seules les commandes COD verrouillees par le JIT peuvent etre traitees ici.",
+                detail="Seules les commandes COD clôturées et pas encore en route peuvent être traitées ici.",
             )
 
         latest_log = self.cod_confirmation_log_dao.get_latest_log(session, commande_id)

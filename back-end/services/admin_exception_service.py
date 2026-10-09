@@ -1,5 +1,5 @@
 import math
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timezone, timedelta
 from typing import Optional
 from operating_mode import suppliers_enabled
 
@@ -19,6 +19,7 @@ from entities.fournisseur_entity import Fournisseur
 from entities.user_entity import User
 from services.commande_state_machine import CommandeTransitionError, TRANSITIONS, changer_statut
 from services.date_utils import today_morocco
+from services.order_schedule import delivery_date_for_order, local_now
 
 
 FAILURE_STATUSES = {"RETOUR_DEPOT", "ABSENT", "REFUS", "REFUS_LIVREUR"}
@@ -38,8 +39,7 @@ class AdminExceptionService:
         include_annulee: bool = False,
     ) -> list[str]:
         statut = str(getattr(commande, "statut", "") or "").strip().upper()
-        date_commande = getattr(commande, "date_commande", None)
-        commande_date = date_commande.date() if isinstance(date_commande, datetime) else None
+        commande_date = getattr(commande, "date_livraison", None)
         raisons: list[str] = []
 
         if commande_date is not None and commande_date < today and statut not in TERMINAL_STATUSES:
@@ -196,6 +196,11 @@ class AdminExceptionService:
             commande.tournee_id = None
             commande.ordre_passage = None
             commande.livreur_id = None
+            if target_status == "EN_ATTENTE":
+                now = local_now()
+                # After closure, a replanification belongs to the next purchase batch.
+                commande.date_livraison = (now.date() + timedelta(days=1)
+                    if now.hour >= 1 else delivery_date_for_order(now))
             self._resolve_open_anomalies(commande_id, admin_id, target_status)
             self.session.commit()
             return CommandeAdminActionDTO(

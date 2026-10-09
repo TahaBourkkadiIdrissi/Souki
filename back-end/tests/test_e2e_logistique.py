@@ -83,6 +83,7 @@ def commande(command_id, client_id, lat, lng, lines):
         status_version=1,
         fournisseur_id=None,
         date_commande=datetime(2026, 6, 20, 10, command_id),
+        date_livraison=TODAY,
         creneau_livraison="09h-11h",
         montant_total=100.0,
         mode_paiement="WALLET",

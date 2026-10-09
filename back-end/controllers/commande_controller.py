@@ -29,7 +29,6 @@ from services.rate_limit_service import (
     AI_BASKET_QUOTA_WINDOW_SECONDS,
     user_action_quota,
 )
-from services.scheduler_service import cod_alerte_18h_state
 
 router_voice = APIRouter(prefix="/api", tags=["Voice AI"])
 MAX_AUDIO_SIZE_BYTES = 10 * 1024 * 1024
@@ -265,11 +264,15 @@ def batch_confirmation_cod(
         )
 
 
-@router_voice.get("/commandes/cod/alerte-18h")
+@router_voice.get("/commandes/cod/alerte")
+@router_voice.get("/commandes/cod/alerte-18h", include_in_schema=False)
 def get_alerte_cod_18h(
     principal=Depends(require_permission("admin.panel.access")),
+    service: ICODConfirmationService = Depends(get_cod_confirmation_service),
 ):
-    return cod_alerte_18h_state
+    # The scheduler runs in a separate process: read persisted confirmations.
+    with service:
+        return service.get_alerte_cod()
 
 
 @router_voice.get("/commandes/{commande_id}", response_model=CommandeCheckoutDTO)

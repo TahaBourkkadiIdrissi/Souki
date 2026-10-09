@@ -19,6 +19,7 @@ from interfaces.jit_service_interface import IJITService
 from interfaces.zone_jit_dao_interface import IZoneJITDao
 from services.commande_state_machine import changer_statut
 from services.date_utils import today_morocco
+from services.order_schedule import ORDER_BATCH_LOCK_ID, delivery_cutoff, local_now
 from services.fournisseur_resolver import resoudre_fournisseur_pour_adresse
 from services.notification_jit_service import notifier_fournisseur
 from services.zone_resolver import resoudre_zone
@@ -41,9 +42,22 @@ class JITService(IJITService):
         self.jit_dao = jit_dao
         self.zone_jit_dao = zone_jit_dao
 
+    def _close_batch(self, session: Session) -> None:
+        if local_now() < delivery_cutoff(today_morocco()):
+            raise JITAlreadyExecutedError("Le lot reste modifiable jusqu'à 01h00. Relancez après la clôture.")
+        self.jit_dao.lock_order_batch(session, ORDER_BATCH_LOCK_ID)
+
     def _today_bounds(self) -> tuple[datetime, datetime]:
         today = today_morocco()  # heure du Maroc, pas l'heure locale du serveur
         return datetime.combine(today, time.min), datetime.combine(today, time.max)
+
+    def _completed_log(self, session: Session, zone_id: Optional[int] = None):
+        return self.jit_dao.get_completed_log(session, zone_id)
+
+    def _already_completed(self, log) -> JITLogDTO:
+        return JITLogDTO(id=log.id, volume_total=log.volume_total,
+                         nombre_commandes=log.nombre_commandes, nombre_abonnements=log.nombre_abonnements,
+                         statut="deja_execute", zone_id=log.zone_id, nom_ville=log.nom_ville)
 
     def _count_locked_commandes_today(self, session: Session) -> int:
         start_of_day, end_of_day = self._today_bounds()
@@ -51,8 +65,7 @@ class JITService(IJITService):
             session.query(Commande)
             .filter(
                 func.upper(func.coalesce(Commande.statut, "")) == LOCKED_JIT_STATUS,
-                Commande.date_commande >= start_of_day,
-                Commande.date_commande <= end_of_day,
+                Commande.date_livraison == today_morocco(),
             )
             .count()
         )
@@ -119,8 +132,7 @@ class JITService(IJITService):
             session.query(Commande)
             .filter(
                 func.upper(func.coalesce(Commande.statut, "")).in_(PENDING_JIT_STATUSES),
-                Commande.date_commande >= start_of_day,
-                Commande.date_commande <= end_of_day,
+                Commande.date_livraison == today_morocco(),
             )
             .all()
         )
@@ -366,8 +378,7 @@ class JITService(IJITService):
 
             query = session.query(Commande).filter(
                 func.upper(func.coalesce(Commande.statut, "")) == LOCKED_JIT_STATUS,
-                Commande.date_commande >= start_of_day,
-                Commande.date_commande <= end_of_day,
+                Commande.date_livraison == today_morocco(),
             )
             commandes_raw = query.all()
 
@@ -411,6 +422,8 @@ class JITService(IJITService):
                     }
                 )
 
+            if commandes_deverrouillees:
+                self.jit_dao.invalidate_completed_logs(session, zone_id)
             session.flush()
             return {
                 "nombre_deverrouillees": len(commandes_deverrouillees),
@@ -428,6 +441,11 @@ class JITService(IJITService):
         3. Cree un log
         """
         try:
+            self._close_batch(session)
+            completed = self._completed_log(session)
+            if completed is not None:
+                session.commit()
+                return self._already_completed(completed)
             acquired = session.execute(
                 text("SELECT pg_try_advisory_xact_lock(:lock_id)"),
                 {"lock_id": JIT_LOCK_ID},
@@ -468,8 +486,10 @@ class JITService(IJITService):
                 message_alerte=resultat.message,
             )
 
+            if log is None:
+                raise RuntimeError("Impossible de persister la clôture du lot JIT")
             session.commit()
-            print(f"Log JIT cree (ID: {log.id if log else 'N/A'})")
+            print(f"Log JIT cree (ID: {log.id})")
 
             return log or JITLogDTO(
                 volume_total=resultat.volume_total_kg,
@@ -543,20 +563,10 @@ class JITService(IJITService):
         for zone_dto in zones:
             zone_session = LocalSession()
             try:
+                self._close_batch(zone_session)
                 if self.jit_dao.zone_deja_executee_aujourd_hui(zone_session, zone_dto.id):  # type: ignore
-                    locked_count = self._count_locked_commandes_today(zone_session)
-                    if locked_count > 0:
-                        print(f"[JIT] Zone {zone_dto.nom_ville} deja executee aujourd'hui - ignoree")
-                        resultats[zone_dto.nom_ville] = {
-                            "statut": "deja_execute",
-                            "nombre_commandes": locked_count,
-                            "nombre_verrouillees": locked_count,
-                        }
-                        continue
-                    print(
-                        f"[JIT] Zone {zone_dto.nom_ville} a un log succes sans commande verrouillee; "
-                        "relance autorisee."
-                    )
+                    resultats[zone_dto.nom_ville] = {"statut": "deja_execute"}
+                    continue
 
                 print(f"[JIT] Demarrage zone {zone_dto.nom_ville}...")
 
@@ -600,8 +610,10 @@ class JITService(IJITService):
                     nom_ville=zone_dto.nom_ville,
                 )
 
+                if log is None:
+                    raise RuntimeError("Impossible de persister la clôture du lot JIT")
                 zone_session.commit()
-                print(f"[JIT] Zone {zone_dto.nom_ville} terminee (log ID: {log.id if log else 'N/A'})")
+                print(f"[JIT] Zone {zone_dto.nom_ville} terminee (log ID: {log.id})")
 
                 resultats[zone_dto.nom_ville] = {
                     "statut": resultat.statut,
@@ -650,6 +662,11 @@ class JITService(IJITService):
 
         session = LocalSession()
         try:
+            self._close_batch(session)
+            completed = self._completed_log(session, zone_id)
+            if completed is not None:
+                session.commit()
+                return self._already_completed(completed)
             zone_dto = self.zone_jit_dao.get_zone_by_id(session, zone_id)
             if not zone_dto:
                 raise ValueError(f"Zone {zone_id} introuvable")
@@ -685,6 +702,8 @@ class JITService(IJITService):
                 nom_ville=zone_dto.nom_ville,
             )
 
+            if log is None:
+                raise RuntimeError("Impossible de persister la clôture du lot JIT")
             session.commit()
 
             return log or JITLogDTO(

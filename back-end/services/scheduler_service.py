@@ -90,8 +90,7 @@ def job_alerte_cod_18h():
 
 def job_agregation_jit():
     """
-    Scheduled task for JIT aggregation at 20:00.
-    Runs every day at 20:00:00.
+    Close the delivery batch at 01:00, retry safely until the market run.
     """
     session = None
     try:
@@ -109,7 +108,10 @@ def job_agregation_jit():
             session.close()
             session = None
             resultats = service.executer_job_jit_regional()
-            statut = "termine" if resultats else "aucune_zone"
+            statut = "termine" if resultats and all(
+                item.get("statut") in {"succès", "aucune_commande", "deja_execute"}
+                for item in resultats.values()
+            ) else "erreur"
         else:
             log = service.executer_job_jit(session)
             statut = log.statut if log else "ERREUR"
@@ -117,11 +119,13 @@ def job_agregation_jit():
         print(f"\n{'=' * 80}")
         print(f"[JIT] Job termine. Statut: {statut}")
         print(f"{'=' * 80}\n")
+        return statut in {"termine", "succès", "aucune_commande", "deja_execute"}
 
     except Exception as exc:
         print(f"\n{'=' * 80}")
         print(f"[JIT] ERREUR lors du job: {exc}")
         print(f"{'=' * 80}\n")
+        return False
     finally:
         if session is not None:
             session.close()
@@ -129,8 +133,7 @@ def job_agregation_jit():
 
 def job_dispatch_daily():
     """
-    Scheduled task for daily dispatch at 21:35 Morocco time.
-    Builds tomorrow's delivery routes after the ordering cut-off.
+    Build today's routes only after the delivery batch has been closed.
     """
     session = None
     try:
@@ -145,7 +148,7 @@ def job_dispatch_daily():
             tournee_dao=TourneeDaoBD(),
             session=session,
         )
-        target_date = datetime.now(MOROCCO_TIMEZONE).date() + timedelta(days=1)
+        target_date = datetime.now(MOROCCO_TIMEZONE).date()
         result = service.generate_daily_routes(target_date)
 
         print(f"\n{'=' * 80}")
@@ -163,6 +166,14 @@ def job_dispatch_daily():
             session.close()
 
 
+def job_delivery_cycle():
+    # No new purchase batch before closure; no new-night batch after reopening.
+    if not 1 <= datetime.now(MOROCCO_TIMEZONE).hour < 8:
+        return
+    if job_agregation_jit():
+        job_dispatch_daily()
+
+
 def start_scheduler():
     """
     Start the cron scheduler and register the daily logistics jobs.
@@ -171,23 +182,17 @@ def start_scheduler():
         if not scheduler.running:
             scheduler.add_job(
                 job_alerte_cod_18h,
-                CronTrigger(hour=18, minute=0, second=0, timezone=MOROCCO_TIMEZONE),
-                id="cod_alerte_18h00",
-                name="Alerte COD non confirmees a 18h00",
+                CronTrigger(hour=7, minute=0, second=0, timezone=MOROCCO_TIMEZONE),
+                id="cod_alerte_07h00",
+                name="Alerte COD non confirmees avant les livraisons a 07h00",
                 replace_existing=True,
             )
             scheduler.add_job(
-                job_agregation_jit,
-                CronTrigger(hour=20, minute=0, second=0, timezone=MOROCCO_TIMEZONE),
-                id="jit_agregation_20h00",
-                name="Agregation JIT des commandes a 20h00",
-                replace_existing=True,
-            )
-            scheduler.add_job(
-                job_dispatch_daily,
-                CronTrigger(hour=21, minute=35, second=0, timezone=MOROCCO_TIMEZONE),
-                id="dispatch_daily_21h35",
-                name="Generation automatique des tournees a 21h35",
+                job_delivery_cycle,
+                CronTrigger(hour="1-4", minute="*/5", second=0, timezone=MOROCCO_TIMEZONE),
+                id="delivery_batch_01h00",
+                name="Cloture a 01h00, achats puis tournees; reprise toutes les 5 minutes jusqu'a 05h00",
+                max_instances=1, coalesce=True, misfire_grace_time=14400,
                 replace_existing=True,
             )
             scheduler.add_job(
@@ -209,9 +214,7 @@ def start_scheduler():
                   f"tzdata={tzdata.__version__} IANA={tzdata.IANA_VERSION}")
             for job in scheduler.get_jobs():
                 print(f"[SCHEDULER] {job.id}: prochain declenchement={job.next_run_time.isoformat()}")
-            print("[SCHEDULER] Job alerte COD configure a 18h00 chaque jour")
-            print("[SCHEDULER] Job JIT configure a 20h00 chaque jour")
-            print("[SCHEDULER] Job dispatch configure a 21h35 chaque jour")
+            print("[SCHEDULER] Cloture a 01h00, achats puis tournees du jour; alerte COD a 07h00")
             print(f"[SCHEDULER] Worker notifications configure toutes les {OUTBOX_POLL_SECONDS}s")
 
     except SchedulerAlreadyRunningError:

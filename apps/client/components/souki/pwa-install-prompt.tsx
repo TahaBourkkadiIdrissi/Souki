@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { usePathname } from "next/navigation"
 import { Download, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -15,6 +16,7 @@ import { IosInstallGuide } from "@/components/souki/pwa/ios-install-guide"
 const EXCLUDED_ROLES = ["ADMIN"]
 
 export function PwaInstallPrompt() {
+  const pathname = usePathname()
   const { user } = useAuth()
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null)
   const [isStandalone, setIsStandalone] = useState(true)
@@ -84,7 +86,7 @@ export function PwaInstallPrompt() {
     setShowHelp(true)
   }
 
-  if (isStandalone || isExcludedUser || dismissed) {
+  if (isStandalone || isExcludedUser || dismissed || /^\/commandes\/[^/]+\/modifier\/?$/.test(pathname)) {
     return null
   }
 

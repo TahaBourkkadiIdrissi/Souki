@@ -1,4 +1,5 @@
 from typing import List, Optional
+from datetime import date
 
 from sqlalchemy.orm import Session
 
@@ -13,6 +14,11 @@ from interfaces.checkout_dao_interface import ICheckoutDao
 
 
 class CheckoutDaoBD(ICheckoutDao):
+
+    def lock_order_batch(self, session: Session, key: int) -> None:
+        if session.get_bind().dialect.name == "postgresql":
+            from sqlalchemy import text
+            session.execute(text("SELECT pg_advisory_xact_lock_shared(:key)"), {"key": key})
 
     def get_products_by_ids(
         self, session: Session, product_ids: List[int], for_update: bool = False
@@ -133,6 +139,7 @@ class CheckoutDaoBD(ICheckoutDao):
         creneau_livraison: str,
         mode_paiement: str,
         montant_total: float,
+        date_livraison: Optional[date] = None,
     ) -> Commande:
         statut_propre = str(statut or "EN_ATTENTE").strip().upper().replace(" ", "_")
 
@@ -144,6 +151,7 @@ class CheckoutDaoBD(ICheckoutDao):
             creneau_livraison=creneau_livraison,
             mode_paiement=mode_paiement,
             montant_total=montant_total,
+            date_livraison=date_livraison,
         )
         session.add(commande)
         session.flush()

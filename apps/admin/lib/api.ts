@@ -51,6 +51,7 @@ export interface AdminDispatchCommande {
   client_phone: string | null
   statut: string
   ordre_passage: number | null
+  date_livraison?: string | null
   creneau_livraison: string | null
   montant_total: number
   date_commande: string | null
@@ -289,6 +290,7 @@ export interface CommandeHistoriqueDTO {
   mode_paiement?: string | null
   payment_validated?: boolean | null
   montant_a_encaisser?: number | null
+  date_livraison?: string | null
   creneau_livraison?: string | null
   enroute_at?: string | null
   delivered_at?: string | null
@@ -338,6 +340,7 @@ export interface CommandeCODDemainDTO {
   adresse?: string | null
   is_blacklisted?: boolean | null
   montant?: number | null
+  date_livraison?: string | null
   creneau_livraison?: string | null
   statut_confirmation_cod: StatutConfirmationCOD | string
 }
@@ -894,7 +897,7 @@ export async function batchConfirmationCOD(
 
 
 export async function getAlerteCOD18h(token: string) {
-  return apiCall<AlerteCOD18hDTO>("/api/commandes/cod/alerte-18h", { token })
+  return apiCall<AlerteCOD18hDTO>("/api/commandes/cod/alerte", { token })
 }
 
 

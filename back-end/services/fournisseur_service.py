@@ -397,6 +397,7 @@ class FournisseurService(IFournisseurService):
                     id=int(commande.id),
                     statut=str(commande.statut),
                     date_commande=commande.date_commande,
+                    date_livraison=getattr(commande, "date_livraison", None),
                     creneau_livraison=commande.creneau_livraison,
                     montant_total=float(commande.montant_total or 0),
                     client_nom=client_nom,
@@ -425,8 +426,7 @@ class FournisseurService(IFournisseurService):
             session.query(Commande)
             .filter(
                 Commande.fournisseur_id == user_id,
-                Commande.date_commande >= start_of_day,
-                Commande.date_commande <= end_of_day,
+                Commande.date_livraison == current_date,
                 Commande.statut.in_(SUPPLIER_ACTIVE_ORDER_STATUSES),
             )
             .order_by(Commande.date_commande.asc(), Commande.id.asc())

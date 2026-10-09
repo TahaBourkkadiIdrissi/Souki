@@ -22,7 +22,7 @@ def _as_date(value: Any) -> date | None:
 def is_supplier_order_visible(commande: Any, fournisseur_id: int, today: date) -> bool:
     return (
         getattr(commande, "fournisseur_id", None) == fournisseur_id
-        and _as_date(getattr(commande, "date_commande", None)) == today
+        and _as_date(getattr(commande, "date_livraison", None)) == today
         and _normalize_status(getattr(commande, "statut", None)) in SUPPLIER_VISIBLE_STATUSES
     )
 

@@ -14,6 +14,36 @@ function load(file, globals = {}) {
 }
 
 const hours = load('apps/client/lib/order-hours.ts')
+test('evening and midnight show the same delivery date across the year boundary', () => {
+  assert.equal(hours.getOrderHours(new Date('2026-12-31T23:59:59Z')).deliveryDate, '2027-01-01')
+  assert.equal(hours.getOrderHours(new Date('2027-01-01T00:59:59Z')).deliveryDate, '2027-01-01')
+  assert.equal(hours.getOrderHours(new Date('2027-01-01T01:00:00Z')).deliveryDate, null)
+  assert.equal(hours.getOrderHours(new Date('2027-01-01T08:00:00Z')).deliveryDate, '2027-01-02')
+})
+
+test('server schedule corrects device clock and flips the lock at closure', async () => {
+  let instant = Date.parse('2026-10-09T12:00:00Z'), calls = 0
+  class Clock extends Date { static now() { return instant } }
+  const schedule = load('apps/client/lib/order-schedule-client.ts', {
+    Date: Clock,
+    require: name => name === './order-hours' ? hours : {
+      getOrderSchedule: async () => { calls++; return {
+        closed: false, server_time: '2026-10-10T00:59:59Z',
+        next_transition: '2026-10-10T01:00:00Z', delivery_date: '2026-10-10',
+      } },
+    },
+  })
+  await Promise.all([schedule.refreshOrderSchedule(), schedule.refreshOrderSchedule()])
+  assert.equal(calls, 1)
+  assert.equal(schedule.getCurrentOrderHours().closed, false)
+  assert.equal(schedule.getCurrentOrderHours().deliveryDate, '2026-10-10')
+  instant += 1000
+  assert.equal(schedule.getCurrentOrderHours().closed, true)
+  instant += 7 * 3600 * 1000
+  assert.equal(schedule.getCurrentOrderHours().closed, false)
+  assert.equal(schedule.getCurrentOrderHours().deliveryDate, '2026-10-11')
+})
+
 test('Moroccan opening boundaries do not depend on the device timezone', () => {
   for (const tz of ['UTC', 'America/New_York', 'Asia/Tokyo', 'Africa/Casablanca']) {
     const previous = process.env.TZ
@@ -21,10 +51,11 @@ test('Moroccan opening boundaries do not depend on the device timezone', () => {
     try {
       for (const [instant, closed, remaining] of [
         ['2026-10-01T07:59:59Z', true, 1],
-        ['2026-10-01T08:00:00Z', false, 12 * 3600],
-        ['2026-10-01T19:59:59Z', false, 1],
-        ['2026-10-01T20:00:00Z', true, 12 * 3600],
-        ['2026-10-01T23:00:00Z', true, 9 * 3600],
+        ['2026-10-01T08:00:00Z', false, 17 * 3600],
+        ['2026-10-01T00:59:59Z', false, 1],
+        ['2026-10-01T01:00:00Z', true, 7 * 3600],
+        ['2026-10-01T20:00:00Z', false, 5 * 3600],
+        ['2026-10-01T23:00:00Z', false, 2 * 3600],
       ]) {
         const now = new Date(instant)
         const result = hours.getOrderHours(now)
@@ -38,8 +69,8 @@ test('Moroccan opening boundaries do not depend on the device timezone', () => {
 test('next opening accounts for Moroccan Ramadan clock changes', () => {
   // 2026: clocks move back February 15, forward March 22.
   for (const [instant, expected] of [
-    ['2026-02-14T19:00:00Z', '2026-02-15T08:00:00Z'],
-    ['2026-03-21T20:00:00Z', '2026-03-22T07:00:00Z'],
+    ['2026-02-15T00:00:00Z', '2026-02-15T08:00:00Z'],
+    ['2026-03-22T01:00:00Z', '2026-03-22T07:00:00Z'],
   ]) assert.equal(hours.getOrderHours(new Date(instant)).nextTransition, Date.parse(expected))
 })
 
@@ -128,7 +159,8 @@ test('countdown timer is confined to its component and stops while the app is hi
   const document = { hidden: false, addEventListener: events.addEventListener.bind(events), removeEventListener: events.removeEventListener.bind(events) }
   const window = { setInterval: cb => { timers.set(++id, cb); return id }, clearInterval: id => timers.delete(id) }
   const hook = load('apps/client/hooks/useOrderCountdown.ts', { window, document,
-    require: name => name === 'react' ? { useState: () => [null, () => { renders++ }], useEffect: effect => { cleanup = effect() } } : hours,
+    require: name => name === 'react' ? { useState: () => [null, () => { renders++ }], useEffect: effect => { cleanup = effect() } } :
+      name.includes('order-schedule-client') ? { getCurrentOrderHours: hours.getOrderHours, refreshOrderSchedule: () => Promise.resolve(), subscribeOrderSchedule: () => () => {} } : hours,
   })
   hook.useOrderCountdown()
   assert.equal(timers.size, 1); assert.equal(renders, 1)
@@ -144,6 +176,6 @@ test('outdated mobile timezone data does not shift the current Moroccan order wi
   const staleIntl = { DateTimeFormat: class { formatToParts() { throw Error('stale ICU must not decide current dates') } } }
   const api = load('apps/client/lib/order-hours.ts', { Intl: staleIntl })
   assert.equal(api.getOrderHours(new Date('2026-10-01T19:59:59Z')).closed, false)
-  assert.equal(api.getOrderHours(new Date('2026-10-01T20:00:00Z')).closed, true)
-  assert.equal(api.getOrderHours(new Date('2026-10-01T20:00:00Z')).nextTransition, Date.parse('2026-10-02T08:00:00Z'))
+  assert.equal(api.getOrderHours(new Date('2026-10-01T20:00:00Z')).closed, false)
+  assert.equal(api.getOrderHours(new Date('2026-10-01T20:00:00Z')).nextTransition, Date.parse('2026-10-02T01:00:00Z'))
 })

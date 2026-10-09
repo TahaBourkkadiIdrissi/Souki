@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, func
 from sqlalchemy.orm import relationship
 from config import Base
 
@@ -16,6 +16,7 @@ class Commande(Base):
     brouillon_vocal_id = Column(Integer, ForeignKey("T_CommandeVocale.id"), nullable=True)
     statut             = Column(String(50))
     date_commande      = Column(DateTime, server_default=func.now())
+    date_livraison     = Column(Date, nullable=True, index=True)
     creneau_livraison  = Column(String(100))
     enroute_at         = Column(DateTime(timezone=True), nullable=True)
     delivered_at       = Column(DateTime(timezone=True), nullable=True)

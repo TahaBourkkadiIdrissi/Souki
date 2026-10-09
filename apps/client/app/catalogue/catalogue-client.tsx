@@ -1,5 +1,7 @@
 "use client"
 
+import { DeliveryPromise } from "@/components/souki/delivery-promise"
+
 import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react"
 import Link from "next/link"
@@ -306,7 +308,7 @@ function RecolteWarmWelcome() {
   )
 }
 
-/* Compte a rebours vers la cloture JIT de 20h00. Rendu uniquement apres
+/* Compte a rebours vers la cloture JIT de 01h00. Rendu uniquement apres
    montage (le serveur rend la phrase statique) pour eviter tout mismatch
    d'hydratation ; une seule ligne dans les deux cas, donc pas de CLS. */
 function JitCutoffBanner() {
@@ -314,7 +316,7 @@ function JitCutoffBanner() {
   const pad = (n: number) => String(n).padStart(2, "0")
   return (
     <div className="bg-[#F07C00] px-4 py-3 text-center text-sm font-semibold text-white">
-      {cutoff?.closed ? "Commandes fermées — Réouverture à 08h00" : "Clôture des paniers à 20h00"}
+      {cutoff?.closed ? "Commandes fermées — Réouverture à 08h00" : "Clôture des paniers à 01h00"}
       {cutoff && <span className="souki-tabular-nums"> — {pad(cutoff.hours)}:{pad(cutoff.minutes)}:{pad(cutoff.seconds)}</span>}
       {" · Heure du Maroc"}
     </div>
@@ -1233,13 +1235,13 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
           trust: {
             icon: Clock,
             eyebrow: "Logistique Souki",
-            title: "Livraison demain entre 8h et 15h",
-            description: "Commande validée aujourd'hui, panier livré demain pour garantir la fraîcheur.",
+            title: "Livraison entre 8h et 15h",
+            description: "Commandes ouvertes de 8h à 1h. Date de livraison indiquée avant validation.",
             tone: "orange" as const,
           },
           stat: {
-            label: "Après 20h",
-            value: "En attente pour demain",
+            label: "De 1h à 8h",
+            value: "Commandes et modifications fermées",
             tone: "orange" as const,
           },
         },
@@ -1419,7 +1421,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                 <span className="font-semibold">Commandes ouvertes</span>
               </div>
               <p className="mt-2 text-sm text-[#718272]">
-                Livraison demain pour garantir la fraîcheur.
+                <DeliveryPromise />
               </p>
             </div>
 
@@ -2382,7 +2384,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
               </button>
 
               <p className="mt-3 text-center text-xs text-[#6F8070]">
-                Livraison demain pour garantir la fraîcheur.
+                <DeliveryPromise />
               </p>
             </div>
           )}

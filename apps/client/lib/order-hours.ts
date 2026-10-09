@@ -1,7 +1,7 @@
 export const MOROCCO_TIME_ZONE = "Africa/Casablanca"
 export const ORDER_OPEN_HOUR = 8
-export const ORDER_CLOSE_HOUR = 20
-export const ORDER_CLOSED_MESSAGE = "Les commandes sont fermées pour préparer les livraisons. Réouverture à 08h00 (heure du Maroc). Votre commande n’a pas été enregistrée."
+export const ORDER_CLOSE_HOUR = 1
+export const ORDER_CLOSED_MESSAGE = "Les commandes et leurs modifications sont fermées de 01h00 à 08h00 (heure du Maroc). Réouverture à 08h00."
 
 // Same transition as backend tzdata 2026.4; older mobile ICU databases still
 // predict GMT+1 after this date. Keep their order window aligned with the API.
@@ -23,9 +23,11 @@ function localParts(date: Date) {
 
 export function getOrderHours(now = new Date()) {
   const p = localParts(now)
-  const closed = p.hour < ORDER_OPEN_HOUR || p.hour >= ORDER_CLOSE_HOUR
+  const closed = p.hour >= ORDER_CLOSE_HOUR && p.hour < ORDER_OPEN_HOUR
   const hour = closed ? ORDER_OPEN_HOUR : ORDER_CLOSE_HOUR
-  const wallTarget = Date.UTC(p.year, p.month - 1, p.day + (p.hour >= ORDER_CLOSE_HOUR ? 1 : 0), hour)
+  const deliveryDay = p.day + (p.hour >= ORDER_OPEN_HOUR ? 1 : 0)
+  const deliveryDate = closed ? null : new Date(Date.UTC(p.year, p.month - 1, deliveryDay)).toISOString().slice(0, 10)
+  const wallTarget = Date.UTC(p.year, p.month - 1, closed ? p.day : deliveryDay, hour)
   // Convert the next Moroccan wall-clock boundary to an instant, including DST changes.
   let target = wallTarget
   for (let i = 0; i < 3; i++) {
@@ -34,5 +36,10 @@ export function getOrderHours(now = new Date()) {
     target += wallTarget - localAsUtc
   }
   const remaining = Math.max(0, Math.ceil((target - now.getTime()) / 1000))
-  return { closed, nextTransition: target, hours: Math.floor(remaining / 3600), minutes: Math.floor(remaining % 3600 / 60), seconds: remaining % 60 }
+  return { closed, deliveryDate, nextTransition: target, hours: Math.floor(remaining / 3600), minutes: Math.floor(remaining % 3600 / 60), seconds: remaining % 60 }
+}
+
+export function formatDeliveryDate(value: string | null | undefined) {
+  if (!value) return "Date de livraison à confirmer"
+  return new Intl.DateTimeFormat("fr-MA", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" }).format(new Date(`${value}T12:00:00Z`))
 }

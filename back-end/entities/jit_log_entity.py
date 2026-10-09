@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, func, Text
+from sqlalchemy import Column, Date, DateTime, Float, ForeignKey, Integer, String, func, Text
 from config import Base
 
 
@@ -7,6 +7,7 @@ class JITLog(Base):
 
     id                  = Column(Integer, primary_key=True, autoincrement=True)
     date_execution      = Column(DateTime, server_default=func.now())
+    date_livraison      = Column(Date, nullable=True, index=True)
     volume_total        = Column(Float)
     nombre_commandes    = Column(Integer, default=0)
     nombre_abonnements  = Column(Integer, default=0)

@@ -20,6 +20,7 @@ def _commande(
         id=1,
         statut=statut,
         date_commande=date_commande,
+        date_livraison=date_commande.date(),
         fournisseur_id=fournisseur_id,
         tournee_id=20,
         ordre_passage=1,
