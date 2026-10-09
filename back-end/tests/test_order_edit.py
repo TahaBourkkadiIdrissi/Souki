@@ -88,6 +88,28 @@ def test_save_keeps_order_basket_date_slot_and_line_ids(setup):
     assert notify.call_args.kwargs["event_key"] == "ORDER_UPDATED"
 
 
+@pytest.mark.parametrize("mode", ["cod", "wallet"])
+def test_order_below_50_dh_can_be_previewed_and_reduced(setup, mode):
+    service, session, _ = setup
+    order = session.get(Commande, 1)
+    order.mode_paiement = mode
+    order.montant_total = order.panier.total_facture = 33  # 18 DH products + 15 DH delivery.
+    order.panier.lignes[0].quantite_kg = 1.8
+    order.panier.lignes[0].sous_total = 18
+    session.commit()
+
+    quote = service.preview(7, 1, request(1.8))
+    assert quote.subtotal == 18 and quote.total == 33
+    assert session.get(Commande, 1).status_version == 1
+
+    result = save(service, request(1))
+    assert result.subtotal == 10 and result.delivery_fee == 15 and result.total == 25
+    assert session.get(Commande, 1).montant_total == 25
+    assert session.get(LignePanier, 1).quantite_kg == 1
+    assert session.query(SoukiWallet).one().balance == (108 if mode == "wallet" else 100)
+    assert session.query(TransactionWallet).count() == (1 if mode == "wallet" else 0)
+
+
 def test_add_remove_and_free_delivery_threshold(setup):
     service, session, _ = setup
     payload = OrderEditRequestDTO(items=[{"product_id": 2, "quantity": 40}], expected_version=1)

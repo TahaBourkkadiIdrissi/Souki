@@ -8,7 +8,7 @@ from interfaces.checkout_dao_interface import ICheckoutDao
 from interfaces.order_edit_dao_interface import IOrderEditDao
 from interfaces.order_edit_service_interface import IOrderEditService
 from operating_mode import preorders_enabled
-from services.checkout_service import FRAIS_LIVRAISON, PANIER_MINIMUM_DH, SEUIL_LIVRAISON_GRATUITE
+from services.checkout_service import FRAIS_LIVRAISON, SEUIL_LIVRAISON_GRATUITE
 from services.notification_service import notification_service
 from services.order_schedule import ORDER_BATCH_LOCK_ID, delivery_cutoff, local_now, orders_closed
 
@@ -117,8 +117,6 @@ class OrderEditService(IOrderEditService):
             lines.append(OrderEditLineDTO(product_id=product_id, name=product.nom_fr, unit=product.unite,
                          quantity=float(quantity), unit_price=float(price), subtotal=float(money(price * quantity))))
         subtotal = sum((money(line.subtotal) for line in lines), Decimal(0))
-        if subtotal < Decimal(str(PANIER_MINIMUM_DH)):
-            raise HTTPException(400, f"Le minimum de produits est de {PANIER_MINIMUM_DH:g} DH.")
         fee = Decimal(0) if subtotal >= Decimal(str(SEUIL_LIVRAISON_GRATUITE)) or (
             order.client and getattr(order.client, "abonnement_actif", False)) else money(FRAIS_LIVRAISON)
         return order, lines, subtotal, subtotal + fee, products, stock_changes

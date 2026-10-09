@@ -120,7 +120,7 @@ export function OrderEditor({ orderId }: { orderId: number }) {
           </section>
           <section className="space-y-3 rounded-2xl border border-[#D7EBD9] bg-white p-5" aria-label="Produits de la commande">
             <h2 className="text-lg font-bold">Vos produits</h2>
-            {items.length === 0 && <p>Ajoutez au moins un produit. Le minimum de produits est de 50 DH.</p>}
+            {items.length === 0 && <p>Ajoutez au moins un produit.</p>}
             {items.map(item => {
               const product = products.find(p => p.id === item.product_id)
               const step = product?.quantityStep || (item.unit === "kg" ? 0.5 : 1)

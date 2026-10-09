@@ -14,7 +14,7 @@ Le client demande un aperçu au serveur, vérifie les produits, frais de livrais
 - Statuts autorisés : `EN_ATTENTE` et `CONFIRMEE`, sans tournée affectée.
 - Date limite : 01 h le jour de **la livraison de cette commande**, fuseau `Africa/Casablanca`. La réouverture à 08 h ne débloque jamais une ancienne commande. La fermeture générale 01 h–08 h s’applique aussi.
 - Recontrôle après acquisition des verrous, y compris après attente sur un produit ou le Wallet.
-- Minimum produits : 50 DH. Frais de livraison recalculés avec les constantes existantes (15 DH, offerts dès 300 DH).
+- Aucun montant minimum de produits, comme lors de la création de commande. Au moins un produit avec une quantité positive reste obligatoire. Frais de livraison recalculés avec les constantes existantes (15 DH, offerts dès 300 DH).
 - Prix convenu conservé pour les produits déjà présents ; prix catalogue serveur pour les nouveaux produits. Un total différent de l’aperçu doit être confirmé à nouveau.
 - Mode précommande : pas de décrément de stock. Mode stock : réservation/libération de la différence sous verrou produit, dans l’ordre des identifiants.
 - COD : montant à encaisser mis à jour. Une commande déjà encaissée ou un client blacklisté ne peut pas modifier une commande COD.
