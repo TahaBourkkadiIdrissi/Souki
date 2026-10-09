@@ -74,6 +74,7 @@ function HistoriqueContent() {
   const [historyError, setHistoryError] = useState("")
   const successOrderId = searchParams.get("commande_validee")
   const editedOrderId = searchParams.get("commande_modifiee")
+  const cancelledOrderId = searchParams.get("commande_annulee")
 
   const loadOrderHistory = useCallback(async () => {
     if (!isAuthenticated) {
@@ -126,7 +127,7 @@ function HistoriqueContent() {
     }
 
     void loadOrderHistory()
-  }, [isLoading, loadOrderHistory, editedOrderId])
+  }, [isLoading, loadOrderHistory, editedOrderId, cancelledOrderId])
 
   const resolveOrderProductImage = (product: CommandeHistoriqueDTO["produits"][number]) => {
     const productWithImage = product as CommandeHistoriqueDTO["produits"][number] & { image?: string | null }
@@ -154,6 +155,7 @@ function HistoriqueContent() {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 md:py-8 lg:px-8">
+        {cancelledOrderId && <div role="status" className="mb-5 rounded-2xl border border-[#BFE6C4] bg-[#EAF8EC] px-5 py-4 text-sm font-semibold text-[#1E8A3C]">Votre commande N-{cancelledOrderId} a été annulée. Si elle était payée par Wallet, le total a été recrédité.</div>}
         {editedOrderId && <div role="status" className="mb-5 rounded-2xl border border-[#BFE6C4] bg-[#EAF8EC] px-5 py-4 text-sm font-semibold text-[#1E8A3C]">Votre commande N-{editedOrderId} a été modifiée avec succès.</div>}
         {successOrderId && (
           <div className="mb-5 rounded-2xl border border-[#BFE6C4] bg-[#EAF8EC] px-5 py-4 text-sm font-semibold text-[#1E8A3C]">

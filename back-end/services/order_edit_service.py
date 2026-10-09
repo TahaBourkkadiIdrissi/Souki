@@ -3,13 +3,14 @@ from decimal import Decimal, ROUND_HALF_UP
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from dto.order_edit_dto import OrderEditLineDTO, OrderEditRequestDTO, OrderEditSaveDTO, OrderEditResponseDTO
+from dto.order_edit_dto import OrderEditLineDTO, OrderEditRequestDTO, OrderEditSaveDTO, OrderEditResponseDTO, OrderCancelRequestDTO, OrderCancelResponseDTO
 from interfaces.checkout_dao_interface import ICheckoutDao
 from interfaces.order_edit_dao_interface import IOrderEditDao
 from interfaces.order_edit_service_interface import IOrderEditService
 from operating_mode import preorders_enabled
 from services.checkout_service import FRAIS_LIVRAISON, SEUIL_LIVRAISON_GRATUITE
 from services.notification_service import notification_service
+from services.commande_state_machine import changer_statut
 from services.order_schedule import ORDER_BATCH_LOCK_ID, delivery_cutoff, local_now, orders_closed
 
 COD_MODES = {"cod", "cash", "especes", "especes_livraison", "cash_on_delivery"}
@@ -29,22 +30,23 @@ class OrderEditService(IOrderEditService):
             raise HTTPException(404, "Commande introuvable.")
         return order
 
-    def _reason(self, order):
+    def _reason(self, order, *, cancelling=False):
         now = local_now()
+        action = "annulée" if cancelling else "modifiée"
         if not order.date_livraison or now >= delivery_cutoff(order.date_livraison):
-            return "Cette commande est clôturée. Elle ne peut plus être modifiée."
+            return f"Cette commande est clôturée. Elle ne peut plus être {action}."
         if orders_closed(now):
-            return "Les modifications sont fermées de 01h00 à 08h00."
+            return "Les annulations sont fermées de 01h00 à 08h00." if cancelling else "Les modifications sont fermées de 01h00 à 08h00."
         if str(order.statut or "").upper() not in {"EN_ATTENTE", "CONFIRMEE"} or order.tournee_id is not None:
-            return "Cette commande est déjà en préparation et ne peut plus être modifiée."
+            return f"Le statut de cette commande ne permet plus qu’elle soit {action} en ligne."
         if order.panier is None:
             return "Le panier de cette commande est indisponible."
         mode = str(order.mode_paiement or "").lower()
         if mode not in COD_MODES | {"wallet"}:
-            return "La modification de ce mode de paiement nécessite de contacter SOUKI."
+            return "Pour ce mode de paiement, contactez SOUKI."
         if mode in COD_MODES and (order.payment_validated or (order.paiement and order.paiement.valide)):
             return "Cette commande a déjà été encaissée. Contactez SOUKI."
-        if mode in COD_MODES and order.client and order.client.is_blacklisted:
+        if not cancelling and mode in COD_MODES and order.client and order.client.is_blacklisted:
             return "Votre compte ne peut pas modifier une commande en paiement à la livraison."
         return None
 
@@ -67,8 +69,10 @@ class OrderEditService(IOrderEditService):
         total = money(order.montant_total) if total is None else total
         previous = money(order.montant_total) if previous is None else previous
         reason = self._reason(order)
+        cancellation_reason = self._reason(order, cancelling=True)
         return OrderEditResponseDTO(commande_id=order.id, version=order.status_version or 1,
             editable=reason is None, reason=reason, server_time=local_now(),
+            cancellable=cancellation_reason is None, cancellation_reason=cancellation_reason,
             deadline=delivery_cutoff(order.date_livraison) if order.date_livraison else None,
             date_livraison=order.date_livraison, creneau_livraison=order.creneau_livraison,
             mode_paiement=str(order.mode_paiement or ""), items=lines,
@@ -77,6 +81,48 @@ class OrderEditService(IOrderEditService):
 
     def get_order(self, user_id: int, order_id: int) -> OrderEditResponseDTO:
         return self._snapshot(self._owned(user_id, order_id))
+
+    def _assert_cancellable(self, order):
+        if self._reason(order, cancelling=True):
+            raise HTTPException(409, "Cette commande ne peut plus être annulée en ligne. Rechargez-la pour consulter son état.")
+
+    def cancel(self, user_id: int, order_id: int, payload: OrderCancelRequestDTO) -> OrderCancelResponseDTO:
+        try:
+            self.checkout_dao.lock_order_batch(self.session, ORDER_BATCH_LOCK_ID)
+            order = self._owned(user_id, order_id, lock=True)
+            self._assert_cancellable(order)
+            if (order.status_version or 1) != payload.expected_version:
+                raise HTTPException(409, "La commande a changé. Rechargez-la avant de confirmer son annulation.")
+
+            quantities = {}
+            products = []
+            if not preorders_enabled():
+                for line in order.panier.lignes:
+                    quantities[line.produit_id] = quantities.get(line.produit_id, Decimal(0)) + Decimal(str(line.quantite_kg))
+                products = self.checkout_dao.get_products_by_ids(self.session, sorted(quantities), for_update=True)
+            refunded = Decimal(0)
+            wallet = None
+            if str(order.mode_paiement).lower() == "wallet":
+                refunded = money(order.montant_total)
+                wallet = self.dao.get_wallet_for_update(self.session, user_id)
+                if wallet is None:
+                    raise HTTPException(400, "Portefeuille Souki introuvable. Contactez SOUKI pour annuler cette commande.")
+
+            # Locks may have waited until after the delivery batch cutoff.
+            self._assert_cancellable(order)
+            if wallet is not None and refunded:
+                self.dao.refund_wallet(self.session, wallet, refunded)
+            if products:
+                self.dao.restore_stock(self.session, products, quantities)
+            # Reuse the existing transition and notification path; keep the paid total for history.
+            changer_statut(self.session, order, "ANNULEE", actor_id=user_id,
+                           reason="Annulation demandée par le client avant clôture")
+            result = OrderCancelResponseDTO(commande_id=order.id, statut="ANNULEE", refunded_amount=float(refunded))
+            self.session.commit()
+            return result
+        except Exception:
+            self.session.rollback()
+            raise
 
     def _prepare(self, user_id: int, order_id: int, payload: OrderEditRequestDTO):
         # Same shared lock as checkout; JIT waits until the whole edit is committed.

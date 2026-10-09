@@ -3,7 +3,7 @@ from auth_dependencies import require_permission
 from config import LocalSession
 from dao.checkout_dao import CheckoutDaoBD
 from dao.order_edit_dao import OrderEditDaoBD
-from dto.order_edit_dto import OrderEditRequestDTO, OrderEditSaveDTO, OrderEditResponseDTO
+from dto.order_edit_dto import OrderEditRequestDTO, OrderEditSaveDTO, OrderEditResponseDTO, OrderCancelRequestDTO, OrderCancelResponseDTO
 from interfaces.order_edit_service_interface import IOrderEditService
 from services.order_edit_service import OrderEditService
 
@@ -13,6 +13,13 @@ router_order_edit = APIRouter(prefix="/api/commandes", tags=["Modification de co
 def get_order_edit_service():
     with LocalSession() as session:
         yield OrderEditService(OrderEditDaoBD(), CheckoutDaoBD(), session)
+
+
+@router_order_edit.post("/{order_id}/annuler", response_model=OrderCancelResponseDTO)
+def cancel_order(order_id: int, payload: OrderCancelRequestDTO,
+                 principal=Depends(require_permission("checkout.create")),
+                 service: IOrderEditService = Depends(get_order_edit_service)):
+    return service.cancel(principal.user_id, order_id, payload)
 
 
 @router_order_edit.get("/{order_id}/modification", response_model=OrderEditResponseDTO)

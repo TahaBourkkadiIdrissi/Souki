@@ -10,6 +10,16 @@ from interfaces.order_edit_dao_interface import IOrderEditDao
 
 
 class OrderEditDaoBD(IOrderEditDao):
+    def refund_wallet(self, session: Session, wallet: SoukiWallet, amount: Decimal) -> None:
+        wallet.balance = Decimal(str(wallet.balance)) + amount
+        session.add(TransactionWallet(wallet_id=wallet.id, type="CREDIT_ANNULATION", montant=float(amount)))
+        session.flush()
+
+    def restore_stock(self, session: Session, products: list, quantities: dict[int, Decimal]) -> None:
+        for product in products:
+            product.stock = float(Decimal(str(product.stock or 0)) + quantities[product.id])
+        session.flush()
+
     def get_owned_order(self, session: Session, order_id: int, user_id: int, *, for_update: bool = False):
         query = session.query(Commande).filter(Commande.id == order_id, Commande.client_id == user_id)
         if for_update:

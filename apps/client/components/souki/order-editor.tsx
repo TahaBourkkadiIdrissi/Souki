@@ -1,13 +1,13 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Minus, Plus, Trash2 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useOrderLock } from "@/hooks/useOrderLock"
 import { useClientStorageOwner } from "@/hooks/useClientCollection"
-import { ApiError, getOrderForEdit, previewOrderEdit, saveOrderEdit, type OrderEditLine, type OrderEditResponse } from "@/lib/api"
+import { ApiError, cancelOrder, getOrderForEdit, previewOrderEdit, saveOrderEdit, type OrderEditLine, type OrderEditResponse } from "@/lib/api"
 import { fetchCatalogueProducts, type CatalogueProduct } from "@/lib/catalogue"
 import { formatDeliveryDate } from "@/lib/order-hours"
 import { SoukiLogoLink } from "@/components/souki/souki-logo"
@@ -30,6 +30,13 @@ export function OrderEditor({ orderId }: { orderId: number }) {
   const [search, setSearch] = useState("")
   const [expired, setExpired] = useState(false)
   const [mustReload, setMustReload] = useState(false)
+  const [confirmCancel, setConfirmCancel] = useState(false)
+  const cancelDialog = useRef<HTMLDialogElement>(null)
+
+  useEffect(() => {
+    if (confirmCancel && order && isAuthenticated) cancelDialog.current?.showModal()
+    else cancelDialog.current?.close()
+  }, [confirmCancel, order, isAuthenticated])
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true); setError(""); setQuote(null)
@@ -63,6 +70,19 @@ export function OrderEditor({ orderId }: { orderId: number }) {
   }, [order])
 
   const locked = !order?.editable || isLocked || expired || mustReload
+  const cancelLocked = !order?.cancellable || isLocked || expired || mustReload
+  const cancel = async () => {
+    if (!order || cancelLocked || busy) return
+    setBusy(true); setError("")
+    try {
+      await cancelOrder(orderId, order.version)
+      router.replace(`/historique?commande_annulee=${orderId}`)
+    } catch (e) {
+      setConfirmCancel(false)
+      setError(e instanceof Error ? e.message : "Impossible d’annuler la commande.")
+      if (e instanceof ApiError && [403, 404, 409].includes(e.status)) setMustReload(true)
+    } finally { setBusy(false) }
+  }
   const changeQuantity = (id: number, quantity: number) => {
     if (locked || busy) return
     setQuote(null); setError("")
@@ -107,7 +127,7 @@ export function OrderEditor({ orderId }: { orderId: number }) {
       </div>
     </header>
     <main className="mx-auto max-w-3xl space-y-5 px-4 py-6">
-      <h1 className="text-2xl font-black text-[#1E8A3C]">Modifier ma commande</h1>
+      <h1 className="text-2xl font-black text-[#1E8A3C]">Gérer ma commande</h1>
       {authLoading || loading ? <p role="status">Chargement de la commande…</p> : !isAuthenticated ?
         <p>Connectez-vous pour retrouver votre commande. <Link href="/login/client" className="underline">Se connecter</Link></p> : <>
         {error && <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800">{error}</div>}
@@ -157,6 +177,21 @@ export function OrderEditor({ orderId }: { orderId: number }) {
             </button>
             <p className="text-xs text-[#6F8070]">Rien n’est enregistré avant votre confirmation. Les prix des produits déjà commandés sont conservés.</p>
           </section>
+          <section className="space-y-3 rounded-2xl border border-red-200 bg-white p-5">
+            <h2 className="text-lg font-bold">Annuler la commande</h2>
+            <p className="text-sm">Possible avant 01 h le jour de la livraison, tant que la préparation n’a pas commencé.</p>
+            <button disabled={cancelLocked || busy} onClick={() => setConfirmCancel(true)} className="min-h-12 w-full rounded-xl border border-red-300 px-4 font-bold text-red-700 hover:bg-red-50 disabled:opacity-50">Annuler ma commande</button>
+            {cancelLocked && <p className="text-sm text-amber-800">{mustReload ? "Rechargez la commande pour consulter son état actuel." : order.cancellation_reason || "L’annulation de cette commande est fermée."}</p>}
+          </section>
+          <dialog ref={cancelDialog} aria-labelledby="cancel-title" aria-describedby="cancel-description" onCancel={event => { if (busy) event.preventDefault(); else setConfirmCancel(false) }} className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl bg-white p-6 text-[#264129] backdrop:bg-black/50">
+            <h2 id="cancel-title" className="text-xl font-bold">Annuler la commande N-{order.commande_id} ?</h2>
+            <p id="cancel-description" className="mt-3 text-sm">Cette action est définitive. {order.mode_paiement.toLowerCase() === "wallet" ? `Le total payé de ${dh(order.total)}, livraison comprise, sera recrédité sur votre Wallet.` : "Vous n’aurez rien à payer pour cette commande."} Les modifications non enregistrées seront abandonnées.</p>
+            {cancelLocked && <p role="alert" className="mt-3 text-sm text-amber-800">L’annulation n’est plus disponible. Fermez cette fenêtre et rechargez la commande.</p>}
+            <div className="mt-5 flex flex-col gap-3">
+              <button autoFocus disabled={busy} onClick={() => setConfirmCancel(false)} className={actionClass}>Garder ma commande</button>
+              <button disabled={cancelLocked || busy} onClick={() => void cancel()} className="min-h-12 rounded-xl bg-red-600 px-4 font-bold text-white hover:bg-red-700 disabled:opacity-50">{busy ? "Annulation…" : "Confirmer l’annulation"}</button>
+            </div>
+          </dialog>
         </>}
         {(mustReload || (!order && error)) && <button disabled={busy} className={actionClass} onClick={() => void load()}>Recharger la commande</button>}
       </>}

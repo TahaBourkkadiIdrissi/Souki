@@ -9,6 +9,14 @@ from dto.order_edit_dto import OrderEditLineDTO
 
 class IOrderEditDao(ABC):
     @abstractmethod
+    def refund_wallet(self, session: Session, wallet: SoukiWallet, amount: Decimal) -> None:
+        pass
+
+    @abstractmethod
+    def restore_stock(self, session: Session, products: list, quantities: dict[int, Decimal]) -> None:
+        pass
+
+    @abstractmethod
     def get_owned_order(self, session: Session, order_id: int, user_id: int, *, for_update: bool = False) -> Optional[Commande]:
         pass
 

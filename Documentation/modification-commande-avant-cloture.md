@@ -1,14 +1,26 @@
-# Modifier une commande avant sa clôture
+# Modifier ou annuler une commande avant sa clôture
 
 Branche : `changement_horraire`. Cette fonctionnalité complète le changement d’horaires et remplace la décision initiale limitée au panier avant validation.
 
 ## Parcours client
 
-Depuis **Mes commandes / Historique** ou **Suivi de commande**, le bouton **Modifier ma commande** ouvre `/commandes/{id}/modifier`. Il permet d’ajouter, retirer et ajuster les quantités. L’écran ne modifie pas le panier courant de l’utilisateur.
+Depuis **Mes commandes / Historique** ou **Suivi de commande**, le bouton **Modifier ou annuler** ouvre `/commandes/{id}/modifier`. Il permet d’ajouter, retirer et ajuster les quantités. L’écran ne modifie pas le panier courant de l’utilisateur.
 
 Le client demande un aperçu au serveur, vérifie les produits, frais de livraison, nouveau total et différence Wallet, puis clique sur **Enregistrer les modifications**. Revenir à l’historique sans enregistrer abandonne les changements. Le numéro, le panier associé, la date de livraison, le créneau et le mode de paiement sont conservés. L’historique et une notification confirment la modification.
 
 ## Règles serveur
+
+### Annulation client
+
+Le bouton **Annuler ma commande** ouvre une confirmation avec le montant du remboursement Wallet. **Garder ma commande** ferme la fenêtre sans écriture. La confirmation appelle `POST /api/commandes/{id}/annuler` avec `expected_version`.
+
+L’annulation exige le propriétaire authentifié, une commande `EN_ATTENTE` ou `CONFIRMEE`, sans tournée, avant 01 h le jour de sa livraison et hors fermeture générale. Une commande COD déjà encaissée ou un paiement non pris en charge (CMI) est refusé. La blacklist COD n’interdit pas l’annulation d’une commande existante.
+
+Le service prend les mêmes verrous de lot/commande/produits/Wallet que l’édition et recontrôle l’heure après leur acquisition. Le Wallet reçoit le total actuellement payé, livraison comprise, avec une transaction `CREDIT_ANNULATION`. En mode stock, les quantités réservées sont restituées ; en précommande, aucun stock n’est ajouté. Le statut passe à `ANNULEE` par `changer_statut`, ce qui incrémente la version et émet la notification existante. Les lignes, montants et dates restent conservés pour l’historique. Le remboursement, le stock et le statut sont validés dans un unique commit, ou annulés ensemble en cas d’erreur. Une seconde demande ou un formulaire antérieur à une modification renvoie 409 sans nouveau remboursement.
+
+L’administrateur et le livreur utilisent le statut existant : aucune nouvelle règle logistique ni migration. Les commandes annulées sont exclues du lot JIT par ses filtres existants.
+
+### Modification des produits
 
 - Propriétaire authentifié avec permission existante `checkout.create` ; une commande tierce renvoie 404.
 - Statuts autorisés : `EN_ATTENTE` et `CONFIRMEE`, sans tournée affectée.
@@ -31,15 +43,15 @@ L’édition prend le même verrou partagé de lot que le checkout. Le JIT prend
 
 | Fichier | Rôle / changement |
 | --- | --- |
-| `back-end/controllers/order_edit_controller.py` | 3 routes ; authentification, création/injection/fermeture de session, délégation au service |
+| `back-end/controllers/order_edit_controller.py` | 4 routes ; authentification, création/injection/fermeture de session, délégation au service |
 | `back-end/services/order_edit_service.py` | Éligibilité, calcul serveur, concurrence, paiement, notification, transaction |
 | `back-end/dao/order_edit_dao.py` | Lecture du propriétaire, verrous commande/Wallet, remplacement des lignes en conservant les IDs présents, écriture Wallet |
-| `back-end/interfaces/order_edit_service_interface.py` | Contrat ABC lecture / aperçu / enregistrement |
+| `back-end/interfaces/order_edit_service_interface.py` | Contrat ABC lecture / aperçu / enregistrement / annulation |
 | `back-end/interfaces/order_edit_dao_interface.py` | Contrat ABC des accès aux données |
 | `back-end/dto/order_edit_dto.py` | DTO bornés, quantités finies positives, unicité des produits, version et total attendus |
 | `back-end/main.py` | Enregistrement du router |
 | `back-end/services/notification_catalog.py` | Événement `ORDER_UPDATED` |
-| `apps/client/lib/api.ts` | Types et 3 fonctions API via `apiCall` |
+| `apps/client/lib/api.ts` | Types et 4 fonctions API via `apiCall` |
 | `apps/client/app/commandes/[id]/modifier/page.tsx` | Page App Router, params asynchrones |
 | `apps/client/components/souki/order-editor.tsx` | Formulaire, aperçu serveur, ajustement Wallet, expiration, confirmation |
 | `apps/client/components/souki/order-edit-link.tsx` | Accès aux commandes éligibles, heure synchronisée avec le serveur |
@@ -63,14 +75,14 @@ Les nouveaux fichiers isolent cette fonctionnalité sans refondre le checkout ex
 | `order_edit_service.py` | Aucun | Commit final / rollback en cas d’erreur ; rollback d’aperçu pour libérer les verrous | Aucun | Aucune requête |
 | `order_edit_controller.py` | Aucun | Aucun | Session créée ici, injectée au service | Aucune requête |
 
-Les anciens services ne sont pas refactorisés. `CheckoutDaoBD` est réutilisé pour les verrous de lot et la lecture des produits. Les deux nouvelles classes métier implémentent leurs interfaces ABC.
+Les anciens services ne sont pas refactorisés. `CheckoutDaoBD` est réutilisé pour les verrous de lot et la lecture des produits. Les deux classes métier implémentent leurs interfaces ABC. L’annulation réutilise également `changer_statut`, point de passage existant des transitions et notifications, qui effectue son propre flush ; ce comportement préexistant n’est pas modifié. Aucun commit intermédiaire n’est ajouté.
 
 ## Vérification et déploiement
 
-- 355 tests backend et 43 sous-cas passent, dont 27 tests nouveaux : limites horaires, ancien lot à 08 h, statuts, propriétaire, doublons, aperçu sans écriture, prix, stock, Wallet débit/crédit, rollback, versions concurrentes et authentification.
+- 377 tests backend et 43 sous-cas passent, dont 49 cas dans `test_order_edit.py` : modification et annulation, limites horaires, ancien lot à 08 h, statuts, propriétaire, doublons, aperçu sans écriture, prix, petits montants, stock, Wallet débit/crédit/remboursement intégral, rollback, versions concurrentes et authentification.
 - Vérification TypeScript du client sans erreur.
-- Contrôle visuel mobile : `outputs/order-edit/mobile.png` (artefact local non versionné).
-- Test navigateur réussi : ajout/retrait, aperçu serveur, affichage débit/crédit Wallet, enregistrement, lien depuis l’historique et blocage automatique à 01 h.
+- Contrôle visuel mobile : `outputs/order-edit/mobile.png` et `outputs/order-edit/cancellation-mobile.png` (artefacts locaux non versionnés).
+- Test navigateur réussi : ajout/retrait, aperçu serveur, affichage débit/crédit Wallet, enregistrement, lien depuis l’historique, confirmation d’annulation avec montant, abandon sans requête et retour à l’historique. Le blocage automatique à 01 h désactive aussi une confirmation d’annulation déjà ouverte.
 - Les tests SQLite vérifient les écritures et les rollback mais ne simulent pas les verrous PostgreSQL concurrents : un test de recette sur PostgreSQL reste recommandé.
 
 **Aucune migration SQL supplémentaire pour cet ajout.** La migration des dates de livraison du changement d’horaires doit déjà être appliquée. Le champ `status_version` et les tables Wallet font partie du schéma existant.
