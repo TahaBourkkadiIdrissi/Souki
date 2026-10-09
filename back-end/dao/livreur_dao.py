@@ -100,6 +100,7 @@ class LivreurDaoBD(ILivreurDao):
                 Fournisseur.address.label("pickup_address"),
                 Fournisseur.ville.label("pickup_ville"),
                 Fournisseur.phone.label("pickup_phone"),
+                Commande.date_livraison.label("date_livraison"),
                 Commande.creneau_livraison.label("creneau_livraison"),
                 Commande.statut.label("statut"),
                 Commande.status_version.label("status_version"),

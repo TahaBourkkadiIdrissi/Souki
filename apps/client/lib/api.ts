@@ -2,6 +2,17 @@
 
 export const API_BASE_URL = "/backend"
 
+export interface OrderScheduleDTO {
+  closed: boolean
+  server_time: string
+  next_transition: string
+  delivery_date: string | null
+}
+
+export function getOrderSchedule() {
+  return apiCall<OrderScheduleDTO>("/api/order-schedule", { cache: "no-store", signal: AbortSignal.timeout(5000) })
+}
+
 
 interface ApiOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
@@ -51,6 +62,7 @@ export interface CommandeHistoriqueDTO {
   mode_paiement?: string | null
   payment_validated?: boolean | null
   montant_a_encaisser?: number | null
+  date_livraison?: string | null
   creneau_livraison?: string | null
   enroute_at?: string | null
   delivered_at?: string | null

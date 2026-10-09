@@ -27,14 +27,15 @@ class MoroccoTimezoneTests(unittest.TestCase):
 
     def test_daily_jobs_keep_their_local_hour(self):
         for month, day, offset in [(7, 22, 1), (9, 20, 0), (9, 28, 0)]:
-            for hour, minute in [(18, 0), (20, 0), (21, 35)]:
+            for hour, minute in [(1, 0), (4, 55), (7, 0), (8, 0)]:
                 with self.subTest(date=(month, day), job=(hour, minute)):
-                    now = datetime(2026, month, day, 12, tzinfo=timezone.utc)
+                    now = datetime(2026, month, day, 0, tzinfo=timezone.utc)
                     trigger = CronTrigger(hour=hour, minute=minute, second=0, timezone=MOROCCO_TIMEZONE)
                     fire = trigger.get_next_fire_time(None, now)
                     self.assertEqual((fire.hour, fire.minute), (hour, minute))
+                    expected_offset = 1 if (month, day, hour) == (9, 20, 1) else offset
                     self.assertEqual(fire.astimezone(timezone.utc),
-                                     datetime(2026, month, day, hour - offset, minute, tzinfo=timezone.utc))
+                                     datetime(2026, month, day, hour - expected_offset, minute, tzinfo=timezone.utc))
 
     def test_local_day_no_longer_advances_at_23_utc(self):
         now = datetime(2026, 9, 28, 23, 30, tzinfo=timezone.utc)

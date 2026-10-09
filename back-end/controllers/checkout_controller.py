@@ -4,9 +4,16 @@ from auth_dependencies import require_permission
 from dependencies import get_checkout_service
 from dto.checkout_dto import CheckoutRequestDTO, CheckoutResponseDTO
 from interfaces.checkout_service_interface import ICheckoutService
+from services.order_schedule import schedule_snapshot
+from fastapi.responses import JSONResponse
 
 
 router_checkout = APIRouter(prefix="/api", tags=["Checkout"])
+
+
+@router_checkout.get("/order-schedule")
+def get_order_schedule():
+    return JSONResponse(schedule_snapshot(), headers={"Cache-Control": "no-store"})
 
 
 @router_checkout.post("/checkout", response_model=CheckoutResponseDTO)

@@ -7,7 +7,7 @@ Sources : apps/client/app/faq/page.tsx, apps/client/app/layout.tsx.
 Choisissez vos fruits, légumes et herbes dans le catalogue, ajoutez-les au panier, puis validez votre commande. Souki vous livre à Fès.
 
 ## Horaires de livraison
-Commandez avant 20h pour une livraison le lendemain entre 8h et 15h à Fès. Consultez les créneaux disponibles lors de la validation.
+Les commandes et leurs modifications sont ouvertes de 8h à 1h du matin, heure du Maroc. De 1h à 8h, toute validation ou modification de commande est bloquée. Une commande passée entre 8h et minuit est livrée le lendemain ; entre minuit et 1h, elle est livrée le jour même. Les livraisons ont lieu entre 8h et 15h à Fès. La réouverture à 8h concerne la prochaine journée de livraison et ne déverrouille pas les anciennes commandes. Consultez la date et le créneau lors de la validation.
 
 ## Frais de livraison
 La livraison coûte 15 DH. Elle est offerte dès 300 DH de commande.

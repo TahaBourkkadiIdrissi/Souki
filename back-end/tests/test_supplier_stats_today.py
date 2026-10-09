@@ -24,6 +24,7 @@ def _orders_query(commandes):
 def test_supplier_stats_only_count_current_visible_orders():
     visible = SimpleNamespace(
         id=1,
+        date_livraison=TODAY,
         fournisseur_id=SUPPLIER_ID,
         date_commande=datetime(2026, 6, 20, 9, 0),
         statut="VERROUILLEE",
@@ -31,6 +32,7 @@ def test_supplier_stats_only_count_current_visible_orders():
     )
     wrong_supplier = SimpleNamespace(
         id=2,
+        date_livraison=TODAY,
         fournisseur_id=99,
         date_commande=datetime(2026, 6, 20, 10, 0),
         statut="VERROUILLEE",
@@ -38,6 +40,7 @@ def test_supplier_stats_only_count_current_visible_orders():
     )
     old_order = SimpleNamespace(
         id=3,
+        date_livraison=date(2026, 6, 19),
         fournisseur_id=SUPPLIER_ID,
         date_commande=datetime(2026, 6, 19, 10, 0),
         statut="A_LIVRER",
@@ -45,6 +48,7 @@ def test_supplier_stats_only_count_current_visible_orders():
     )
     inactive_status = SimpleNamespace(
         id=4,
+        date_livraison=TODAY,
         fournisseur_id=SUPPLIER_ID,
         date_commande=datetime(2026, 6, 20, 11, 0),
         statut="LIVREE",

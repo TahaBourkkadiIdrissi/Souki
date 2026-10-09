@@ -1,5 +1,7 @@
 "use client"
 
+import { formatDeliveryDate } from "@/lib/order-hours"
+
 import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { Suspense, useCallback, useEffect, useState, type CSSProperties } from "react"
 import Link from "next/link"
@@ -289,6 +291,7 @@ function HistoriqueContent() {
                     <div>
                       <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#7B8B7D]">Commande N-{order.id}</p>
                       <h3 className="mt-1 text-lg font-black text-[#264129]">{formatOrderDate(order.date_commande)}</h3>
+                      <p className="mt-1 text-sm text-[#264129]">Livraison : {formatDeliveryDate(order.date_livraison)} · {order.creneau_livraison}</p>
                     </div>
                     <span className={cn("rounded-full border px-3 py-1 text-xs font-bold", getOrderStatusClassName(order.statut))}>
                       {getOrderStatusLabel(order.statut)}

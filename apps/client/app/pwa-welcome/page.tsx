@@ -1,5 +1,7 @@
 "use client"
 
+import { DeliveryPromise } from "@/components/souki/delivery-promise"
+
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
@@ -416,7 +418,7 @@ export default function PwaWelcomePage() {
                 )}
                 <p className="mt-2.5 flex items-center gap-1.5 text-[13px] font-medium text-[#CDEBD6] drop-shadow-sm">
                   <Truck className="h-4 w-4 shrink-0 text-[#9BE7AE]" />
-                  Vos courses fraîches, livrées demain entre 8h et 15h.
+                  <DeliveryPromise />
                 </p>
               </div>
 
@@ -489,7 +491,7 @@ export default function PwaWelcomePage() {
           />
         </div>
 
-        {/* ===== HERO — OFFRE DU JOUR + DÉCOMPTE DE CLÔTURE (20h) ===== */}
+        {/* ===== HERO — OFFRE DU JOUR + DÉCOMPTE DE CLÔTURE (1h) ===== */}
         <div className="mt-5 px-4" data-reveal="up">
           <div className="relative overflow-hidden rounded-[28px] shadow-[0_22px_44px_-24px_rgba(17,59,30,0.55)]">
             <img
@@ -601,7 +603,7 @@ export default function PwaWelcomePage() {
             </div>
             <div className="relative flex-1">
               <p className="text-[15px] font-black leading-tight text-[#3D3D3D]">Livraison gratuite dès {FREE_DELIVERY_THRESHOLD} DH</p>
-              <p className="mt-0.5 text-[13px] font-medium text-[#3D3D3D]/70">Demain matin, frais et local</p>
+              <p className="mt-0.5 text-[13px] font-medium text-[#3D3D3D]/70"><DeliveryPromise /></p>
             </div>
           </div>
         </div>

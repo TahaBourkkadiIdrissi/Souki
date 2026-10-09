@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import date
 from typing import Any, Iterable, List, Optional
 
 from sqlalchemy.orm import Session
@@ -69,6 +70,7 @@ class ICommandeVocaleDao(ABC):
         session: Session,
         commande_ids: Optional[Iterable[int]] = None,
         statuts: Optional[Iterable[str]] = None,
+        date_livraison: Optional[date] = None,
     ) -> List[Commande]:
         """Retourne les commandes dispatchables non rattachees a une tournee."""
         pass

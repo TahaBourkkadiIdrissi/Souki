@@ -518,7 +518,7 @@ function mapTourneeItemToDeliveryView(item: TourneeItem, index: number): Deliver
     supplierLat: item.fournisseur_latitude ?? item.pickup_lat ?? null,
     supplierLng: item.fournisseur_longitude ?? item.pickup_lng ?? null,
     orderNumber: String(item.commande_id),
-    timeSlot: item.creneau_livraison || "Non précisé",
+    timeSlot: [item.date_livraison, item.creneau_livraison].filter(Boolean).join(" · ") || "Non précisé",
     address: item.full_address,
     street: item.street,
     neighborhood: item.neighborhood,

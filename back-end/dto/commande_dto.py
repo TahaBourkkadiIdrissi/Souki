@@ -1,3 +1,4 @@
+from datetime import date
 from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional, List
@@ -97,6 +98,7 @@ class CommandeHistoriqueDTO(BaseModel):
     mode_paiement: Optional[str] = None
     payment_validated: Optional[bool] = None
     montant_a_encaisser: Optional[float] = None
+    date_livraison: Optional[date] = None
     creneau_livraison: Optional[str] = None
     enroute_at: Optional[datetime] = None
     delivered_at: Optional[datetime] = None
@@ -141,6 +143,7 @@ class CommandeJourDTO(BaseModel):
     volume_total_kg: float = 0.0
     montant_total: float = 0.0
     mode_paiement: Optional[str] = None
+    date_livraison: Optional[date] = None
     creneau_livraison: Optional[str] = None
 
 class CommandeCODDemainDTO(BaseModel):
@@ -151,6 +154,7 @@ class CommandeCODDemainDTO(BaseModel):
     adresse: Optional[str] = None
     is_blacklisted: Optional[bool] = None
     montant: Optional[float] = None
+    date_livraison: Optional[date] = None
     creneau_livraison: Optional[str] = None
     statut_confirmation_cod: str = "NON_CONFIRMEE"
 

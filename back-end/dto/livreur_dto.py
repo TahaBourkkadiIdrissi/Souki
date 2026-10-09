@@ -1,3 +1,4 @@
+from datetime import date
 from datetime import date, datetime
 from enum import Enum
 from typing import List, Optional
@@ -23,6 +24,7 @@ class TourneeItemDTO(BaseModel):
     details: Optional[str] = None
     full_address: str
     colis_count: int = Field(default=0, ge=0)
+    date_livraison: Optional[date] = None
     creneau_livraison: Optional[str] = None
     statut: str
     status_version: int = Field(default=1, ge=1)

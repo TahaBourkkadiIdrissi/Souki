@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { getOrderHours } from "@/lib/order-hours"
+import { getCurrentOrderHours, refreshOrderSchedule, subscribeOrderSchedule } from "@/lib/order-schedule-client"
 
 /** Owned by small clock components, never by the product-list page. */
 export function useOrderCountdown() {
@@ -11,12 +12,18 @@ export function useOrderCountdown() {
     const resume = () => {
       window.clearInterval(timer)
       if (document.hidden) return
-      setState(getOrderHours())
-      timer = window.setInterval(() => setState(getOrderHours()), 1000)
+      void refreshOrderSchedule()
+      setState(getCurrentOrderHours())
+      timer = window.setInterval(() => {
+        const current = getCurrentOrderHours()
+        setState(current)
+        if (current.seconds === 0 && current.minutes === 0) void refreshOrderSchedule()
+      }, 1000)
     }
     resume()
     document.addEventListener("visibilitychange", resume)
-    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", resume) }
+    const unsubscribe = subscribeOrderSchedule(() => setState(getCurrentOrderHours()))
+    return () => { unsubscribe(); window.clearInterval(timer); document.removeEventListener("visibilitychange", resume) }
   }, [])
   return state
 }

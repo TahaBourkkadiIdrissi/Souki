@@ -363,9 +363,8 @@ function normalizeOrders(payload: unknown): AdminOrderRow[] {
           getString(item.statut) ||
           getString(item.status) ||
           "en_attente",
-        creneauLivraison:
-          getString(item.creneau_livraison) ||
-          getString(item.delivery_slot),
+        creneauLivraison: [getString(item.date_livraison),
+          getString(item.creneau_livraison) || getString(item.delivery_slot)].filter(Boolean).join(" · ") || null,
         isBlacklisted: getBoolean(item.is_blacklisted),
       }
     })
@@ -571,7 +570,7 @@ function getOrdersErrorMessage(error: unknown) {
     return error.message
   }
 
-  return "Impossible de charger les commandes du jour."
+  return "Impossible de charger les commandes à livrer."
 }
 
 function getUnlockCount(response: JITDeverrouillerResponse) {
@@ -870,7 +869,7 @@ function JITFinancialSummary({ result }: { result: ResultatAgregationJIT | null 
     <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="grid gap-3 md:grid-cols-3">
         <div className="rounded-xl bg-green-50 px-4 py-3">
-          <p className="text-xs font-semibold uppercase text-gray-500">CA estimé demain</p>
+          <p className="text-xs font-semibold uppercase text-gray-500">CA du lot de livraison</p>
           <p className="mt-1 text-xl font-bold text-[#1E8A3C]">{formatMoney(result.ca_estime_total)}</p>
         </div>
         <div className="rounded-xl bg-amber-50 px-4 py-3">
@@ -1568,7 +1567,7 @@ export default function AdminOrdersPage() {
   }, [codOrders, codSearch, codStatusFilter])
   const sidebarItems = [
     { id: "overview" as const, label: "Vue generale", icon: BarChart3, count: null },
-    { id: "commandes" as const, label: "Commandes du jour", icon: Package, count: orders.length },
+    { id: "commandes" as const, label: "Commandes à livrer", icon: Package, count: orders.length },
     { id: "jit" as const, label: "JIT", icon: Rocket, count: null },
     { id: "cod" as const, label: "COD", icon: PhoneCall, count: codUncalledClientsCount },
     { id: "logs" as const, label: "Logs", icon: ClipboardList, count: null },
@@ -1650,7 +1649,7 @@ export default function AdminOrdersPage() {
       {codAlerte18h?.alerte_active && (
         <div className="sticky top-16 z-30 border-b border-amber-200 bg-amber-50 px-6 py-2 text-sm font-medium text-amber-800 lg:pl-72">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>⚠️ {codAlerte18h.nb_non_confirmees} commandes COD non confirmées — Il est passé 18h00</span>
+            <span>⚠️ {codAlerte18h.nb_non_confirmees} commandes COD non confirmées — À confirmer avant la livraison</span>
             <button type="button" onClick={() => setActiveSection("cod")} className="text-xs font-semibold text-[#1E8A3C] hover:underline">
               Voir COD →
             </button>
@@ -1723,7 +1722,7 @@ export default function AdminOrdersPage() {
                 </p>
                 <h1 className="mt-4 text-3xl font-bold tracking-tight text-gray-950 lg:text-4xl">Gestion des Commandes</h1>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-500">
-                  Pilotage des commandes du jour, verrouillage JIT et validation COD depuis un dashboard opérationnel unique.
+                  Livraisons du jour et du lendemain, clôture à 1h du matin et validation COD.
                 </p>
               </div>
 
@@ -1737,7 +1736,7 @@ export default function AdminOrdersPage() {
         </section>
 
         <section className={cn("grid gap-4 md:grid-cols-2 xl:grid-cols-4", activeSection !== "overview" && "hidden")}>
-          <DashboardStatCard icon={Package} label="Commandes du jour" value={orders.length} tone="green" helper={`${clientGroups.length} client(s)`} />
+          <DashboardStatCard icon={Package} label="Livraisons du jour et du lendemain" value={orders.length} tone="green" helper={`${clientGroups.length} client(s)`} />
           <DashboardStatCard icon={Scale} label="Volume total" value={formatWeight(ordersTotalVolume)} tone="blue" helper={`${lockedOrdersCount} verrouillée(s)`} />
           <DashboardStatCard icon={Banknote} label="Montant total" value={formatMoney(ordersTotalAmount)} tone="orange" helper="Estimation commandes" />
           <DashboardStatCard icon={PhoneCall} label="COD confirmés" value={`${codCalledClientsCount} / ${codGroups.length}`} tone="slate" helper={`${codOrders.length} commande(s) COD`} />
@@ -1755,7 +1754,7 @@ export default function AdminOrdersPage() {
           >
             <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-gray-500">
               <Package className="h-3.5 w-3.5" aria-hidden="true" />
-              Commandes du jour
+              Commandes à livrer
             </p>
             <p className="mt-3 text-2xl font-bold text-gray-900">{orders.length} commandes</p>
             <p className="mt-1 text-sm text-gray-500">{clientGroups.length} clients uniques, {orderStatuses.length} statut(s)</p>
@@ -1810,7 +1809,7 @@ export default function AdminOrdersPage() {
           <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-800 shadow-sm">
             <div className="flex items-start gap-3">
               <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
-              <span>{codAlerte18h.nb_non_confirmees} commandes COD non confirmées. Il est passé 18h00, priorisez les appels avant la tournée.</span>
+              <span>{codAlerte18h.nb_non_confirmees} commandes COD non confirmées. À confirmer avant la livraison, priorisez les appels avant la tournée.</span>
             </div>
           </div>
         )}
@@ -1820,7 +1819,7 @@ export default function AdminOrdersPage() {
         <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           <div className="p-6 border-b border-gray-100 flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-gray-900">Commandes du jour</h2>
+              <h2 className="text-lg font-bold text-gray-900">Livraisons du jour et du lendemain</h2>
               <p className="text-sm text-gray-500 mt-1">
                 Auto-refresh toutes les 30 secondes
                 {lastOrdersRefresh ? ` • Dernière mise à jour ${lastOrdersRefresh}` : ""}
@@ -1870,7 +1869,7 @@ export default function AdminOrdersPage() {
             <TableSkeleton rows={6} columns={7} />
           ) : filteredClientGroups.length === 0 ? (
             <EmptyState
-              title="Aucune commande aujourd'hui"
+              title="Aucune commande à livrer aujourd'hui ou demain"
               description="La liste depend du backend admin et sera actualisee automatiquement."
             />
           ) : (
@@ -2077,7 +2076,7 @@ export default function AdminOrdersPage() {
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <span className="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-600">
-                  Agrégation du {todayLabel}
+                  Lot à livrer le {todayLabel}
                 </span>
                 {jitResultSource === "execute" && hasLockedOrdersToday ? (
                   <span className="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-600">
@@ -2395,7 +2394,7 @@ export default function AdminOrdersPage() {
             {codAlerte18h?.alerte_active && (
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 flex items-start gap-3">
                 <TriangleAlert className="w-4 h-4 mt-0.5 shrink-0" />
-                <span>{codAlerte18h.nb_non_confirmees} commandes COD non confirmées - Il est passé 18h00</span>
+                <span>{codAlerte18h.nb_non_confirmees} commandes COD non confirmées - À confirmer avant la livraison</span>
               </div>
             )}
 
@@ -2555,7 +2554,7 @@ export default function AdminOrdersPage() {
                                         <tr key={order.id} className="hover:bg-gray-50">
                                           <td className="px-4 py-3 font-medium text-[#1E8A3C]">#{order.id}</td>
                                           <td className="px-4 py-3 font-semibold text-gray-900">{formatMoney(order.montant ?? null)}</td>
-                                          <td className="px-4 py-3 text-sm text-gray-900">{emptyValue(order.creneau_livraison)}</td>
+                                          <td className="px-4 py-3 text-sm text-gray-900">{emptyValue([order.date_livraison, order.creneau_livraison].filter(Boolean).join(" · "))}</td>
                                           <td className="px-4 py-3">
                                             <span
                                               className={cn(

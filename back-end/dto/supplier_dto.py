@@ -1,3 +1,4 @@
+from datetime import date
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -135,6 +136,7 @@ class SupplierPreparationOrderDTO(BaseModel):
     id: int
     statut: str
     date_commande: Optional[datetime] = None
+    date_livraison: Optional[date] = None
     creneau_livraison: Optional[str] = None
     montant_total: float = 0
     client_nom: str

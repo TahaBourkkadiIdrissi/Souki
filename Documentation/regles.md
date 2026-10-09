@@ -262,7 +262,7 @@ AUCUNE EXCEPTION. AUCUNE DÉROGATION.
                          📌 RAPPELS SPÉCIFIQUES AU PROJET
 ================================================================================
 
-47. SCHEDULER JIT → automatique à 20h00 chaque soir
+47. SCHEDULER JIT → automatique à 01h00, par date de livraison (voir changement-horraire.md)
     └─ Ne pas modifier le scheduler sauf si explicitement demandé
 
 48. STATUTS COMMANDES AUTORISÉS (ne pas en inventer d'autres) :

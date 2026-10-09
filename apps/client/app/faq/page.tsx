@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 
 const questions = [
   { question: "Comment commander chez SOUKI ?", answer: "Choisissez vos légumes, fruits et herbes dans le catalogue, ajoutez-les au panier, puis validez votre commande en ligne." },
-  { question: "Quand ma commande est-elle livrée ?", answer: "Les commandes passées avant 20h sont livrées le lendemain entre 8h et 15h à Fès." },
+  { question: "Quand ma commande est-elle livrée ?", answer: "Commandez de 8h à 1h du matin, heure du Maroc. Entre 8h et minuit, la livraison a lieu le lendemain ; entre minuit et 1h, le jour même. Les livraisons ont lieu entre 8h et 15h à Fès. Commandes et modifications bloquées de 1h à 8h." },
   { question: "Quels sont les frais de livraison ?", answer: "La livraison coûte 15 DH. Elle est offerte à partir de 300 DH de commande." },
 ]
 

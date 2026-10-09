@@ -1,5 +1,5 @@
 import re
-from datetime import time
+from datetime import date, time
 from typing import List, Optional
 
 from pydantic import BaseModel, Field, validator
@@ -47,6 +47,7 @@ class CheckoutLineDTO(BaseModel):
 
 
 class CheckoutResponseDTO(BaseModel):
+    date_livraison: Optional[date] = None
     status: str
     commande_id: int
     panier_id: int

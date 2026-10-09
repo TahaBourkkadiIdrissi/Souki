@@ -681,7 +681,7 @@ class LivreurService(ILivreurService):
                 result = self.dispatch_service.reassign_refused_orders(
                     commande_ids=set(commande_ids),
                     excluded_livreur_id=int(livreur_id),
-                    target_date=date.today(),
+                    target_date=today_morocco(),
                 )
         except Exception as exc:
             logger.warning(
@@ -716,6 +716,7 @@ class LivreurService(ILivreurService):
             details=details,
             full_address=full_address,
             colis_count=int(row.get("colis_count") or 0),
+            date_livraison=row.get("date_livraison"),
             creneau_livraison=self._clean_optional_text(row.get("creneau_livraison")),
             statut=self._canonical_delivery_status(str(row.get("statut") or "")),
             status_version=int(row.get("status_version") or 1),

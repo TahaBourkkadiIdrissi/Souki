@@ -27,7 +27,7 @@ const steps: OnboardingStep[] = [
     expression: "explain",
     title: "Comment ça marche",
     description:
-      "Commandez avant 20h, recevez vos produits frais le lendemain entre 8h et 15h.",
+      "Commandez de 8h à 1h du matin. Après minuit et avant 1h, recevez vos produits le jour même ; sinon le lendemain. Livraison de 8h à 15h.",
     gradient: "from-[#145C28] via-[#1E8A3C] to-[#3DA63F]",
   },
   {

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic"
 export const metadata: Metadata = {
   title: "Catalogue de légumes frais à Fès | SOUKI",
   description:
-    "Découvrez les légumes, fruits et herbes frais de SOUKI à Fès. Commandez en ligne avant 20h et recevez votre panier le lendemain.",
+    "Découvrez les légumes, fruits et herbes frais de SOUKI à Fès. Commandez en ligne avant 1h du matin La date de livraison est confirmée à la validation.",
   alternates: { canonical: "/catalogue" },
   openGraph: {
     title: "Catalogue de légumes frais à Fès | SOUKI",

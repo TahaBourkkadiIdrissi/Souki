@@ -1,5 +1,7 @@
 "use client"
 
+import { formatDeliveryDate } from "@/lib/order-hours"
+
 import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
@@ -128,7 +130,7 @@ function TrackingContent() {
                 <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-[#1E8A3C]" aria-hidden="true" />
                 <div>
                   <p className="text-xs font-bold text-[#7B8B7D]">Créneau de livraison</p>
-                  <p className="mt-1 text-sm font-semibold text-[#264129]">{order.creneau_livraison || "À confirmer"}</p>
+                  <p className="mt-1 text-sm font-semibold text-[#264129]">{formatDeliveryDate(order.date_livraison)} · {order.creneau_livraison || "À confirmer"}</p>
                 </div>
               </div>
               <div className="flex gap-3">

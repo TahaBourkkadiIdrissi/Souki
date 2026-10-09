@@ -1,6 +1,7 @@
 from datetime import date, datetime, timezone
 from typing import Any
 from operating_mode import suppliers_enabled
+from services.date_utils import today_morocco
 
 from sqlalchemy.orm import Session
 
@@ -19,7 +20,7 @@ def notifier_fournisseur(session: Session, zone: Any, resultat: Any) -> Notifica
         "event": "SUPPLIER_DAILY_BATCH",
         "channel": f"supplier:{int(fournisseur_id)}",
         "fournisseur_id": int(fournisseur_id),
-        "date": date.today().isoformat(),
+        "date": today_morocco().isoformat(),
         "zone_id": getattr(zone, "id", None),
         "nom_ville": getattr(zone, "nom_ville", None),
         "nombre_commandes": int(getattr(resultat, "nombre_commandes", 0)),

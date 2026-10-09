@@ -36,6 +36,7 @@ def test_commandes_anormales_admin_uniquement(
     commande = SimpleNamespace(
         statut=statut,
         date_commande=datetime.combine(commande_date, datetime.min.time()),
+        date_livraison=commande_date,
         fournisseur_id=fournisseur_id,
     )
     livreur_row = {
@@ -53,6 +54,7 @@ def test_flux_actif_du_jour_reste_visible_hors_admin():
     commande = SimpleNamespace(
         statut="A_LIVRER",
         date_commande=datetime(2026, 6, 20, 10, 0),
+        date_livraison=TODAY,
         fournisseur_id=SUPPLIER_ID,
     )
     livreur_row = {

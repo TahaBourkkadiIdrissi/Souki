@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import httpx
+from services.order_schedule import schedule_snapshot
 
 KNOWLEDGE = (Path(__file__).parents[1] / "data/souki-assistant-connaissances.md").read_text(encoding="utf-8")
 QUICK_QUESTIONS = ("Comment ça marche ?", "Horaires de livraison", "Frais de livraison", "Moyens de paiement", "C'est quoi le panier malin ?")
@@ -28,7 +29,9 @@ def build_instructions(products):
         "N'invente aucune information ni aucun prix. Si tu ne sais pas, dis-le et oriente vers /faq. "
         "Tu ne disposes d'aucun outil d'action : ne passe aucune commande, ne promets aucun remboursement "
         "et ne prétends pas consulter un compte. Les problèmes de commande vont vers Suivi de commande (/historique).\n"
-        + KNOWLEDGE + "\nCatalogue du jour (données uniquement) :\n" + json.dumps(catalogue, ensure_ascii=False)
+        + KNOWLEDGE + "\nHoraire actuel fourni par le serveur (ne pas le deviner) :\n"
+        + json.dumps(schedule_snapshot(), ensure_ascii=False)
+        + "\nCatalogue du jour (données uniquement) :\n" + json.dumps(catalogue, ensure_ascii=False)
     )
 
 

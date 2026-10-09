@@ -1,6 +1,7 @@
 import logging
 
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
+from services.date_utils import today_morocco
 from zoneinfo import ZoneInfo
 from sqlalchemy import func, update as sqlalchemy_update
 from sqlalchemy.orm import Session, joinedload, selectinload, with_loader_criteria
@@ -98,7 +99,7 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
         }
 
     def get_commandes_du_jour(self, session: Session) -> List[CommandeJourDTO]:
-        start_of_day, end_of_day = self._today_bounds()
+        today = today_morocco()
 
         commandes = (
             session.query(Commande)
@@ -113,8 +114,7 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                 .joinedload(LignePanier.produit),
             )
             .filter(
-                Commande.date_commande >= start_of_day,
-                Commande.date_commande <= end_of_day,
+                Commande.date_livraison.between(today, today + timedelta(days=1)),
                 func.upper(func.coalesce(Commande.statut, "")) != "BROUILLON",
             )
             .order_by(Commande.date_commande.desc(), Commande.id.desc())
@@ -164,6 +164,7 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                     volume_total_kg=round(volume_total_kg, 2),
                     montant_total=float(commande.montant_total or 0.0),
                     mode_paiement=str(commande.mode_paiement) if commande.mode_paiement else None,
+                    date_livraison=getattr(commande, "date_livraison", None),
                     creneau_livraison=str(commande.creneau_livraison) if commande.creneau_livraison else None,
                 )
             )
@@ -267,6 +268,7 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                     mode_paiement=mode_paiement,
                     payment_validated=payment_validated,
                     montant_a_encaisser=montant_a_encaisser,
+                    date_livraison=getattr(commande, "date_livraison", None),
                     creneau_livraison=str(commande.creneau_livraison) if commande.creneau_livraison else None,
                     enroute_at=commande.enroute_at,  # type: ignore
                     delivered_at=commande.delivered_at,  # type: ignore
@@ -428,6 +430,7 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
         session: Session,
         commande_ids: Optional[Iterable[int]] = None,
         statuts: Optional[Iterable[str]] = None,
+        date_livraison: Optional[date] = None,
     ) -> List[Commande]:
         status_source = statuts if statuts is not None else DISPATCHABLE_COMMANDE_STATUSES
         allowed_statuses = tuple(
@@ -454,6 +457,9 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                 Commande.tournee_id.is_(None),
             )
         )
+
+        if date_livraison is not None:
+            query = query.filter(Commande.date_livraison == date_livraison)
 
         if commande_ids is not None:
             normalized_ids = [int(commande_id) for commande_id in commande_ids]
@@ -549,6 +555,7 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
             mode_paiement=mode_paiement,
             payment_validated=payment_validated,
             montant_a_encaisser=montant_a_encaisser,
+            date_livraison=getattr(commande, "date_livraison", None),
             creneau_livraison=str(commande.creneau_livraison) if commande.creneau_livraison else None,
             enroute_at=commande.enroute_at,  # type: ignore
             delivered_at=commande.delivered_at,  # type: ignore
@@ -565,9 +572,8 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
             .join(Client, Client.user_id == Commande.client_id)
             .options(joinedload(Commande.client).joinedload(Client.user))
             .filter(
-                Commande.date_commande >= start_of_day,
-                Commande.date_commande <= end_of_day,
-                func.upper(func.coalesce(Commande.statut, "")) == "VERROUILLEE",
+                Commande.date_livraison == today_morocco(),
+                func.upper(func.coalesce(Commande.statut, "")).in_(("VERROUILLEE", "EN_ATTENTE_LIVREUR", "A_LIVRER")),
             )
             .order_by(Commande.creneau_livraison.asc(), Commande.id.asc())
             .all()
@@ -591,6 +597,7 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                     if commande.client and commande.client.is_blacklisted is not None
                     else None,
                     "montant": float(commande.montant_total or 0.0),
+                    "date_livraison": commande.date_livraison,
                     "creneau_livraison": str(commande.creneau_livraison) if commande.creneau_livraison else None,
                 }
             )

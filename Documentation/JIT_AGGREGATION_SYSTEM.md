@@ -1,3 +1,5 @@
+> Mise a jour du 9 octobre 2026 : les anciens horaires de ce document sont remplaces par [la reference commandes 08 h - 01 h](changement-horraire.md). Cloture a 01 h, reouverture a 08 h, traitement par date de livraison.
+
 # 🚀 Documentation JIT (Just In Time) - Agrégation Automatique des Commandes
 
 ## Vue d'Ensemble

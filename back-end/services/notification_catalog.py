@@ -86,9 +86,11 @@ def _order_url(data: dict[str, Any]) -> str:
 def _render_order_confirmed(data: dict[str, Any]) -> NotificationContent:
     montant = data.get("montant_total")
     montant_txt = f" ({float(montant):.2f} DH)" if montant is not None else ""
+    delivery = data.get("date_livraison")
+    delivery_txt = f" Livraison le {delivery}, créneau {data.get('creneau_livraison') or 'à confirmer'}." if delivery else ""
     return NotificationContent(
         title="Commande confirmee",
-        body=f"Votre commande {_order_ref(data)}{montant_txt} est enregistree. Preparation en cours.",
+        body=f"Votre commande {_order_ref(data)}{montant_txt} est enregistree.{delivery_txt}",
         url=_order_url(data),
         email_subject=f"Votre commande SOUKI {_order_ref(data)} est confirmee",
         email_cta_label="Voir l'avancement de ma commande",

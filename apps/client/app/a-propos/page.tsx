@@ -28,7 +28,7 @@ export default function AboutPage() {
           </p>
           <section className="mt-12 rounded-3xl border border-[#DDEFE0] bg-white p-7">
             <h2 className="text-2xl font-bold text-[#14301B]">Comment fonctionne SOUKI ?</h2>
-            <p className="mt-4 leading-7 text-[#394C3C]">Parcourez le catalogue, ajoutez vos produits au panier et validez votre commande avant 20h. La livraison est prévue le lendemain entre 8h et 15h à Fès.</p>
+            <p className="mt-4 leading-7 text-[#394C3C]">Parcourez le catalogue, ajoutez vos produits au panier et validez votre commande avant 1h du matin. Commandes et modifications fermées de 1h à 8h. Avant minuit, livraison le lendemain ; entre minuit et 1h, livraison le jour même, de 8h à 15h à Fès.</p>
           </section>
           <div className="mt-9 flex flex-wrap gap-4">
             <Link href="/catalogue" className="rounded-full bg-[#1E8A3C] px-7 py-4 font-bold text-white">Découvrir le catalogue</Link>

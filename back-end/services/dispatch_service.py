@@ -108,6 +108,7 @@ class DispatchService(IDispatchService):
                     session,
                     commande_ids=commande_ids,
                     statuts={LOCKED_DISPATCH_STATUS},
+                    date_livraison=target_date,
                 )
                 # Filtre critique: le dispatch quotidien n'assigne que les commandes verrouillees par le JIT.
                 commandes = [
@@ -292,6 +293,7 @@ class DispatchService(IDispatchService):
                     session,
                     commande_ids=normalized_commande_ids,
                     statuts={"REFUS_LIVREUR"},
+                    date_livraison=reassignment_date,
                 )
                 commandes = [
                     commande
@@ -792,6 +794,7 @@ class DispatchService(IDispatchService):
             "client_phone": str(user.phone) if user and user.phone else None,
             "statut": str(commande.statut or ""),
             "ordre_passage": int(commande.ordre_passage) if commande.ordre_passage is not None else None,
+            "date_livraison": commande.date_livraison.isoformat() if commande.date_livraison else None,
             "creneau_livraison": str(commande.creneau_livraison) if commande.creneau_livraison else None,
             "montant_total": float(commande.montant_total or 0.0),
             "date_commande": commande.date_commande.isoformat() if commande.date_commande else None,
