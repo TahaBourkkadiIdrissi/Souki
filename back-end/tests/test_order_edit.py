@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from dao.checkout_dao import CheckoutDaoBD
 from dao.order_edit_dao import OrderEditDaoBD
-from dto.order_edit_dto import OrderEditRequestDTO, OrderEditSaveDTO
+from dto.order_edit_dto import OrderEditRequestDTO, OrderEditSaveDTO, OrderCancelRequestDTO
 from entities.client_entity import Client
 from entities.commande_entity import Commande
 from entities.panier_entity import Panier
@@ -19,6 +19,7 @@ from entities.product_entity import Product
 from entities.paiement_entity import Paiement
 from entities.souki_wallet_entity import SoukiWallet
 from entities.transaction_wallet_entity import TransactionWallet
+from entities.livreur_entity import Livreur
 from services.order_edit_service import OrderEditService
 from services.order_schedule import MOROCCO_TIMEZONE
 
@@ -35,7 +36,7 @@ def request(quantity=6, **kwargs):
 def setup(monkeypatch):
     monkeypatch.setenv("SOUKI_PREORDERS", "1")
     engine = create_engine("sqlite://")
-    for model in (Client, Product, Panier, LignePanier, Commande, Paiement, SoukiWallet, TransactionWallet):
+    for model in (Client, Product, Panier, LignePanier, Commande, Paiement, SoukiWallet, TransactionWallet, Livreur):
         model.__table__.create(engine)
     with Session(engine) as session:
         session.add(Client(user_id=7, is_blacklisted=False))
@@ -52,6 +53,7 @@ def setup(monkeypatch):
         session.commit()
         service = OrderEditService(OrderEditDaoBD(), CheckoutDaoBD(), session)
         with patch("services.order_edit_service.local_now", return_value=instant(23)), \
+             patch("services.commande_state_machine.notification_service.notify_order_status"), \
              patch("services.order_edit_service.notification_service.notify") as notify:
             yield service, session, notify
     engine.dispose()
@@ -251,6 +253,7 @@ def test_order_edit_routes_require_authentication():
             ("GET", "/api/commandes/1/modification", None),
             ("POST", "/api/commandes/1/modification/apercu", request().model_dump(mode="json")),
             ("PATCH", "/api/commandes/1/modification", {**request().model_dump(mode="json"), "expected_total": 75}),
+            ("POST", "/api/commandes/1/annuler", {"expected_version": 1}),
         ]:
             assert client.request(method, url, json=body).status_code == 401
 
@@ -260,3 +263,127 @@ def test_order_edit_routes_require_authentication():
 def test_invalid_quantities_and_duplicates_rejected(items):
     with pytest.raises(ValidationError):
         OrderEditRequestDTO(items=items, expected_version=1)
+
+
+@pytest.mark.parametrize("mode", ["cod", "wallet"])
+def test_cancel_keeps_history_refunds_full_total_once_and_notifies(setup, mode):
+    service, session, _ = setup
+    session.get(Commande, 1).mode_paiement = mode
+    session.commit()
+    with patch("services.commande_state_machine.notification_service.notify_order_status") as notify:
+        result = service.cancel(7, 1, OrderCancelRequestDTO(expected_version=1))
+        notify.assert_called_once()
+        assert notify.call_args.kwargs["new_status"] == "ANNULEE"
+    order = session.get(Commande, 1)
+    assert result.statut == order.statut == "ANNULEE"
+    assert order.status_version == 2
+    assert order.montant_total == 65 and order.panier.lignes[0].sous_total == 50
+    assert order.date_livraison == date(2026, 10, 10)
+    assert result.refunded_amount == (65 if mode == "wallet" else 0)
+    assert session.query(SoukiWallet).one().balance == (165 if mode == "wallet" else 100)
+    assert session.get(Product, 1).stock == 10  # Preorders never reserved this stock.
+    if mode == "wallet":
+        tx = session.query(TransactionWallet).one()
+        assert tx.type == "CREDIT_ANNULATION" and tx.montant == 65
+    for version in (1, 2):
+        with pytest.raises(HTTPException) as exc:
+            service.cancel(7, 1, OrderCancelRequestDTO(expected_version=version))
+        assert exc.value.status_code == 409
+    assert session.query(TransactionWallet).count() == (1 if mode == "wallet" else 0)
+    assert not service.get_order(7, 1).cancellable
+    with pytest.raises(HTTPException):
+        save(service)
+
+
+@pytest.mark.parametrize("hour,minute,day,allowed", [(23,59,9,True), (0,59,10,True), (1,0,10,False), (8,0,10,False)])
+def test_cancellation_cutoff_never_reopens_old_order(setup, hour, minute, day, allowed):
+    service, session, _ = setup
+    with patch("services.order_edit_service.local_now", return_value=instant(hour, minute, day)):
+        assert service.get_order(7, 1).cancellable is allowed
+        if allowed:
+            service.cancel(7, 1, OrderCancelRequestDTO(expected_version=1))
+        else:
+            with pytest.raises(HTTPException) as exc:
+                service.cancel(7, 1, OrderCancelRequestDTO(expected_version=1))
+            assert exc.value.status_code == 409
+            assert session.get(Commande, 1).statut == "EN_ATTENTE"
+
+
+@pytest.mark.parametrize("status", ["VERROUILLEE", "EN_ATTENTE_LIVREUR", "A_LIVRER", "EN_ROUTE", "LIVRE", "ANNULEE"])
+def test_cancellation_rejects_logistics_statuses(setup, status):
+    service, session, _ = setup
+    session.get(Commande, 1).statut = status
+    session.commit()
+    with pytest.raises(HTTPException):
+        service.cancel(7, 1, OrderCancelRequestDTO(expected_version=1))
+    assert session.get(Commande, 1).statut == status
+
+
+def test_cancellation_other_owner_and_stale_version(setup):
+    service, session, _ = setup
+    with pytest.raises(HTTPException) as exc:
+        service.cancel(8, 1, OrderCancelRequestDTO(expected_version=1))
+    assert exc.value.status_code == 404
+    save(service)
+    with pytest.raises(HTTPException) as exc:
+        service.cancel(7, 1, OrderCancelRequestDTO(expected_version=1))
+    assert exc.value.status_code == 409
+    assert session.get(Commande, 1).statut == "EN_ATTENTE"
+
+
+@pytest.mark.parametrize("failure", ["missing_wallet", "after_refund", "past_cutoff"])
+def test_cancellation_failure_rolls_back_wallet_stock_and_status(setup, monkeypatch, failure):
+    service, session, _ = setup
+    monkeypatch.setenv("SOUKI_PREORDERS", "0")
+    session.get(Commande, 1).mode_paiement = "wallet"
+    session.commit()
+    if failure == "missing_wallet":
+        with patch.object(service.dao, "get_wallet_for_update", return_value=None), pytest.raises(HTTPException):
+            service.cancel(7, 1, OrderCancelRequestDTO(expected_version=1))
+    elif failure == "after_refund":
+        with patch("services.commande_state_machine.notification_service.notify_order_status", side_effect=RuntimeError("failed")), pytest.raises(RuntimeError):
+            service.cancel(7, 1, OrderCancelRequestDTO(expected_version=1))
+    else:
+        with patch("services.order_edit_service.local_now", side_effect=[instant(0,59,10), instant(1,0,10)]), pytest.raises(HTTPException):
+            service.cancel(7, 1, OrderCancelRequestDTO(expected_version=1))
+    assert session.query(SoukiWallet).one().balance == 100
+    assert session.query(TransactionWallet).count() == 0
+    assert session.get(Product, 1).stock == 10
+    assert session.get(Commande, 1).statut == "EN_ATTENTE"
+    assert session.get(Commande, 1).status_version == 1
+
+
+def test_cancellation_restores_reserved_stock_once_and_allows_blacklisted_cod(setup, monkeypatch):
+    service, session, _ = setup
+    monkeypatch.setenv("SOUKI_PREORDERS", "0")
+    session.get(Client, 7).is_blacklisted = True
+    session.get(Commande, 1).statut = "CONFIRMEE"
+    session.commit()
+    assert service.get_order(7, 1).cancellable
+    assert not service.get_order(7, 1).editable
+    service.cancel(7, 1, OrderCancelRequestDTO(expected_version=1))
+    assert session.get(Product, 1).stock == 15
+    with pytest.raises(HTTPException):
+        service.cancel(7, 1, OrderCancelRequestDTO(expected_version=2))
+    assert session.get(Product, 1).stock == 15
+
+
+@pytest.mark.parametrize("mode,paid", [("cmi", False), ("cod", True)])
+def test_cancellation_refuses_unsupported_or_collected_payment(setup, mode, paid):
+    service, session, _ = setup
+    order = session.get(Commande, 1)
+    order.mode_paiement, order.payment_validated = mode, paid
+    session.commit()
+    assert not service.get_order(7, 1).cancellable
+    with pytest.raises(HTTPException):
+        service.cancel(7, 1, OrderCancelRequestDTO(expected_version=1))
+
+
+def test_cancellation_refunds_current_total_after_wallet_edit(setup):
+    service, session, _ = setup
+    session.get(Commande, 1).mode_paiement = "wallet"
+    session.commit()
+    save(service)  # 65 -> 75 DH, debit 10.
+    result = service.cancel(7, 1, OrderCancelRequestDTO(expected_version=2))
+    assert result.refunded_amount == 75
+    assert session.query(SoukiWallet).one().balance == 165

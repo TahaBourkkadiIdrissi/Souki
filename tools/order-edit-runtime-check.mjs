@@ -12,7 +12,7 @@ const products = [
   { id: 1, nom_fr: 'Tomates', nom_darija: 'tomates', prix_kg: 12, prix_affiche: 12, unite: 'kg', stock: 10, is_active: true, niveau: 2, image_url: '/placeholder.svg' },
   { id: 2, nom_fr: 'Carottes', nom_darija: 'carottes', prix_kg: 8, prix_affiche: 8, unite: 'kg', stock: 10, is_active: true, niveau: 1, image_url: '/placeholder.svg' },
 ]
-let closed = false, saves = 0, nearCutoff = false
+let closed = false, saves = 0, nearCutoff = false, cancellations = 0
 let order = { commande_id: 1, version: 1, editable: true, reason: null, deadline: '2026-10-10T01:00:00Z', server_time: '2026-10-09T23:00:00Z', date_livraison: '2026-10-10', creneau_livraison: '10:00', mode_paiement: 'wallet', items: [{ product_id: 1, name: 'Tomates', unit: 'kg', quantity: 5, unit_price: 10, subtotal: 50 }], subtotal: 50, delivery_fee: 15, total: 65, previous_total: 65, difference: 0 }
 const api = createServer(async (req, res) => {
   res.setHeader('Content-Type', 'application/json')
@@ -20,9 +20,18 @@ const api = createServer(async (req, res) => {
   if (url === '/auth/me') return res.end(JSON.stringify(user))
   if (url === '/api/catalogue') return res.end(JSON.stringify(products))
   if (url === '/api/order-schedule') return res.end(JSON.stringify({ closed, server_time: closed ? '2026-10-10T01:00:00Z' : nearCutoff ? '2026-10-10T00:59:58Z' : order.server_time, next_transition: closed ? '2026-10-10T08:00:00Z' : order.deadline, delivery_date: closed ? null : order.date_livraison }))
-  if (url === '/api/commandes/historique') return res.end(JSON.stringify([{ id: 1, ...order, statut: 'EN_ATTENTE', montant_total: order.total, produits: order.items.map(item => ({ product_id: item.product_id, nom_fr: item.name, quantite_kg: item.quantity, sous_total: item.subtotal })) }]))
+  if (url === '/api/commandes/historique') return res.end(JSON.stringify([{ id: 1, ...order, statut: cancellations ? 'ANNULEE' : 'EN_ATTENTE', montant_total: order.total, produits: order.items.map(item => ({ product_id: item.product_id, nom_fr: item.name, quantite_kg: item.quantity, sous_total: item.subtotal })) }]))
+  if (url === '/api/commandes/1/annuler') {
+    assert.equal(req.method, 'POST')
+    let body = ''; for await (const chunk of req) body += chunk
+    assert.equal(JSON.parse(body).expected_version, order.version)
+    assert.equal(closed, false)
+    assert.equal(cancellations, 0)
+    cancellations++
+    return res.end(JSON.stringify({ commande_id: 1, statut: 'ANNULEE', refunded_amount: order.total }))
+  }
   if (url.startsWith('/api/commandes/1/modification')) {
-    if (req.method === 'GET') return res.end(JSON.stringify({ ...order, server_time: nearCutoff ? '2026-10-10T00:59:58Z' : order.server_time, editable: !closed, reason: closed ? 'Cette commande est clôturée.' : null }))
+    if (req.method === 'GET') return res.end(JSON.stringify({ ...order, server_time: nearCutoff ? '2026-10-10T00:59:58Z' : order.server_time, editable: !closed, cancellable: !closed && !cancellations, cancellation_reason: null, reason: closed ? 'Cette commande est clôturée.' : null }))
     let body = ''; for await (const chunk of req) body += chunk
     const payload = JSON.parse(body)
     assert.equal(payload.expected_version, order.version)
@@ -73,12 +82,17 @@ try {
   assert.equal(saves, 1)
   const dismissInstall = page.getByRole('button', { name: "Masquer l'installation" })
   if (await dismissInstall.isVisible()) await dismissInstall.click()
-  await page.getByRole('link', { name: 'Modifier ma commande' }).click()
+  await page.getByRole('link', { name: 'Modifier ou annuler' }).click()
   await page.getByRole('button', { name: 'Diminuer Tomates' }).click()
   await page.getByRole('button', { name: 'Vérifier le nouveau total' }).click()
   await page.getByText('Montant recrédité au Wallet : 5.00 DH').waitFor()
   nearCutoff = true
   await page.reload()
+  await page.getByRole('button', { name: 'Annuler ma commande', exact: true }).click()
+  await page.getByRole('alert').filter({ hasText: 'L’annulation n’est plus disponible.' }).waitFor()
+  assert.equal(await page.getByRole('button', { name: 'Confirmer l’annulation' }).isDisabled(), true)
+  assert.equal(cancellations, 0)
+  await page.getByRole('button', { name: 'Garder ma commande' }).click()
   await page.getByText('La clôture est atteinte. Cette commande ne peut plus être modifiée.').waitFor()
   assert.equal(await page.getByRole('button', { name: 'Vérifier le nouveau total' }).isDisabled(), true)
   assert.equal(saves, 1)
@@ -86,8 +100,23 @@ try {
   await page.reload()
   await page.getByText('Cette commande est clôturée.').waitFor()
   assert.equal(await page.getByRole('button', { name: 'Augmenter Tomates' }).isDisabled(), true)
+  assert.equal(await page.getByRole('button', { name: 'Annuler ma commande', exact: true }).isDisabled(), true)
+  closed = false; nearCutoff = false
+  await page.reload()
+  await page.getByRole('button', { name: 'Annuler ma commande', exact: true }).click()
+  await page.getByRole('dialog').getByText(/70.00 DH, livraison comprise/).waitFor()
+  assert.equal(cancellations, 0)
+  await page.getByRole('button', { name: 'Garder ma commande' }).click()
+  assert.equal(cancellations, 0)
+  await page.getByRole('button', { name: 'Annuler ma commande', exact: true }).click()
+  await page.screenshot({ path: path.join(root, 'outputs/order-edit/cancellation-mobile.png'), fullPage: true })
+  await page.getByRole('button', { name: 'Confirmer l’annulation' }).click()
+  await page.waitForURL('**/historique?commande_annulee=1')
+  await page.getByText(/Votre commande N-1 a été annulée/).waitFor()
+  assert.equal(cancellations, 1)
+  assert.equal(await page.getByRole('link', { name: 'Modifier ou annuler' }).count(), 0)
   assert.deepEqual(errors, [])
-  console.log('PASS: add/remove, server quote, wallet debit/credit display, explicit save, history link and live 01:00 cutoff.')
+  console.log('PASS: edit, explicit cancellation, refund display, keep order, history and live cutoff including open confirmation.')
 } finally {
   await browser?.close()
   child.kill()

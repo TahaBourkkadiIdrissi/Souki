@@ -16,6 +16,8 @@ export interface OrderEditResponse {
   version: number
   editable: boolean
   reason: string | null
+  cancellable: boolean
+  cancellation_reason: string | null
   deadline: string | null
   server_time: string
   date_livraison: string | null
@@ -44,6 +46,18 @@ export function previewOrderEdit(id: number, body: OrderEditRequest) {
 
 export function saveOrderEdit(id: number, body: OrderEditRequest & { expected_total: number }) {
   return apiCall<OrderEditResponse>(`/api/commandes/${id}/modification`, { method: "PATCH", body })
+}
+
+export interface OrderCancelResponse {
+  commande_id: number
+  statut: string
+  refunded_amount: number
+}
+
+export function cancelOrder(id: number, expectedVersion: number) {
+  return apiCall<OrderCancelResponse>(`/api/commandes/${id}/annuler`, {
+    method: "POST", body: { expected_version: expectedVersion },
+  })
 }
 
 export interface OrderScheduleDTO {

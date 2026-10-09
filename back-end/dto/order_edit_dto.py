@@ -25,6 +25,16 @@ class OrderEditSaveDTO(OrderEditRequestDTO):
     expected_total: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
 
 
+class OrderCancelRequestDTO(BaseModel):
+    expected_version: int = Field(ge=1)
+
+
+class OrderCancelResponseDTO(BaseModel):
+    commande_id: int
+    statut: str
+    refunded_amount: float
+
+
 class OrderEditLineDTO(BaseModel):
     product_id: int
     name: str
@@ -39,6 +49,8 @@ class OrderEditResponseDTO(BaseModel):
     version: int
     editable: bool
     reason: Optional[str] = None
+    cancellable: bool
+    cancellation_reason: Optional[str] = None
     deadline: Optional[datetime] = None
     server_time: datetime
     date_livraison: Optional[date] = None
