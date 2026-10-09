@@ -1,5 +1,7 @@
 # Rapport : changement_horraire
 
+> Complément ultérieur : la modification des commandes déjà validées a depuis été autorisée et implémentée. Voir [le rapport de cette fonctionnalité](modification-commande-avant-cloture.md). La restriction décrite ci-dessous correspond à la décision initiale.
+
 Implementation locale : ouverture 08 h, cloture 01 h, heure du Maroc. La modification du panier avant validation est conservee ; aucune nouvelle fonction de modification des commandes deja validees, selon la precision de l'utilisateur.
 
 La [reference fonctionnelle et procedure VPS](changement-horraire.md) decrit les dates de livraison et la migration. Aucun deploiement, push ou acces a la base distante n'a ete effectue.

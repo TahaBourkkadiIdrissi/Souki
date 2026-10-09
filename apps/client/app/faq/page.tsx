@@ -16,6 +16,7 @@ export const metadata: Metadata = {
 }
 
 const questions = [
+  { question: "Puis-je modifier une commande déjà validée ?", answer: "Oui : ouvrez Mes commandes, puis Modifier ma commande. Ajoutez ou retirez des produits, ajustez les quantités, vérifiez le nouveau total et enregistrez. La modification est possible jusqu’à 1h du matin le jour de la livraison, tant que la préparation n’a pas commencé. La réouverture à 8h ne débloque pas cette commande. Le paiement à la livraison est recalculé ; avec le Wallet, seule la différence est débitée ou recréditée. Le minimum de produits reste de 50 DH." },
   { question: "Comment commander chez SOUKI ?", answer: "Choisissez vos légumes, fruits et herbes dans le catalogue, ajoutez-les au panier, puis validez votre commande en ligne." },
   { question: "Quand ma commande est-elle livrée ?", answer: "Commandez de 8h à 1h du matin, heure du Maroc. Entre 8h et minuit, la livraison a lieu le lendemain ; entre minuit et 1h, le jour même. Les livraisons ont lieu entre 8h et 15h à Fès. Commandes et modifications bloquées de 1h à 8h." },
   { question: "Quels sont les frais de livraison ?", answer: "La livraison coûte 15 DH. Elle est offerte à partir de 300 DH de commande." },

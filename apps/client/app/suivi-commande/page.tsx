@@ -1,6 +1,7 @@
 "use client"
 
 import { formatDeliveryDate } from "@/lib/order-hours"
+import { OrderEditLink } from "@/components/souki/order-edit-link"
 
 import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
@@ -117,6 +118,7 @@ function TrackingContent() {
         ) : (
           <div className="space-y-5">
             <OrderProgress order={order} />
+            <OrderEditLink order={order} />
 
             <section className="grid gap-4 rounded-[28px] border border-[#E6F0E7] bg-white p-5 sm:grid-cols-3 sm:p-6" aria-label="Informations de la commande">
               <div className="flex gap-3">

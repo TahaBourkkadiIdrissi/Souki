@@ -30,6 +30,7 @@ from controllers.auth_controller import auth_router
 from controllers.catalogue_controller import router_catalogue
 from controllers.claim_controller import claim_router
 from controllers.checkout_controller import router_checkout
+from controllers.order_edit_controller import router_order_edit
 from controllers.client_blacklist_controller import client_blacklist_router
 from controllers.commande_controller import router_voice
 from controllers.dispatch_controller import anomalies_router, dispatch_router
@@ -75,6 +76,7 @@ API_ROUTERS: tuple[APIRouter, ...] = (
     router_panier,
     router_assistant,
     router_checkout,
+    router_order_edit,
     client_blacklist_router,
     pricing_router,
     claim_router,

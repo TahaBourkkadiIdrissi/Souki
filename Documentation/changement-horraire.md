@@ -8,7 +8,7 @@ Cette règle remplace les anciens horaires décrits dans les documents JIT et de
 | 00:00 à 00:59:59 | Ouverte | Le jour même, 08 h–15 h |
 | 01:00 à 07:59:59 | Bloquée | Aucun nouveau lot accepté |
 
-Les parcours existants de préparation et de modification du panier sont conservés. Le checkout contrôle l’heure côté serveur, y compris après acquisition du verrou de lot. La navigation ou une horloge de téléphone incorrecte ne permet pas de valider pendant la fermeture. Les commandes déjà clôturées ne redeviennent pas modifiables à 08 h.
+Les parcours existants de préparation du panier sont conservés. Les commandes validées peuvent aussi être modifiées avant leur clôture, selon le [parcours de modification](modification-commande-avant-cloture.md). Le serveur contrôle l’heure, y compris après acquisition des verrous. La navigation ou une horloge de téléphone incorrecte ne permet pas de valider pendant la fermeture. Les commandes déjà clôturées ne redeviennent pas modifiables à 08 h.
 
 Chaque commande validée porte `date_livraison`, calculée par le serveur. Le créneau horaire reste distinct. Une commande du 9 octobre à 23 h et une du 10 octobre à 00 h 30 appartiennent toutes deux au lot du 10 octobre.
 

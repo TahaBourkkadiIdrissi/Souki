@@ -229,10 +229,22 @@ def _render_supplier_pickup_scheduled(data: dict[str, Any]) -> NotificationConte
 
 # --- Catalogue --------------------------------------------------------------
 
+def _render_order_updated(data: dict[str, Any]) -> NotificationContent:
+    return NotificationContent(
+        title="Commande modifiée",
+        body=f"Votre commande {_order_ref(data)} a été modifiée. Nouveau total : {float(data.get('montant_total') or 0):.2f} DH. Livraison le {data.get('date_livraison')}.",
+        url=_order_url(data),
+        email_subject=f"Votre commande SOUKI {_order_ref(data)} a été modifiée",
+    )
+
 EVENTS: dict[str, NotificationEvent] = {
     event.key: event
     for event in (
         # Client
+        NotificationEvent(
+            key="ORDER_UPDATED", category=CATEGORY_ORDER_UPDATES,
+            channels=(CHANNEL_PUSH, CHANNEL_EMAIL), render=_render_order_updated,
+        ),
         NotificationEvent(
             key="ORDER_CONFIRMED",
             category=CATEGORY_ORDER_UPDATES,

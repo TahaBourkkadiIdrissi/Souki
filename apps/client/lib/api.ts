@@ -2,6 +2,50 @@
 
 export const API_BASE_URL = "/backend"
 
+export interface OrderEditLine {
+  product_id: number
+  name: string
+  unit: string
+  quantity: number
+  unit_price: number
+  subtotal: number
+}
+
+export interface OrderEditResponse {
+  commande_id: number
+  version: number
+  editable: boolean
+  reason: string | null
+  deadline: string | null
+  server_time: string
+  date_livraison: string | null
+  creneau_livraison: string | null
+  mode_paiement: string
+  items: OrderEditLine[]
+  subtotal: number
+  delivery_fee: number
+  total: number
+  previous_total: number
+  difference: number
+}
+
+export interface OrderEditRequest {
+  items: { product_id: number; quantity: number }[]
+  expected_version: number
+}
+
+export function getOrderForEdit(id: number, signal?: AbortSignal) {
+  return apiCall<OrderEditResponse>(`/api/commandes/${id}/modification`, { cache: "no-store", signal })
+}
+
+export function previewOrderEdit(id: number, body: OrderEditRequest) {
+  return apiCall<OrderEditResponse>(`/api/commandes/${id}/modification/apercu`, { method: "POST", body })
+}
+
+export function saveOrderEdit(id: number, body: OrderEditRequest & { expected_total: number }) {
+  return apiCall<OrderEditResponse>(`/api/commandes/${id}/modification`, { method: "PATCH", body })
+}
+
 export interface OrderScheduleDTO {
   closed: boolean
   server_time: string
