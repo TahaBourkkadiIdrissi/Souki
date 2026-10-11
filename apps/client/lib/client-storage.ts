@@ -52,3 +52,25 @@ export function subscribeClientStorage(listener: () => void) {
 }
 
 export function emptyClientCollection<T>(): T[] { return EMPTY as T[] }
+
+/** Import only anonymous cart items, once, before exposing the authenticated session. */
+export async function adoptGuestCart(owner: number) {
+  if (!Number.isSafeInteger(owner) || owner <= 0 || typeof window === "undefined") return
+  const transfer = () => {
+    type Item = { id: number; quantity: number; [key: string]: unknown }
+    const guest = readClientCollection<Item>("cart", null)
+    if (!guest.length) return
+    const merged = [...readClientCollection<Item>("cart", owner)]
+    for (const item of guest) {
+      if (!Number.isSafeInteger(item.id) || !Number.isFinite(item.quantity) || item.quantity <= 0) continue
+      const index = merged.findIndex(current => current.id === item.id)
+      if (index < 0) merged.push(item)
+      else merged[index] = { ...merged[index], quantity: Math.round((merged[index].quantity + item.quantity) * 1000) / 1000 }
+    }
+    // No await between these writes. The browser lock serializes simultaneous tab logins.
+    writeClientCollection("cart", owner, merged)
+    writeClientCollection("cart", null, [])
+  }
+  if (navigator.locks) await navigator.locks.request("souki-guest-cart-transfer", transfer)
+  else transfer()
+}

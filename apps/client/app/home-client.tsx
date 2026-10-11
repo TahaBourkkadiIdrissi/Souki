@@ -17,6 +17,9 @@ import Link from "next/link"
 import Image from "@/components/souki/optimized-image"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
+import { useClientCollection, useClientStorageOwner } from "@/hooks/useClientCollection"
+import { upsertCartItem, type CartItem } from "@/lib/catalogue"
+import { trackEvent } from "@/lib/analytics"
 import { isPwaStandalone } from "@/lib/pwa"
 import {
   ShoppingCart,
@@ -95,6 +98,8 @@ const steps = [
 const display = { fontFamily: "var(--font-poppins), sans-serif" }
 
 export default function HomePage({ products }: { products: CatalogueProduct[] }) {
+  const owner = useClientStorageOwner()
+  const [, setCart] = useClientCollection<CartItem>("cart")
   const { isAuthenticated } = useAuth()
   const router = useRouter()
   const [activeModal, setActiveModal] = useState<"voice" | "smart" | null>(null)
@@ -116,20 +121,13 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
   }
 
   const handleAddToCart = (id: number | string, quantity: number) => {
-    requireAuth(() => {
-      const normalizedId = String(id)
-      const product = products.find((item) => String(item.id) === normalizedId)
-      if (product) {
-        let backendName = product.name
-        if (backendName === "Tomates Marocaines") backendName = "Tomates"
-        if (backendName === "Pommes de Terre") backendName = "Pommes de terre"
-        if (backendName === "Oignons") backendName = "Oignons rouge"
-        if (backendName === "Herbes Fraîches") backendName = "Persil"
-        router.push(`/catalogue?add_product=${encodeURIComponent(backendName)}&qty=${quantity}`)
-      } else {
-        router.push("/catalogue")
-      }
-    })
+    if (owner === undefined) return
+    const product = products.find(item => item.id === Number(id))
+    if (!product || product.availability === "out_of_stock") return
+    setCart(current => upsertCartItem(current, product, quantity))
+    trackEvent("add_to_cart", { currency: "MAD", value: product.price * quantity,
+      items: [{ item_id: String(product.id), item_name: product.name, price: product.price, quantity }] })
+    router.push("/catalogue?open_cart=1")
   }
 
   /* Anneau focus commun (accessibilité clavier). */

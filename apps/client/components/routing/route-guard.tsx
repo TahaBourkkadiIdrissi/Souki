@@ -47,7 +47,6 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
     }
 
     params.delete("access_error")
-    params.delete("redirect")
 
     const nextQuery = params.toString()
     router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false })

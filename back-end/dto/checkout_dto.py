@@ -2,7 +2,7 @@ import re
 from datetime import date, time
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, PrivateAttr, validator
 
 from dto.phone_validator import validate_moroccan_phone
 
@@ -13,6 +13,7 @@ class CheckoutItemDTO(BaseModel):
 
 
 class CheckoutRequestDTO(BaseModel):
+    _campaign_visit: Optional[str] = PrivateAttr(default=None)
     items: List[CheckoutItemDTO]
     creneau_livraison: str = "08:00"
     mode_paiement: str = "cash"

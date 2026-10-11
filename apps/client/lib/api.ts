@@ -2,6 +2,32 @@
 
 export const API_BASE_URL = "/backend"
 
+/** Server-side transport for the public short link; never cached or prefetched. */
+export async function resolveCampaignLink(slug: string, request: Request): Promise<Response> {
+  if (!/^[a-z0-9][a-z0-9-]{2,47}$/.test(slug)) return new Response("Lien introuvable", { status: 404 })
+  const headers = new Headers()
+  for (const key of ["cookie", "user-agent", "purpose", "sec-purpose"]) {
+    const value = request.headers.get(key)
+    if (value) headers.set(key, value)
+  }
+  try {
+    const base = process.env.BACKEND_INTERNAL_URL || (process.env.NODE_ENV === "production" ? "http://backend:8000" : "http://127.0.0.1:8000")
+    const response = await fetch(`${base}/api/campaigns/r/${encodeURIComponent(slug)}`, {
+      method: request.method === "HEAD" ? "HEAD" : "GET", headers, redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(8000),
+    })
+    const outgoing = new Headers({ "Cache-Control": "private, no-store, max-age=0", "X-Robots-Tag": "noindex" })
+    const location = response.headers.get("location")
+    if (response.status === 302 && location) {
+      outgoing.set("Location", location)
+      for (const cookie of response.headers.getSetCookie()) outgoing.append("Set-Cookie", cookie)
+      return new Response(null, { status: 302, headers: outgoing })
+    }
+    return new Response(response.status === 404 ? "Ce lien de campagne est indisponible." : "Lien temporairement indisponible. Réessayez dans un instant.", { status: response.status === 404 ? 404 : 503, headers: outgoing })
+  } catch {
+    return new Response("Lien temporairement indisponible. Réessayez dans un instant.", { status: 503, headers: { "Cache-Control": "no-store" } })
+  }
+}
+
 export interface OrderEditLine {
   product_id: number
   name: string

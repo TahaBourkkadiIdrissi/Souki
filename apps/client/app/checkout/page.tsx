@@ -42,6 +42,7 @@ import {
   fetchCatalogueProducts,
   getCataloguePresentation,
   loadStoredCart,
+  saveStoredCart,
 } from "@/lib/catalogue"
 import { MapboxLocator } from "@/components/souki/mapbox-locator"
 import { MobileBottomNav } from "@/components/souki/mobile-bottom-nav"
@@ -450,7 +451,7 @@ function CheckoutContent() {
 
   const updateQuantity = (id: string, delta: number) => {
     haptic("light")
-    setCart(prev => prev.map(item => {
+    changeCart(cart.map(item => {
       if (item.id === id) {
         const newQuantity = Math.max(0.5, item.quantity + delta)
         return { ...item, quantity: newQuantity }
@@ -461,7 +462,7 @@ function CheckoutContent() {
 
   const removeItem = (id: string) => {
     haptic("light")
-    setCart(prev => prev.filter(item => item.id !== id))
+    changeCart(cart.filter(item => item.id !== id))
   }
 
   // Heure de livraison exacte : on borne à [08:00, 15:00]. Hors plage, on ramène
@@ -479,7 +480,7 @@ function CheckoutContent() {
   }
 
   const addSuggestionToCart = (product: CatalogueProduct) => {
-    setCart((prev) => {
+    const next = ((prev: CartItem[]) => {
       const existing = prev.find((item) => item.id === String(product.id))
       if (existing) {
         return prev.map((item) =>
@@ -499,7 +500,19 @@ function CheckoutContent() {
           image: product.image,
         },
       ]
-    })
+    })(cart)
+    changeCart(next)
+  }
+
+  function changeCart(next: CartItem[]) {
+    if (!panierId && !commandeId && !cartParam) {
+      const stored = loadStoredCart(storageOwner)
+      saveStoredCart(next.flatMap(item => {
+        const product = catalogueProducts.find(p => p.id === Number(item.id)) || stored.find(p => p.id === Number(item.id))
+        return product ? [{ ...product, quantity: item.quantity }] : []
+      }), storageOwner)
+    }
+    setCart(next)
   }
 
   // Handle address detection from Mapbox
@@ -600,6 +613,7 @@ function CheckoutContent() {
 
       if (res.ok) {
         const data = await res.json()
+        if (!panierId && !commandeId && !cartParam) saveStoredCart([], storageOwner)
         trackPurchase(data)
         // L'overlay anime remplace le toast comme feedback immediat ; la
         // redirection existante est juste differee le temps de la celebration.

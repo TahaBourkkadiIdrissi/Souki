@@ -255,6 +255,10 @@ class CheckoutService(ICheckoutService):
                 dedupe_suffix=str(commande.id),
             )
 
+            if payload._campaign_visit:
+                from dao.campaign_dao import CampaignDao
+                from services.campaign_service import CampaignService
+                CampaignService(CampaignDao(), session).attribute_order(payload._campaign_visit, int(commande.id))
             session.commit()
 
             return CheckoutResponseDTO(

@@ -7,6 +7,8 @@ from dto.phone_validator import validate_moroccan_phone
 
 
 class UserRegister(BaseModel):
+    prenom: Optional[str] = Field(default=None, max_length=100)
+    nom: Optional[str] = Field(default=None, max_length=100)
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     password: str

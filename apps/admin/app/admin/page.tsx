@@ -26,6 +26,7 @@ import {
   Wallet,
   Gift,
   Percent,
+  QrCode,
   X,
 } from "lucide-react"
 import {
@@ -67,6 +68,7 @@ const adminNavItems = [
   { icon: MapPinned, label: "Zones de livraison", href: "/admin/zones" },
   { icon: AlertTriangle, label: "Exceptions / Backlog", href: "/admin/commandes/exceptions" },
   { icon: Gift, label: "Parrainage", href: "/admin/parrainage" },
+  { icon: QrCode, label: "Compaign", href: "/admin/compaign" },
 ]
 
 const adminNavPermissions: Record<string, string> = {
@@ -80,6 +82,7 @@ const adminNavPermissions: Record<string, string> = {
   "/admin/zones": "admin.panel.access",
   "/admin/commandes/exceptions": "admin.panel.access",
   "/admin/parrainage": "admin.panel.access",
+  "/admin/compaign": "admin.panel.access",
 }
 
 const periodOptions: Array<{ value: DashboardPeriod; label: string }> = [

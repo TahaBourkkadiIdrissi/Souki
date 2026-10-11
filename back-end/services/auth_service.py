@@ -89,6 +89,8 @@ class AuthService:
             verification_channel = "email" if data.email else "phone"
 
             new_user = User(
+                prenom=(getattr(data, "prenom", None) or "").strip() or None,
+                nom=(getattr(data, "nom", None) or "").strip() or None,
                 email=data.email,
                 phone=data.phone,
                 password=hash_password(data.password),

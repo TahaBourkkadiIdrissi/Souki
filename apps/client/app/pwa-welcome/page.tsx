@@ -176,14 +176,7 @@ export default function PwaWelcomePage() {
     setIsReady(true)
   }, [router])
 
-  // Session guard : sans session active, l'entree PWA affiche la page de choix
-  // de profil (/login) au lieu de l'accueil. On attend la fin de la resolution
-  // de session (isLoading) pour ne pas ejecter un utilisateur connecte.
-  useEffect(() => {
-    if (isReady && !isLoading && !isAuthenticated) {
-      router.replace("/login?redirect=/pwa-welcome")
-    }
-  }, [isReady, isLoading, isAuthenticated, router])
+  // The PWA storefront is public; authentication is required only at checkout.
 
   // Onboarding guard: redirect authenticated first-time users to onboarding.
   // L'etat vient du compte (serveur), pas de l'appareil : un habitue qui installe
@@ -194,7 +187,7 @@ export default function PwaWelcomePage() {
     }
   }, [isReady, isAuthenticated, user, router])
 
-  useHomeParallax(heroRef, isReady && !isLoading && isAuthenticated)
+  useHomeParallax(heroRef, isReady && !isLoading)
 
   // Load catalogue
   useEffect(() => {
@@ -320,9 +313,8 @@ export default function PwaWelcomePage() {
   // Décalage de parallax : neutralisé si l'utilisateur préfère moins d'animations.
 
 
-  // Splash tant que le mode standalone ou la session ne sont pas confirmes :
-  // l'accueil PWA ne doit jamais apparaitre sans session (redirection /login).
-  if (!isReady || isLoading || !isAuthenticated) {
+  // Wait for local storage ownership before allowing cart writes.
+  if (!isReady || isLoading) {
     return (
       <main className="min-h-dvh bg-[#F5F5F0]" aria-label="Chargement">
         <div className="flex min-h-dvh items-center justify-center">

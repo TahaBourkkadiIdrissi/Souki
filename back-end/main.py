@@ -28,6 +28,7 @@ from controllers.admin_controller import admin_router, api_admin_router
 from controllers.admin_exception_controller import router_admin_exceptions
 from controllers.auth_controller import auth_router
 from controllers.catalogue_controller import router_catalogue
+from controllers.campaign_controller import campaign_router
 from controllers.claim_controller import claim_router
 from controllers.checkout_controller import router_checkout
 from controllers.order_edit_controller import router_order_edit
@@ -72,6 +73,7 @@ API_ROUTERS: tuple[APIRouter, ...] = (
     push_router,
     favorite_router,
     router_catalogue,
+    campaign_router,
     router_voice,
     router_panier,
     router_assistant,

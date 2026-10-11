@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react"
 import { toast } from "sonner"
 import { API_BASE_URL } from "@/lib/api"
+import { adoptGuestCart } from "@/lib/client-storage"
+import { trackEvent } from "@/lib/analytics"
 
 export interface User {
   id: number
@@ -205,6 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { user: nextUser, networkError } = await fetchCurrentUser()
     if (nextUser) {
+      await adoptGuestCart(nextUser.id)
       // Marqueur de session NON secret. Les pages qui conditionnent leurs appels sur
       // `token` (ex: supplier, livreur) continuent de fonctionner, et l'en-tete
       // "Authorization: Bearer cookie-session" eventuellement envoye est ignore par le
@@ -310,10 +313,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // "gel" ressenti pendant plusieurs secondes a la connexion).
       if (data?.user) {
         const nextUser = normalizeUser(data.user)
+        await adoptGuestCart(nextUser.id)
         setUser(nextUser)
         setToken(COOKIE_SESSION_SENTINEL)
         setIsAuthenticated(true)
         notifyAuthSync()
+        trackEvent("login", { method: endpoint === "/auth/google" ? "google" : "password" })
         return nextUser
       }
 

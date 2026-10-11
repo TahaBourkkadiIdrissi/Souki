@@ -116,6 +116,7 @@ back-end/sql/*
 !back-end/sql/migration_produit_pricing.sql
 !back-end/sql/migration_product_description.sql
 !back-end/sql/2026-10-09_order_delivery_date.sql
+!back-end/sql/2026-10-11_campaigns.sql
 
 # vitepress build output
 **/.vitepress/dist
