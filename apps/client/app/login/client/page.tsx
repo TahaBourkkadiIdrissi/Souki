@@ -159,6 +159,8 @@ function ClientLoginContent() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             email: loginId,
+            prenom: firstName.trim() || undefined,
+            nom: lastName.trim() || undefined,
             phone: formattedPhone || undefined,
             password: password,
             role: selectedRole.toUpperCase(),

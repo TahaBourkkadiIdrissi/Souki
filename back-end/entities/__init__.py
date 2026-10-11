@@ -76,3 +76,4 @@ __all__ = [
     "PushSubscription",
     "UserSession",
 ]
+from entities.campaign_entity import Campaign, CampaignVisit, CampaignOrder

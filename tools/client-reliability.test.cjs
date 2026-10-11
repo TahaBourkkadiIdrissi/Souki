@@ -82,7 +82,7 @@ function storageHarness() {
     getItem: (key) => { if (denyRead) throw Error('denied'); return data.get(key) ?? null },
     setItem: (key, value) => { if (denyWrite) throw Error('quota'); data.set(key, value) },
   }, addEventListener: events.addEventListener.bind(events), removeEventListener: events.removeEventListener.bind(events), dispatchEvent: events.dispatchEvent.bind(events) }
-  return { api: load('apps/client/lib/client-storage.ts', { window, Event }), data,
+  return { api: load('apps/client/lib/client-storage.ts', { window, Event, navigator: {} }), data,
     deny: (read, write) => { denyRead = read; denyWrite = write } }
 }
 
@@ -123,6 +123,30 @@ test('corrupt storage, blocked reads and quota failures do not break account iso
 })
 
 const policy = load('apps/livreur/lib/delivery-sync-policy.ts')
+test('login merges guest products once, preserves account contents and isolates other users', async () => {
+  const { api } = storageHarness()
+  api.writeClientCollection('cart', null, [{ id: 1, quantity: 0.5 }, { id: 2, quantity: 1 }])
+  api.writeClientCollection('cart', 7, [{ id: 1, quantity: 2 }, { id: 3, quantity: 1 }])
+  api.writeClientCollection('cart', 8, [{ id: 9, quantity: 4 }])
+  await api.adoptGuestCart(7)
+  assert.equal(api.readClientCollection('cart', 7).find(item => item.id === 1).quantity, 2.5)
+  assert.equal(api.readClientCollection('cart', 7).length, 3)
+  assert.equal(api.readClientCollection('cart', null).length, 0)
+  await api.adoptGuestCart(7)
+  await api.adoptGuestCart(8)
+  assert.equal(api.readClientCollection('cart', 7).find(item => item.id === 1).quantity, 2.5)
+  assert.equal(api.readClientCollection('cart', 8).length, 1)
+})
+
+test('guest merge tolerates unavailable storage and excludes corrupt quantities', async () => {
+  const { api, deny } = storageHarness()
+  deny(true, true)
+  api.writeClientCollection('cart', null, [{ id: 1, quantity: 1 }, { id: 2, quantity: -1 }])
+  await api.adoptGuestCart(7)
+  assert.equal(api.readClientCollection('cart', 7).length, 1)
+  assert.equal(api.readClientCollection('cart', null).length, 0)
+})
+
 test('delivery events survive temporary errors and expired sessions; conflicts are distinct', () => {
   for (const status of [undefined, 408, 425, 429, 500, 502, 503, 504]) assert.equal(policy.deliverySyncFailure(status), 'retry')
   for (const status of [401, 403]) assert.equal(policy.deliverySyncFailure(status), 'session')

@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "souki-pwa"
-const CACHE_VERSION = "v15-order-cancel"
+const CACHE_VERSION = "v16-guest-campaigns"
 const RUNTIME_CACHE = `${CACHE_PREFIX}-${CACHE_VERSION}`
 
 // Page de repli affichee quand une navigation echoue hors ligne.

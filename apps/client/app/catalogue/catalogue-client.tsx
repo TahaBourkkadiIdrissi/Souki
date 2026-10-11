@@ -662,7 +662,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
   }, [router, searchParams])
 
   useEffect(() => {
-    if (isLoading || !isAuthenticated || cart.length === 0) {
+    if (isLoading || cart.length === 0) {
       setPricingSuggestions([])
       return
     }
@@ -803,7 +803,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
   useEffect(() => {
     const addProductName = searchParams.get("add_product")
     const qtyStr = searchParams.get("qty")
-    if (addProductName && qtyStr && products.length > 0 && isAuthenticated) {
+    if (addProductName && qtyStr && products.length > 0 && !isLoading) {
       const qty = Number(qtyStr)
       const product = products.find((p) => p.name === addProductName)
       if (product && !Number.isNaN(qty)) {
@@ -813,7 +813,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
         router.replace("/catalogue")
       }
     }
-  }, [searchParams, products, isAuthenticated, router])
+  }, [searchParams, products, isLoading, router])
 
   // Arrivee depuis l'accueil PWA (?product=<id>) : on ouvre directement la fiche
   // du produit touche, description comprise, puis on nettoie l'URL pour qu'un
@@ -833,7 +833,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
   }, [searchParams, products, router])
 
   const redirectToLogin = (redirectTarget: string) => {
-    router.push(`/login?redirect=${encodeURIComponent(redirectTarget)}`)
+    router.push(`/login/client?redirect=${encodeURIComponent(redirectTarget)}`)
   }
 
   const requireAuth = (redirectTarget: string, action: () => void) => {
@@ -848,7 +848,8 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
   }
 
   const handleAddToCart = (id: number | string, quantity: number) => {
-    requireAuth("/catalogue", () => {
+    if (isLoading) return
+    {
       const normalizedId = Number(id)
       const product = products.find((item) => item.id === normalizedId)
       if (!product || product.availability === "out_of_stock") {
@@ -866,7 +867,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
       } else {
         setShowCart(true)
       }
-    })
+    }
   }
 
   const handleProductView = (id: number | string) => {
@@ -908,7 +909,8 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
   }
 
   const handleAddSuggestionToCart = (product: CatalogueProduct) => {
-    requireAuth("/catalogue", () => {
+    if (isLoading) return
+    {
       setAddedSuggestionIds((currentIds) =>
         currentIds.includes(product.id) ? currentIds : [...currentIds, product.id]
       )
@@ -921,11 +923,12 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
       } else {
         setShowCart(true)
       }
-    })
+    }
   }
 
   const handleApplySelections = (selections: BasketSelection[]) => {
-    requireAuth("/catalogue", () => {
+    if (isLoading) return
+    {
       setCart((currentCart) => mergeSelectionsIntoCart(currentCart, products, selections))
       const items = selections.flatMap(({ productId, quantity }) => {
         const product = products.find((item) => item.id === productId)
@@ -941,7 +944,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
         })
       }
       setShowCart(true)
-    })
+    }
   }
 
   const updateCartQuantity = (id: number, delta: number) => {
@@ -1270,7 +1273,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
         // Réserve l'espace bas : barre de nav mobile seule (pb-24) ou barre de nav
         // + barre panier sticky quand le panier est rempli (pb-44), pour que le
         // dernier contenu ne soit jamais masqué au bas du scroll.
-        isAuthenticated && cart.length > 0 ? "pb-44" : "pb-24",
+        cart.length > 0 ? "pb-44" : "pb-24",
       )}
     >
       {/* Avancement du scroll : l'utilisateur voit quand il approche de la fin */}
@@ -1443,13 +1446,13 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
             {!isAuthenticated && !isLoading && (
               <div className="rounded-3xl border border-[#F3D8B2] bg-[#FFF7EE] p-5">
                 <p className="text-sm font-semibold text-[#9A5C11]">
-                  Connectez-vous pour ajouter des produits au panier et valider votre commande.
+                  Composez votre panier librement. La connexion sera demandée au moment de valider la commande.
                 </p>
                 <button
-                  onClick={() => redirectToLogin("/catalogue")}
+                  onClick={() => setShowCart(true)}
                   className="mt-4 w-full rounded-2xl bg-[#F07C00] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#D66B00]"
                 >
-                  Se connecter
+                  Voir mon panier
                 </button>
               </div>
             )}
@@ -2187,26 +2190,12 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
               <h2 className="text-xl font-black">Votre panier</h2>
             </div>
             <p className="mt-2 text-sm text-[#6F8070]">
-              {isAuthenticated
-                ? "Ajustez vos quantités puis validez votre commande."
-                : "Le panier est réservé aux utilisateurs connectés."}
+              Ajustez vos quantités puis validez votre commande.
             </p>
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 xl:p-4">
-            {!isAuthenticated && !isLoading ? (
-              <div className="rounded-[28px] border border-[#F3D8B2] bg-[#FFF7EE] p-5">
-                <p className="text-sm font-semibold text-[#9A5C11]">
-                  Connectez-vous pour utiliser le panier, modifier les quantités et commander.
-                </p>
-                <button
-                  onClick={() => redirectToLogin("/catalogue")}
-                  className="mt-4 w-full rounded-2xl bg-[#F07C00] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#D66B00]"
-                >
-                  Aller à la connexion
-                </button>
-              </div>
-            ) : cart.length === 0 ? (
+            {cart.length === 0 ? (
               <div className="py-10 text-center animate-fade-in-up">
                 <img
                   src="/illustrations/empty-basket.webp"
@@ -2355,7 +2344,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
             )}
           </div>
 
-          {isAuthenticated && cart.length > 0 && (
+          {cart.length > 0 && (
             <div className="border-t border-[#EEF2EE] p-4 xl:p-5">
               <div className="space-y-2 text-sm">
                 <div className="flex items-center justify-between text-[#6F8070]">
@@ -2405,7 +2394,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
           Visible quand le panier contient des articles et que le tiroir panier est
           ferme. Remonte au-dessus de la barre de navigation. md:hidden via le
           primitif StickyBottomBar (desktop inchange). */}
-      {isAuthenticated && cart.length > 0 && !showCart && (
+      {cart.length > 0 && !showCart && (
         <StickyBottomBar aboveNav>
           <button
             type="button"

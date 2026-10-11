@@ -18,6 +18,9 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { API_BASE_URL } from "@/lib/api"
 import { shouldShowOnboarding } from "@/lib/onboarding"
 import { safeInternalRedirect } from "@/lib/routes"
+import { adoptGuestCart } from "@/lib/client-storage"
+import { useAuth } from "@/hooks/useAuth"
+import { trackEvent } from "@/lib/analytics"
 
 const RESEND_DELAY_SECONDS = 60
 
@@ -33,6 +36,7 @@ function OTPVerificationForm({
   redirectTarget: string | null
 }) {
   const router = useRouter()
+  const { validateToken } = useAuth()
   const [otp, setOtp] = useState("")
   const [error, setError] = useState("")
   const [message, setMessage] = useState("")
@@ -85,6 +89,8 @@ function OTPVerificationForm({
       }
 
       if (data.access_token) {
+        await adoptGuestCart(userId)
+        if (!await validateToken()) throw new Error("Compte vérifié. Connectez-vous pour reprendre votre commande.")
         // Le token vit desormais dans un cookie httpOnly (pose par le backend), plus
         // dans le localStorage. On notifie juste le contexte d'auth de se rafraichir.
         window.dispatchEvent(
@@ -97,15 +103,14 @@ function OTPVerificationForm({
       setMessage(data.message || "Code validé avec succès.")
       // Laisse le temps au checkmark de se dessiner avant la redirection.
       setVerified(true)
+      trackEvent("sign_up", { method: channel === "phone" ? "phone" : "email" })
       // Compte fraichement verifie : le serveur indique s'il reste a onboarder.
-      const destination = shouldShowOnboarding({
+      const destination = redirectTarget || (shouldShowOnboarding({
         id: userId,
         onboarding_completed: data.onboarding_completed,
       })
-        ? redirectTarget
-          ? `/onboarding?redirect=${encodeURIComponent(redirectTarget)}`
-          : "/onboarding"
-        : redirectTarget || data.default_dashboard || "/"
+        ? "/onboarding"
+        : data.default_dashboard || "/")
       window.setTimeout(() => router.push(destination), 900)
     } catch (err: any) {
       setError(err.message || "La vérification a échoué.")

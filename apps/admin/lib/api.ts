@@ -2,6 +2,41 @@
 
 export const API_BASE_URL = "/backend"
 
+export interface CampaignForm {
+  name: string
+  destination: string
+  source: string
+  medium: string
+  campaign: string
+  active: boolean
+}
+export interface Campaign extends CampaignForm {
+  id: number
+  slug: string
+  version: number
+  created_at: string
+  short_url: string
+  target_url: string
+  visits: number
+  visitors: number
+  orders: number
+  delivered_orders: number
+}
+export interface CampaignStats {
+  start: string
+  end: string
+  visits: number
+  visitors: number
+  orders: number
+  delivered_orders: number
+  days: { day: string; visits: number; visitors: number }[]
+}
+export const listCampaigns = () => apiCall<Campaign[]>("/api/admin/campaigns", { cache: "no-store" })
+export const createCampaign = (body: CampaignForm & { slug: string }) => apiCall<Campaign>("/api/admin/campaigns", { method: "POST", body })
+export const updateCampaign = (id: number, body: CampaignForm & { expected_version: number }) => apiCall<Campaign>(`/api/admin/campaigns/${id}`, { method: "PUT", body })
+export const getCampaignStats = (id: number, start: string, end: string, signal?: AbortSignal) => apiCall<CampaignStats>(`/api/admin/campaigns/${id}/stats?${new URLSearchParams({ start, end })}`, { cache: "no-store", signal })
+export const getCampaignQr = (id: number) => apiCall<{ svg: string }>(`/api/admin/campaigns/${id}/qr-preview`, { cache: "no-store" })
+
 
 interface ApiOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
