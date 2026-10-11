@@ -1,4 +1,4 @@
-# Compaign et panier invité — 11 octobre 2026
+# Compagne et panier invité — 11 octobre 2026
 
 ## Résultat et périmètre
 
@@ -6,13 +6,15 @@
 - Fusion du panier invité avec celui du compte connecté, sans importer les données d'un autre compte. Les quantités d'un même produit s'additionnent. Le panier invité est vidé après transfert.
 - Quantités et suppressions du panier manuel conservées au checkout ; nettoyage après confirmation réussie.
 - Inscription : champs existants conservés. Les champs prénom et nom déjà présents sont désormais transmis et enregistrés dans les colonnes existantes. Le champ ville conserve son fonctionnement antérieur ; l'adresse et la ville de livraison restent saisies au checkout.
-- Page `/admin/compaign`, intitulée **Compaign**, dans la navigation admin : plusieurs QR, création, édition, activation/désactivation, copie du lien, SVG et PNG, trafic total et par période.
+- Page `/admin/compaign`, intitulée **Compagne**, dans la navigation admin : plusieurs QR, création, édition, activation/désactivation, copie du lien, SVG et PNG, trafic total et par période. Le chemin reste compatible avec les liens existants.
 - Lien imprimé permanent `/r/{slug}` : sa destination et ses paramètres UTM sont modifiables en base, avec redirection HTTP 302 sans cache. Le slug est immuable. Aucun passage sur le VPS pour les modifications courantes.
 - Aucune récompense de 10 DH ni connexion WhatsApp/SMS ajoutée. Les fonctions IA et les espaces personnels conservent leurs protections existantes.
 
 ## Mesure
 
-Une visite = une ouverture du lien court. Les visiteurs estimés sont des navigateurs reconnus par cookie signé pendant 30 jours ; ce n'est pas un décompte exact de personnes. Changer d'appareil, supprimer les cookies ou partager le lien affecte cette estimation. Les robots reconnus, HEAD et les requêtes indiquant une prélecture ne comptent pas. Ce filtrage ne garantit pas l'exclusion de tout trafic automatisé.
+Une visite = une ouverture du lien court actif. Un QR désactivé redirige en 302 vers `/catalogue`, sans paramètres UTM ajoutés, sans nouvelle visite et sans émission ni renouvellement des cookies QR. Son historique et les attributions liées aux visites antérieures sont conservés. La réactivation reprend la destination configurée avec le même QR. Un identifiant inexistant reste une erreur 404.
+
+Les visiteurs estimés sont des navigateurs reconnus par cookie signé pendant 30 jours ; ce n'est pas un décompte exact de personnes. Changer d'appareil, supprimer les cookies ou partager le lien affecte cette estimation. Les robots reconnus, HEAD et les requêtes indiquant une prélecture ne comptent pas. Ce filtrage ne garantit pas l'exclusion de tout trafic automatisé.
 
 Les cookies sont HttpOnly et SameSite=Lax, Secure en production via la configuration existante. Les visites enregistrent un identifiant aléatoire haché et une date UTC, sans stocker d'adresse IP ni de User-Agent dans ces nouvelles tables. La période du graphique utilise UTC et inclut les journées sans visite.
 
@@ -81,7 +83,28 @@ sudo docker compose --env-file infra/.env.production ps
 
 Le scheduler partage l'image du backend. Le redémarrage Nginx renouvelle sa résolution des adresses des services reconstruits. Aucun changement des domaines ni du template Nginx n'est nécessaire pour `/r/`, servi par le client.
 
-4. Dans l'admin, ouvrir Compaign, créer un QR avec destination `/catalogue`, télécharger le SVG pour impression. Scanner avec un téléphone et vérifier la visite. Modifier ensuite la destination dans l'admin et rescanner **le même QR**.
+4. Dans l'admin, ouvrir Compagne, créer un QR avec destination `/catalogue`, télécharger le SVG pour impression. Scanner avec un téléphone et vérifier la visite. Modifier ensuite la destination dans l'admin et rescanner **le même QR**.
+
+## Correction des liens désactivés et du libellé
+
+Le nom affiché est désormais **Compagne**, conformément à la demande. Les chemins, noms de tables et liens imprimés ne changent pas. Aucune migration SQL et aucune nouvelle variable d'environnement ne sont nécessaires pour cette correction.
+
+La surveillance extérieure est reportée à la demande de l'utilisateur. Aucun service d'alerte n'a été activé. Les tests spécifiques au fournisseur et la procédure de configuration ont été retirés ; aucun code d'alerte applicatif n'avait été ajouté.
+
+### Traçabilité de cette correction
+
+- `back-end/services/campaign_service.py`, lignes 47–48, 110 et 113–114 : destination de repli dans le service, aucune écriture de visite en cas de désactivation ; mêmes contrats ABC et mêmes transactions. Le DAO reste inchangé, avec flush uniquement. Le service ne crée pas de LocalSession et n'exécute pas de SQL directement.
+- `back-end/controllers/campaign_controller.py`, ligne 11 : libellé de documentation API Compagne ; adaptateur HTTP et injection de session conservés.
+- `apps/admin/app/admin/page.tsx`, ligne 71, et `apps/admin/app/admin/compaign/page.tsx`, lignes 26, 128, 142 et 163 : titre et navigation Compagne, explications actualisées sur désactivation et attribution. Aucun changement de formulaire d'inscription.
+- `back-end/tests/test_campaigns.py`, lignes 58–95 : désactivation/réactivation, historique, attribution antérieure et réponse 302 sans cookies.
+- `tools/campaign-runtime-check.mjs`, lignes 110 et 171–173 : vérification du titre et du repli 302 sans émission de cookies.
+- Ce rapport : comportement mis à jour et surveillance reportée. Aucun fichier créé ou supprimé pour cette correction. SQL, environnement, Nginx, livreur, checkout et authentification inchangés.
+
+L'inventaire détaillé ci-dessous décrit la livraison initiale ; les lignes de ces fichiers peuvent se décaler avec cette correction.
+
+Vérifications de la correction : 18 tests campagne relancés et réussis après retrait des deux cas de surveillance ; syntaxe du script navigateur vérifiée avec `node --check`. TypeScript admin et compilation Python avaient réussi ; `git diff --check` conforme. Le script navigateur avait terminé avec succès avant le retrait des assertions de surveillance, y compris le titre Compagne et le repli 302 d'un QR désactivé. L'avertissement Python concerne uniquement le répertoire `.pytest_cache` inaccessible, pas une erreur de compilation des sources.
+
+Le serveur Next.js de développement a aussi signalé un problème intermittent d'hydratation dans l'encart invité du catalogue lors d'un Fast Refresh. Ce message avait déjà été observé avant cette correction ; le catalogue n'est pas modifié ici. Les assertions de parcours passent, mais ce test ne constitue pas une validation sans avertissement de toutes les pages en production.
 
 ## Checklist
 

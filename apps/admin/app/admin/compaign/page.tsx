@@ -23,7 +23,7 @@ const navItems = [
   { icon: MapPinned, label: "Zones de livraison", href: "/admin/zones", permission: "admin.panel.access" },
   { icon: AlertTriangle, label: "Exceptions / Backlog", href: "/admin/commandes/exceptions", permission: "admin.panel.access" },
   { icon: Gift, label: "Parrainage", href: "/admin/parrainage", permission: "admin.panel.access" },
-  { icon: QrCode, label: "Compaign", href: "/admin/compaign", permission: "admin.panel.access" },
+  { icon: QrCode, label: "Compagne", href: "/admin/compaign", permission: "admin.panel.access" },
 ]
 
 export default function CompaignPage() {
@@ -125,7 +125,7 @@ export default function CompaignPage() {
       {sidebarOpen && <button aria-label="Fermer le menu" className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />}
       <main className="min-w-0 flex-1 space-y-6 p-4 lg:p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div><h1 className="text-2xl font-bold">Compaign</h1><p className="mt-1 text-sm text-[#6B7280]">Vos QR codes, leurs destinations et leur trafic.</p></div>
+          <div><h1 className="text-2xl font-bold">Compagne</h1><p className="mt-1 text-sm text-[#6B7280]">Vos QR codes, leurs destinations et leur trafic.</p></div>
           <div className="flex gap-2"><button className={buttonClass} disabled={loading || saving} onClick={() => { void load(); setRefresh(value => value + 1) }}><RefreshCw className="h-4 w-4" />Actualiser</button><button className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#1E8A3C] px-4 text-sm font-semibold text-white hover:bg-[#166d30]" onClick={() => { setEditing(null); setForm(emptyForm); setShowForm(true) }}><Plus className="h-4 w-4" />Nouveau QR code</button></div>
         </div>
         {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
@@ -139,7 +139,7 @@ export default function CompaignPage() {
             {([['source', 'Source de trafic'], ['medium', 'Support'], ['campaign', 'Nom de campagne dans les statistiques']] as const).map(([key, label]) => <label key={key} className="space-y-1 text-sm">{label}<input required maxLength={80} className={inputClass} value={form[key]} onChange={e => setForm({ ...form, [key]: e.target.value })} /></label>)}
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.active} onChange={e => setForm({ ...form, active: e.target.checked })} />Lien actif</label>
           </div>
-          <p className="text-xs text-[#6B7280]">Désactiver le lien empêche les nouvelles visites. Les statistiques sont conservées.</p>
+          <p className="text-xs text-[#6B7280]">Un lien désactivé ouvre le catalogue sans compter de nouvelle visite. Les statistiques sont conservées. Les commandes liées aux visites antérieures peuvent encore être attribuées pendant 30 jours après ces visites.</p>
           <div className="flex gap-3"><button disabled={saving} className="min-h-11 rounded-xl bg-[#1E8A3C] px-5 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Enregistrement…" : "Enregistrer"}</button><button type="button" disabled={saving} className={buttonClass} onClick={() => setShowForm(false)}>Annuler</button></div>
         </form>}
         <section className="overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-sm">
@@ -160,7 +160,7 @@ export default function CompaignPage() {
             <div className="flex flex-wrap items-end justify-between gap-3"><h2 className="font-bold">Trafic de la campagne</h2><div className="flex flex-wrap gap-3"><label className="text-xs">Du<input aria-label="Début de période" type="date" className={inputClass} value={start} max={end} onChange={e => setStart(e.target.value)} /></label><label className="text-xs">Au<input aria-label="Fin de période" type="date" className={inputClass} value={end} min={start} onChange={e => setEnd(e.target.value)} /></label></div></div>
             {stats ? <><div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{[["Visites", stats.visits], ["Visiteurs estimés", stats.visitors], ["Commandes attribuées", stats.orders], ["Dont livrées", stats.delivered_orders]].map(([label, count]) => <div key={label} className="rounded-xl border border-gray-100 bg-gray-50 p-3"><p className="text-xs text-[#6B7280]">{label}</p><p className="mt-2 text-2xl font-bold text-[#1E8A3C]">{count}</p></div>)}</div>
             {stats.days.length > 0 ? <div className="h-64 w-full" aria-label="Évolution des visites par jour"><ResponsiveContainer width="100%" height="100%"><AreaChart data={stats.days}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" tickFormatter={day => String(day).slice(5)} /><YAxis allowDecimals={false} /><Tooltip /><Area type="monotone" dataKey="visits" name="Visites" stroke="#1E8A3C" fill="#DCFCE7" /><Area type="monotone" dataKey="visitors" name="Visiteurs estimés" stroke="#F07C00" fill="transparent" /></AreaChart></ResponsiveContainer></div> : <p className="py-10 text-center text-sm text-[#6B7280]">Aucune visite sur cette période.</p>}</> : <p role="status">Chargement des statistiques…</p>}
-            <p className="text-xs leading-relaxed text-[#6B7280]">Une visite correspond à une ouverture du lien. Les visiteurs estimés sont des navigateurs reconnus par un cookie pendant 30 jours, pas un nombre exact de personnes. Les robots connus et les aperçus sont exclus. Les commandes sont attribuées au dernier lien ouvert dans les 30 jours, sur ce navigateur. La période filtre la date de visite (UTC) ; les commandes incluent celles annulées, le nombre livré est affiché séparément.</p>
+            <p className="text-xs leading-relaxed text-[#6B7280]">Une visite correspond à une ouverture du lien actif. Les visiteurs estimés sont des navigateurs reconnus par un cookie pendant 30 jours, pas un nombre exact de personnes. Les robots connus et les aperçus sont exclus. Les commandes sont attribuées au dernier lien actif ouvert dans les 30 jours, sur ce navigateur. Changer de navigateur ou supprimer les cookies peut faire perdre ce lien. Une attribution ne prouve pas que le QR a déclenché l’achat. La période filtre la date de visite (UTC) ; les commandes incluent celles annulées, le nombre livré est affiché séparément.</p>
           </section>
         </div>}
       </main>

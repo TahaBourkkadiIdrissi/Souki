@@ -8,7 +8,7 @@ from dto.campaign_dto import CampaignCreateDTO, CampaignUpdateDTO, CampaignDTO, 
 from interfaces.campaign_service_interface import ICampaignService
 from services.campaign_service import CampaignService
 
-campaign_router = APIRouter(tags=["Compaign"])
+campaign_router = APIRouter(tags=["Compagne"])
 
 
 def get_campaign_service():

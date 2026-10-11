@@ -68,7 +68,7 @@ const adminNavItems = [
   { icon: MapPinned, label: "Zones de livraison", href: "/admin/zones" },
   { icon: AlertTriangle, label: "Exceptions / Backlog", href: "/admin/commandes/exceptions" },
   { icon: Gift, label: "Parrainage", href: "/admin/parrainage" },
-  { icon: QrCode, label: "Compaign", href: "/admin/compaign" },
+  { icon: QrCode, label: "Compagne", href: "/admin/compaign" },
 ]
 
 const adminNavPermissions: Record<string, string> = {

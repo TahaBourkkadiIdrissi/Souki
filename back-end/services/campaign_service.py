@@ -44,6 +44,8 @@ class CampaignService(ICampaignService):
         return values
 
     def _target(self, row):
+        if not row.active:
+            return f"{self.origin}/catalogue"
         parts = urlsplit(row.destination)
         query = dict(parse_qsl(parts.query, keep_blank_values=True))
         query.update(utm_source=row.source, utm_medium=row.medium, utm_campaign=row.campaign, utm_content=row.slug)
@@ -105,9 +107,11 @@ class CampaignService(ICampaignService):
     def resolve(self, slug, visitor_cookie, user_agent, *, count=True):
         try:
             row = self.dao.by_slug(self.session, slug)
-            if row is None or not row.active:
+            if row is None:
                 raise HTTPException(404, "Ce lien de campagne est indisponible.")
             result = CampaignRedirectDTO(location=self._target(row))
+            if not row.active:
+                return result
             if count and not re.search(r"bot|crawler|spider|preview|facebookexternalhit|whatsapp|headless", user_agent or "", re.I):
                 visitor = self._verify(visitor_cookie) or uuid.uuid4().hex
                 visit = self.dao.visit(self.session, row.id, hashlib.sha256(visitor.encode()).hexdigest(), datetime.utcnow())

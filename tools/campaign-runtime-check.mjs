@@ -107,6 +107,7 @@ try {
     }
   }
   await go(dashboard, 'http://127.0.0.1:3471/admin/compaign')
+  await dashboard.getByRole('heading', { name: 'Compagne', exact: true }).waitFor()
   await dashboard.getByRole('button', { name: 'Nouveau QR code' }).click()
   await dashboard.getByLabel('Nom de la campagne', { exact: true }).fill('Flyer Narjiss')
   await dashboard.getByLabel('Identifiant du lien court').fill('narjiss')
@@ -167,7 +168,9 @@ try {
   await dashboard.getByRole('button', { name: 'Enregistrer', exact: true }).click()
   await dashboard.getByRole('cell', { name: 'Désactivé', exact: true }).waitFor()
   const disabled = await client.request.get('http://127.0.0.1:3470/r/narjiss', { maxRedirects: 0 })
-  assert.equal(disabled.status(), 404)
+  assert.equal(disabled.status(), 302)
+  assert.equal(disabled.headers().location, 'http://127.0.0.1:3470/catalogue')
+  assert.equal(disabled.headers()['set-cookie'], undefined)
   const guest = await context(), pwa = await guest.newPage()
   await go(pwa, 'http://127.0.0.1:3470/pwa-welcome?preview=pwa')
   await pwa.getByText('Tout le marché', { exact: true }).waitFor()

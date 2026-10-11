@@ -58,15 +58,42 @@ def test_destination_validation(setup, destination):
 def test_duplicate_slug_and_disable_without_deleting_stats(setup):
     service, session = setup
     row = service.create(payload())
-    service.resolve(row.slug, None, "Firefox")
+    first_visit = service.resolve(row.slug, None, "Firefox")
+    qr = service.qr(row.id)
     with pytest.raises(HTTPException) as exc:
         service.create(payload())
     assert exc.value.status_code == 409
-    service.update(row.id, CampaignUpdateDTO(**payload(active=False).model_dump(exclude={"slug"}), expected_version=1))
-    with pytest.raises(HTTPException) as exc:
-        service.resolve(row.slug, None, "Firefox")
-    assert exc.value.status_code == 404
+    disabled = service.update(row.id, CampaignUpdateDTO(**payload(active=False).model_dump(exclude={"slug"}), expected_version=1))
+    assert disabled.target_url == "https://souki.io/catalogue"
+    result = service.resolve(row.slug, first_visit.visitor_cookie, "Firefox")
+    assert result.location == disabled.target_url
+    assert result.visitor_cookie is None and result.visit_cookie is None
     assert session.query(CampaignVisit).count() == 1
+    session.add(Commande(id=1, statut="LIVRE"))
+    session.commit()
+    service.attribute_order(first_visit.visit_cookie, 1)
+    session.commit()
+    assert service.list()[0].delivered_orders == 1
+    service.update(row.id, CampaignUpdateDTO(**payload().model_dump(exclude={"slug"}), expected_version=2))
+    assert service.qr(row.id) == qr
+    assert "utm_campaign=" in service.resolve(row.slug, first_visit.visitor_cookie, "Firefox").location
+    assert service.list()[0].visits == 2 and service.list()[0].visitors == 1
+
+
+def test_disabled_redirect_and_unknown_link_remain_distinct(setup):
+    from controllers.campaign_controller import resolve_campaign
+    from starlette.requests import Request
+    service, session = setup
+    row = service.create(payload(active=False))
+    request = Request({"type": "http", "method": "GET", "headers": [(b"user-agent", b"Safari")]})
+    response = resolve_campaign(row.slug, request, service)
+    assert response.status_code == 302 and response.headers["location"] == "https://souki.io/catalogue"
+    assert "no-store" in response.headers["cache-control"]
+    assert not response.headers.getlist("set-cookie")
+    assert session.query(CampaignVisit).count() == 0
+    with pytest.raises(HTTPException) as exc:
+        resolve_campaign("inconnu", request, service)
+    assert exc.value.status_code == 404
 
 
 def test_bots_head_no_count_and_invalid_cookie_does_not_merge_visitors(setup):
