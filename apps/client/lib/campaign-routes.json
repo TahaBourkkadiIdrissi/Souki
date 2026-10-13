@@ -1,0 +1,9 @@
+{
+  "reserved": [
+    "a-propos", "abonnements", "catalogue", "checkout", "commandes", "faq", "favoris", "forgot-password", "historique", "login", "offline", "onboarding", "parametres", "politique-confidentialite", "produit", "pwa-welcome", "r", "reset-password", "suivi-commande", "verify", "wallet",
+    "admin", "api", "backend", "www", "livreur", "auth", "health", "_next", ".well-known", "robots.txt", "sitemap.xml", "favicon.ico", "manifest.webmanifest", "opengraph-image", "twitter-image", "icon", "apple-icon", "sw.js",
+    "avatar", "brand", "fonts", "illustrations", "images", "screenshots", "splash", "apple-icon-120.png", "apple-icon-152.png", "apple-icon-167.png", "apple-icon.png", "icon-dark-32x32.png", "icon-light-32x32.png", "legumes.png", "logo-souki.png", "logo3.png", "placeholder-logo.png", "placeholder-logo.svg", "placeholder-user.jpg", "placeholder.jpg", "placeholder.svg", "pwa-icon-192.png", "pwa-icon-512.png", "pwa-icon-maskable-512.png"
+  ],
+  "destinations": ["/", "/catalogue", "/faq", "/a-propos", "/abonnements", "/pwa-welcome", "/politique-confidentialite"],
+  "destinationPrefixes": ["/produit/"]
+}

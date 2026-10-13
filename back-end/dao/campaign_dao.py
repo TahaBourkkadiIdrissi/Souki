@@ -2,13 +2,16 @@ import uuid
 from datetime import timedelta
 from sqlalchemy import case, func
 from entities.campaign_entity import Campaign, CampaignVisit, CampaignOrder
+from entities.campaign_lifecycle_entity import CampaignLink, CampaignLifecycle
 from entities.commande_entity import Commande
 from interfaces.campaign_dao_interface import ICampaignDao
 
 
 class CampaignDao(ICampaignDao):
-    def list(self, session):
-        return session.query(Campaign).order_by(Campaign.created_at.desc(), Campaign.id.desc()).all()
+    def list(self, session, *, deleted=False):
+        query = session.query(Campaign).outerjoin(CampaignLifecycle, CampaignLifecycle.campaign_id == Campaign.id)
+        query = query.filter(CampaignLifecycle.deleted_at.isnot(None) if deleted else CampaignLifecycle.deleted_at.is_(None))
+        return query.order_by(Campaign.created_at.desc(), Campaign.id.desc()).all()
 
     def get(self, session, campaign_id, *, lock=False):
         query = session.query(Campaign).filter(Campaign.id == campaign_id)
@@ -16,8 +19,36 @@ class CampaignDao(ICampaignDao):
             query = query.with_for_update()
         return query.populate_existing().first()
 
-    def by_slug(self, session, slug):
-        return session.query(Campaign).filter(Campaign.slug == slug).first()
+    def by_slug(self, session, slug, *, lock=False):
+        link = session.get(CampaignLink, slug)
+        if link:
+            return self.get(session, link.campaign_id, lock=lock)
+        # Compatibility with existing rows; migration seeds their reservations.
+        query = session.query(Campaign).filter(func.lower(Campaign.slug) == slug)
+        if lock:
+            query = query.with_for_update()
+        return query.populate_existing().first()
+
+    def lifecycle(self, session, row):
+        return session.query(CampaignLifecycle).filter_by(campaign_id=row.id).populate_existing().first()
+
+    def reserve_slug(self, session, row, slug):
+        existing = session.get(CampaignLink, slug)
+        if existing and existing.campaign_id == row.id:
+            return
+        session.add(CampaignLink(slug=slug, campaign_id=row.id))
+        session.flush()
+
+    def set_lifecycle(self, session, row, slug, deleted_at):
+        state = self.lifecycle(session, row)
+        if state is None:
+            state = CampaignLifecycle(campaign_id=row.id)
+            session.add(state)
+        state.canonical_slug, state.deleted_at = slug, deleted_at
+        session.flush()
+
+    def has_visits(self, session, campaign_id):
+        return session.query(CampaignVisit.id).filter_by(campaign_id=campaign_id).first() is not None
 
     def create(self, session, values):
         row = Campaign(**values)

@@ -31,6 +31,7 @@ const securityHeaders = [
 ]
 
 const nextConfig = {
+  skipTrailingSlashRedirect: true,
   output: "standalone",
   outputFileTracingRoot: workspaceRoot,
   turbopack: { root: workspaceRoot },
