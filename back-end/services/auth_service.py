@@ -12,6 +12,7 @@ from config import GOOGLE_CLIENT_ID, LocalSession
 from dao.client_blacklist_dao import ClientBlacklistDaoBD
 from dao.parrainage_dao import ParrainageDaoBD
 from dao.user_dao import UserDao
+from entities.address_entity import Address
 from entities.client_entity import Client
 from entities.client_blacklist_log_entity import ClientBlacklistLog
 from entities.fournisseur_entity import Fournisseur
@@ -22,6 +23,7 @@ from entities.verification_code_entity import VerificationCode
 from rbac_config import LOGIN_TARGET_PERMISSIONS
 from services.authorization_service import AuthorizationPrincipal, AuthorizationService
 from services.email_delivery_service import EmailDeliveryService
+from services.service_area import SERVICE_CITY, is_in_service_area, out_of_area_message
 
 from services.parrainage_service import (
     REFERRAL_IP_CAP,
@@ -51,6 +53,10 @@ _email_service = EmailDeliveryService()
 
 class AuthService:
     def register(self, data, client_ip: Optional[str] = None):
+        # Clientele cible : Fes uniquement. Le front verifie deja la position avant
+        # d'afficher le formulaire ; ce controle tient la regle cote serveur.
+        self._ensure_in_service_area(data)
+
         db = LocalSession()
         try:
             if data.email:
@@ -105,6 +111,7 @@ class AuthService:
                 raise HTTPException(status_code=500, detail="Erreur interne lors de la creation du compte.")
 
             self._ensure_role_profile(db, user)
+            self._save_signup_address(db, user, data)
             if phone_blacklisted:
                 db.flush()
                 if user.client_profile is not None:
@@ -631,6 +638,37 @@ class AuthService:
 
     def _ensure_role_profile(self, db, user: User):
         self._ensure_profile_for_role(db, user, user.role or "CLIENT")
+
+    @staticmethod
+    def _ensure_in_service_area(data) -> None:
+        latitude = getattr(data, "latitude", None)
+        longitude = getattr(data, "longitude", None)
+        if latitude is None or longitude is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Indiquez votre position de livraison pour créer un compte.",
+            )
+        if not is_in_service_area(latitude, longitude):
+            raise HTTPException(
+                status_code=422,
+                detail=out_of_area_message(getattr(data, "ville", None)),
+            )
+
+    @staticmethod
+    def _save_signup_address(db, user: User, data) -> None:
+        """La position validee a l'inscription devient l'adresse de livraison par defaut."""
+        latitude, longitude = data.latitude, data.longitude
+        ville = (getattr(data, "ville", None) or "").strip() or SERVICE_CITY
+        street = (getattr(data, "adresse", None) or "").strip() or f"{latitude:.6f}, {longitude:.6f}"
+        db.add(Address(
+            user_id=user.id,
+            street=street,
+            neighborhood=ville,
+            ville=ville,
+            latitude=latitude,
+            longitude=longitude,
+            is_default=True,
+        ))
 
     def _build_principal(self, db, user: User) -> AuthorizationPrincipal:
         return AuthorizationService(db).build_principal_from_user(user)

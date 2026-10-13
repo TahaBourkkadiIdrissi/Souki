@@ -10,7 +10,9 @@ import { isValidMoroccanPhone, normalizeMoroccanPhone, PHONE_ERROR_MSG } from "@
 import { GoogleLoginButton } from "@/components/auth/google-login-button"
 import { PasswordStrength } from "@/components/souki/password-strength"
 import { PolicyLink } from "@/components/souki/policy-link"
+import { MapboxLocator } from "@/components/souki/mapbox-locator"
 import { shouldShowOnboarding } from "@/lib/onboarding"
+import { isInServiceArea, SERVICE_CENTER, SERVICE_CITY } from "@/lib/service-area"
 import { toast } from "sonner"
 import {
   Eye,
@@ -20,8 +22,8 @@ import {
   User,
   Phone,
   MapPin,
+  Navigation,
   Clock,
-  ChevronDown,
   Check,
   Loader2,
   AlertCircle,
@@ -30,8 +32,8 @@ import {
 
 type AuthMode = "login" | "signup"
 type UserRole = "client"
+type SignupLocation = { address: string; city: string; latitude: number; longitude: number }
 
-const cities = ["Fès", "Meknès", "Casablanca", "Rabat"]
 function ClientLoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -51,11 +53,14 @@ function ClientLoginContent() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
   const [acceptTerms, setAcceptTerms] = useState(false)
-  const [showCityDropdown, setShowCityDropdown] = useState(false)
+  const [locatorOpen, setLocatorOpen] = useState(false)
 
   // Form States
   const [selectedRole, setSelectedRole] = useState<UserRole>("client")
-  const [selectedCity, setSelectedCity] = useState("")
+  // Clientele cible : Fes uniquement. Le formulaire d'inscription n'apparait
+  // qu'une fois la position de livraison localisee dans la zone de service.
+  const [signupLocation, setSignupLocation] = useState<SignupLocation | null>(null)
+  const locationCovered = signupLocation !== null && isInServiceArea(signupLocation)
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
@@ -151,6 +156,9 @@ function ClientLoginContent() {
         if (!acceptTerms) {
           throw new Error("Vous devez accepter la politique de confidentialité.");
         }
+        if (!signupLocation || !locationCovered) {
+          throw new Error(`Localisez votre adresse de livraison à ${SERVICE_CITY} pour créer votre compte.`);
+        }
 
         const formattedPhone = phone.trim() ? normalizeMoroccanPhone(phone) : "";
 
@@ -164,7 +172,11 @@ function ClientLoginContent() {
             phone: formattedPhone || undefined,
             password: password,
             role: selectedRole.toUpperCase(),
-            code_parrainage: referralCode.trim() || undefined
+            code_parrainage: referralCode.trim() || undefined,
+            latitude: signupLocation.latitude,
+            longitude: signupLocation.longitude,
+            adresse: signupLocation.address.slice(0, 200) || undefined,
+            ville: signupLocation.city.slice(0, 100) || undefined
           }),
         });
 
@@ -211,6 +223,16 @@ function ClientLoginContent() {
     const nextUser = await googleLogin(credential, "CLIENT")
     const dest = redirectTarget !== "/" ? redirectTarget : shouldShowOnboarding(nextUser) ? "/onboarding" : nextUser.default_dashboard || "/"
     router.push(dest)
+  }
+
+  const handleLocationDetected = (
+    address: string,
+    city: string,
+    coordinates?: { latitude: number; longitude: number }
+  ) => {
+    if (!coordinates) return
+    setSignupLocation({ address, city, ...coordinates })
+    setError("")
   }
 
   const ErrorMessage = ({ message }: { message?: string }) => {
@@ -390,237 +412,280 @@ function ClientLoginContent() {
             </form>
           )}
 
-          {/* Signup Form */}
+          {/* Signup : localisation d'abord, formulaire seulement si l'adresse est à Fès */}
           {mode === "signup" && (
-            <form onSubmit={handleSubmit} className="space-y-4 pb-12">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Prénom</label>
-                  <div className="relative">
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
-                    <input
-                      type="text"
-                      placeholder="Prénom"
-                      value={firstName}
-                      onChange={(e) => handleFieldChange("firstName", e.target.value)}
-                      className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Nom</label>
-                  <input
-                    type="text"
-                    placeholder="Nom"
-                    value={lastName}
-                    onChange={(e) => handleFieldChange("lastName", e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Email</label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
-                  <input
-                    type="email"
-                    required
-                    placeholder="votre@email.com"
-                    value={loginId}
-                    onChange={(e) => handleFieldChange("loginId", e.target.value)}
-                    className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
-                      formErrors.email ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-[#4CB84A]"
-                    }`}
-                  />
-                </div>
-                <ErrorMessage message={formErrors.email} />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Téléphone</label>
-                <div className="flex gap-2">
-                  <div className={`flex items-center gap-1 px-3 py-3 border-2 rounded-xl text-[#3D3D3D] ${
-                    formErrors.phone ? "border-red-500 bg-red-50" : "border-gray-200 bg-gray-50"
-                  }`}>
-                    <span className="text-lg font-bold">MA</span>
-                    <span>+212</span>
-                  </div>
-                  <div className="relative flex-1">
-                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
-                    <input
-                      type="tel"
-                      placeholder="6XX-XXXXXX"
-                      value={phone}
-                      onChange={(e) => handleFieldChange("phone", e.target.value)}
-                      className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
-                        formErrors.phone ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-[#4CB84A]"
-                      }`}
-                    />
-                  </div>
-                </div>
-                <ErrorMessage message={formErrors.phone} />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Ville</label>
-                <div className="relative">
-                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
-                  <button
-                    type="button"
-                    onClick={() => setShowCityDropdown(!showCityDropdown)}
-                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors text-left flex items-center justify-between bg-white"
-                  >
-                    <span className={selectedCity ? "text-[#3D3D3D]" : "text-[#8A8A8A]"}>
-                      {selectedCity || "Sélectionnez votre ville"}
-                    </span>
-                    <ChevronDown className={`w-5 h-5 text-[#8A8A8A] transition-transform ${showCityDropdown ? "rotate-180" : ""}`} />
-                  </button>
-                  {showCityDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-lg z-10 overflow-hidden">
-                      {cities.map(city => (
-                        <button
-                          key={city}
-                          type="button"
-                          onClick={() => {
-                            setSelectedCity(city)
-                            setShowCityDropdown(false)
-                          }}
-                          className={`w-full px-4 py-3 text-left hover:bg-[#F0FAF1] transition-colors ${
-                            selectedCity === city ? "bg-[#F0FAF1] text-[#1E8A3C]" : "text-[#3D3D3D]"
-                          }`}
-                        >
-                          {city}
-                        </button>
-                      ))}
+            <div className="space-y-4 pb-12">
+              {!signupLocation && (
+                <div className="rounded-2xl border-2 border-[#1E8A3C]/20 bg-[#F0FAF1] p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 rounded-xl bg-white p-2">
+                      <MapPin className="h-5 w-5 text-[#1E8A3C]" />
                     </div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Mot de passe</label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    required
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => handleFieldChange("password", e.target.value)}
-                    className={`w-full pl-12 pr-12 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
-                      formErrors.password ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-[#4CB84A]"
-                    }`}
-                  />
+                    <div>
+                      <p className="font-semibold text-[#3D3D3D]">Où souhaitez-vous être livré ?</p>
+                      <p className="mt-1 text-sm text-[#6F8070]">
+                        SOUKI livre pour le moment uniquement à {SERVICE_CITY}. Localisez votre adresse pour vérifier que nous livrons chez vous.
+                      </p>
+                    </div>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8A8A8A] hover:text-[#3D3D3D]"
+                    onClick={() => setLocatorOpen(true)}
+                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#1E8A3C] py-3 font-semibold text-white shadow-lg shadow-[#1E8A3C]/30 transition-colors hover:bg-[#166E2B]"
                   >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    <Navigation className="h-4 w-4" />
+                    Me localiser
                   </button>
                 </div>
-                <PasswordStrength password={password} />
-                <ErrorMessage message={formErrors.password} />
-              </div>
+              )}
 
-              <div>
-                <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Confirmer le mot de passe</label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    required
-                    placeholder="••••••••"
-                    value={confirmPassword}
-                    onChange={(e) => handleFieldChange("confirmPassword", e.target.value)}
-                    className={`w-full pl-12 pr-12 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
-                      formErrors.confirmPassword ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-[#4CB84A]"
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8A8A8A] hover:text-[#3D3D3D]"
-                  >
-                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
-                <ErrorMessage message={formErrors.confirmPassword} />
-              </div>
-
-              {/* Role Selector */}
-              <div>
-                <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Type de compte</label>
-                <div className="flex gap-2">
-                  {[
-                    { value: "client", label: "Client" },
-                  ].map(role => (
-                    <button
-                      key={role.value}
-                      type="button"
-                      onClick={() => setSelectedRole(role.value as UserRole)}
-                      className={`flex-1 py-2.5 rounded-xl font-medium text-sm transition-all border-2 ${
-                        selectedRole === role.value
-                          ? "bg-[#1E8A3C] border-[#1E8A3C] text-white shadow-md shadow-[#1E8A3C]/20"
-                          : "bg-white border-gray-200 text-[#3D3D3D] hover:border-[#1E8A3C]/30 hover:bg-[#F0FAF1]"
-                      }`}
-                    >
-                      {role.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Code de parrainage (optionnel) */}
-              <div>
-                <label className="block text-sm font-medium text-[#3D3D3D] mb-2">
-                  Code de parrainage <span className="text-[#8A8A8A] font-normal">(optionnel)</span>
-                </label>
-                <div className="relative">
-                  <Gift className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
-                  <input
-                    type="text"
-                    placeholder="Ex : K7M2P9"
-                    value={referralCode}
-                    onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                    maxLength={10}
-                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors font-mono tracking-[0.2em] uppercase placeholder:font-sans placeholder:tracking-normal placeholder:normal-case"
-                  />
-                </div>
-                {referralCode && (
-                  <p className="flex items-center gap-1.5 mt-1.5 ml-1 text-xs font-medium text-[#1E8A3C]">
-                    <Gift className="w-3.5 h-3.5" /> Tu recevras un produit offert sur ta 1ère commande livrée.
+              {signupLocation && !locationCovered && (
+                <div role="alert" className="rounded-2xl border-2 border-[#F07C00]/30 bg-[#FFF6EC] p-5 text-center">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white">
+                    <MapPin className="h-6 w-6 text-[#F07C00]" />
+                  </div>
+                  <p className="mt-3 text-lg font-bold text-[#3D3D3D]">
+                    Désolé, SOUKI n&apos;est pas encore disponible {signupLocation.city ? `à ${signupLocation.city}` : "dans votre ville"}
                   </p>
-                )}
-              </div>
-
-              <div className="flex items-start gap-2 pt-2">
-                <div
-                  onClick={() => setAcceptTerms(!acceptTerms)}
-                  className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors cursor-pointer flex-shrink-0 mt-0.5 ${
-                    acceptTerms ? "bg-[#1E8A3C] border-[#1E8A3C]" : "border-gray-300"
-                  }`}
-                >
-                  {acceptTerms && <Check className="w-3 h-3 text-white" />}
+                  <p className="mt-2 text-sm text-[#6F8070]">
+                    Nous livrons pour le moment uniquement à {SERVICE_CITY}, mais nous arriverons bientôt dans votre ville. Merci de votre patience !
+                  </p>
+                  {signupLocation.address && (
+                    <p className="mt-3 truncate text-xs text-[#8A8A8A]">Position détectée : {signupLocation.address}</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setLocatorOpen(true)}
+                    className="mt-4 w-full rounded-xl border-2 border-[#1E8A3C] py-3 font-semibold text-[#1E8A3C] transition-colors hover:bg-[#F0FAF1]"
+                  >
+                    Choisir une autre adresse
+                  </button>
                 </div>
-                <span className="text-sm text-[#3D3D3D]">
-                  J'accepte la{" "}
-                  <PolicyLink className="text-[#1A4F8A] hover:underline" />
-                </span>
-              </div>
+              )}
 
-              <button
-                type="submit"
-                disabled={loading || Object.keys(formErrors).length > 0}
-                className="w-full flex items-center justify-center py-3.5 bg-[#1E8A3C] text-white rounded-xl font-semibold text-lg hover:bg-[#166E2B] transition-colors shadow-lg shadow-[#1E8A3C]/30 disabled:opacity-50 mt-4"
-              >
-                {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Créer mon compte"}
-              </button>
-            </form>
+              {signupLocation && locationCovered && (
+                <>
+                  <div className="flex items-start gap-3 rounded-xl border-2 border-[#1E8A3C]/30 bg-[#F0FAF1] p-4">
+                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#1E8A3C]">
+                      <Check className="h-4 w-4 text-white" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-[#1E8A3C]">Bonne nouvelle, nous livrons chez vous !</p>
+                      <p className="truncate text-xs text-[#3D3D3D]">{signupLocation.address}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setLocatorOpen(true)}
+                      className="flex-shrink-0 text-sm font-semibold text-[#1A4F8A] hover:underline"
+                    >
+                      Modifier
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Prénom</label>
+                        <div className="relative">
+                          <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
+                          <input
+                            type="text"
+                            placeholder="Prénom"
+                            value={firstName}
+                            onChange={(e) => handleFieldChange("firstName", e.target.value)}
+                            className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Nom</label>
+                        <input
+                          type="text"
+                          placeholder="Nom"
+                          value={lastName}
+                          onChange={(e) => handleFieldChange("lastName", e.target.value)}
+                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Email</label>
+                      <div className="relative">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
+                        <input
+                          type="email"
+                          required
+                          placeholder="votre@email.com"
+                          value={loginId}
+                          onChange={(e) => handleFieldChange("loginId", e.target.value)}
+                          className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                            formErrors.email ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-[#4CB84A]"
+                          }`}
+                        />
+                      </div>
+                      <ErrorMessage message={formErrors.email} />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Téléphone</label>
+                      <div className="flex gap-2">
+                        <div className={`flex items-center gap-1 px-3 py-3 border-2 rounded-xl text-[#3D3D3D] ${
+                          formErrors.phone ? "border-red-500 bg-red-50" : "border-gray-200 bg-gray-50"
+                        }`}>
+                          <span className="text-lg font-bold">MA</span>
+                          <span>+212</span>
+                        </div>
+                        <div className="relative flex-1">
+                          <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
+                          <input
+                            type="tel"
+                            placeholder="6XX-XXXXXX"
+                            value={phone}
+                            onChange={(e) => handleFieldChange("phone", e.target.value)}
+                            className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                              formErrors.phone ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-[#4CB84A]"
+                            }`}
+                          />
+                        </div>
+                      </div>
+                      <ErrorMessage message={formErrors.phone} />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Mot de passe</label>
+                      <div className="relative">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          required
+                          placeholder="••••••••"
+                          value={password}
+                          onChange={(e) => handleFieldChange("password", e.target.value)}
+                          className={`w-full pl-12 pr-12 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                            formErrors.password ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-[#4CB84A]"
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8A8A8A] hover:text-[#3D3D3D]"
+                        >
+                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                      <PasswordStrength password={password} />
+                      <ErrorMessage message={formErrors.password} />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Confirmer le mot de passe</label>
+                      <div className="relative">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
+                        <input
+                          type={showConfirmPassword ? "text" : "password"}
+                          required
+                          placeholder="••••••••"
+                          value={confirmPassword}
+                          onChange={(e) => handleFieldChange("confirmPassword", e.target.value)}
+                          className={`w-full pl-12 pr-12 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                            formErrors.confirmPassword ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-[#4CB84A]"
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8A8A8A] hover:text-[#3D3D3D]"
+                        >
+                          {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                      <ErrorMessage message={formErrors.confirmPassword} />
+                    </div>
+
+                    {/* Role Selector */}
+                    <div>
+                      <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Type de compte</label>
+                      <div className="flex gap-2">
+                        {[
+                          { value: "client", label: "Client" },
+                        ].map(role => (
+                          <button
+                            key={role.value}
+                            type="button"
+                            onClick={() => setSelectedRole(role.value as UserRole)}
+                            className={`flex-1 py-2.5 rounded-xl font-medium text-sm transition-all border-2 ${
+                              selectedRole === role.value
+                                ? "bg-[#1E8A3C] border-[#1E8A3C] text-white shadow-md shadow-[#1E8A3C]/20"
+                                : "bg-white border-gray-200 text-[#3D3D3D] hover:border-[#1E8A3C]/30 hover:bg-[#F0FAF1]"
+                            }`}
+                          >
+                            {role.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Code de parrainage (optionnel) */}
+                    <div>
+                      <label className="block text-sm font-medium text-[#3D3D3D] mb-2">
+                        Code de parrainage <span className="text-[#8A8A8A] font-normal">(optionnel)</span>
+                      </label>
+                      <div className="relative">
+                        <Gift className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
+                        <input
+                          type="text"
+                          placeholder="Ex : K7M2P9"
+                          value={referralCode}
+                          onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                          maxLength={10}
+                          className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors font-mono tracking-[0.2em] uppercase placeholder:font-sans placeholder:tracking-normal placeholder:normal-case"
+                        />
+                      </div>
+                      {referralCode && (
+                        <p className="flex items-center gap-1.5 mt-1.5 ml-1 text-xs font-medium text-[#1E8A3C]">
+                          <Gift className="w-3.5 h-3.5" /> Tu recevras un produit offert sur ta 1ère commande livrée.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-start gap-2 pt-2">
+                      <div
+                        onClick={() => setAcceptTerms(!acceptTerms)}
+                        className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors cursor-pointer flex-shrink-0 mt-0.5 ${
+                          acceptTerms ? "bg-[#1E8A3C] border-[#1E8A3C]" : "border-gray-300"
+                        }`}
+                      >
+                        {acceptTerms && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                      <span className="text-sm text-[#3D3D3D]">
+                        J'accepte la{" "}
+                        <PolicyLink className="text-[#1A4F8A] hover:underline" />
+                      </span>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={loading || Object.keys(formErrors).length > 0}
+                      className="w-full flex items-center justify-center py-3.5 bg-[#1E8A3C] text-white rounded-xl font-semibold text-lg hover:bg-[#166E2B] transition-colors shadow-lg shadow-[#1E8A3C]/30 disabled:opacity-50 mt-4"
+                    >
+                      {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Créer mon compte"}
+                    </button>
+                  </form>
+                </>
+              )}
+            </div>
           )}
         </div>
       </div>
+
+      <MapboxLocator
+        isOpen={locatorOpen}
+        onClose={() => setLocatorOpen(false)}
+        onAddressDetected={handleLocationDetected}
+        confirmSelection
+        fallbackCenter={SERVICE_CENTER}
+      />
     </div>
   )
 }
