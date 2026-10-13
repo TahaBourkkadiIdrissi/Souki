@@ -14,6 +14,12 @@ class UserRegister(BaseModel):
     password: str
     role: str = "CLIENT"
     code_parrainage: Optional[str] = None
+    # Position de livraison choisie sur la carte : elle doit etre a Fes
+    # (cf. services/service_area.py) et devient l'adresse par defaut du compte.
+    latitude: Optional[float] = Field(default=None, ge=-90, le=90)
+    longitude: Optional[float] = Field(default=None, ge=-180, le=180)
+    adresse: Optional[str] = Field(default=None, max_length=200)
+    ville: Optional[str] = Field(default=None, max_length=100)
 
     @validator("code_parrainage")
     def normalize_code_parrainage(cls, v):

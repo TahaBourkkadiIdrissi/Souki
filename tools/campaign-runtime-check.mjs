@@ -49,6 +49,7 @@ def login(response: Response):
 async def register(request: Request):
     body = await request.json()
     assert body["prenom"] == "Salma" and body["nom"] == "Test"
+    assert (body["latitude"], body["longitude"]) == (34.0331, -5.0003)
     return {"id": 7, "verification_channel": "email", "verification_target": "t***@example.com", "role": "CLIENT"}
 @app.post("/auth/verify-otp")
 def verify(response: Response):
@@ -187,6 +188,17 @@ try {
   await pwa.getByRole('button', { name: /Voir le panier/ }).click()
   await pwa.getByRole('button', { name: 'Valider la commande', exact: true }).click()
   await pwa.getByRole('button', { name: "S'inscrire", exact: true }).click()
+  // Fès only: an address outside the service area gets the apology, never the form.
+  await guest.grantPermissions(['geolocation'], { origin: 'http://127.0.0.1:3470' })
+  await guest.setGeolocation({ latitude: 33.8935, longitude: -5.5473 })
+  await pwa.getByRole('button', { name: 'Me localiser', exact: true }).click()
+  await pwa.getByRole('button', { name: 'Confirmer cette position', exact: true }).click()
+  await pwa.getByText(/n'est pas encore disponible/).waitFor()
+  assert.equal(await pwa.getByPlaceholder('Prénom', { exact: true }).count(), 0)
+  await guest.setGeolocation({ latitude: 34.0331, longitude: -5.0003 })
+  await pwa.getByRole('button', { name: 'Choisir une autre adresse', exact: true }).click()
+  await pwa.getByRole('button', { name: 'Confirmer cette position', exact: true }).click()
+  await pwa.getByText('Bonne nouvelle, nous livrons chez vous !', { exact: true }).waitFor()
   await pwa.getByPlaceholder('Prénom', { exact: true }).fill('Salma')
   await pwa.getByPlaceholder('Nom', { exact: true }).fill('Test')
   await pwa.getByPlaceholder('votre@email.com', { exact: true }).fill('test@example.com')
