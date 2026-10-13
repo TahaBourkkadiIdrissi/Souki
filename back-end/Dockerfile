@@ -7,6 +7,7 @@ WORKDIR /app
 COPY back-end/requirements.lock.txt ./requirements.lock.txt
 RUN pip install --no-cache-dir -r requirements.lock.txt && useradd --create-home app
 COPY --chown=app:app back-end/ ./
+COPY --chown=app:app apps/client/lib/campaign-routes.json ./campaign-routes.json
 RUN python -m unittest tests.test_morocco_timezone
 USER app
 EXPOSE 8000

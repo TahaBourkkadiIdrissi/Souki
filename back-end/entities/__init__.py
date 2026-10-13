@@ -77,3 +77,4 @@ __all__ = [
     "UserSession",
 ]
 from entities.campaign_entity import Campaign, CampaignVisit, CampaignOrder
+from entities.campaign_lifecycle_entity import CampaignLink, CampaignLifecycle

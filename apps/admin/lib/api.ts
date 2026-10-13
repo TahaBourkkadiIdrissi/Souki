@@ -21,6 +21,8 @@ export interface Campaign extends CampaignForm {
   visitors: number
   orders: number
   delivered_orders: number
+  deleted_at: string | null
+  can_rename: boolean
 }
 export interface CampaignStats {
   start: string
@@ -31,9 +33,13 @@ export interface CampaignStats {
   delivered_orders: number
   days: { day: string; visits: number; visitors: number }[]
 }
-export const listCampaigns = () => apiCall<Campaign[]>("/api/admin/campaigns", { cache: "no-store" })
+export interface CampaignOptions { public_origin: string; reserved_slugs: string[] }
+export const getCampaignOptions = () => apiCall<CampaignOptions>("/api/admin/campaigns/options", { cache: "no-store" })
+export const listCampaigns = (deleted = false) => apiCall<Campaign[]>(`/api/admin/campaigns?deleted=${deleted}`, { cache: "no-store" })
 export const createCampaign = (body: CampaignForm & { slug: string }) => apiCall<Campaign>("/api/admin/campaigns", { method: "POST", body })
-export const updateCampaign = (id: number, body: CampaignForm & { expected_version: number }) => apiCall<Campaign>(`/api/admin/campaigns/${id}`, { method: "PUT", body })
+export const updateCampaign = (id: number, body: CampaignForm & { expected_version: number; slug?: string }) => apiCall<Campaign>(`/api/admin/campaigns/${id}`, { method: "PUT", body })
+export const trashCampaign = (id: number, expected_version: number) => apiCall<Campaign>(`/api/admin/campaigns/${id}`, { method: "DELETE", body: { expected_version } })
+export const restoreCampaign = (id: number, expected_version: number) => apiCall<Campaign>(`/api/admin/campaigns/${id}/restore`, { method: "POST", body: { expected_version } })
 export const getCampaignStats = (id: number, start: string, end: string, signal?: AbortSignal) => apiCall<CampaignStats>(`/api/admin/campaigns/${id}/stats?${new URLSearchParams({ start, end })}`, { cache: "no-store", signal })
 export const getCampaignQr = (id: number) => apiCall<{ svg: string }>(`/api/admin/campaigns/${id}/qr-preview`, { cache: "no-store" })
 

@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class CampaignWriteDTO(BaseModel):
@@ -14,9 +14,29 @@ class CampaignWriteDTO(BaseModel):
 class CampaignCreateDTO(CampaignWriteDTO):
     slug: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{2,47}$")
 
+    @field_validator("slug", mode="before")
+    @classmethod
+    def normalize_slug(cls, value):
+        return value.strip().lower() if isinstance(value, str) else value
+
 
 class CampaignUpdateDTO(CampaignWriteDTO):
     expected_version: int = Field(ge=1)
+    slug: str | None = Field(default=None, max_length=48)
+
+    @field_validator("slug", mode="before")
+    @classmethod
+    def normalize_slug(cls, value):
+        return value.strip().lower() if isinstance(value, str) else value
+
+
+class CampaignVersionDTO(BaseModel):
+    expected_version: int = Field(ge=1)
+
+
+class CampaignOptionsDTO(BaseModel):
+    public_origin: str
+    reserved_slugs: list[str]
 
 
 class CampaignDTO(CampaignWriteDTO):
@@ -30,6 +50,8 @@ class CampaignDTO(CampaignWriteDTO):
     visitors: int = 0
     orders: int = 0
     delivered_orders: int = 0
+    deleted_at: datetime | None = None
+    can_rename: bool = False
 
 
 class CampaignDayDTO(BaseModel):

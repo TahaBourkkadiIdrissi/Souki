@@ -4,9 +4,12 @@ export const API_BASE_URL = "/backend"
 
 /** Server-side transport for the public short link; never cached or prefetched. */
 export async function resolveCampaignLink(slug: string, request: Request): Promise<Response> {
-  if (!/^[a-z0-9][a-z0-9-]{2,47}$/.test(slug)) return new Response("Lien introuvable", { status: 404 })
+  slug = slug.toLowerCase()
+  if (!/^[a-z0-9][a-z0-9-]{2,47}$/.test(slug)) return new Response("Lien introuvable", { status: 404, headers: { "Cache-Control": "no-store" } })
   const headers = new Headers()
-  for (const key of ["cookie", "user-agent", "purpose", "sec-purpose"]) {
+  // Preserve an absent agent rather than letting the server fetch invent one.
+  headers.set("user-agent", request.headers.get("user-agent") || "")
+  for (const key of ["cookie", "user-agent", "purpose", "sec-purpose", "x-purpose", "x-moz"]) {
     const value = request.headers.get(key)
     if (value) headers.set(key, value)
   }

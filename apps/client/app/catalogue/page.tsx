@@ -9,15 +9,18 @@ export const dynamic = "force-dynamic"
 export const metadata: Metadata = {
   title: "Catalogue de légumes frais à Fès | SOUKI",
   description:
-    "Découvrez les légumes, fruits et herbes frais de SOUKI à Fès. Commandez en ligne avant 1h du matin La date de livraison est confirmée à la validation.",
+    "Découvrez les légumes, fruits et herbes frais de SOUKI à Fès. Commandez en ligne avant 1h du matin. La date de livraison est confirmée à la validation.",
   alternates: { canonical: "/catalogue" },
   openGraph: {
     title: "Catalogue de légumes frais à Fès | SOUKI",
     description: "Légumes, fruits et herbes frais livrés à Fès avec SOUKI.",
     url: "/catalogue",
-    images: ["/opengraph-image"],
+    type: "website",
+    locale: "fr_MA",
+    siteName: "SOUKI",
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "SOUKI — Votre marché frais à Fès" }],
   },
-  twitter: { card: "summary_large_image" },
+  twitter: { card: "summary_large_image", title: "Votre marché frais à Fès | SOUKI", description: "Légumes, fruits et herbes frais livrés à Fès.", images: ["/opengraph-image"] },
 }
 
 export default async function CataloguePage() {

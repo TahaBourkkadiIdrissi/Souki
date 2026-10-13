@@ -19,9 +19,10 @@ from services.campaign_service import CampaignService
 from dao.campaign_dao import CampaignDao
 from entities.campaign_entity import Campaign, CampaignVisit, CampaignOrder
 from entities.commande_entity import Commande
+from entities.campaign_lifecycle_entity import CampaignLink, CampaignLifecycle
 import uvicorn
 engine = create_engine("sqlite:///tmp/campaign-runtime/" + uuid.uuid4().hex + ".sqlite", connect_args={"check_same_thread": False})
-for model in (Campaign, CampaignVisit, Commande, CampaignOrder): model.__table__.create(engine)
+for model in (Campaign, CampaignVisit, Commande, CampaignOrder, CampaignLink, CampaignLifecycle): model.__table__.create(engine)
 app = FastAPI()
 def service():
     with Session(engine) as session: yield CampaignService(CampaignDao(), session)
@@ -108,11 +109,12 @@ try {
     }
   }
   await go(dashboard, 'http://127.0.0.1:3471/admin/compaign')
-  await dashboard.getByRole('heading', { name: 'Compagne', exact: true }).waitFor()
-  await dashboard.getByRole('button', { name: 'Nouveau QR code' }).click()
+  await dashboard.getByRole('heading', { name: 'Campagnes', exact: true }).waitFor()
+  await dashboard.getByRole('button', { name: 'Nouvelle campagne' }).click()
   await dashboard.getByLabel('Nom de la campagne', { exact: true }).fill('Flyer Narjiss')
   await dashboard.getByLabel('Identifiant du lien court').fill('narjiss')
   await dashboard.getByRole('button', { name: 'Enregistrer', exact: true }).click()
+  await dashboard.getByText('QR code à télécharger', { exact: true }).click()
   await dashboard.getByRole('img', { name: 'QR code Flyer Narjiss' }).waitFor()
   const svgBefore = await dashboard.getByRole('img', { name: 'QR code Flyer Narjiss' }).getAttribute('src')
   const downloaded = dashboard.waitForEvent('download')
@@ -154,11 +156,11 @@ try {
   await dashboard.getByRole('button', { name: 'Modifier Flyer Narjiss' }).click()
   await dashboard.getByLabel('Page de destination').fill('/faq')
   await dashboard.getByRole('button', { name: 'Enregistrer', exact: true }).click()
-  await dashboard.getByText('Campagne mise à jour. Le QR imprimé reste identique.').waitFor()
+  await dashboard.getByText('Campagne mise à jour. Les anciens liens et QR restent utilisables.').waitFor()
   assert.equal(await dashboard.getByRole('img', { name: 'QR code Flyer Narjiss' }).getAttribute('src'), svgBefore)
   await go(page, 'http://127.0.0.1:3470/r/narjiss')
   assert.match(page.url(), /\/faq\?utm_source=/)
-  await dashboard.getByRole('button', { name: 'Nouveau QR code' }).click()
+  await dashboard.getByRole('button', { name: 'Nouvelle campagne' }).click()
   await dashboard.getByLabel('Nom de la campagne', { exact: true }).fill('Flyer Agdal')
   await dashboard.getByLabel('Identifiant du lien court').fill('agdal')
   await dashboard.getByRole('button', { name: 'Enregistrer', exact: true }).click()
@@ -172,6 +174,75 @@ try {
   assert.equal(disabled.status(), 302)
   assert.equal(disabled.headers().location, 'http://127.0.0.1:3470/catalogue')
   assert.equal(disabled.headers()['set-cookie'], undefined)
+  // Root route and legacy aliases share one campaign; previews/HEAD never count.
+  const api = 'http://127.0.0.1:3471/backend/api/admin/campaigns'
+  const list = async () => (await admin.request.get(api)).json()
+  const agdal = (await list()).find(item => item.slug === 'agdal')
+  const origin = 'http://127.0.0.1:3470'
+  for (const suffix of ['/agdal', '/Agdal', '/agdal/', '/r/agdal/']) {
+    const response = await client.request.get(origin + suffix, { maxRedirects: 0, headers: { 'user-agent': 'WhatsApp/2.0' } })
+    assert.equal(response.status(), 302, suffix)
+    assert.match(response.headers()['cache-control'], /no-store/)
+    assert.match(response.headers().location, /utm_source=flyer/)
+    assert.equal(response.headers()['set-cookie'], undefined)
+  }
+  for (const headers of [{ purpose: 'prefetch' }, { 'sec-purpose': 'prefetch;prerender' }, { 'x-purpose': 'preview' }, { 'x-moz': 'prefetch' }]) {
+    const response = await client.request.get(origin + '/agdal', { maxRedirects: 0, headers })
+    assert.equal(response.status(), 302)
+    assert.equal(response.headers()['set-cookie'], undefined)
+  }
+  const head = await client.request.head(origin + '/agdal/', { maxRedirects: 0 })
+  assert.equal(head.status(), 302)
+  assert.equal(head.headers()['set-cookie'], undefined)
+  assert.equal((await list()).find(item => item.id === agdal.id).visits, 0)
+  assert.equal((await client.request.get(origin + '/wp-login.php', { maxRedirects: 0 })).status(), 404)
+  // Existing product canonical route remains intact after extending the proxy.
+  const canonical = await client.request.get(origin + '/produit/ancien-nom-1', { maxRedirects: 0 })
+  assert.equal(canonical.status(), 308)
+  assert.match(canonical.headers().location, /\/produit\/tomates-1$/)
+  const html = await (await client.request.get(origin + '/catalogue', { headers: { 'user-agent': 'facebookexternalhit/1.1' } })).text()
+  assert.match(html, /property="og:title"/)
+  assert.match(html, /property="og:description"/)
+  assert.match(html, /property="og:image"/)
+  const ogImage = await client.request.get(origin + '/opengraph-image', { timeout: 120000 })
+  assert.equal(ogImage.status(), 200)
+  assert.match(ogImage.headers()['content-type'], /image\/png/)
+  // Rename before any counted visit, choose social preset, then share root URL.
+  await dashboard.getByRole('button', { name: 'Modifier Flyer Agdal' }).click()
+  await dashboard.getByLabel('Identifiant du lien court').fill('Agdal-Post')
+  await dashboard.getByLabel('Canal prédéfini').selectOption({ label: 'WhatsApp — organique' })
+  await dashboard.getByRole('button', { name: 'Enregistrer', exact: true }).click()
+  await dashboard.getByText('http://127.0.0.1:3470/agdal-post', { exact: true }).first().waitFor()
+  const hit = await client.request.get(origin + '/Agdal-Post/', { maxRedirects: 0 })
+  assert.equal(hit.status(), 302)
+  assert.match(hit.headers().location, /utm_source=whatsapp/)
+  assert.match(hit.headers().location, /utm_medium=social/)
+  assert.match(hit.headers()['cache-control'], /no-store/)
+  assert(hit.headers()['set-cookie'])
+  await dashboard.getByRole('button', { name: 'Actualiser', exact: true }).click()
+  await dashboard.getByRole('row').filter({ hasText: 'Flyer Agdal' }).getByRole('cell', { name: '1', exact: true }).first().waitFor()
+  await dashboard.getByRole('button', { name: 'Modifier Flyer Agdal' }).click()
+  assert(await dashboard.getByLabel('Identifiant du lien court').isDisabled())
+  await dashboard.getByRole('button', { name: 'Annuler', exact: true }).click()
+  await dashboard.getByRole('button', { name: 'Supprimer Flyer Agdal' }).click()
+  await dashboard.getByRole('button', { name: 'Mettre à la corbeille', exact: true }).click()
+  await dashboard.getByText('Campagne déplacée dans la corbeille.', { exact: false }).waitFor()
+  for (const suffix of ['/agdal-post', '/r/agdal']) {
+    const response = await client.request.get(origin + suffix, { maxRedirects: 0 })
+    assert.equal(response.status(), 302)
+    assert.equal(response.headers().location, origin + '/catalogue')
+    assert.equal(response.headers()['set-cookie'], undefined)
+  }
+  await dashboard.getByRole('button', { name: 'Corbeille', exact: true }).click()
+  await dashboard.getByRole('button', { name: 'Restaurer Flyer Agdal' }).click()
+  await dashboard.getByText('Campagne restaurée, avec son lien désactivé.', { exact: false }).waitFor()
+  await dashboard.getByRole('button', { name: 'Mes campagnes', exact: true }).click()
+  await dashboard.getByRole('button', { name: 'Modifier Flyer Agdal' }).click()
+  assert.equal(await dashboard.getByLabel('Lien actif').isChecked(), false)
+  await dashboard.getByLabel('Lien actif').check()
+  await dashboard.getByRole('button', { name: 'Enregistrer', exact: true }).click()
+  await dashboard.getByText('Campagne mise à jour. Les anciens liens et QR restent utilisables.').waitFor()
+  await dashboard.screenshot({ path: path.join(root, 'outputs/campaign/admin-multichannel.png'), fullPage: true })
   const guest = await context(), pwa = await guest.newPage()
   await go(pwa, 'http://127.0.0.1:3470/pwa-welcome?preview=pwa')
   await pwa.getByText('Tout le marché', { exact: true }).waitFor()
@@ -215,7 +286,7 @@ try {
   assert.equal(await pwa.evaluate(() => JSON.parse(localStorage.getItem('souki:v2:user:7:cart')).length), 1)
   assert.equal(await pwa.evaluate(() => JSON.parse(localStorage.getItem('souki:v2:guest:cart')).length), 0)
   assert.deepEqual(errors, [])
-  console.log('PASS: guest cart survives reload/login/signup and OTP, PWA public; real campaign create/edit/pause, unchanged QR, PNG export, repeat/unique visits and order attribution.')
+  console.log('PASS: guest cart survives reload/login/signup and OTP, PWA public; real campaign create/edit/pause, root/legacy/case/slash links, robot and prefetch filtering, no-store, social presets, rename/freeze, trash/restore, OG metadata/image, product canonical URLs, PNG export, repeat/unique visits and order attribution.')
 } finally {
   await browser?.close()
   for (const child of children) child.kill()
