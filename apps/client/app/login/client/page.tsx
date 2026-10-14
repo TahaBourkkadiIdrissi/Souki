@@ -12,7 +12,7 @@ import { PasswordStrength } from "@/components/souki/password-strength"
 import { PolicyLink } from "@/components/souki/policy-link"
 import { MapboxLocator } from "@/components/souki/mapbox-locator"
 import { shouldShowOnboarding } from "@/lib/onboarding"
-import { isInServiceArea, SERVICE_CENTER, SERVICE_CITY } from "@/lib/service-area"
+import { isInServiceArea, SERVICE_CITY } from "@/lib/service-area"
 import { toast } from "sonner"
 import {
   Eye,
@@ -415,23 +415,43 @@ function ClientLoginContent() {
           {/* Signup : localisation d'abord, formulaire seulement si l'adresse est à Fès */}
           {mode === "signup" && (
             <div className="space-y-4 pb-12">
-              {!signupLocation && (
-                <div className="rounded-2xl border-2 border-[#1E8A3C]/20 bg-[#F0FAF1] p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 rounded-xl bg-white p-2">
-                      <MapPin className="h-5 w-5 text-[#1E8A3C]" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-[#3D3D3D]">Où souhaitez-vous être livré ?</p>
-                      <p className="mt-1 text-sm text-[#6F8070]">
-                        SOUKI livre pour le moment uniquement à {SERVICE_CITY}. Localisez votre adresse pour vérifier que nous livrons chez vous.
+              {/* Même démarche qu'au checkout : "Me localiser", puis clic sur la carte à l'endroit exact */}
+              {(!signupLocation || locationCovered) && (
+                <div className="rounded-2xl border-2 border-gray-100 p-5">
+                  <h3 className="mb-2 flex items-center gap-2 font-bold text-[#3D3D3D]">
+                    <MapPin className="h-5 w-5 text-[#1E8A3C]" />
+                    Adresse de livraison
+                  </h3>
+                  {signupLocation ? (
+                    <div className="space-y-2">
+                      <p className="flex items-center gap-2 text-sm font-semibold text-[#1E8A3C]">
+                        <Check className="h-4 w-4 flex-shrink-0" />
+                        Bonne nouvelle, nous livrons chez vous !
                       </p>
+                      <label htmlFor="signup-address" className="block text-sm font-medium text-[#3D3D3D]">Adresse</label>
+                      <input
+                        id="signup-address"
+                        type="text"
+                        value={signupLocation.address}
+                        maxLength={200}
+                        onChange={(e) => {
+                          const address = e.target.value
+                          setSignupLocation((current) => current && { ...current, address })
+                        }}
+                        placeholder="Entrez votre adresse de livraison"
+                        className="min-h-12 w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:border-[#4CB84A] focus:outline-none"
+                      />
+                      <p className="text-xs text-[#8A8A8A]">Complétez si besoin : immeuble, étage, point de repère.</p>
                     </div>
-                  </div>
+                  ) : (
+                    <p className="text-sm text-[#6F8070]">
+                      SOUKI livre pour le moment uniquement à {SERVICE_CITY}. Localisez-vous, puis cliquez sur la carte à l&apos;endroit exact de votre adresse.
+                    </p>
+                  )}
                   <button
                     type="button"
                     onClick={() => setLocatorOpen(true)}
-                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#1E8A3C] py-3 font-semibold text-white shadow-lg shadow-[#1E8A3C]/30 transition-colors hover:bg-[#166E2B]"
+                    className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border-2 border-[#1E8A3C] px-4 py-3 font-semibold text-[#1E8A3C] transition-colors hover:bg-[#F0FAF1]"
                   >
                     <Navigation className="h-4 w-4" />
                     Me localiser
@@ -465,23 +485,6 @@ function ClientLoginContent() {
 
               {signupLocation && locationCovered && (
                 <>
-                  <div className="flex items-start gap-3 rounded-xl border-2 border-[#1E8A3C]/30 bg-[#F0FAF1] p-4">
-                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#1E8A3C]">
-                      <Check className="h-4 w-4 text-white" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-[#1E8A3C]">Bonne nouvelle, nous livrons chez vous !</p>
-                      <p className="truncate text-xs text-[#3D3D3D]">{signupLocation.address}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setLocatorOpen(true)}
-                      className="flex-shrink-0 text-sm font-semibold text-[#1A4F8A] hover:underline"
-                    >
-                      Modifier
-                    </button>
-                  </div>
-
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -683,8 +686,6 @@ function ClientLoginContent() {
         isOpen={locatorOpen}
         onClose={() => setLocatorOpen(false)}
         onAddressDetected={handleLocationDetected}
-        confirmSelection
-        fallbackCenter={SERVICE_CENTER}
       />
     </div>
   )

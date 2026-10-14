@@ -50,7 +50,10 @@ def login(response: Response):
 async def register(request: Request):
     body = await request.json()
     assert body["prenom"] == "Salma" and body["nom"] == "Test"
-    assert (body["latitude"], body["longitude"]) == (34.0331, -5.0003)
+    # The point clicked on the map, not the raw GPS fix, and the address as completed by the user.
+    assert abs(body["latitude"] - 34.0331) < 0.01 and abs(body["longitude"] + 5.0003) < 0.01
+    assert (body["latitude"], body["longitude"]) != (34.0331, -5.0003)
+    assert body["adresse"] == "Rue du test, Fès, Maroc, immeuble 3" and body["ville"] == "Fès"
     return {"id": 7, "verification_channel": "email", "verification_target": "t***@example.com", "role": "CLIENT"}
 @app.post("/auth/verify-otp")
 def verify(response: Response):
@@ -89,7 +92,7 @@ function start(exe, args, cwd, env = {}) {
 let browser
 try {
   start(path.join(root, 'tmp/seo-venv/Scripts/python.exe'), ['tmp/campaign-runtime/api.py'], root, { SECRET_KEY: 'runtime-only-not-production', CAMPAIGN_PUBLIC_ORIGIN: 'http://127.0.0.1:3470', COOKIE_SECURE: '0' })
-  for (const [app, port] of [['client', 3470], ['admin', 3471]]) start(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--webpack', '--hostname', '127.0.0.1', '--port', String(port)], path.join(root, 'apps', app), { BACKEND_INTERNAL_URL: 'http://127.0.0.1:3479', NEXT_TELEMETRY_DISABLED: '1' })
+  for (const [app, port] of [['client', 3470], ['admin', 3471]]) start(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--webpack', '--hostname', '127.0.0.1', '--port', String(port)], path.join(root, 'apps', app), { BACKEND_INTERNAL_URL: 'http://127.0.0.1:3479', NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: 'pk.runtime-test' })
   browser = await chromium.launch({ channel: 'msedge', headless: true })
   const contexts = []
   async function context(viewport = { width: 390, height: 844 }) {
@@ -244,6 +247,24 @@ try {
   await dashboard.getByText('Campagne mise à jour. Les anciens liens et QR restent utilisables.').waitFor()
   await dashboard.screenshot({ path: path.join(root, 'outputs/campaign/admin-multichannel.png'), fullPage: true })
   const guest = await context(), pwa = await guest.newPage()
+  // Offline Mapbox: blank style, reverse geocoder naming the city from the clicked coordinates.
+  await guest.route('https://api.mapbox.com/**', route => {
+    const url = new URL(route.request().url())
+    if (url.pathname.startsWith('/styles/')) return route.fulfill({ json: { version: 8, sources: {}, layers: [{ id: 'fond', type: 'background', paint: { 'background-color': '#eef2ea' } }] } })
+    const point = url.pathname.match(/mapbox\.places\/(-?[\d.]+),(-?[\d.]+)\.json$/)
+    if (!point) return route.fulfill({ json: {} })
+    const [lng, lat] = point.slice(1).map(Number)
+    const city = Math.abs(lat - 34.0331) < 0.2 && Math.abs(lng + 5.0003) < 0.2 ? 'Fès' : 'Meknès'
+    return route.fulfill({ json: { features: [{ place_type: ['address'], place_name: `Rue du test, ${city}, Maroc`, text: 'Rue du test' }, { place_type: ['place'], text: city }] } })
+  })
+  // Same flow as checkout: the map opens on the GPS fix and a click picks the exact spot.
+  async function pickOnMap() {
+    await pwa.locator('.mapboxgl-marker').waitFor()
+    const canvas = pwa.locator('.mapboxgl-canvas')
+    const box = await canvas.boundingBox()
+    await canvas.click({ position: { x: box.width / 2 + 40, y: box.height / 2 - 30 } })
+    await pwa.getByRole('heading', { name: 'Me localiser', exact: true }).waitFor({ state: 'detached' })
+  }
   await go(pwa, 'http://127.0.0.1:3470/pwa-welcome?preview=pwa')
   await pwa.getByText('Tout le marché', { exact: true }).waitFor()
   assert(!pwa.url().includes('login'))
@@ -263,13 +284,16 @@ try {
   await guest.grantPermissions(['geolocation'], { origin: 'http://127.0.0.1:3470' })
   await guest.setGeolocation({ latitude: 33.8935, longitude: -5.5473 })
   await pwa.getByRole('button', { name: 'Me localiser', exact: true }).click()
-  await pwa.getByRole('button', { name: 'Confirmer cette position', exact: true }).click()
-  await pwa.getByText(/n'est pas encore disponible/).waitFor()
+  await pickOnMap()
+  await pwa.getByText(/n'est pas encore disponible à Meknès/).waitFor()
   assert.equal(await pwa.getByPlaceholder('Prénom', { exact: true }).count(), 0)
   await guest.setGeolocation({ latitude: 34.0331, longitude: -5.0003 })
   await pwa.getByRole('button', { name: 'Choisir une autre adresse', exact: true }).click()
-  await pwa.getByRole('button', { name: 'Confirmer cette position', exact: true }).click()
+  await pickOnMap()
   await pwa.getByText('Bonne nouvelle, nous livrons chez vous !', { exact: true }).waitFor()
+  const signupAddress = pwa.getByLabel('Adresse', { exact: true })
+  assert.equal(await signupAddress.inputValue(), 'Rue du test, Fès, Maroc')
+  await signupAddress.fill('Rue du test, Fès, Maroc, immeuble 3')
   await pwa.getByPlaceholder('Prénom', { exact: true }).fill('Salma')
   await pwa.getByPlaceholder('Nom', { exact: true }).fill('Test')
   await pwa.getByPlaceholder('votre@email.com', { exact: true }).fill('test@example.com')

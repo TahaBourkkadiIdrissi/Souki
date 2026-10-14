@@ -9,14 +9,11 @@ interface MapboxLocatorProps {
   isOpen: boolean
   onClose: () => void
   confirmSelection?: boolean
-  /** Centre de la carte si la géolocalisation échoue : l'utilisateur place alors le marqueur lui-même. */
-  fallbackCenter?: { latitude: number; longitude: number }
 }
 
-export function MapboxLocator({ onAddressDetected, isOpen, onClose, confirmSelection = false, fallbackCenter }: MapboxLocatorProps) {
+export function MapboxLocator({ onAddressDetected, isOpen, onClose, confirmSelection = false }: MapboxLocatorProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<any>(null)
   const marker = useRef<any>(null)
@@ -34,31 +31,16 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose, confirmSelec
     setSelectedLocation(null)
     setSelectedAddress("")
     setSelectedCity("")
-    setNotice(null)
     setLoading(false)
   }, [])
-
-  const fallbackLat = fallbackCenter?.latitude
-  const fallbackLng = fallbackCenter?.longitude
 
   const locate = useCallback(() => {
     setError(null)
     setLoading(true)
 
-    const fail = (message: string) => {
-      if (fallbackLat !== undefined && fallbackLng !== undefined) {
-        const center = { latitude: fallbackLat, longitude: fallbackLng }
-        setNotice("Position non détectée : déplacez la carte et placez le marqueur sur votre adresse.")
-        setUserLocation(center)
-        setSelectedLocation(center)
-      } else {
-        setError(message)
-      }
-      setLoading(false)
-    }
-
     if (!navigator.geolocation) {
-      fail("La géolocalisation n'est pas disponible sur votre navigateur.")
+      setError("La géolocalisation n'est pas disponible sur votre navigateur.")
+      setLoading(false)
       return
     }
 
@@ -78,11 +60,12 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose, confirmSelec
         } else if (err.code === err.TIMEOUT) {
           errorMsg = "Délai d'attente dépassé. Réessayez."
         }
-        fail(errorMsg)
+        setError(errorMsg)
+        setLoading(false)
       },
       { enableHighAccuracy: true, timeout: 10000 }
     )
-  }, [fallbackLat, fallbackLng])
+  }, [])
 
   // Request user location when modal opens
   useEffect(() => {
@@ -97,12 +80,11 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose, confirmSelec
   // Initialize Mapbox when location and container are ready
   useEffect(() => {
     if (!isOpen || !userLocation || map.current || !mapContainer.current) return
-    // Sans position détectée, on montre toute la ville pour que l'utilisateur s'y retrouve.
-    initializeMap(userLocation.latitude, userLocation.longitude, notice ? 12 : 15)
-  }, [isOpen, userLocation, notice])
+    initializeMap(userLocation.latitude, userLocation.longitude)
+  }, [isOpen, userLocation])
 
   // Initialize Mapbox map
-  const initializeMap = async (lat: number, lng: number, zoom = 15) => {
+  const initializeMap = async (lat: number, lng: number) => {
     try {
       const mapboxgl = await import("mapbox-gl")
       const MapboxGl = mapboxgl.default
@@ -115,7 +97,7 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose, confirmSelec
         container: mapContainer.current,
         style: "mapbox://styles/mapbox/streets-v12",
         center: [lng, lat],
-        zoom,
+        zoom: 15,
       })
 
       newMap.on("load", () => {
@@ -131,8 +113,9 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose, confirmSelec
 
       // Handle map clicks for address detection
       newMap.on("click", async (e) => {
-        await detectAddressAtLocation(e.lngLat.lng, e.lngLat.lat)
+        // Le marqueur suit le clic tout de suite, sans attendre le reverse geocoding.
         marker.current?.setLngLat([e.lngLat.lng, e.lngLat.lat])
+        await detectAddressAtLocation(e.lngLat.lng, e.lngLat.lat)
       })
 
       map.current = newMap
@@ -269,9 +252,6 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose, confirmSelec
 
                 {/* Instructions overlay */}
                 <div className="absolute bottom-4 left-4 right-4 bg-white rounded-lg shadow-lg p-4">
-                  {notice && (
-                    <p className="mb-2 text-xs font-semibold text-[#B45309]">{notice}</p>
-                  )}
                   <p className="text-sm text-[#3D3D3D] font-medium">Cliquez sur la carte pour sélectionner votre adresse</p>
                   {confirmSelection && (
                     <p className="mt-1 text-xs font-medium text-[#6F8070]">
