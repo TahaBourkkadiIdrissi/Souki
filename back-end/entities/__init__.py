@@ -78,3 +78,4 @@ __all__ = [
 ]
 from entities.campaign_entity import Campaign, CampaignVisit, CampaignOrder
 from entities.campaign_lifecycle_entity import CampaignLink, CampaignLifecycle
+from entities.category_entity import Category, ProductCategory

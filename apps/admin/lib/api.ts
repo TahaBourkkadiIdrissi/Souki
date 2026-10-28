@@ -43,6 +43,23 @@ export const restoreCampaign = (id: number, expected_version: number) => apiCall
 export const getCampaignStats = (id: number, start: string, end: string, signal?: AbortSignal) => apiCall<CampaignStats>(`/api/admin/campaigns/${id}/stats?${new URLSearchParams({ start, end })}`, { cache: "no-store", signal })
 export const getCampaignQr = (id: number) => apiCall<{ svg: string }>(`/api/admin/campaigns/${id}/qr-preview`, { cache: "no-store" })
 
+export interface CategoryForm {
+  nom: string
+  emoji: string | null
+  ordre: number
+  actif: boolean
+}
+export interface Category extends CategoryForm {
+  id: number
+  slug: string
+  created_at: string
+  product_ids: number[]
+}
+export const listCategories = () => apiCall<Category[]>("/api/admin/categories", { cache: "no-store" })
+export const createCategory = (body: CategoryForm & { slug: string }) => apiCall<Category>("/api/admin/categories", { method: "POST", body })
+export const updateCategory = (id: number, body: CategoryForm) => apiCall<Category>(`/api/admin/categories/${id}`, { method: "PUT", body })
+export const setCategoryProducts = (id: number, product_ids: number[]) => apiCall<Category>(`/api/admin/categories/${id}/produits`, { method: "PUT", body: { product_ids } })
+
 
 interface ApiOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"

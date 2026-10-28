@@ -39,6 +39,7 @@ import { ScrollProgressBar } from "@/components/souki/scroll-progress-bar"
 import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
 import { ProductCard } from "@/components/souki/product-card"
 import { SuggestionCard } from "@/components/souki/suggestion-card"
+import { AiAgentCards } from "@/components/souki/ai-agent-cards"
 import { ProductDetailSheet, StickyBottomBar } from "@/components/souki/pwa"
 import { useOrderCountdown } from "@/hooks/useOrderCountdown"
 import { useClientCollection } from "@/hooks/useClientCollection"
@@ -52,6 +53,10 @@ import {
   BasketSelection,
   CatalogueCategory,
   CatalogueProduct,
+  CatalogueSection,
+  LEGACY_CATALOGUE_SECTIONS,
+  fetchCatalogueSections,
+  productInCategory,
   ClaimReason,
   CartItem,
   DELIVERY_FEE,
@@ -102,6 +107,13 @@ const categories = [
   { id: "fruits", label: "Fruits" },
   { id: "herbes", label: "Herbes" },
 ] as const
+
+// Sous-titres des rayons historiques ; les rayons créés dans l'admin n'en ont pas.
+const sectionSubtitles: Record<string, string> = {
+  legumes: "Frais du marché de gros",
+  fruits: "Sucrés et de saison",
+  herbes: "Aromates et fraîcheur",
+}
 
 const sortOptions = [
   { id: "popular", label: "Pertinence" },
@@ -499,7 +511,13 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
   const [cart, setCart] = useClientCollection<CartItem>("cart")
   const [, setRecentProducts] = useClientCollection<{ id: number; name: string; image: string; price: number; unit: string; displayUnit: string; viewedAt: string }>("recent-products")
   const [selectedCategory, setSelectedCategory] =
-    useState<(typeof categories)[number]["id"]>("tous")
+    useState<(typeof categories)[number]["id"] | CatalogueCategory>("tous")
+  // Rayons de l'admin (repli : Légumes / Fruits / Herbes).
+  const [sections, setSections] = useState<CatalogueSection[]>(LEGACY_CATALOGUE_SECTIONS)
+  const categoryChips = useMemo(
+    () => [categories[0], ...sections.map((section) => ({ id: section.slug, label: section.nom }))],
+    [sections]
+  )
   const [sortBy, setSortBy] = useState<(typeof sortOptions)[number]["id"]>("popular")
   const [searchQuery, setSearchQuery] = useState("")
   // Categorie ciblee depuis l'accueil PWA : on garde TOUS les produits affiches
@@ -728,7 +746,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
     if (query) setSearchQuery(query)
 
     const focus = searchParams.get("focus")
-    if (focus === "legumes" || focus === "fruits" || focus === "herbes") {
+    if (focus && /^[a-z0-9][a-z0-9-]{0,47}$/.test(focus)) {
       setCategoryFocus(focus)
       hasScrolledToFocusRef.current = false
     } else {
@@ -1128,7 +1146,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
 
   const filteredProducts = products
     .filter((product) => {
-      if (selectedCategory !== "tous" && product.category !== selectedCategory) {
+      if (selectedCategory !== "tous" && !productInCategory(product, selectedCategory)) {
         return false
       }
 
@@ -1160,12 +1178,12 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
   const productsByCategory = useMemo(() => {
     if (!categoryFocus) return null
     if (searchQuery.trim() !== "" || selectedCategory !== "tous") return null
-    return {
-      legumes: filteredProducts.filter((p) => p.category === "legumes"),
-      fruits: filteredProducts.filter((p) => p.category === "fruits"),
-      herbes: filteredProducts.filter((p) => p.category === "herbes"),
-    }
-  }, [categoryFocus, filteredProducts, searchQuery, selectedCategory])
+    // Un produit classé dans plusieurs rayons apparaît dans chacun d'eux.
+    return sections.map((section) => ({
+      section,
+      items: filteredProducts.filter((p) => productInCategory(p, section.slug)),
+    }))
+  }, [categoryFocus, filteredProducts, searchQuery, selectedCategory, sections])
 
   const productsByLevel = useMemo(() => {
     if (categoryFocus) return null // la vue par categorie prend le dessus
@@ -1177,6 +1195,17 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
       level3: filteredProducts.filter((p) => p.niveau === 3),
     }
   }, [categoryFocus, filteredProducts, searchQuery, selectedCategory])
+
+  // Rayons de l'admin : relus à chaque rechargement du catalogue (cache partagé de 60 s).
+  useEffect(() => {
+    let active = true
+    void fetchCatalogueSections().then((value) => {
+      if (active) setSections(value)
+    })
+    return () => {
+      active = false
+    }
+  }, [products])
 
   // Scroll doux vers la section de la categorie choisie une fois les produits charges.
   useEffect(() => {
@@ -1311,7 +1340,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
           </div>
         </div>
         <div className="mt-2.5 flex gap-2 overflow-x-auto scrollbar-none">
-          {categories.map((category) => {
+          {categoryChips.map((category) => {
             const isActive = selectedCategory === category.id
             return (
               <button
@@ -1401,7 +1430,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                 Categories
               </h3>
               <div className="space-y-2">
-                {categories.map((category) => (
+                {categoryChips.map((category) => (
                   <button
                     key={category.id}
                     onClick={() => setSelectedCategory(category.id)}
@@ -1495,34 +1524,12 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                 />
               </button>
 
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => requireAuth("/catalogue", () => setActiveModal("smart"))}
-                  className="flex items-center gap-2.5 rounded-2xl bg-white p-3 text-left shadow-[0_10px_24px_-16px_rgba(17,59,30,0.55)] ring-1 ring-[#E7F0E8] active:scale-[0.97]"
-                >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F07C00]/10 text-[#F07C00]">
-                    <Zap className="h-5 w-5" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-[13px] font-black leading-tight text-[#264129]">Panier malin</span>
-                    <span className="block text-[11px] font-medium text-gray-400">L&apos;IA compose</span>
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => requireAuth("/catalogue", () => setActiveModal("voice"))}
-                  className="flex items-center gap-2.5 rounded-2xl bg-white p-3 text-left shadow-[0_10px_24px_-16px_rgba(17,59,30,0.55)] ring-1 ring-[#E7F0E8] active:scale-[0.97]"
-                >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1E8A3C]/10 text-[#1E8A3C]">
-                    <Mic className="h-5 w-5" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-[13px] font-black leading-tight text-[#264129]">Assistant vocal</span>
-                    <span className="block text-[11px] font-medium text-gray-400">Dictez votre marché</span>
-                  </span>
-                </button>
-              </div>
+              <AiAgentCards
+                compact
+                className="mt-3"
+                onSmart={() => requireAuth("/catalogue", () => setActiveModal("smart"))}
+                onVoice={() => requireAuth("/catalogue", () => setActiveModal("voice"))}
+              />
 
               <div className="mt-4 flex items-center justify-between">
                 <p className="text-[13px] font-bold text-[#607061]">
@@ -1954,15 +1961,11 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                   id="catalogue-products"
                   className="space-y-12 scroll-mt-28"
                 >
-                  {([
-                    { key: "legumes" as const, label: "Légumes", subtitle: "Frais du marché de gros" },
-                    { key: "fruits" as const, label: "Fruits", subtitle: "Sucrés et de saison" },
-                    { key: "herbes" as const, label: "Herbes", subtitle: "Aromates et fraîcheur" },
-                  ] as const).map((section, sectionIndex) => {
-                    const items = productsByCategory[section.key]
+                  {productsByCategory.map(({ section, items }, sectionIndex) => {
                     if (items.length === 0) return null
+                    const subtitle = sectionSubtitles[section.slug]
                     return (
-                      <section key={section.key} id={`catalogue-cat-${section.key}`} className="scroll-mt-28">
+                      <section key={section.slug} id={`catalogue-cat-${section.slug}`} className="scroll-mt-28">
                         <div
                           data-reveal="up"
                           data-delay={String((sectionIndex % 4) + 1)}
@@ -1971,8 +1974,8 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                           <div className="flex items-center gap-3">
                             <span className="h-8 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-[#5BD174] to-[#1E8A3C] md:hidden" />
                             <div>
-                              <h3 className="text-lg font-bold text-[#264129]">{section.label}</h3>
-                              <p className="text-sm text-[#6F8070]">{section.subtitle}</p>
+                              <h3 className="text-lg font-bold text-[#264129]">{section.nom}</h3>
+                              {subtitle && <p className="text-sm text-[#6F8070]">{subtitle}</p>}
                             </div>
                           </div>
                           <span className="rounded-full bg-[#F0FAF1] px-3 py-1 text-xs font-bold text-[#1E8A3C]">

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react"
 import Link from "next/link"
-import { AlertTriangle, CircleDollarSign, Copy, Download, ExternalLink, Gift, LayoutDashboard, MapPinned, Menu, Package, Pencil, Plus, QrCode, RefreshCw, ShoppingBasket, Truck, Users, X } from "lucide-react"
+import { AlertTriangle, CircleDollarSign, Copy, Download, ExternalLink, Gift, LayoutDashboard, MapPinned, Menu, Package, Pencil, Plus, QrCode, RefreshCw, ShoppingBasket, Tags, Truck, Users, X } from "lucide-react"
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { useAuth } from "@/hooks/useAuth"
@@ -29,6 +29,7 @@ const navItems = [
   { icon: Truck, label: "Logistique & Livreurs", href: "/admin/livreur", permission: "admin.panel.access" },
   { icon: ShoppingBasket, label: "Gestion Produits & Prix", href: "/admin/produits", permission: "products.manage" },
   { icon: CircleDollarSign, label: "Pricing", href: "/admin/pricing", permission: "admin.panel.access" },
+  { icon: Tags, label: "Catégories", href: "/admin/categories", permission: "admin.panel.access" },
   { icon: MapPinned, label: "Zones de livraison", href: "/admin/zones", permission: "admin.panel.access" },
   { icon: AlertTriangle, label: "Exceptions / Backlog", href: "/admin/commandes/exceptions", permission: "admin.panel.access" },
   { icon: Gift, label: "Parrainage", href: "/admin/parrainage", permission: "admin.panel.access" },

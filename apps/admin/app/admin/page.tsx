@@ -27,6 +27,7 @@ import {
   Gift,
   Percent,
   QrCode,
+  Tags,
   X,
 } from "lucide-react"
 import {
@@ -65,6 +66,7 @@ const adminNavItems = [
   { icon: Truck, label: "Logistique & Livreurs", href: "/admin/livreur" },
   { icon: ShoppingBasket, label: "Gestion Produits & Prix", href: "/admin/produits" },
   { icon: CircleDollarSign, label: "Pricing", href: "/admin/pricing" },
+  { icon: Tags, label: "Catégories", href: "/admin/categories" },
   { icon: MapPinned, label: "Zones de livraison", href: "/admin/zones" },
   { icon: AlertTriangle, label: "Exceptions / Backlog", href: "/admin/commandes/exceptions" },
   { icon: Gift, label: "Parrainage", href: "/admin/parrainage" },

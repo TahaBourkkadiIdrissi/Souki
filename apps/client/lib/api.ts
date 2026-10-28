@@ -162,6 +162,20 @@ export interface CommandeHistoriqueDTO {
 export type ProduitNiveau = 1 | 2 | 3
 
 
+/** Rayon défini dans l'admin (GET /api/catalogue/categories), trié par ordre. */
+export interface CatalogueCategoryDTO {
+  id: number
+  slug: string
+  nom: string
+  emoji: string | null
+  ordre: number
+  product_ids: number[]
+}
+
+export function fetchCatalogueCategories(signal?: AbortSignal) {
+  return apiCall<CatalogueCategoryDTO[]>("/api/catalogue/categories", { signal })
+}
+
 export interface CatalogueProductDTO {
   description?: string | null
   id: number

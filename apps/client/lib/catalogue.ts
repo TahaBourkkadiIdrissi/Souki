@@ -1,8 +1,9 @@
 import { readClientCollection, writeClientCollection, type StorageOwner } from "@/lib/client-storage"
 import type { CatalogueProductDTO, CommandeHistoriqueDTO } from "@/lib/api"
-import { apiCall } from "@/lib/api"
+import { apiCall, fetchCatalogueCategories } from "@/lib/api"
 
-export type CatalogueCategory = "legumes" | "fruits" | "herbes"
+// Les trois rayons historiques restent la valeur de repli ; l'admin peut en créer d'autres.
+export type CatalogueCategory = "legumes" | "fruits" | "herbes" | (string & {})
 
 export type ApiCatalogueProduct = CatalogueProductDTO
 
@@ -19,10 +20,62 @@ export interface CatalogueProduct {
   image: string
   fallbackImage?: string
   category: CatalogueCategory
+  /** Tous les rayons du produit (admin), le premier étant `category`. */
+  categories?: CatalogueCategory[]
   quantityStep: number
   stock: number
   updatedAt?: string | null
   availability?: "in_stock" | "preorder" | "out_of_stock"
+}
+
+export interface CatalogueSection {
+  slug: CatalogueCategory
+  nom: string
+  emoji: string | null
+  productIds: number[]
+}
+
+export const LEGACY_CATALOGUE_SECTIONS: CatalogueSection[] = [
+  { slug: "legumes", nom: "Légumes", emoji: "🥬", productIds: [] },
+  { slug: "fruits", nom: "Fruits", emoji: "🍊", productIds: [] },
+  { slug: "herbes", nom: "Herbes", emoji: "🌿", productIds: [] },
+]
+
+const SECTIONS_TTL_MS = 60 * 1000
+let sectionsRequest: { at: number; promise: Promise<CatalogueSection[]> } | null = null
+
+/** Rayons de l'admin, partagés quelques secondes entre les écrans ; repli silencieux sur les rayons historiques. */
+export function fetchCatalogueSections(): Promise<CatalogueSection[]> {
+  if (!sectionsRequest || Date.now() - sectionsRequest.at > SECTIONS_TTL_MS) {
+    sectionsRequest = {
+      at: Date.now(),
+      promise: fetchCatalogueCategories()
+        .then((rows) => rows.length === 0
+          ? LEGACY_CATALOGUE_SECTIONS
+          : rows.map((row) => ({ slug: row.slug, nom: row.nom, emoji: row.emoji, productIds: row.product_ids })))
+        .catch(() => {
+          sectionsRequest = null
+          return LEGACY_CATALOGUE_SECTIONS
+        }),
+    }
+  }
+  return sectionsRequest.promise
+}
+
+/** Applique les rayons de l'admin ; un produit non classé garde son rayon historique. */
+export function applyCatalogueSections<T extends { id: number; category: CatalogueCategory }>(
+  products: T[],
+  sections: CatalogueSection[]
+): (T & { categories: CatalogueCategory[] })[] {
+  return products.map((product) => {
+    const assigned = sections.filter((section) => section.productIds.includes(product.id)).map((section) => section.slug)
+    const categories = assigned.length > 0 ? assigned : [product.category]
+    return { ...product, category: categories[0], categories }
+  })
+}
+
+export function productInCategory(product: Pick<CatalogueProduct, "category" | "categories">, slug: string) {
+  return (product.categories ?? [product.category]).includes(slug)
 }
 
 export interface CartItem extends CatalogueProduct {
@@ -370,8 +423,11 @@ export function getCatalogueFallbackImage(name: string): string {
 }
 
 export async function fetchCatalogueProducts(): Promise<CatalogueProduct[]> {
-  const data = (await apiCall("/api/catalogue")) as ApiCatalogueProduct[]
-  return data
+  const [data, sections] = await Promise.all([
+    apiCall("/api/catalogue") as Promise<ApiCatalogueProduct[]>,
+    fetchCatalogueSections(),
+  ])
+  return applyCatalogueSections(data
     .map((product) => {
     const presentation = getCataloguePresentation(product.nom_fr)
 
@@ -393,7 +449,7 @@ export async function fetchCatalogueProducts(): Promise<CatalogueProduct[]> {
       updatedAt: product.updated_at,
       availability: product.availability,
     }
-  })
+  }), sections)
 }
 
 export function loadStoredCart(owner: StorageOwner): CartItem[] {

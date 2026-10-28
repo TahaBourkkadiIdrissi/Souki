@@ -31,7 +31,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   MessageCircle,
-  Instagram,
   Shield,
   Sparkles,
   Mic,
@@ -53,6 +52,7 @@ import {
 import { ProductCard } from "@/components/souki/product-card"
 import { Navbar } from "@/components/souki/navbar"
 import { PolicyLink } from "@/components/souki/policy-link"
+import { SocialLinks } from "@/components/souki/social-links"
 import dynamic from "next/dynamic"
 import type { CatalogueProduct } from "@/lib/catalogue"
 import { productPath } from "@/lib/seo"
@@ -777,9 +777,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
                 <a href="#" aria-label="WhatsApp SOUKI" className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 transition-colors hover:bg-white/20">
                   <MessageCircle className="h-5 w-5" />
                 </a>
-                <a href="#" aria-label="Instagram SOUKI" className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 transition-colors hover:bg-white/20">
-                  <Instagram className="h-5 w-5" />
-                </a>
+                <SocialLinks tone="dark" />
               </div>
             </div>
             <div>
