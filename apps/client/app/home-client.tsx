@@ -12,6 +12,7 @@
  */
 
 import { SoukiLogoLink } from "@/components/souki/souki-logo"
+import { AiAgentCards } from "@/components/souki/ai-agent-cards"
 import { useState, useEffect, type CSSProperties } from "react"
 import Link from "next/link"
 import Image from "@/components/souki/optimized-image"
@@ -33,7 +34,6 @@ import {
   MessageCircle,
   Shield,
   Sparkles,
-  Mic,
   Sunrise,
   PackageCheck,
   BadgeCheck,
@@ -201,8 +201,8 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
               <span className="font-semibold text-[#3D3D3D]">Commandez de 8h à 1h du matin.</span>
             </p>
 
-            {/* CTA — une action dominante, deux chemins IA secondaires */}
-            <div className="mt-9 flex flex-wrap items-center gap-4 animate-fade-in-up-delay-2">
+            {/* CTA — une action dominante, puis les deux agents IA à poids égal */}
+            <div className="mt-9 animate-fade-in-up-delay-2">
               <Link href="/catalogue"
                 className={`group inline-flex min-h-14 items-center justify-center gap-3 rounded-full bg-[#1E8A3C] px-8 text-[16px] font-bold text-white shadow-[0_18px_40px_-14px_rgba(30,138,60,0.55)] transition-transform hover:scale-[1.03] hover:bg-[#176B2E] active:scale-[0.98] ${focusRing}`}
               >
@@ -211,23 +211,14 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
                 <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
               </Link>
 
-              <button
-                onClick={() => requireAuth(() => setActiveModal("smart"))}
-                className={`inline-flex min-h-14 items-center justify-center gap-2.5 rounded-full border border-[#D7E7D9] bg-white px-7 text-[15px] font-bold text-[#14301B] shadow-sm transition-colors hover:border-[#1E8A3C]/40 hover:bg-[#F3FAF4] ${focusRing}`}
-              >
-                <Sparkles className="h-5 w-5 text-[#1E8A3C]" />
-                Panier IA
-              </button>
+              <p className="mt-6 text-[14px] font-semibold text-[#5F6F61]">Ou laissez Souki le faire pour vous :</p>
+              <AiAgentCards
+                variant="inline"
+                className="mt-3"
+                onVoice={() => requireAuth(() => setActiveModal("voice"))}
+                onSmart={() => requireAuth(() => setActiveModal("smart"))}
+              />
             </div>
-
-            {/* Chemin vocal — tertiaire, discret mais accessible */}
-            <button
-              onClick={() => requireAuth(() => setActiveModal("voice"))}
-              className={`mt-5 inline-flex min-h-11 items-center gap-2 rounded-full px-2 text-[14px] font-semibold text-[#5F6F61] underline-offset-4 transition-colors hover:text-[#1E8A3C] hover:underline ${focusRing}`}
-            >
-              <Mic className="h-4 w-4" />
-              ou dictez votre panier à l&apos;assistant vocal
-            </button>
 
             {/* Preuve sociale rattachée à l'action */}
             <div className="mt-9 flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-[#E7EFE8] pt-6 animate-fade-in-up-delay-3">

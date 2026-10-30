@@ -18,7 +18,6 @@ import {
   Leaf,
   Menu,
   MessageCircle,
-  Mic,
   PackageCheck,
   ReceiptText,
   Search,
@@ -26,7 +25,6 @@ import {
   Sparkles,
   Trash2,
   X,
-  Zap,
   Minus,
   Plus,
   type LucideIcon,
@@ -1282,7 +1280,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
             icon: MessageCircle,
             eyebrow: "Accompagnement",
             title: "Aide à chaque étape",
-            description: "Assistant vocal, panier malin ou parcours libre selon ton humeur du moment.",
+            description: "Commande vocale, panier intelligent ou parcours libre selon ton humeur du moment.",
             tone: "green" as const,
           },
           stat: {
@@ -1525,7 +1523,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
               </button>
 
               <AiAgentCards
-                compact
+                variant="compact"
                 className="mt-3"
                 onSmart={() => requireAuth("/catalogue", () => setActiveModal("smart"))}
                 onVoice={() => requireAuth("/catalogue", () => setActiveModal("voice"))}
@@ -1575,8 +1573,8 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                   Salam, je t'aide a composer un panier frais sans perdre de temps
                 </h1>
                 <p className="mt-3 max-w-3xl text-sm leading-6 text-[#5F735F] sm:pr-28 lg:text-base xl:pr-0">
-                  Choisis toi-même tes produits, parle à l'assistant vocal, ou laisse Souki composer
-                  un panier malin selon ton budget.
+                  Choisis toi-même tes produits, dicte ta liste avec la commande vocale, ou laisse
+                  Souki composer un panier intelligent selon ton budget.
                 </p>
 
                 <div className="mt-4 2xl:hidden">
@@ -1610,33 +1608,11 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                     <ArrowRight className="h-4 w-4 shrink-0 text-[#9AB49C] transition-transform group-hover:translate-x-1" />
                   </button>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => requireAuth("/catalogue", () => setActiveModal("smart"))}
-                      className="group flex min-h-[6.75rem] flex-col items-center justify-center gap-1 rounded-xl bg-[#F07C00] p-2.5 text-white shadow-[0_12px_28px_-20px_rgba(240,124,0,0.75)] transition-transform hover:-translate-y-0.5 hover:bg-[#D66B00]"
-                    >
-                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/18">
-                        <Zap className="h-4 w-4" />
-                      </span>
-                      <span className="text-xs font-black leading-tight">Panier intelligent</span>
-                      <span className="px-1 text-center text-[10px] font-semibold leading-snug text-white/85">
-                        Budget, durée et foyer : Souki compose pour toi.
-                      </span>
-                    </button>
-
-                    <button
-                      onClick={() => requireAuth("/catalogue", () => setActiveModal("voice"))}
-                      className="glass-ios26 group flex min-h-[6.75rem] flex-col items-center justify-center gap-1 rounded-xl border border-[#CFE6D2] p-2.5 text-[#264129] transition-transform hover:-translate-y-0.5 hover:bg-white/45"
-                    >
-                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#F0FAF1] text-[#1E8A3C]">
-                        <Mic className="h-4 w-4" />
-                      </span>
-                      <span className="text-xs font-black leading-tight">Assistant IA</span>
-                      <span className="px-1 text-center text-[10px] font-semibold leading-snug text-[#6F8070]">
-                        Dis tes produits à voix haute, on prépare le panier.
-                      </span>
-                    </button>
-                  </div>
+                  <AiAgentCards
+                    variant="row"
+                    onSmart={() => requireAuth("/catalogue", () => setActiveModal("smart"))}
+                    onVoice={() => requireAuth("/catalogue", () => setActiveModal("voice"))}
+                  />
                 </div>
               </div>
 
