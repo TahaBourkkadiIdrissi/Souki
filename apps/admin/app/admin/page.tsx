@@ -27,6 +27,7 @@ import {
   Gift,
   Percent,
   QrCode,
+  Repeat,
   Tags,
   X,
 } from "lucide-react"
@@ -71,6 +72,7 @@ const adminNavItems = [
   { icon: AlertTriangle, label: "Exceptions / Backlog", href: "/admin/commandes/exceptions" },
   { icon: Gift, label: "Parrainage", href: "/admin/parrainage" },
   { icon: QrCode, label: "Campagnes", href: "/admin/compaign" },
+  { icon: Repeat, label: "Abonnements", href: "/admin/abonnements" },
 ]
 
 const adminNavPermissions: Record<string, string> = {
@@ -85,6 +87,7 @@ const adminNavPermissions: Record<string, string> = {
   "/admin/commandes/exceptions": "admin.panel.access",
   "/admin/parrainage": "admin.panel.access",
   "/admin/compaign": "admin.panel.access",
+  "/admin/abonnements": "admin.panel.access",
 }
 
 const periodOptions: Array<{ value: DashboardPeriod; label: string }> = [

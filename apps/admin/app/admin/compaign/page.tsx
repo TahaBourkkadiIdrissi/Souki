@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react"
 import Link from "next/link"
-import { AlertTriangle, CircleDollarSign, Copy, Download, ExternalLink, Gift, LayoutDashboard, MapPinned, Menu, Package, Pencil, Plus, QrCode, RefreshCw, ShoppingBasket, Tags, Truck, Users, X } from "lucide-react"
+import { AlertTriangle, CircleDollarSign, Copy, Download, ExternalLink, Gift, LayoutDashboard, MapPinned, Menu, Package, Pencil, Plus, QrCode, RefreshCw, Repeat, ShoppingBasket, Tags, Truck, Users, X } from "lucide-react"
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { useAuth } from "@/hooks/useAuth"
@@ -34,6 +34,7 @@ const navItems = [
   { icon: AlertTriangle, label: "Exceptions / Backlog", href: "/admin/commandes/exceptions", permission: "admin.panel.access" },
   { icon: Gift, label: "Parrainage", href: "/admin/parrainage", permission: "admin.panel.access" },
   { icon: QrCode, label: "Campagnes", href: "/admin/compaign", permission: "admin.panel.access" },
+  { icon: Repeat, label: "Abonnements", href: "/admin/abonnements", permission: "admin.panel.access" },
 ]
 
 export default function CompaignPage() {

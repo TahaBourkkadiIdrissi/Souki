@@ -79,3 +79,5 @@ __all__ = [
 from entities.campaign_entity import Campaign, CampaignVisit, CampaignOrder
 from entities.campaign_lifecycle_entity import CampaignLink, CampaignLifecycle
 from entities.category_entity import Category, ProductCategory
+from entities.panier_souki_entity import PanierSouki, PanierSoukiLigne
+from entities.commande_recurrente_entity import CommandeRecurrente, CommandeRecurrenteLigne, CommandeRecurrenteLivraison

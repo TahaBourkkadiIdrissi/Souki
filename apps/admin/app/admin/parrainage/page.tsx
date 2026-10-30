@@ -15,6 +15,7 @@ import {
   Menu,
   Package,
   RefreshCw,
+  Repeat,
   ShoppingBasket,
   Truck,
   Users,
@@ -36,6 +37,7 @@ const adminNavItems = [
   { icon: MapPinned, label: "Zones de livraison", href: "/admin/zones" },
   { icon: AlertTriangle, label: "Exceptions / Backlog", href: "/admin/commandes/exceptions" },
   { icon: Gift, label: "Parrainage", href: "/admin/parrainage" },
+  { icon: Repeat, label: "Abonnements", href: "/admin/abonnements" },
 ]
 
 const adminNavPermissions: Record<string, string> = {
@@ -49,6 +51,7 @@ const adminNavPermissions: Record<string, string> = {
   "/admin/zones": "admin.panel.access",
   "/admin/commandes/exceptions": "admin.panel.access",
   "/admin/parrainage": "admin.panel.access",
+  "/admin/abonnements": "admin.panel.access",
 }
 
 function formatMoney(value: number | null | undefined) {

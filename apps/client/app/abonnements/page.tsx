@@ -1,6 +1,7 @@
 "use client"
 
 import { SoukiLogoLink } from "@/components/souki/souki-logo"
+import { MesAbonnements } from "@/components/souki/mes-abonnements"
 import { useState } from "react"
 import Link from "next/link"
 import Image from "@/components/souki/optimized-image"
@@ -56,6 +57,9 @@ export default function AbonnementsPage() {
           </div>
         </div>
       </nav>
+
+      {/* Mes abonnements (client connecté) */}
+      <MesAbonnements />
 
       {/* Hero Section */}
       <section className="relative overflow-hidden py-16 lg:py-24 text-center px-4">

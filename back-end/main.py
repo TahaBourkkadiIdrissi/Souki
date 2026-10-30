@@ -29,6 +29,7 @@ from controllers.admin_exception_controller import router_admin_exceptions
 from controllers.auth_controller import auth_router
 from controllers.catalogue_controller import router_catalogue
 from controllers.campaign_controller import campaign_router
+from controllers.commande_recurrente_controller import commande_recurrente_router
 from controllers.category_controller import category_router
 from controllers.claim_controller import claim_router
 from controllers.checkout_controller import router_checkout
@@ -82,6 +83,7 @@ API_ROUTERS: tuple[APIRouter, ...] = (
     router_assistant,
     router_checkout,
     router_order_edit,
+    commande_recurrente_router,
     client_blacklist_router,
     pricing_router,
     claim_router,

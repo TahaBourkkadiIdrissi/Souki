@@ -1,7 +1,7 @@
 from operating_mode import preorders_enabled
 import os
 
-from datetime import datetime, time
+from datetime import date, datetime, time
 from typing import Optional
 from zoneinfo import ZoneInfo
 
@@ -74,9 +74,12 @@ class CheckoutService(ICheckoutService):
         self._close_owned_session(rollback=exc_type is not None)
 
     def create_checkout(
-        self, user_id: int, payload: CheckoutRequestDTO
+        self, user_id: int, payload: CheckoutRequestDTO, system_delivery_date: Optional[date] = None
     ) -> CheckoutResponseDTO:
-        if ORDER_CUTOFF_ENABLED and is_order_cutoff_active():
+        # system_delivery_date : reserve au job de 01h00 (commandes recurrentes). La commande
+        # est creee pour cette date malgre la fermeture, et l'appelant fait le commit.
+        system_run = system_delivery_date is not None
+        if ORDER_CUTOFF_ENABLED and not system_run and is_order_cutoff_active():
             raise HTTPException(status_code=403, detail=ORDER_CUTOFF_MESSAGE)
 
         if not payload.items:
@@ -89,9 +92,9 @@ class CheckoutService(ICheckoutService):
             # JIT takes the exclusive counterpart before reading the closed batch.
             self.checkout_dao.lock_order_batch(session, ORDER_BATCH_LOCK_ID)
             accepted_at = local_now()
-            if ORDER_CUTOFF_ENABLED and is_order_cutoff_active(accepted_at):
+            if ORDER_CUTOFF_ENABLED and not system_run and is_order_cutoff_active(accepted_at):
                 raise HTTPException(status_code=403, detail=ORDER_CUTOFF_MESSAGE)
-            delivery_date = delivery_date_for_order(accepted_at)
+            delivery_date = system_delivery_date if system_run else delivery_date_for_order(accepted_at)
             client = self.checkout_dao.get_or_create_client(session, user_id)
             if bool(client.is_blacklisted) and self._is_cod_mode(payload.mode_paiement):
                 raise HTTPException(
@@ -259,7 +262,10 @@ class CheckoutService(ICheckoutService):
                 from dao.campaign_dao import CampaignDao
                 from services.campaign_service import CampaignService
                 CampaignService(CampaignDao(), session).attribute_order(payload._campaign_visit, int(commande.id))
-            session.commit()
+            if system_run:
+                session.flush()
+            else:
+                session.commit()
 
             return CheckoutResponseDTO(
                 status="success",

@@ -100,6 +100,98 @@ export function getOrderSchedule() {
   return apiCall<OrderScheduleDTO>("/api/order-schedule", { cache: "no-store", signal: AbortSignal.timeout(5000) })
 }
 
+export type FrequenceRecurrente = "QUOTIDIENNE" | "TOUS_LES_3_JOURS" | "HEBDOMADAIRE" | "TOUTES_LES_2_SEMAINES"
+export type StatutRecurrence = "ACTIVE" | "EN_PAUSE" | "SUSPENDUE" | "ARRETEE"
+
+export interface CommandeRecurrenteLigneDTO {
+  product_id: number
+  nom_produit: string
+  unite: string
+  image_url: string | null
+  quantite: number
+  prix_unitaire: number
+  prix_reference: number | null
+  sous_total: number
+  variation: number
+  disponible: boolean
+}
+
+export interface CommandeRecurrenteLivraisonDTO {
+  date_livraison: string
+  statut: "CREEE" | "SAUTEE" | "ECHEC"
+  commande_id: number | null
+  montant: number | null
+  motif: string | null
+}
+
+export interface CommandeRecurrenteDTO {
+  id: number
+  type: "COMMANDE" | "PANIER"
+  panier_souki_id: number | null
+  commande_origine_id: number | null
+  frequence: FrequenceRecurrente
+  prochaine_livraison: string
+  statut: StatutRecurrence
+  pause_jusqu_au: string | null
+  mode_paiement: string
+  creneau_livraison: string
+  contact_phone: string
+  delivery_address: string
+  delivery_city: string
+  delivery_instructions: string | null
+  lignes: CommandeRecurrenteLigneDTO[]
+  sous_total_estime: number
+  frais_livraison_estimes: number
+  total_estime: number
+  variation_prix: number
+  modifiable: boolean
+  message: string | null
+  dernieres_livraisons: CommandeRecurrenteLivraisonDTO[]
+  created_at: string | null
+}
+
+export interface CommandeRecurrenteUpdateDTO {
+  frequence?: FrequenceRecurrente
+  prochaine_livraison?: string
+  mode_paiement?: "cod" | "wallet"
+  contact_phone?: string
+  delivery_address?: string
+  delivery_city?: string
+  delivery_instructions?: string
+}
+
+export function getCommandesRecurrentes(signal?: AbortSignal) {
+  return apiCall<CommandeRecurrenteDTO[]>("/api/commandes-recurrentes", { cache: "no-store", signal })
+}
+
+export function creerCommandeRecurrente(commandeId: number, body: { frequence: FrequenceRecurrente; premiere_livraison?: string }) {
+  return apiCall<CommandeRecurrenteDTO>(`/api/commandes-recurrentes/depuis-commande/${commandeId}`, { method: "POST", body })
+}
+
+export function modifierLignesCommandeRecurrente(id: number, lignes: { product_id: number; quantite: number }[]) {
+  return apiCall<CommandeRecurrenteDTO>(`/api/commandes-recurrentes/${id}/lignes`, { method: "PUT", body: { lignes } })
+}
+
+export function modifierCommandeRecurrente(id: number, body: CommandeRecurrenteUpdateDTO) {
+  return apiCall<CommandeRecurrenteDTO>(`/api/commandes-recurrentes/${id}`, { method: "PATCH", body })
+}
+
+export function sauterCommandeRecurrente(id: number) {
+  return apiCall<CommandeRecurrenteDTO>(`/api/commandes-recurrentes/${id}/sauter`, { method: "POST" })
+}
+
+export function pauseCommandeRecurrente(id: number, jusquAu: string) {
+  return apiCall<CommandeRecurrenteDTO>(`/api/commandes-recurrentes/${id}/pause`, { method: "POST", body: { jusqu_au: jusquAu } })
+}
+
+export function reprendreCommandeRecurrente(id: number) {
+  return apiCall<CommandeRecurrenteDTO>(`/api/commandes-recurrentes/${id}/reprendre`, { method: "POST" })
+}
+
+export function arreterCommandeRecurrente(id: number) {
+  return apiCall<CommandeRecurrenteDTO>(`/api/commandes-recurrentes/${id}/arreter`, { method: "POST" })
+}
+
 
 interface ApiOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"

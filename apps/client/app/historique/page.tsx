@@ -2,6 +2,7 @@
 
 import { formatDeliveryDate } from "@/lib/order-hours"
 import { OrderEditLink } from "@/components/souki/order-edit-link"
+import { RepeatOrderButton } from "@/components/souki/repeat-order-button"
 
 import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { Suspense, useCallback, useEffect, useState, type CSSProperties } from "react"
@@ -160,6 +161,12 @@ function HistoriqueContent() {
         {successOrderId && (
           <div className="mb-5 rounded-2xl border border-[#BFE6C4] bg-[#EAF8EC] px-5 py-4 text-sm font-semibold text-[#1E8A3C]">
             Votre commande N-{successOrderId} a été enregistrée avec succès.
+            {Number(successOrderId) > 0 && (
+              <div className="mt-3 flex flex-col gap-3 font-normal text-[#264129] sm:flex-row sm:items-center sm:justify-between">
+                <span>Recevez-la automatiquement chaque jour, tous les 3 jours ou chaque semaine.</span>
+                <div className="sm:w-64"><RepeatOrderButton orderId={Number(successOrderId)} variant="solid" /></div>
+              </div>
+            )}
           </div>
         )}
 
@@ -330,6 +337,9 @@ function HistoriqueContent() {
                       Voir l’avancement
                     </Link>
                     <OrderEditLink order={order} />
+                    {!["ANNULEE", "REFUS"].includes((order.statut || "").toUpperCase()) && (
+                      <RepeatOrderButton orderId={order.id} />
+                    )}
                   </div>
                 </article>
               ))}

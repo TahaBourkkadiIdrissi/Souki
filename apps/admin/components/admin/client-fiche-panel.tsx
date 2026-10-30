@@ -1,10 +1,12 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Lock } from "lucide-react"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
-import type { CommandeHistoriqueDTO, FicheClientDTO } from "@/lib/api"
+import { listCommandesRecurrentesClient, type CommandeHistoriqueDTO, type CommandeRecurrenteAdminDTO, type FicheClientDTO } from "@/lib/api"
+import { FREQUENCE_LABELS, LIVRAISON_LABELS, STATUT_RECURRENCE, TYPE_RECURRENCE_LABELS, formatDateFr, formatDh, formatVariation } from "@/lib/commandes-recurrentes"
 
 export type ClientBlockKey =
   | "identity"
@@ -246,6 +248,50 @@ function CommandeClientCard({ commande }: { commande: CommandeHistoriqueDTO }) {
   )
 }
 
+function CommandesRecurrentesClient({ clientId }: { clientId: number }) {
+  const [items, setItems] = useState<CommandeRecurrenteAdminDTO[] | null>(null)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    let cancelled = false
+    listCommandesRecurrentesClient(clientId)
+      .then((rows) => { if (!cancelled) { setItems(rows); setError("") } })
+      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : "Abonnements indisponibles.") })
+    return () => { cancelled = true }
+  }, [clientId])
+
+  if (error) return <p className="mb-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">{error}</p>
+  if (items === null) return <p className="mb-3 text-xs text-gray-500">Chargement des abonnements…</p>
+  if (items.length === 0) return <p className="mb-3 text-xs text-gray-500">Aucune commande récurrente active.</p>
+
+  return (
+    <div className="mb-4 space-y-3">
+      {items.map((item) => {
+        const derniere = item.dernieres_livraisons[0]
+        return (
+          <div key={item.id} className="rounded-xl border border-gray-100 bg-white p-3 text-xs text-gray-700">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-semibold text-gray-900">{TYPE_RECURRENCE_LABELS[item.type]} · {FREQUENCE_LABELS[item.frequence]}</p>
+              <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", STATUT_RECURRENCE[item.statut].className)}>{STATUT_RECURRENCE[item.statut].label}</span>
+            </div>
+            <p className="mt-1">
+              {item.statut === "ACTIVE" ? `Prochaine livraison ${formatDateFr(item.prochaine_livraison)}` : item.statut === "EN_PAUSE" ? `Reprise ${formatDateFr(item.pause_jusqu_au)}` : "—"}
+              {" · "}Estimation {formatDh(item.total_estime)}
+              {Math.abs(item.variation_prix) >= 0.01 ? ` (${formatVariation(item.variation_prix)})` : ""}
+            </p>
+            <p className="mt-1 text-gray-500">{item.lignes.map((ligne) => `${ligne.nom_produit} ${ligne.quantite} ${ligne.unite}`).join(" · ")}</p>
+            {derniere && (
+              <p className="mt-1 text-gray-500">
+                Dernière : {formatDateFr(derniere.date_livraison)} · {LIVRAISON_LABELS[derniere.statut]}{derniere.commande_id ? ` N-${derniere.commande_id}` : ""}{derniere.motif ? ` · ${derniere.motif}` : ""}
+              </p>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export function FicheClientPanel({
   fiche,
   openBlocks,
@@ -408,6 +454,7 @@ export function FicheClientPanel({
         </TabsContent>
 
         <TabsContent value="subscription">
+          <CommandesRecurrentesClient clientId={fiche.id} />
           {!fiche.abonnement ? (
             <EmptyClientBlock />
           ) : (

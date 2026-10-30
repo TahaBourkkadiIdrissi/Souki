@@ -70,8 +70,10 @@ import {
   jitDernierLog,
   jitDeverrouiller,
   jitExecuter,
+  listCommandeIdsRecurrentes,
   type ResultatAgregationJIT,
 } from "@/lib/api"
+import { addDaysIso, todayMorocco } from "@/lib/commandes-recurrentes"
 
 const ORDERS_ENDPOINT = "/api/commandes"
 
@@ -80,6 +82,11 @@ type RawRecord = Record<string, unknown>
 interface OrderLineLike {
   productName: string
   quantityKg: number | null
+}
+
+function RecurrenteBadge({ show }: { show: boolean }) {
+  if (!show) return null
+  return <span className="ml-2 inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-700">Récurrente</span>
 }
 
 interface AdminOrderRow {
@@ -1038,6 +1045,18 @@ export default function AdminOrdersPage() {
   const [clientSheetLoadingId, setClientSheetLoadingId] = useState<number | null>(null)
   const [openClientBlocks, setOpenClientBlocks] = useState<Record<string, boolean>>({})
   const [activeSection, setActiveSection] = useState<"overview" | "commandes" | "jit" | "cod" | "logs">("overview")
+  // Commandes creees par un abonnement (badge "Recurrente"), rafraichies avec la liste.
+  const [recurrentOrderIds, setRecurrentOrderIds] = useState<Set<number>>(() => new Set())
+
+  useEffect(() => {
+    if (!token) return
+    const today = todayMorocco()
+    let cancelled = false
+    listCommandeIdsRecurrentes(addDaysIso(today, -7), addDaysIso(today, 1))
+      .then((ids) => { if (!cancelled) setRecurrentOrderIds(new Set(ids)) })
+      .catch(() => { if (!cancelled) setRecurrentOrderIds(new Set()) })
+    return () => { cancelled = true }
+  }, [token, orders])
   const [ordersSearch, setOrdersSearch] = useState("")
   const [ordersStatusFilter, setOrdersStatusFilter] = useState("tous")
 
@@ -1994,7 +2013,7 @@ export default function AdminOrdersPage() {
 
                                       return (
                                         <tr key={order.id} className="hover:bg-gray-50">
-                                          <td className="px-4 py-3 font-medium text-[#1E8A3C]">{order.id}</td>
+                                          <td className="px-4 py-3 font-medium text-[#1E8A3C]">{order.id}<RecurrenteBadge show={recurrentOrderIds.has(Number(order.id))} /></td>
                                           <td className="px-4 py-3 text-sm text-gray-900">{formatShortDateTime(order.dateCommande)}</td>
                                           <td className="px-4 py-3 text-sm text-gray-500 max-w-[320px] whitespace-normal">{order.produits}</td>
                                           <td className="px-4 py-3 text-gray-900">{formatWeight(order.volumeKg)}</td>
@@ -2552,7 +2571,7 @@ export default function AdminOrdersPage() {
 
                                       return (
                                         <tr key={order.id} className="hover:bg-gray-50">
-                                          <td className="px-4 py-3 font-medium text-[#1E8A3C]">#{order.id}</td>
+                                          <td className="px-4 py-3 font-medium text-[#1E8A3C]">#{order.id}<RecurrenteBadge show={recurrentOrderIds.has(Number(order.id))} /></td>
                                           <td className="px-4 py-3 font-semibold text-gray-900">{formatMoney(order.montant ?? null)}</td>
                                           <td className="px-4 py-3 text-sm text-gray-900">{emptyValue([order.date_livraison, order.creneau_livraison].filter(Boolean).join(" · "))}</td>
                                           <td className="px-4 py-3">

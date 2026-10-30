@@ -2,7 +2,7 @@
 
 import { createElement, useCallback, useEffect, useMemo, useState, type FormEvent } from "react"
 import Link from "next/link"
-import { AlertTriangle, CircleDollarSign, Gift, LayoutDashboard, MapPinned, Menu, Package, Pencil, Plus, QrCode, RefreshCw, Search, ShoppingBasket, Tags, Truck, Users, X } from "lucide-react"
+import { AlertTriangle, CircleDollarSign, Gift, LayoutDashboard, MapPinned, Menu, Package, Pencil, Plus, QrCode, RefreshCw, Repeat, Search, ShoppingBasket, Tags, Truck, Users, X } from "lucide-react"
 import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { useAuth } from "@/hooks/useAuth"
 import { createCategory, getProduitsPricing, listCategories, setCategoryProducts, updateCategory, type Category, type CategoryForm, type ProduitPricingDTO } from "@/lib/api"
@@ -27,6 +27,7 @@ const navItems = [
   { icon: AlertTriangle, label: "Exceptions / Backlog", href: "/admin/commandes/exceptions", permission: "admin.panel.access" },
   { icon: Gift, label: "Parrainage", href: "/admin/parrainage", permission: "admin.panel.access" },
   { icon: QrCode, label: "Campagnes", href: "/admin/compaign", permission: "admin.panel.access" },
+  { icon: Repeat, label: "Abonnements", href: "/admin/abonnements", permission: "admin.panel.access" },
 ]
 
 export default function CategoriesPage() {
