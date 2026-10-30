@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
 // - Commande vocale : carte foret + orbe cyan/turquoise (apercu de la VoiceOrb
 //   de la modale). L'orbe n'emet ses ondes qu'au survol / appui / focus.
 // - Panier intelligent : carte blanche + medaillon vert, avec les vrais
-//   criteres du formulaire (budget, personnes, plat marocain).
+//   criteres du formulaire (budget, foyer, plat marocain).
 //
 // Variantes :
 // - featured : accueil PWA — voix en vedette, panier en bandeau dessous
@@ -18,7 +18,8 @@ import { cn } from "@/lib/utils"
 // - inline   : accueil desktop — deux boutons pilule de meme poids
 export type AiAgentCardsVariant = "featured" | "compact" | "row" | "inline"
 
-const SMART_CRITERIA = ["Budget", "Personnes", "Plat marocain"]
+// Les criteres reels du formulaire du panier intelligent (ai-modals.tsx)
+const SMART_CRITERIA = "Budget, foyer ou plat marocain"
 
 const focusRing =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5C400] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
@@ -138,15 +139,8 @@ export function AiAgentCards({
           <span className={cn("block font-black leading-tight", featured ? "text-[16px]" : "text-[15px]")}>
             Panier intelligent
           </span>
-          <span className="mt-1.5 flex flex-wrap gap-1.5">
-            {SMART_CRITERIA.map((criterion) => (
-              <span
-                key={criterion}
-                className="rounded-full bg-[#F0FAF1] px-2 py-0.5 text-[12px] font-semibold leading-5 text-[#1E6B33]"
-              >
-                {criterion}
-              </span>
-            ))}
+          <span className={cn("mt-1 block font-semibold leading-snug text-[#5F735F]", featured ? "text-[14px]" : "text-[13px]")}>
+            {SMART_CRITERIA}
           </span>
         </span>
         <ChevronRight
