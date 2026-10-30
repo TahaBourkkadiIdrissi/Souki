@@ -18,6 +18,12 @@ const dimensions = {
   submark: [1254, 1254],
 } as const
 
+// symbol.png a une marge transparente a gauche (dessin entre x=134 et x=607 sur 625) :
+// on recentre optiquement le dessin dans sa boite.
+const opticalOffset: Partial<Record<NonNullable<LogoProps["variant"]>, string>> = {
+  symbol: "translateX(-9%)",
+}
+
 /** Supplied artwork only; explicit dimensions reserve space before loading. */
 export function SoukiLogo({ variant = "horizontal", height = 36, support = false, priority = false, decorative = false, className }: LogoProps) {
   const [width, originalHeight] = dimensions[variant]
@@ -32,7 +38,7 @@ export function SoukiLogo({ variant = "horizontal", height = 36, support = false
         sizes={`${renderedWidth}px`}
         priority={priority}
         className="block max-w-none object-contain"
-        style={{ width: renderedWidth, height }}
+        style={{ width: renderedWidth, height, transform: opticalOffset[variant] }}
       />
     </span>
   )

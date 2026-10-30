@@ -44,16 +44,15 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
+import { ProductCreateDialog } from "@/components/admin/product-create-dialog"
 import { useAuth } from "@/hooks/useAuth"
 import {
-  createProduit,
   deleteProduit,
   getProduitsPricing,
   recalculerTousPrix,
   updateProduitImageUrl,
   updateProduitPricing,
   uploadProduitImage,
-  type ProductCreateDTO,
   type ProduitAlerte,
   type ProduitNiveau,
   type ProduitPricingDTO,
@@ -97,36 +96,6 @@ interface EditValues {
   coussin_securite: string
   niveau: ProduitNiveau
   volatilite: ProduitVolatilite
-}
-
-interface CreateValues {
-  description: string
-  nom_fr: string
-  nom_darija: string
-  prix_kg: string
-  unite: string
-  niveau: ProduitNiveau
-  marge_cible: string
-  coussin_securite: string
-  volatilite: ProduitVolatilite
-  prix_gros_saisi: string
-  prix_khddar_reel: string
-  prix_vente_manuel: string
-}
-
-const defaultCreateValues: CreateValues = {
-  description: "",
-  nom_fr: "",
-  nom_darija: "",
-  prix_kg: "",
-  unite: "kg",
-  niveau: 2,
-  marge_cible: "25",
-  coussin_securite: "10",
-  volatilite: "STABLE",
-  prix_gros_saisi: "",
-  prix_khddar_reel: "",
-  prix_vente_manuel: "",
 }
 
 function countAlerts(items: ProduitPricingDTO[]) {
@@ -343,8 +312,6 @@ export default function AdminPricingPage() {
   const [isRecalculateOpen, setIsRecalculateOpen] = useState(false)
   const [isRecalculating, setIsRecalculating] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [createValues, setCreateValues] = useState<CreateValues>(defaultCreateValues)
-  const [isCreating, setIsCreating] = useState(false)
   const [imageTarget, setImageTarget] = useState<ProduitPricingDTO | null>(null)
   const [imageUrlInput, setImageUrlInput] = useState("")
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -486,10 +453,6 @@ export default function AdminPricingPage() {
     setEditValues((current) => current ? { ...current, [key]: value } : current)
   }
 
-  function updateCreateValue<Key extends keyof CreateValues>(key: Key, value: CreateValues[Key]) {
-    setCreateValues((current) => ({ ...current, [key]: value }))
-  }
-
   function updateProduitInList(updatedProduit: ProduitPricingDTO) {
     setPricingList((current) => {
       if (!current) {
@@ -603,92 +566,21 @@ export default function AdminPricingPage() {
     }
   }
 
-  async function createProduct() {
-    if (!token || isCreating) {
-      return
-    }
+  function handleProductCreated(createdProduit: ProduitPricingDTO, message: string) {
+    setPricingList((current) => {
+      if (!current) {
+        return { items: [createdProduit], total: 1, nb_alertes: countAlerts([createdProduit]) }
+      }
 
-    const prixKg = getNumberFromInput(createValues.prix_kg)
-    const marge = getNumberFromInput(createValues.marge_cible)
-    const coussin = getNumberFromInput(createValues.coussin_securite)
-    const prixGros = getNumberFromInput(createValues.prix_gros_saisi)
-    const prixKhddarReel = getNumberFromInput(createValues.prix_khddar_reel)
-    const prixVenteManuel = getNumberFromInput(createValues.prix_vente_manuel)
-
-    if (!createValues.nom_fr.trim() || !createValues.nom_darija.trim() || !createValues.unite.trim()) {
-      setError("Nom FR, nom Darija et unite sont obligatoires.")
-      return
-    }
-
-    if (prixKg === null || prixKg <= 0) {
-      setError("Prix kg invalide.")
-      return
-    }
-
-    if (createValues.prix_gros_saisi.trim() && (prixGros === null || prixGros < 0)) {
-      setError("Prix gros saisi invalide.")
-      return
-    }
-
-    if (createValues.prix_khddar_reel.trim() && (prixKhddarReel === null || prixKhddarReel < 0)) {
-      setError("Prix khddar reel invalide.")
-      return
-    }
-
-    if (createValues.prix_vente_manuel.trim() && (prixVenteManuel === null || prixVenteManuel < 0)) {
-      setError("Prix de vente manuel invalide.")
-      return
-    }
-
-    if (marge === null || marge < 0 || marge > 100) {
-      setError("Marge invalide. Valeur attendue entre 0 et 100.")
-      return
-    }
-
-    if (coussin === null || coussin < 0 || coussin > 20) {
-      setError("Coussin invalide. Valeur attendue entre 0 et 20.")
-      return
-    }
-
-    const payload: ProductCreateDTO = {
-      description: createValues.description.trim() || null,
-      nom_fr: createValues.nom_fr.trim(),
-      nom_darija: createValues.nom_darija.trim(),
-      prix_kg: prixKg,
-      unite: createValues.unite.trim(),
-      niveau: createValues.niveau,
-      marge_cible: marge / 100,
-      coussin_securite: coussin / 100,
-      volatilite: createValues.volatilite,
-      prix_gros_saisi: prixGros,
-      prix_khddar_reel: prixKhddarReel,
-      prix_vente_manuel: prixVenteManuel,
-    }
-
-    setIsCreating(true)
-    try {
-      const createdProduit = await createProduit(token, payload)
-      setPricingList((current) => {
-        if (!current) {
-          return { items: [createdProduit], total: 1, nb_alertes: countAlerts([createdProduit]) }
-        }
-
-        const items = [...current.items, createdProduit].sort((a, b) => a.id - b.id)
-        return {
-          items,
-          total: items.length,
-          nb_alertes: countAlerts(items),
-        }
-      })
-      setCreateValues(defaultCreateValues)
-      setShowCreateModal(false)
-      setError("")
-      setToast(`${createdProduit.nom_fr} créé. Stock initialisé à 0.`)
-    } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "Impossible de créer le produit.")
-    } finally {
-      setIsCreating(false)
-    }
+      const items = [...current.items, createdProduit].sort((a, b) => a.id - b.id)
+      return {
+        items,
+        total: items.length,
+        nb_alertes: countAlerts(items),
+      }
+    })
+    setError("")
+    setToast(message)
   }
 
   function openImageModal(produit: ProduitPricingDTO) {
@@ -794,184 +686,12 @@ export default function AdminPricingPage() {
         </div>
       ) : null}
 
-      {showCreateModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-6 shadow-xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-bold text-gray-950">Nouveau produit</h2>
-                <p className="mt-1 text-sm text-gray-500">Le stock initial sera cree a 999.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowCreateModal(false)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
-                aria-label="Fermer"
-                title="Fermer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <label className="grid gap-1.5 text-sm font-semibold text-gray-700 md:col-span-2">
-                Description du produit
-                <textarea
-                  value={createValues.description}
-                  onChange={(event) => updateCreateValue("description", event.target.value)}
-                  maxLength={5000}
-                  rows={3}
-                  placeholder="Description affichée dans la fiche produit"
-                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
-                />
-                <span className="text-xs font-normal text-gray-500">Laissez vide pour utiliser la description par défaut.</span>
-              </label>
-              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
-                Nom FR
-                <input
-                  value={createValues.nom_fr}
-                  onChange={(event) => updateCreateValue("nom_fr", event.target.value)}
-                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
-                />
-              </label>
-              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
-                Nom Darija
-                <input
-                  value={createValues.nom_darija}
-                  onChange={(event) => updateCreateValue("nom_darija", event.target.value)}
-                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
-                />
-              </label>
-              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
-                Prix kg
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={createValues.prix_kg}
-                  onChange={(event) => updateCreateValue("prix_kg", event.target.value)}
-                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
-                />
-              </label>
-              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
-                Unite
-                <input
-                  value={createValues.unite}
-                  onChange={(event) => updateCreateValue("unite", event.target.value)}
-                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
-                />
-              </label>
-              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
-                Niveau
-                <select
-                  value={createValues.niveau}
-                  onChange={(event) => updateCreateValue("niveau", Number(event.target.value) as ProduitNiveau)}
-                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
-                >
-                  {niveauOptions.map((option) => (
-                    <option key={option} value={option}>N{option}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
-                Volatilite
-                <select
-                  value={createValues.volatilite}
-                  onChange={(event) => updateCreateValue("volatilite", event.target.value as ProduitVolatilite)}
-                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
-                >
-                  {volatiliteOptions.map((option) => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
-                Marge %
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  value={createValues.marge_cible}
-                  onChange={(event) => updateCreateValue("marge_cible", event.target.value)}
-                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
-                />
-              </label>
-              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
-                Coussin %
-                <input
-                  type="number"
-                  min="0"
-                  max="20"
-                  step="0.1"
-                  value={createValues.coussin_securite}
-                  onChange={(event) => updateCreateValue("coussin_securite", event.target.value)}
-                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
-                />
-              </label>
-              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
-                Prix gros saisi (DH) <span className="text-xs font-normal text-gray-400">optionnel</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  placeholder="Ex: 6.50"
-                  value={createValues.prix_gros_saisi}
-                  onChange={(event) => updateCreateValue("prix_gros_saisi", event.target.value)}
-                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
-                />
-              </label>
-              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
-                Prix khddar reel (DH) <span className="text-xs font-normal text-gray-400">optionnel</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  placeholder="Ex: 7.50"
-                  value={createValues.prix_khddar_reel}
-                  onChange={(event) => updateCreateValue("prix_khddar_reel", event.target.value)}
-                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
-                />
-              </label>
-              <label className="grid gap-1.5 text-sm font-semibold text-gray-700">
-                Prix de vente final (DH) <span className="text-xs font-normal text-gray-400">optionnel, sinon calcule</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  placeholder="Vide = calcule depuis le gros"
-                  value={createValues.prix_vente_manuel}
-                  onChange={(event) => updateCreateValue("prix_vente_manuel", event.target.value)}
-                  className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
-                />
-              </label>
-              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-600 md:col-span-2">
-                Photo ajoutable apres creation via le bouton photo dans le tableau.
-              </p>
-            </div>
-
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setShowCreateModal(false)}
-                disabled={isCreating}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                onClick={() => void createProduct()}
-                disabled={isCreating}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#1E8A3C] px-4 py-2 text-sm font-semibold text-white hover:bg-[#166d30] disabled:opacity-60"
-              >
-                {isCreating ? <Spinner className="size-4 text-white" /> : <Plus className="h-4 w-4" />}
-                Creer le produit
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <ProductCreateDialog
+        open={showCreateModal}
+        onOpenChange={setShowCreateModal}
+        token={token}
+        onCreated={handleProductCreated}
+      />
 
       {imageTarget ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
