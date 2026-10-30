@@ -81,6 +81,33 @@ class CategoryServiceTests(unittest.TestCase):
             self.service.update(404, CategoryUpdateDTO(nom="X"))
         self.assertEqual(missing.exception.status_code, 404)
 
+    def test_icon_and_featured_product(self):
+        fruits = self.create(icone="pomme")
+        self.assertEqual(fruits.icone, "pomme")
+        with self.assertRaises(ValidationError):
+            CategoryCreateDTO(slug="saison", nom="Saison", icone="licorne")
+        # A brand-new category has no products, so no featured one either.
+        with self.assertRaises(HTTPException) as early:
+            self.create(slug="saison", nom="Saison", produit_vedette_id=1)
+        self.assertEqual(early.exception.status_code, 400)
+
+        self.service.set_products(fruits.id, CategoryProductsDTO(product_ids=[1, 3]))
+        with self.assertRaises(HTTPException) as foreign:
+            self.service.update(fruits.id, CategoryUpdateDTO(nom="Fruits", icone="pomme", produit_vedette_id=2))
+        self.assertEqual(foreign.exception.status_code, 400)
+
+        # An inactive featured product is kept in the admin but hidden from the client.
+        updated = self.service.update(fruits.id, CategoryUpdateDTO(nom="Fruits", icone="pomme", produit_vedette_id=3))
+        self.assertEqual(updated.produit_vedette_id, 3)
+        self.assertIsNone(self.service.list_public()[0].produit_vedette_id)
+
+        self.service.update(fruits.id, CategoryUpdateDTO(nom="Fruits", icone="pomme", produit_vedette_id=1))
+        public = self.service.list_public()[0]
+        self.assertEqual((public.icone, public.produit_vedette_id), ("pomme", 1))
+
+        # Unticking the featured product clears it.
+        self.assertIsNone(self.service.set_products(fruits.id, CategoryProductsDTO(product_ids=[3])).produit_vedette_id)
+
     def test_blank_name_is_rejected(self):
         with self.assertRaises(HTTPException) as error:
             self.create(nom="   ")

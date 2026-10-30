@@ -5,6 +5,7 @@ from interfaces.category_service_interface import ICategoryService
 
 # "tous" is the client's "all products" chip; it can never be a real section.
 RESERVED_SLUGS = {"tous"}
+FEATURED_NOT_ASSIGNED = "Le produit phare doit faire partie des produits cochés de la catégorie."
 
 
 class CategoryService(ICategoryService):
@@ -26,7 +27,7 @@ class CategoryService(ICategoryService):
         return values
 
     def _dto(self, row, product_ids):
-        return CategoryDTO(**{key: getattr(row, key) for key in ("id", "slug", "nom", "ordre", "actif", "created_at")},
+        return CategoryDTO(**{key: getattr(row, key) for key in ("id", "slug", "nom", "icone", "produit_vedette_id", "ordre", "actif", "created_at")},
                            product_ids=product_ids.get(row.id, []))
 
     def list_admin(self):
@@ -35,7 +36,10 @@ class CategoryService(ICategoryService):
 
     def list_public(self):
         product_ids = self.dao.product_ids_by_category(self.session, active_products_only=True)
-        return [CatalogueCategoryDTO(id=row.id, slug=row.slug, nom=row.nom, ordre=row.ordre,
+        # The featured photo is only exposed while that product is active in the section.
+        return [CatalogueCategoryDTO(id=row.id, slug=row.slug, nom=row.nom, icone=row.icone, ordre=row.ordre,
+                                     produit_vedette_id=row.produit_vedette_id
+                                     if row.produit_vedette_id in product_ids.get(row.id, []) else None,
                                      product_ids=product_ids.get(row.id, []))
                 for row in self.dao.list(self.session, active_only=True)]
 
@@ -45,6 +49,9 @@ class CategoryService(ICategoryService):
                 raise HTTPException(400, "Cet identifiant est réservé. Choisissez-en un autre.")
             if self.dao.by_slug(self.session, payload.slug) is not None:
                 raise HTTPException(409, "Une catégorie utilise déjà cet identifiant.")
+            # A new category has no products yet, so it cannot have a featured one.
+            if payload.produit_vedette_id is not None:
+                raise HTTPException(400, FEATURED_NOT_ASSIGNED)
             row = self.dao.create(self.session, dict(self._values(payload), slug=payload.slug))
             result = self._dto(row, {})
             self.session.commit()
@@ -59,8 +66,11 @@ class CategoryService(ICategoryService):
     def update(self, category_id, payload):
         try:
             row = self._get(category_id, lock=True)
+            product_ids = self.dao.product_ids_by_category(self.session)
+            if payload.produit_vedette_id is not None and payload.produit_vedette_id not in product_ids.get(row.id, []):
+                raise HTTPException(400, FEATURED_NOT_ASSIGNED)
             self.dao.update(self.session, row, self._values(payload))
-            result = self._dto(row, self.dao.product_ids_by_category(self.session))
+            result = self._dto(row, product_ids)
             self.session.commit()
             return result
         except Exception:
@@ -75,6 +85,9 @@ class CategoryService(ICategoryService):
             if missing:
                 raise HTTPException(400, "Certains produits n'existent plus. Rechargez la liste avant d'enregistrer.")
             self.dao.replace_products(self.session, row.id, product_ids)
+            # Unticking the featured product also removes it as the section photo.
+            if row.produit_vedette_id is not None and row.produit_vedette_id not in product_ids:
+                self.dao.update(self.session, row, {"produit_vedette_id": None})
             result = self._dto(row, {row.id: sorted(product_ids)})
             self.session.commit()
             return result

@@ -167,6 +167,9 @@ export interface CatalogueCategoryDTO {
   id: number
   slug: string
   nom: string
+  icone: string | null
+  /** Produit actif dont la photo sert de tuile ; null sinon. */
+  produit_vedette_id: number | null
   ordre: number
   product_ids: number[]
 }

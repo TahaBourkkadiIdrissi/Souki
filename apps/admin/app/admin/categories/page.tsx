@@ -1,13 +1,14 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react"
+import { createElement, useCallback, useEffect, useMemo, useState, type FormEvent } from "react"
 import Link from "next/link"
 import { AlertTriangle, CircleDollarSign, Gift, LayoutDashboard, MapPinned, Menu, Package, Pencil, Plus, QrCode, RefreshCw, Search, ShoppingBasket, Tags, Truck, Users, X } from "lucide-react"
 import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { useAuth } from "@/hooks/useAuth"
 import { createCategory, getProduitsPricing, listCategories, setCategoryProducts, updateCategory, type Category, type CategoryForm, type ProduitPricingDTO } from "@/lib/api"
+import { CATEGORY_ICONS, categoryIcon } from "@/lib/category-icons"
 
-const emptyForm: CategoryForm & { slug: string } = { nom: "", slug: "", ordre: 0, actif: true }
+const emptyForm: CategoryForm & { slug: string } = { nom: "", slug: "", icone: null, produit_vedette_id: null, ordre: 0, actif: true }
 const inputClass = "min-h-11 w-full rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm focus:border-[#1E8A3C] focus:outline-none"
 const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#E5E7EB] bg-white px-4 text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
 const primaryClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#1E8A3C] px-4 text-sm font-semibold text-white hover:bg-[#166d30] disabled:opacity-50"
@@ -49,6 +50,11 @@ export default function CategoriesPage() {
     () => draft && draft.categoryId === selected?.id ? draft.ids : new Set(selected?.product_ids ?? []),
     [draft, selected]
   )
+  // Le produit phare se choisit parmi les produits deja enregistres dans la categorie.
+  const featuredOptions = useMemo(
+    () => editing ? products.filter(product => editing.product_ids.includes(product.id)).sort((left, right) => left.nom_fr.localeCompare(right.nom_fr)) : [],
+    [editing, products]
+  )
   const dirty = Boolean(selected) && (selected!.product_ids.length !== assigned.size || selected!.product_ids.some(id => !assigned.has(id)))
   const visibleProducts = useMemo(() => {
     const query = productQuery.trim().toLowerCase()
@@ -74,7 +80,7 @@ export default function CategoriesPage() {
     setEditing(null); setForm(emptyForm); setError(""); setNotice(""); setShowForm(true)
   }
   const startEdit = (row: Category) => {
-    setEditing(row); setForm({ nom: row.nom, slug: row.slug, ordre: row.ordre, actif: row.actif }); setError(""); setNotice(""); setShowForm(true)
+    setEditing(row); setForm({ nom: row.nom, slug: row.slug, icone: row.icone, produit_vedette_id: row.produit_vedette_id, ordre: row.ordre, actif: row.actif }); setError(""); setNotice(""); setShowForm(true)
   }
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -137,6 +143,20 @@ export default function CategoriesPage() {
             <label className="space-y-1 text-sm">Nom affiché aux clients<input required maxLength={80} className={inputClass} value={form.nom} onChange={e => setForm({ ...form, nom: e.target.value, slug: editing ? form.slug : toSlug(e.target.value) })} placeholder="Fruits de saison" /></label>
             <label className="space-y-1 text-sm">Identifiant<input required disabled={Boolean(editing)} maxLength={48} className={inputClass} value={form.slug} onChange={e => setForm({ ...form, slug: e.target.value.toLowerCase().trim() })} placeholder="fruits-de-saison" /><span className="block text-xs text-[#6B7280]">Utilisé dans les liens du catalogue. Il ne change plus après la création.</span></label>
             <label className="space-y-1 text-sm">Ordre d&apos;affichage<input type="number" min={0} max={999} required className={inputClass} value={form.ordre} onChange={e => setForm({ ...form, ordre: Number(e.target.value) })} /><span className="block text-xs text-[#6B7280]">Le plus petit nombre apparaît en premier.</span></label>
+            <label className="space-y-1 text-sm md:col-span-2">Produit phare
+              {editing ? <select className={inputClass} value={form.produit_vedette_id ?? ""} onChange={e => setForm({ ...form, produit_vedette_id: e.target.value ? Number(e.target.value) : null })}>
+                <option value="">Aucun : afficher l&apos;icône</option>
+                {featuredOptions.map(product => <option key={product.id} value={product.id}>{product.nom_fr}{product.is_active ? "" : " (inactif)"}</option>)}
+              </select> : <span className="block rounded-xl border border-dashed border-[#E5E7EB] p-3 text-xs text-[#6B7280]">Disponible après la création : cochez les produits de la catégorie, puis revenez la modifier.</span>}
+              <span className="block text-xs text-[#6B7280]">Sa photo devient la tuile de la catégorie sur l&apos;accueil de l&apos;application.</span>
+            </label>
+            <fieldset className="space-y-2 text-sm md:col-span-2">
+              <legend>Icône</legend>
+              <div className="flex flex-wrap gap-2">
+                {CATEGORY_ICONS.map(item => <button key={item.key} type="button" title={item.label} aria-pressed={form.icone === item.key} onClick={() => setForm({ ...form, icone: form.icone === item.key ? null : item.key })} className={`flex h-11 w-11 items-center justify-center rounded-xl border ${form.icone === item.key ? "border-[#1E8A3C] bg-[#F0FDF4] text-[#1E8A3C]" : "border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50"}`}><item.icon className="h-5 w-5" aria-hidden="true" /><span className="sr-only">{item.label}</span></button>)}
+              </div>
+              <span className="block text-xs text-[#6B7280]">Affichée sur la tuile quand la catégorie n&apos;a pas de produit phare.</span>
+            </fieldset>
           </div>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.actif} onChange={e => setForm({ ...form, actif: e.target.checked })} />Visible dans le catalogue client</label>
           <div className="flex flex-wrap gap-2"><button disabled={saving} className={primaryClass}>{saving ? "Enregistrement..." : editing ? "Enregistrer" : "Créer la catégorie"}</button><button type="button" className={buttonClass} onClick={() => { setShowForm(false); setEditing(null) }}>Annuler</button></div>
@@ -148,7 +168,7 @@ export default function CategoriesPage() {
               <ul className="divide-y divide-[#E5E7EB]">
                 {categories.map(row => <li key={row.id} className={`flex items-center gap-3 px-4 py-3 ${row.id === selectedId ? "bg-[#F0FDF4]" : "hover:bg-gray-50"}`}>
                   <button className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-current={row.id === selectedId} onClick={() => { setSelectedId(row.id); setNotice("") }}>
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F5F5F0] text-[#1E8A3C]" aria-hidden="true"><Tags className="h-5 w-5" /></span>
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F5F5F0] text-[#1E8A3C]" aria-hidden="true">{createElement(categoryIcon(row.icone), { className: "h-5 w-5" })}</span>
                     <span className="min-w-0"><span className="block truncate font-semibold">{row.nom}</span><span className="block text-xs text-[#6B7280]">{row.slug} · ordre {row.ordre} · {row.product_ids.length} produit{row.product_ids.length > 1 ? "s" : ""}</span></span>
                   </button>
                   <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${row.actif ? "border-green-200 bg-[#F0FDF4] text-[#1E8A3C]" : "border-gray-200 bg-gray-50 text-gray-500"}`}>{row.actif ? "Visible" : "Masquée"}</span>

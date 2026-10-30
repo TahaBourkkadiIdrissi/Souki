@@ -18,6 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 
+import Image from "@/components/souki/optimized-image"
 import { SuggestionCard } from "@/components/souki/suggestion-card"
 import { AiAgentCards } from "@/components/souki/ai-agent-cards"
 import { SocialLinks } from "@/components/souki/social-links"
@@ -36,9 +37,11 @@ import {
   fetchCatalogueProducts,
   FREE_DELIVERY_THRESHOLD,
   getCataloguePresentation,
+  isIllustrationImage,
   resolveCatalogueImage,
   upsertCartItem,
 } from "@/lib/catalogue"
+import { categoryIcon } from "@/lib/category-icons"
 import { fetchPersonalizedSuggestions } from "@/lib/api"
 import type { CatalogueProductDTO } from "@/lib/api"
 import { isPwaStandalone } from "@/lib/pwa"
@@ -68,22 +71,27 @@ const CATEGORY_TILES = [
   { label: "Herbes", href: "/catalogue?focus=herbes", icon: Leaf, from: "#1A4F2C", to: "#4CB84A" },
 ] as const
 
-type CategoryTile = { label: string; href: string; icon: LucideIcon; from: string; to: string }
+type CategoryTile = { label: string; href: string; icon: LucideIcon; from: string; to: string; image?: string }
 // Degrades des tuiles historiques, reutilises en boucle pour les rayons crees dans l'admin.
 const TILE_GRADIENTS = CATEGORY_TILES.slice(1).map(({ from, to }) => ({ from, to }))
 
-function buildCategoryTiles(sections: CatalogueSection[]): CategoryTile[] {
+// Tuile d'un rayon : photo du produit phare choisi dans l'admin, sinon son icone,
+// sinon l'icone historique du rayon, sinon une etiquette generique.
+function buildCategoryTiles(sections: CatalogueSection[], products: CatalogueProduct[]): CategoryTile[] {
   return [
     CATEGORY_TILES[0],
     ...sections.map((section, index) => {
       const href = `/catalogue?focus=${encodeURIComponent(section.slug)}`
       const legacy = CATEGORY_TILES.find((tile) => tile.href === href)
+      const featured = section.produitVedetteId === null
+        ? undefined
+        : products.find((product) => product.id === section.produitVedetteId)
       return {
         ...(legacy ?? TILE_GRADIENTS[index % TILE_GRADIENTS.length]),
         label: section.nom,
         href,
-        // Rayons crees dans l'admin : icone generique « etiquette »
-        icon: legacy?.icon ?? Tag,
+        icon: categoryIcon(section.icone) ?? legacy?.icon ?? Tag,
+        image: featured?.image || undefined,
       }
     }),
   ]
@@ -133,7 +141,7 @@ export default function PwaWelcomePage() {
   const { favorites: favoriteIds, isFavorite, toggleFavorite } = useFavorites()
   // Tuiles de rayons : rayons de l'admin, repli sur Légumes / Fruits / Herbes.
   const [sections, setSections] = useState<CatalogueSection[]>(LEGACY_CATALOGUE_SECTIONS)
-  const categoryTiles = useMemo(() => buildCategoryTiles(sections), [sections])
+  const categoryTiles = useMemo(() => buildCategoryTiles(sections, products), [sections, products])
 
   useEffect(() => {
     let active = true
@@ -574,11 +582,25 @@ export default function PwaWelcomePage() {
                 >
                   {/* Reflet en haut — donne le relief d'une vraie icône d'app */}
                   <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/40 to-transparent" />
-                  <tile.icon
-                    aria-hidden="true"
-                    strokeWidth={2.2}
-                    className="relative h-8 w-8 drop-shadow-sm transition-transform duration-300 group-hover:-translate-y-0.5 group-active:scale-110"
-                  />
+                  {tile.image ? (
+                    <Image
+                      src={tile.image}
+                      alt=""
+                      fill
+                      sizes="72px"
+                      className={
+                        isIllustrationImage(tile.image)
+                          ? "bg-white object-contain p-2 transition-transform duration-300 group-active:scale-110"
+                          : "object-cover transition-transform duration-300 group-active:scale-110"
+                      }
+                    />
+                  ) : (
+                    <tile.icon
+                      aria-hidden="true"
+                      strokeWidth={2.2}
+                      className="relative h-8 w-8 drop-shadow-sm transition-transform duration-300 group-hover:-translate-y-0.5 group-active:scale-110"
+                    />
+                  )}
                 </span>
                 <span className="text-center text-[12px] font-bold leading-tight text-[#3D3D3D]">{tile.label}</span>
               </button>
