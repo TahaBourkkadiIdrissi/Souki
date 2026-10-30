@@ -67,39 +67,39 @@ def arreter_commande_recurrente(recurrence_id: int, principal=Depends(require_pe
 # --- Admin -------------------------------------------------------------------
 
 @commande_recurrente_router.get("/api/admin/commandes-recurrentes", response_model=list[CommandeRecurrenteAdminDTO])
-def lister_commandes_recurrentes_admin(response: Response, statut: str | None = None, type: str | None = None, recherche: str | None = None, principal=Depends(require_permission("admin.panel.access")), service: ICommandeRecurrenteService = Depends(get_commande_recurrente_service)):
+def lister_commandes_recurrentes_admin(response: Response, statut: str | None = None, type: str | None = None, recherche: str | None = None, principal=Depends(require_permission("admin.panel.access", "clients.read")), service: ICommandeRecurrenteService = Depends(get_commande_recurrente_service)):
     response.headers["Cache-Control"] = "no-store"
     return service.lister_admin(statut=statut, type=type, recherche=recherche)
 
 
 @commande_recurrente_router.get("/api/admin/commandes-recurrentes/livraisons", response_model=list[CommandeRecurrenteLivraisonAdminDTO])
-def livraisons_commandes_recurrentes_admin(response: Response, date_livraison: date, principal=Depends(require_permission("admin.panel.access")), service: ICommandeRecurrenteService = Depends(get_commande_recurrente_service)):
+def livraisons_commandes_recurrentes_admin(response: Response, date_livraison: date, principal=Depends(require_permission("admin.panel.access", "clients.read")), service: ICommandeRecurrenteService = Depends(get_commande_recurrente_service)):
     response.headers["Cache-Control"] = "no-store"
     return service.livraisons_admin(date_livraison)
 
 
 @commande_recurrente_router.get("/api/admin/commandes-recurrentes/commandes", response_model=list[int])
-def commandes_issues_de_recurrences_admin(response: Response, date_debut: date, date_fin: date, principal=Depends(require_permission("orders.read")), service: ICommandeRecurrenteService = Depends(get_commande_recurrente_service)):
+def commandes_issues_de_recurrences_admin(response: Response, date_debut: date, date_fin: date, principal=Depends(require_permission("admin.panel.access", "orders.read")), service: ICommandeRecurrenteService = Depends(get_commande_recurrente_service)):
     response.headers["Cache-Control"] = "no-store"
     return service.commande_ids_admin(date_debut, date_fin)
 
 
 @commande_recurrente_router.get("/api/admin/clients/{client_id}/commandes-recurrentes", response_model=list[CommandeRecurrenteAdminDTO])
-def commandes_recurrentes_client_admin(client_id: int, response: Response, principal=Depends(require_permission("clients.read")), service: ICommandeRecurrenteService = Depends(get_commande_recurrente_service)):
+def commandes_recurrentes_client_admin(client_id: int, response: Response, principal=Depends(require_permission("admin.panel.access", "clients.read")), service: ICommandeRecurrenteService = Depends(get_commande_recurrente_service)):
     response.headers["Cache-Control"] = "no-store"
     return service.lister_client_admin(client_id)
 
 
 @commande_recurrente_router.post("/api/admin/commandes-recurrentes/{recurrence_id}/pause", response_model=CommandeRecurrenteAdminDTO)
-def pause_commande_recurrente_admin(recurrence_id: int, payload: CommandeRecurrentePauseDTO, principal=Depends(require_permission("admin.panel.access")), service: ICommandeRecurrenteService = Depends(get_commande_recurrente_service)):
+def pause_commande_recurrente_admin(recurrence_id: int, payload: CommandeRecurrentePauseDTO, principal=Depends(require_permission("admin.panel.access", "clients.read")), service: ICommandeRecurrenteService = Depends(get_commande_recurrente_service)):
     return service.pause_admin(recurrence_id, payload)
 
 
 @commande_recurrente_router.post("/api/admin/commandes-recurrentes/{recurrence_id}/reprendre", response_model=CommandeRecurrenteAdminDTO)
-def reprendre_commande_recurrente_admin(recurrence_id: int, principal=Depends(require_permission("admin.panel.access")), service: ICommandeRecurrenteService = Depends(get_commande_recurrente_service)):
+def reprendre_commande_recurrente_admin(recurrence_id: int, principal=Depends(require_permission("admin.panel.access", "clients.read")), service: ICommandeRecurrenteService = Depends(get_commande_recurrente_service)):
     return service.reprendre_admin(recurrence_id)
 
 
 @commande_recurrente_router.post("/api/admin/commandes-recurrentes/{recurrence_id}/arreter", response_model=CommandeRecurrenteAdminDTO)
-def arreter_commande_recurrente_admin(recurrence_id: int, principal=Depends(require_permission("admin.panel.access")), service: ICommandeRecurrenteService = Depends(get_commande_recurrente_service)):
+def arreter_commande_recurrente_admin(recurrence_id: int, principal=Depends(require_permission("admin.panel.access", "clients.read")), service: ICommandeRecurrenteService = Depends(get_commande_recurrente_service)):
     return service.arreter_admin(recurrence_id)

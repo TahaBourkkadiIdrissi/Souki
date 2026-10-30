@@ -433,7 +433,12 @@ class CommandeRecurrenteService(ICommandeRecurrenteService):
                 self.session.commit()
             except Exception as exc:
                 self.session.rollback()
-                motif = str(getattr(exc, "detail", None) or exc or "Erreur inconnue")[:300]
+                # Seuls les refus metier sont montres au client ; le detail technique reste dans les logs.
+                if isinstance(exc, (HTTPException, ValueError)):
+                    motif = str(getattr(exc, "detail", None) or exc)[:300]
+                else:
+                    print(f"[RECURRENTES] Abonnement {recurrence_id} : {type(exc).__name__}: {exc}")
+                    motif = "Erreur technique, la commande sera retentée."
                 try:
                     self.dao.save_livraison(self.session, recurrence_id, today, "ECHEC", motif=motif)
                     self.session.commit()

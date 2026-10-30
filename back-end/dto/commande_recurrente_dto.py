@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from typing import Literal
 from pydantic import BaseModel, Field, field_validator
+from dto.phone_validator import validate_moroccan_phone
 
 Frequence = Literal["QUOTIDIENNE", "TOUS_LES_3_JOURS", "HEBDOMADAIRE", "TOUTES_LES_2_SEMAINES"]
 ModePaiementRecurrent = Literal["cod", "wallet"]
@@ -34,6 +35,11 @@ class CommandeRecurrenteUpdateDTO(BaseModel):
     @classmethod
     def strip_text(cls, value):
         return value.strip() if isinstance(value, str) else value
+
+    @field_validator("contact_phone")
+    @classmethod
+    def validate_contact_phone(cls, value):
+        return validate_moroccan_phone(value) if value else value
 
 
 class CommandeRecurrentePauseDTO(BaseModel):
