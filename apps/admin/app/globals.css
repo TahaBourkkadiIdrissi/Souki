@@ -2134,3 +2134,87 @@ html {
     top: 3.5rem;
   }
 }
+
+/* ============================================================
+   ADMIN SOUKI — cadre "journee du souk" (style uniquement)
+   Encre olive pour la navigation, papier menthe pour le fond,
+   vert marche pour l'action, safran pour ce qui est a traiter.
+   ============================================================ */
+:root {
+  --adm-ink: #16301F;
+  --adm-ink-soft: #24452E;
+  --adm-paper: #F2F6F1;
+  --adm-surface: #FFFFFF;
+  --adm-line: #DCE5DA;
+  --adm-line-strong: #C5D3C3;
+  --adm-text: #1B2A1F;
+  --adm-muted: #5E6F61;
+  --adm-green: #1E8A3C;
+  --adm-green-soft: #E6F2E7;
+  --adm-saffron: #F07C00;
+  --adm-saffron-soft: #FFF1E2;
+  --adm-danger: #C2362B;
+  --adm-info: #1A4F8A;
+  --adm-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.adm-body {
+  background: var(--adm-paper);
+  color: var(--adm-text);
+  font-feature-settings: "tnum" 1;
+}
+
+/* Les pages gardent leur propre fond plein ecran : dans le cadre, il devient transparent. */
+.adm-content > .min-h-screen,
+.adm-content > div > .min-h-screen {
+  min-height: auto;
+  background: transparent;
+}
+
+.adm-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.adm-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 8px; }
+
+.adm-focus:focus-visible,
+.adm-content :is(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--adm-green);
+  outline-offset: 2px;
+}
+
+/* Frise de la journee : avance du curseur en douceur. */
+.adm-day-marker { transition: left 600ms var(--adm-ease); }
+
+/* Transitions entre pages (React ViewTransition, Next 16). Le cadre reste fixe. */
+::view-transition-old(root),
+::view-transition-new(root) { animation: none; }
+
+@keyframes adm-fade-in { from { opacity: 0; } }
+@keyframes adm-fade-out { to { opacity: 0; } }
+@keyframes adm-rise-in { from { opacity: 0; transform: translateY(14px); } }
+@keyframes adm-rise-out { to { opacity: 0; transform: translateY(-10px); } }
+@keyframes adm-sink-in { from { opacity: 0; transform: translateY(-14px); } }
+@keyframes adm-sink-out { to { opacity: 0; transform: translateY(10px); } }
+
+::view-transition-old(.adm-fade) { animation: 120ms ease-in both adm-fade-out; }
+::view-transition-new(.adm-fade) { animation: 240ms var(--adm-ease) 60ms both adm-fade-in; }
+::view-transition-old(.adm-down) { animation: 140ms ease-in both adm-rise-out; }
+::view-transition-new(.adm-down) { animation: 300ms var(--adm-ease) 70ms both adm-rise-in; }
+::view-transition-old(.adm-up) { animation: 140ms ease-in both adm-sink-out; }
+::view-transition-new(.adm-up) { animation: 300ms var(--adm-ease) 70ms both adm-sink-in; }
+
+/* Apparition des lignes et cartes (une seule fois, au chargement de la page). */
+@keyframes adm-item-in { from { opacity: 0; transform: translateY(6px); } }
+.adm-stagger > * { animation: adm-item-in 320ms var(--adm-ease) both; }
+.adm-stagger > *:nth-child(2) { animation-delay: 30ms; }
+.adm-stagger > *:nth-child(3) { animation-delay: 60ms; }
+.adm-stagger > *:nth-child(4) { animation-delay: 90ms; }
+.adm-stagger > *:nth-child(5) { animation-delay: 120ms; }
+.adm-stagger > *:nth-child(6) { animation-delay: 150ms; }
+.adm-stagger > *:nth-child(n + 7) { animation-delay: 180ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation: none !important; }
+  .adm-stagger > * { animation: none !important; }
+  .adm-day-marker { transition: none; }
+}

@@ -1,9 +1,7 @@
 "use client"
 
 import { Fragment, type CSSProperties, type ReactNode, useCallback, useEffect, useState } from "react"
-import Link from "next/link"
 import {
-  ArrowLeft,
   Banknote,
   CalendarDays,
   ChevronLeft,
@@ -335,15 +333,10 @@ export default function AdminClientsPage() {
   }, [clientsPage, page, totalPages])
 
   return (
-    <div className="min-h-screen bg-[#F5F5F0]">
-      <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 shadow-sm backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 lg:px-8">
+    <div>
+      <header className="border-b border-[var(--adm-line)]">
+        <div className="flex min-h-16 flex-wrap items-center justify-between gap-4 px-4 py-3 lg:px-8">
           <div className="flex min-w-0 items-center gap-4">
-            <Link href="/admin" className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-[#1E8A3C]">
-              <ArrowLeft className="h-4 w-4" />
-              <span className="hidden sm:inline">Retour</span>
-            </Link>
-            <div className="hidden h-6 w-px bg-gray-200 sm:block" />
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F0FDF4] text-[#1E8A3C]">
                 <Users className="h-5 w-5" />
@@ -371,7 +364,7 @@ export default function AdminClientsPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 lg:px-8 lg:py-8">
+      <main className="space-y-6 px-4 py-6 lg:px-8 lg:py-8">
         {error ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-700">
             {error}

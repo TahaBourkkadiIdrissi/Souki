@@ -1,35 +1,19 @@
 "use client"
 
-import { SoukiLogoLink } from "@/components/souki/souki-logo"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import type { LucideIcon } from "lucide-react"
 import {
-  AlertTriangle,
   ArrowRight,
-  BarChart3,
   CalendarDays,
   CheckCircle2,
   CircleDollarSign,
-  LayoutDashboard,
-  Leaf,
-  LogOut,
-  MapPinned,
-  Menu,
   Package,
   RefreshCw,
-  Settings,
-  ShoppingBasket,
   ShoppingCart,
-  Truck,
   Users,
-  Wallet,
   Gift,
   Percent,
-  QrCode,
-  Repeat,
-  Tags,
-  X,
 } from "lucide-react"
 import {
   Area,
@@ -58,37 +42,6 @@ import {
   type DashboardPeriod,
 } from "@/lib/api"
 import { cn } from "@/lib/utils"
-
-const adminNavItems = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/admin", active: true },
-  { icon: Package, label: "Commandes du jour", href: "/admin/orders" },
-  { icon: Users, label: "Clients", href: "/admin/clients" },
-  { icon: AlertTriangle, label: "Blackliste", href: "/admin/blacklist" },
-  { icon: Truck, label: "Logistique & Livreurs", href: "/admin/livreur" },
-  { icon: ShoppingBasket, label: "Gestion Produits & Prix", href: "/admin/produits" },
-  { icon: CircleDollarSign, label: "Pricing", href: "/admin/pricing" },
-  { icon: Tags, label: "Catégories", href: "/admin/categories" },
-  { icon: MapPinned, label: "Zones de livraison", href: "/admin/zones" },
-  { icon: AlertTriangle, label: "Exceptions / Backlog", href: "/admin/commandes/exceptions" },
-  { icon: Gift, label: "Parrainage", href: "/admin/parrainage" },
-  { icon: QrCode, label: "Campagnes", href: "/admin/compaign" },
-  { icon: Repeat, label: "Abonnements", href: "/admin/abonnements" },
-]
-
-const adminNavPermissions: Record<string, string> = {
-  "/admin": "admin.panel.access",
-  "/admin/orders": "orders.read",
-  "/admin/clients": "clients.read",
-  "/admin/blacklist": "clients.blacklist",
-  "/admin/livreur": "admin.panel.access",
-  "/admin/produits": "products.manage",
-  "/admin/pricing": "admin.panel.access",
-  "/admin/zones": "admin.panel.access",
-  "/admin/commandes/exceptions": "admin.panel.access",
-  "/admin/parrainage": "admin.panel.access",
-  "/admin/compaign": "admin.panel.access",
-  "/admin/abonnements": "admin.panel.access",
-}
 
 const periodOptions: Array<{ value: DashboardPeriod; label: string }> = [
   { value: "today", label: "Aujourd'hui" },
@@ -367,8 +320,7 @@ function StatusBadge({ value }: { value: string | null }) {
 }
 
 export default function AdminDashboard() {
-  const { token, can, logout } = useAuth()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { token } = useAuth()
   const [periode, setPeriode] = useState<DashboardPeriod>("today")
   const [customDate, setCustomDate] = useState(todayInputValue())
   const [dashboard, setDashboard] = useState<DashboardDTO | null>(null)
@@ -414,16 +366,6 @@ export default function AdminDashboard() {
       window.clearInterval(intervalId)
     }
   }, [loadDashboard])
-
-  const visibleAdminNavItems = useMemo(
-    () => adminNavItems.filter((item) => can(adminNavPermissions[item.href] || "admin.panel.access")),
-    [can]
-  )
-
-  const handleAdminLogout = async () => {
-    await logout()
-    window.location.assign("/login?logged_out=1")
-  }
 
   const metrics = dashboard
     ? [
@@ -487,70 +429,13 @@ export default function AdminDashboard() {
   const courbeCaSubtitle = graphSubtitle(periode, customDate)
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA]">
-      <header className="sticky top-0 z-50 bg-white border-b border-[#E5E7EB]">
-        <div className="flex h-14 items-center justify-between px-4 lg:px-6">
-          <div className="flex items-center gap-4">
-            <button type="button" onClick={() => setSidebarOpen(true)} className="rounded-lg p-2 text-[#1F2937] hover:bg-gray-100 lg:hidden">
-              <Menu className="h-5 w-5" />
-            </button>
-            <SoukiLogoLink height={36} priority />
-          </div>
-
-          <div className="hidden text-center md:block">
-            <p className="text-sm font-bold text-[#1F2937]">SOUKI Dashboard</p>
-            <p className="text-xs text-[#6B7280]">Suivi global des performances</p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1E8A3C] font-bold text-white">
-              A
-            </div>
-          </div>
-        </div>
-      </header>
+    <div>
 
       <div className="flex">
-        <aside
-          className={cn(
-            "fixed left-0 top-0 z-40 flex h-screen w-64 flex-col bg-[#1E8A3C] transition-transform lg:sticky lg:top-14 lg:h-[calc(100vh-56px)] lg:translate-x-0",
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          )}
-        >
-          <button type="button" onClick={() => setSidebarOpen(false)} className="absolute right-4 top-4 rounded-lg p-2 text-white hover:bg-white/10 lg:hidden">
-            <X className="h-5 w-5" />
-          </button>
 
-          <nav className="mt-12 flex-1 space-y-2 overflow-y-auto p-3 lg:mt-0">
-            {visibleAdminNavItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                title={item.label}
-                aria-label={item.label}
-                className={cn(
-                  "flex h-11 w-full items-center gap-3 rounded-xl px-3 font-medium transition-colors",
-                  item.active ? "bg-white/20 text-white" : "text-white/75 hover:bg-white/10 hover:text-white"
-                )}
-              >
-                <item.icon className="h-5 w-5 shrink-0" />
-                <span className="truncate text-sm">{item.label}</span>
-              </Link>
-            ))}
-          </nav>
-
-          <div className="border-t border-white/20 p-3">
-            <button type="button" title="Deconnexion" aria-label="Deconnexion" onClick={handleAdminLogout} className="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-white/75 transition-colors hover:bg-white/10 hover:text-white">
-              <LogOut className="h-5 w-5 shrink-0" />
-              <span className="text-sm font-medium">Déconnexion</span>
-            </button>
-          </div>
-        </aside>
-
-        {sidebarOpen ? <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} /> : null}
 
         <main className="min-w-0 flex-1">
-          <div className="sticky top-14 z-30 bg-white border-b border-[#E5E7EB] px-4 py-3 lg:px-6">
+          <div className="sticky top-16 z-30 border-b border-[var(--adm-line)] bg-[var(--adm-paper)]/90 px-4 py-4 backdrop-blur-md lg:px-8">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">

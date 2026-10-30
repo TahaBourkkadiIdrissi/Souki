@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation"
 
 import { useAuth } from "@/hooks/useAuth"
-import { AdminSessionActions } from "@/components/admin/admin-session-actions"
+import { AdminShell } from "@/components/admin/admin-shell"
 import { canAccessRoute } from "@/lib/routes"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -29,10 +29,5 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     )
   }
 
-  return (
-    <>
-      {children}
-      <AdminSessionActions />
-    </>
-  )
+  return <AdminShell>{children}</AdminShell>
 }

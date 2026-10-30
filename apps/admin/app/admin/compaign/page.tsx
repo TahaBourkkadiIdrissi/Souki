@@ -1,10 +1,8 @@
 "use client"
 
 import { useCallback, useEffect, useState, type FormEvent } from "react"
-import Link from "next/link"
-import { AlertTriangle, CircleDollarSign, Copy, Download, ExternalLink, Gift, LayoutDashboard, MapPinned, Menu, Package, Pencil, Plus, QrCode, RefreshCw, Repeat, ShoppingBasket, Tags, Truck, Users, X } from "lucide-react"
+import { Copy, Download, ExternalLink, Pencil, Plus, RefreshCw } from "lucide-react"
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
-import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { useAuth } from "@/hooks/useAuth"
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
 import { createCampaign, getCampaignOptions, getCampaignQr, getCampaignStats, listCampaigns, restoreCampaign, trashCampaign, updateCampaign, type Campaign, type CampaignForm, type CampaignStats, type CampaignOptions } from "@/lib/api"
@@ -21,30 +19,14 @@ const presets = [
     { label: `${label} — payant`, source, medium: "paid" },
   ]),
 ]
-const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/admin", permission: "admin.panel.access" },
-  { icon: Package, label: "Commandes du jour", href: "/admin/orders", permission: "orders.read" },
-  { icon: Users, label: "Clients", href: "/admin/clients", permission: "clients.read" },
-  { icon: AlertTriangle, label: "Blackliste", href: "/admin/blacklist", permission: "clients.blacklist" },
-  { icon: Truck, label: "Logistique & Livreurs", href: "/admin/livreur", permission: "admin.panel.access" },
-  { icon: ShoppingBasket, label: "Gestion Produits & Prix", href: "/admin/produits", permission: "products.manage" },
-  { icon: CircleDollarSign, label: "Pricing", href: "/admin/pricing", permission: "admin.panel.access" },
-  { icon: Tags, label: "Catégories", href: "/admin/categories", permission: "admin.panel.access" },
-  { icon: MapPinned, label: "Zones de livraison", href: "/admin/zones", permission: "admin.panel.access" },
-  { icon: AlertTriangle, label: "Exceptions / Backlog", href: "/admin/commandes/exceptions", permission: "admin.panel.access" },
-  { icon: Gift, label: "Parrainage", href: "/admin/parrainage", permission: "admin.panel.access" },
-  { icon: QrCode, label: "Campagnes", href: "/admin/compaign", permission: "admin.panel.access" },
-  { icon: Repeat, label: "Abonnements", href: "/admin/abonnements", permission: "admin.panel.access" },
-]
 
 export default function CompaignPage() {
-  const { isAuthenticated, can } = useAuth()
+  const { isAuthenticated } = useAuth()
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [editing, setEditing] = useState<Campaign | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [showForm, setShowForm] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -144,20 +126,9 @@ export default function CompaignPage() {
     } catch (e) { setError(e instanceof Error ? e.message : "Téléchargement impossible.") }
   }
 
-  return <div className="min-h-screen bg-[#F5F5F0] text-[#1F2937]">
-    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-[#E5E7EB] bg-white px-4 lg:px-6">
-      <div className="flex items-center gap-3"><button aria-label="Ouvrir le menu" className="lg:hidden" onClick={() => setSidebarOpen(true)}><Menu /></button><SoukiLogoLink height={32} /></div>
-      <p className="text-sm font-bold">SOUKI Dashboard</p>
-    </header>
+  return <div className="text-[var(--adm-text)]">
     <div className="flex">
-      <aside className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} fixed left-0 top-0 z-40 h-screen w-64 bg-[#1E8A3C] p-3 text-white lg:sticky lg:top-14 lg:h-[calc(100vh-56px)] lg:translate-x-0`}>
-        <button aria-label="Fermer le menu" onClick={() => setSidebarOpen(false)} className="mb-6 ml-auto block lg:hidden"><X /></button>
-        <nav className="max-h-[calc(100vh-100px)] space-y-2 overflow-y-auto">
-          {navItems.filter(item => can(item.permission)).map(item => <Link key={item.href} href={item.href} aria-current={item.href === "/admin/compaign" ? "page" : undefined} className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm ${item.href === "/admin/compaign" ? "bg-white/20 font-semibold" : "text-white/75 hover:bg-white/10"}`}><item.icon className="h-5 w-5 shrink-0" />{item.label}</Link>)}
-        </nav>
-      </aside>
-      {sidebarOpen && <button aria-label="Fermer le menu" className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />}
-      <main className="min-w-0 flex-1 space-y-6 p-4 lg:p-6">
+      <main className="min-w-0 flex-1 space-y-6 p-4 lg:p-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div><h1 className="text-2xl font-bold">Campagnes</h1><p className="mt-1 text-sm text-[#6B7280]">Vos liens de campagne, leurs QR codes et leur trafic.</p></div>
           <div className="flex gap-2"><button className={buttonClass} disabled={loading || saving} onClick={() => { void load(); setRefresh(value => value + 1) }}><RefreshCw className="h-4 w-4" />Actualiser</button><button disabled={loading || saving} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#1E8A3C] px-4 text-sm font-semibold text-white hover:bg-[#166d30] disabled:opacity-50" onClick={() => { setDeleted(false); setEditing(null); setForm(emptyForm); setError(""); setNotice(""); setShowForm(true) }}><Plus className="h-4 w-4" />Nouvelle campagne</button></div>

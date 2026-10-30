@@ -1,8 +1,7 @@
 "use client"
 
 import { FormEvent, useCallback, useEffect, useState } from "react"
-import Link from "next/link"
-import { ChevronLeft, MapPinned, Pencil, Plus, Power, RefreshCw, X } from "lucide-react"
+import { MapPinned, Pencil, Plus, Power, RefreshCw, X } from "lucide-react"
 
 import { useAuth } from "@/hooks/useAuth"
 import { API_BASE_URL } from "@/lib/api"
@@ -131,17 +130,14 @@ export default function AdminZonesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F5F5F0] px-4 py-8">
-      <div className="mx-auto max-w-5xl">
+    <main className="px-4 py-6 lg:px-8 lg:py-8">
+      <div className="max-w-5xl">
         <header className="mb-6 flex items-center gap-3">
-          <Link href="/admin" className="rounded-lg p-2 text-[#6F8070] hover:bg-white">
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
           <div className="flex-1">
             <h1 className="text-xl font-black text-[#264129]">Zones de livraison</h1>
             <p className="text-sm text-[#6F8070]">Définissez les zones desservies depuis le point Souki.</p>
           </div>
-          <button onClick={() => void loadData()} className="rounded-xl border border-[#DDEBDD] bg-white p-2">
+          <button onClick={() => void loadData()} aria-label="Actualiser" className="rounded-lg border border-[var(--adm-line)] bg-white p-2 transition-colors hover:bg-[var(--adm-green-soft)]">
             <RefreshCw className="h-4 w-4 text-[#1E8A3C]" />
           </button>
         </header>

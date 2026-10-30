@@ -11,7 +11,6 @@ import {
   MapPin,
   Package,
   RefreshCw,
-  Route,
   Trash2,
   Zap,
   X,
@@ -84,12 +83,12 @@ function formatDispatchDate(value: string) {
 
 function formatSimpleDate(value?: string | null) {
   if (!value) {
-    return "Date non renseignee"
+    return "Date non renseignée"
   }
 
   const [year, month, day] = value.split("T")[0].split("-").map(Number)
   if (!year || !month || !day) {
-    return "Date non renseignee"
+    return "Date non renseignée"
   }
 
   return new Intl.DateTimeFormat("fr-MA", {
@@ -129,14 +128,14 @@ function getStatusClassName(status: string) {
 function formatStatus(status: string) {
   const labels: Record<string, string> = {
     EN_ATTENTE_LIVREUR: "En attente livreur",
-    A_LIVRER: "A livrer",
+    A_LIVRER: "À livrer",
     EN_ROUTE: "En route",
     LIVRE: "Livrée",
     ABSENT: "Absent",
     REFUS: "Refusée",
     ANNULEE: "Annulée",
-    RETOUR_DEPOT: "Retour depot",
-    PLANIFIEE: "Planifiee",
+    RETOUR_DEPOT: "Retour dépôt",
+    PLANIFIEE: "Planifiée",
   }
   return labels[status.toUpperCase()] || status || "Inconnu"
 }
@@ -191,7 +190,7 @@ export default function AdminLivreurPage() {
         setError(
           loadError instanceof Error
             ? loadError.message
-            : "Impossible de charger les tournees."
+            : "Impossible de charger les tournées."
         )
       } finally {
         setIsLoading(false)
@@ -334,7 +333,7 @@ export default function AdminLivreurPage() {
     setIsSubmittingReassign(true)
     try {
       await reassignAdminDispatchCommande(token, reassignTarget.commande.id, nextTourneeId)
-      setToast(`Commande #${reassignTarget.commande.id} réassignée avec succès.`)
+      setToast(`Commande #${reassignTarget.commande.id} déplacée.`)
       setReassignTarget(null)
       setSelectedTourneeId("")
       await loadTournees(false)
@@ -342,7 +341,7 @@ export default function AdminLivreurPage() {
       setError(
         submitError instanceof ApiError || submitError instanceof Error
           ? submitError.message
-          : "Impossible de reassigner la commande."
+          : "Impossible de déplacer la commande."
       )
     } finally {
       setIsSubmittingReassign(false)
@@ -358,10 +357,10 @@ export default function AdminLivreurPage() {
     try {
       if (action === "replanifier") {
         await replanifierAdminAnomalie(token, anomalieId)
-        setToast("Anomalie resolue: commande remise en attente.")
+        setToast("Retour dépôt traité : la commande repart dans le prochain lot.")
       } else {
         await annulerAdminAnomalie(token, anomalieId)
-        setToast("Anomalie resolue: commande annulee en perte.")
+        setToast("Retour dépôt traité : commande annulée en perte.")
       }
       setError("")
       await loadTournees(false)
@@ -369,7 +368,7 @@ export default function AdminLivreurPage() {
       setError(
         resolveError instanceof ApiError || resolveError instanceof Error
           ? resolveError.message
-          : "Impossible de resoudre cette anomalie."
+          : "Impossible de traiter ce retour dépôt."
       )
     } finally {
       setResolvingAnomalieId(null)
@@ -385,144 +384,118 @@ export default function AdminLivreurPage() {
     : []
 
   return (
-    <div className="min-h-screen bg-[#F5F5F0]">
+    <div>
       {toast && (
-        <div className="fixed right-5 top-5 z-[70] flex items-center gap-3 rounded-2xl border border-[#BFE6C4] bg-white px-5 py-4 text-sm font-semibold text-[#1E8A3C] shadow-xl">
+        <div role="status" className="fixed right-5 top-20 z-[70] flex items-center gap-3 rounded-xl border border-[#BFE6C4] bg-white px-4 py-3 text-sm font-semibold text-[var(--adm-green)] shadow-[0_18px_40px_-20px_rgba(22,48,31,0.45)] animate-in fade-in-0 slide-in-from-top-2">
           <CheckCircle2 className="h-5 w-5" />
           {toast}
         </div>
       )}
 
-      <main className="mx-auto max-w-[1600px] px-4 py-8 lg:px-8">
-        <section className="mb-8 overflow-hidden rounded-[32px] border border-[#DDEBDD] bg-white shadow-[0_24px_80px_-45px_rgba(30,138,60,0.35)]">
-          <div className="bg-gradient-to-r from-[#123A1D] via-[#1E8A3C] to-[#F07C00] p-6 text-white lg:p-8">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em]">
-                  <Route className="h-4 w-4" />
-                  Dispatch logistique
-                </div>
-                <h1 className="text-3xl font-black lg:text-5xl">Tournees livreurs</h1>
-                <p className="mt-3 max-w-2xl text-sm text-white/80 lg:text-base">
-                  Supervision des tournées planifiées, commandes assignées et réassignations rapides.
-                </p>
-                <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-bold text-white">
-                  <CalendarDays className="h-4 w-4" />
-                  Dispatch du {dispatchDateLabel}
-                </p>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-3xl bg-white/15 px-5 py-4 backdrop-blur">
-                  <p className="text-xs uppercase tracking-[0.18em] text-white/65">Tournees</p>
-                  <p className="mt-1 text-3xl font-black">{tournees.length}</p>
-                </div>
-                <div className="rounded-3xl bg-white/15 px-5 py-4 backdrop-blur">
-                  <p className="text-xs uppercase tracking-[0.18em] text-white/65">Commandes</p>
-                  <p className="mt-1 text-3xl font-black">{totalCommandes}</p>
-                </div>
-                <div className="rounded-3xl bg-red-500/25 px-5 py-4 backdrop-blur">
-                  <p className="text-xs uppercase tracking-[0.18em] text-white/75">Inspections</p>
-                  <p className="mt-1 text-3xl font-black">{anomalies.length}</p>
-                </div>
-              </div>
-            </div>
+      <main className="px-4 py-6 lg:px-8 lg:py-8">
+        <header className="mb-6 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="flex items-center gap-2 text-sm font-semibold text-[var(--adm-green)]">
+              <CalendarDays className="h-4 w-4" aria-hidden="true" />
+              Dispatch du {dispatchDateLabel}
+            </p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--adm-text)] lg:text-[28px]">Tournées du jour</h1>
+            <p className="mt-1 max-w-xl text-sm text-[var(--adm-muted)]">
+              Suivez les tournées planifiées, déplacez une commande vers un autre livreur et traitez les retours dépôt.
+            </p>
           </div>
-
-          <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-col gap-2 text-sm font-semibold text-[#264129] sm:flex-row sm:items-center">
-              <span className="inline-flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-[#1E8A3C]" />
-                Jour courant
-              </span>
-              <span className="rounded-2xl border border-[#D7EBD9] bg-[#FAFCFA] px-4 py-3 text-[#264129]">
-                Dispatch du {dispatchDateLabel}
-              </span>
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <button
-                onClick={() => void generateDispatch()}
-                disabled={isGeneratingDispatch || isRefreshing || isLoading}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#F07C00] px-5 py-3 font-bold text-white transition hover:bg-[#D66B00] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isGeneratingDispatch ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Zap className="h-4 w-4" />
-                )}
-                Generer le Dispatch
-              </button>
-
-              <button
-                onClick={() => void loadTournees(false)}
-                disabled={isRefreshing || isLoading || isGeneratingDispatch}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#1E8A3C] px-5 py-3 font-bold text-white transition hover:bg-[#176B2E] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-                Rafraîchir
-              </button>
-            </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => void loadTournees(false)}
+              disabled={isRefreshing || isLoading || isGeneratingDispatch}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[var(--adm-line-strong)] bg-white px-4 text-sm font-semibold text-[var(--adm-text)] transition-colors hover:bg-[var(--adm-green-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <RefreshCw className={cn("h-4 w-4 text-[var(--adm-green)]", isRefreshing && "animate-spin")} />
+              Actualiser
+            </button>
+            <button
+              onClick={() => void generateDispatch()}
+              disabled={isGeneratingDispatch || isRefreshing || isLoading}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[var(--adm-saffron)] px-5 text-sm font-semibold text-white shadow-[0_10px_24px_-14px_rgba(240,124,0,0.9)] transition-colors hover:bg-[#D66B00] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isGeneratingDispatch ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+              Générer le dispatch
+            </button>
           </div>
-        </section>
+        </header>
+
+        <dl className="mb-8 grid grid-cols-3 divide-x divide-[var(--adm-line)] overflow-hidden rounded-xl border border-[var(--adm-line)] bg-white">
+          <div className="px-4 py-4 lg:px-6">
+            <dt className="text-xs font-medium text-[var(--adm-muted)]">Tournées</dt>
+            <dd className="mt-1 text-2xl font-bold tabular-nums text-[var(--adm-text)] lg:text-3xl">{tournees.length}</dd>
+          </div>
+          <div className="px-4 py-4 lg:px-6">
+            <dt className="text-xs font-medium text-[var(--adm-muted)]">Commandes assignées</dt>
+            <dd className="mt-1 text-2xl font-bold tabular-nums text-[var(--adm-text)] lg:text-3xl">{totalCommandes}</dd>
+          </div>
+          <div className={cn("px-4 py-4 lg:px-6", anomalies.length > 0 && "bg-[#FDF0EE]")}>
+            <dt className={cn("text-xs font-medium", anomalies.length > 0 ? "text-[var(--adm-danger)]" : "text-[var(--adm-muted)]")}>Retours dépôt à traiter</dt>
+            <dd className={cn("mt-1 text-2xl font-bold tabular-nums lg:text-3xl", anomalies.length > 0 ? "text-[var(--adm-danger)]" : "text-[var(--adm-text)]")}>{anomalies.length}</dd>
+          </div>
+        </dl>
 
         {error && (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-semibold text-red-600">
+          <div role="alert" className="mb-6 rounded-xl border border-[#F1C6C1] bg-[#FDF0EE] px-4 py-3 text-sm font-semibold text-[var(--adm-danger)]">
             {error}
           </div>
         )}
 
         {isLoading ? (
-          <div className="min-h-[360px] space-y-4 rounded-[32px] border border-[#DDEBDD] bg-white p-6" role="status" aria-label="Chargement des tournées">
-            <div className="souki-skeleton h-8 w-56 rounded-xl" />
+          <div className="grid min-h-[360px] gap-4 md:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Chargement des tournées">
+            
             {Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className="souki-skeleton h-24 rounded-2xl" />
+              <div key={index} className="souki-skeleton h-[340px] rounded-xl" />
             ))}
           </div>
         ) : !hasDispatchData ? (
-          <div className="flex min-h-[360px] items-center justify-center rounded-[32px] border border-[#DDEBDD] bg-white p-8 text-center">
+          <div className="flex min-h-[360px] items-center justify-center rounded-xl border border-dashed border-[var(--adm-line-strong)] bg-white/60 p-8 text-center">
             <div>
-              <Package className="mx-auto h-12 w-12 text-[#C8D9CA]" />
-              <h2 className="mt-4 text-xl font-black text-[#264129]">
+              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--adm-green-soft)]"><Package className="h-7 w-7 text-[var(--adm-green)]" /></span>
+              <h2 className="mt-4 text-lg font-semibold text-[var(--adm-text)]">
                 Aucune commande ou tournée générée pour aujourd'hui.
               </h2>
-              <p className="mt-2 text-[#6F8070]">
-                Cliquez sur "Generer le Dispatch" pour commencer.
+              <p className="mt-1 text-sm text-[var(--adm-muted)]">
+                Le dispatch tourne automatiquement après le JIT de 01h00. Vous pouvez aussi le lancer maintenant.
               </p>
               <button
                 onClick={() => void generateDispatch()}
                 disabled={isGeneratingDispatch || isRefreshing}
-                className="mt-6 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#F07C00] px-5 py-3 font-bold text-white transition hover:bg-[#D66B00] disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[var(--adm-saffron)] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#D66B00] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isGeneratingDispatch ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Zap className="h-4 w-4" />
                 )}
-                Generer le Dispatch
+                Générer le dispatch
               </button>
             </div>
           </div>
         ) : (
           <>
             {hasAnomalies && (
-              <section className="mb-6 rounded-[32px] border-2 border-red-300 bg-red-50 p-5 shadow-[0_20px_70px_-45px_rgba(180,35,24,0.5)]">
+              <section className="mb-8 rounded-xl border border-[#F1C6C1] bg-[#FDF5F3] p-4 lg:p-5">
                 <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <div className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-red-700">
+                    <div className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--adm-danger)]">
                       <AlertTriangle className="h-4 w-4" />
-                      Retour depot
+                      Retours dépôt
                     </div>
-                    <h2 className="mt-3 text-2xl font-black text-red-900">
-                      Inspections marchandise en attente
+                    <h2 className="mt-1 text-lg font-semibold text-[var(--adm-text)]">
+                      Marchandise à inspecter avant de replanifier
                     </h2>
                   </div>
-                  <span className="inline-flex items-center justify-center rounded-full bg-red-600 px-4 py-2 text-sm font-black text-white">
-                    {anomalies.length} inspection{anomalies.length > 1 ? "s" : ""}
+                  <span className="inline-flex items-center justify-center rounded-full bg-[var(--adm-danger)] px-3 py-1 text-sm font-semibold tabular-nums text-white">
+                    {anomalies.length} à traiter
                   </span>
                 </div>
 
-                <div className="grid gap-4 xl:grid-cols-2">
+                <div className="adm-stagger grid gap-3 xl:grid-cols-2">
                   {anomalies.map((anomalie) => {
                     const commande = anomalie.commande
                     const produits = commande?.produits || []
@@ -531,87 +504,77 @@ export default function AdminLivreurPage() {
                     return (
                       <article
                         key={anomalie.id}
-                        className="rounded-[24px] border border-red-200 bg-white p-5 shadow-sm"
+                        className="rounded-lg border border-[#F1C6C1] bg-white p-4"
                       >
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
-                            <p className="text-xs font-black uppercase tracking-[0.16em] text-red-500">
-                              Anomalie #{anomalie.id} - CMD-{anomalie.commande_id}
+                            <p className="text-xs font-semibold text-[var(--adm-danger)]">
+                              Commande N-{anomalie.commande_id}, anomalie {anomalie.id}
                             </p>
-                            <h3 className="mt-1 text-lg font-black text-[#264129]">
+                            <h3 className="mt-0.5 text-base font-semibold text-[var(--adm-text)]">
                               {commande?.client_nom || "Client inconnu"}
                             </h3>
                           </div>
-                          <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-black text-red-700">
+                          <span className="rounded-full border border-[#F1C6C1] bg-[#FDF0EE] px-2.5 py-0.5 text-xs font-semibold text-[var(--adm-danger)]">
                             {formatStatus(commande?.statut || "RETOUR_DEPOT")}
                           </span>
                         </div>
 
-                        <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-                          <div className="rounded-2xl bg-[#FFF7F7] p-3">
-                            <p className="text-xs font-bold uppercase tracking-[0.14em] text-red-500">
-                              Livreur defaillant
-                            </p>
-                            <p className="mt-1 font-bold text-[#264129]">
-                              {anomalie.livreur_defaillant?.nom || "Non renseigne"}
-                            </p>
+                        <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                          <div className="rounded-md bg-[var(--adm-paper)] px-3 py-2">
+                            <dt className="text-xs text-[var(--adm-muted)]">Livreur de la tournée</dt>
+                            <dd className="font-semibold text-[var(--adm-text)]">{anomalie.livreur_defaillant?.nom || "Non renseigné"}</dd>
                           </div>
-                          <div className="rounded-2xl bg-[#FFF7F7] p-3">
-                            <p className="text-xs font-bold uppercase tracking-[0.14em] text-red-500">
-                              Tournée ratée
-                            </p>
-                            <p className="mt-1 font-bold text-[#264129]">
-                              {formatSimpleDate(anomalie.date_tournee_ratee || anomalie.detected_at)}
-                            </p>
+                          <div className="rounded-md bg-[var(--adm-paper)] px-3 py-2">
+                            <dt className="text-xs text-[var(--adm-muted)]">Tournée non livrée</dt>
+                            <dd className="font-semibold text-[var(--adm-text)]">{formatSimpleDate(anomalie.date_tournee_ratee || anomalie.detected_at)}</dd>
                           </div>
-                        </div>
+                        </dl>
 
-                        <div className="mt-4 rounded-2xl border border-red-100 bg-[#FFFDFD] p-3">
-                          <p className="text-xs font-bold uppercase tracking-[0.14em] text-red-500">
-                            Produits a inspecter
-                          </p>
+                        <div className="mt-3">
+                          <p className="text-xs text-[var(--adm-muted)]">Produits à inspecter</p>
                           {produits.length > 0 ? (
                             <div className="mt-2 flex flex-wrap gap-2">
                               {produits.map((produit, index) => (
                                 <span
                                   key={`${anomalie.id}-${produit.product_id ?? index}`}
-                                  className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-800"
+                                  className="rounded-md border border-[var(--adm-line)] bg-white px-2 py-0.5 text-xs font-medium text-[var(--adm-text)]"
                                 >
-                                  {produit.nom_fr} - {produit.quantite_kg} kg
+                                  {produit.nom_fr}, {produit.quantite_kg} kg
                                 </span>
                               ))}
                             </div>
                           ) : (
-                            <p className="mt-2 text-sm font-semibold text-[#6F8070]">
-                              Produits non renseignes.
+                            <p className="mt-1 text-sm text-[var(--adm-muted)]">
+                              Produits non renseignés.
                             </p>
                           )}
                         </div>
 
-                        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                        <div className="mt-4 grid gap-2 sm:grid-cols-2">
                           <button
                             onClick={() => void resolveAnomalie(anomalie.id, "replanifier")}
                             disabled={isResolving}
-                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#1E8A3C] px-4 py-3 text-sm font-black text-white transition hover:bg-[#176B2E] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[var(--adm-green)] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#176B2E] disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             {isResolving ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
                               <CheckCircle2 className="h-4 w-4" />
                             )}
-                            Marchandise OK - Re-planifier
+                            Marchandise bonne, replanifier
                           </button>
                           <button
                             onClick={() => void resolveAnomalie(anomalie.id, "annuler")}
                             disabled={isResolving}
-                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-4 py-3 text-sm font-black text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[#F1C6C1] bg-white px-4 text-sm font-semibold text-[var(--adm-danger)] transition-colors hover:bg-[#FDF0EE] disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             {isResolving ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
                               <Trash2 className="h-4 w-4" />
                             )}
-                            Marchandise perimee - Annuler
+                            Marchandise périmée, annuler
                           </button>
                         </div>
                       </article>
@@ -622,47 +585,47 @@ export default function AdminLivreurPage() {
             )}
 
             {displayedTournees.length > 0 && totalCommandes > 0 && (
-              <div className="flex gap-5 overflow-x-auto pb-6">
+              <div className="adm-stagger flex snap-x gap-4 overflow-x-auto pb-6">
                 {displayedTournees.map((tournee) => (
                   <section
                     key={tournee.id}
-                    className="flex max-h-[calc(100vh-240px)] min-w-[320px] max-w-[360px] flex-1 flex-col rounded-[28px] border border-[#DDEBDD] bg-white shadow-[0_20px_60px_-40px_rgba(18,58,29,0.3)]"
+                    className="flex max-h-[calc(100vh-220px)] min-w-[320px] max-w-[380px] flex-1 snap-start flex-col overflow-hidden rounded-xl border border-[var(--adm-line)] bg-white"
                   >
-                    <header className="border-b border-[#EEF2EE] p-5">
+                    <header className="border-b border-[var(--adm-line)] bg-[var(--adm-paper)]/60 p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#F07C00]">
+                          <p className="text-xs font-semibold text-[var(--adm-saffron)]">
                             {tournee.tourneeIds.length > 1
                               ? `${tournee.tourneeIds.length} tournées`
                               : `Tournée #${tournee.id}`}
                           </p>
-                          <h2 className="mt-1 text-lg font-black text-[#1E8A3C]">
+                          <h2 className="mt-0.5 flex items-center gap-2 text-base font-semibold text-[var(--adm-text)]">
                             {tournee.pickup?.shop_name || "Point Souki"}
                           </h2>
-                          <p className="mt-1 flex items-center gap-2 text-sm text-[#6F8070]">
-                            <MapPin className="h-4 w-4" />
+                          <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--adm-muted)]">
+                            <MapPin className="h-3.5 w-3.5 shrink-0" />
                             {[tournee.pickup?.address, tournee.pickup?.ville].filter(Boolean).join(", ") ||
                               "Point de ramassage non renseigné"}
                           </p>
-                          <p className="mt-1 flex items-center gap-2 text-xs font-semibold text-[#6F8070]">
-                            <Bike className="h-4 w-4" />
-                            Livreurs : {tournee.livreurNames.join(", ")}
+                          <p className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-white px-2 py-1 text-xs font-semibold text-[var(--adm-text)] ring-1 ring-[var(--adm-line)]">
+                            <Bike className="h-3.5 w-3.5 text-[var(--adm-green)]" />
+                            {tournee.livreurNames.join(", ")}
                           </p>
                           {tournee.tourneeIds.length > 1 && (
-                            <p className="mt-2 text-xs font-semibold text-[#7A8A7C]">
+                            <p className="mt-2 text-xs text-[var(--adm-muted)]">
                               Tournées #{tournee.tourneeIds.join(", #")}
                             </p>
                           )}
                         </div>
-                        <span className="rounded-full bg-[#F0FAF1] px-3 py-1 text-xs font-bold text-[#1E8A3C]">
+                        <span className="flex h-9 min-w-9 flex-col items-center justify-center rounded-lg bg-[var(--adm-green)] px-2 text-sm font-bold tabular-nums text-white" title="Commandes de la tournée">
                           {tournee.commandes.length}
                         </span>
                       </div>
                     </header>
 
-                    <div className="flex-1 space-y-3 overflow-y-auto p-4">
+                    <ol className="flex-1 space-y-2 overflow-y-auto p-3">
                       {tournee.commandes.length === 0 ? (
-                        <div className="rounded-2xl border border-dashed border-[#D7EBD9] p-5 text-center text-sm font-semibold text-[#8A9A8C]">
+                        <div className="rounded-lg border border-dashed border-[var(--adm-line-strong)] p-5 text-center text-sm text-[var(--adm-muted)]">
                 Aucune commande assignée.
                         </div>
                       ) : (
@@ -670,23 +633,23 @@ export default function AdminLivreurPage() {
                           const canReassign = isCommandeReassignable(commande.statut)
 
                           return (
-                            <article
+                            <li
                               key={commande.id}
-                              className="rounded-3xl border border-[#E6F0E7] bg-[#FAFCFA] p-4 transition hover:-translate-y-0.5 hover:shadow-md"
+                              className="rounded-lg border border-[var(--adm-line)] bg-white p-3 transition-colors hover:border-[var(--adm-line-strong)] hover:bg-[var(--adm-paper)]/50"
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div>
-                                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#8A9A8C]">
-                                    Tournée #{commandeSourceTourneeIds.get(commande.id) ?? tournee.id} - Passage{" "}
-                                    {commande.ordre_passage ?? "-"}
-                                  </p>
-                                  <h3 className="mt-1 font-black text-[#264129]">
-                                    CMD-{commande.id}
+                                  <h3 className="flex items-center gap-2 text-sm font-semibold text-[var(--adm-text)]">
+                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--adm-ink)] text-[11px] font-bold tabular-nums text-white" title="Ordre de passage">{commande.ordre_passage ?? "–"}</span>
+                                    N-{commande.id}
                                   </h3>
+                                  <p className="mt-0.5 text-xs text-[var(--adm-muted)]">
+                                    Tournée {commandeSourceTourneeIds.get(commande.id) ?? tournee.id}
+                                  </p>
                                 </div>
                                 <span
                                   className={cn(
-                                    "rounded-full border px-3 py-1 text-xs font-bold",
+                                    "rounded-full border px-2.5 py-0.5 text-xs font-semibold",
                                     getStatusClassName(commande.statut)
                                   )}
                                 >
@@ -694,20 +657,20 @@ export default function AdminLivreurPage() {
                                 </span>
                               </div>
 
-                              <p className="mt-3 text-sm font-semibold text-[#264129]">
+                              <p className="mt-2 text-sm font-medium text-[var(--adm-text)]">
                                 {commande.client_nom}
                               </p>
-                              <p className="mt-1 flex items-start gap-2 text-xs text-[#6F8070]">
-                                <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#1E8A3C]" />
+                              <p className="mt-1 flex items-start gap-1.5 text-xs text-[var(--adm-muted)]">
+                                <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--adm-green)]" />
                                 <span>
                                   {commande.adresse?.full_address ||
                                     commande.adresse?.neighborhood ||
-                                    "Adresse non renseignee"}
+                                    "Adresse non renseignée"}
                                 </span>
                               </p>
 
-                              <div className="mt-4 flex items-center justify-between gap-3">
-                                <span className="text-sm font-bold text-[#F07C00]">
+                              <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--adm-line)] pt-2">
+                                <span className="text-sm font-semibold tabular-nums text-[var(--adm-text)]">
                                   {formatMoney(commande.montant_total)}
                                 </span>
                                 {canReassign && (
@@ -718,18 +681,18 @@ export default function AdminLivreurPage() {
                                         commandeSourceTourneeIds.get(commande.id) ?? tournee.id
                                       )
                                     }
-                                    className="inline-flex items-center gap-1.5 rounded-xl border border-[#F5D7B8] bg-white px-3 py-2 text-xs font-bold text-[#9A5C11] transition hover:bg-[#FFF7EE]"
+                                    className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-semibold text-[#9A5C11] transition-colors hover:bg-[var(--adm-saffron-soft)]"
                                   >
                                     <ArrowLeftRight className="h-3.5 w-3.5" />
-                                    Réassigner
+                                    Déplacer
                                   </button>
                                 )}
                               </div>
-                            </article>
+                            </li>
                           )
                         })
                       )}
-                    </div>
+                    </ol>
                   </section>
                 ))}
               </div>
@@ -739,42 +702,39 @@ export default function AdminLivreurPage() {
       </main>
 
       {reassignTarget && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#122018]/55 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-[28px] border border-[#DDEBDD] bg-white p-6 shadow-[0_30px_90px_rgba(18,32,24,0.25)]">
+        <div role="dialog" aria-modal="true" aria-labelledby="reassign-title" className="fixed inset-0 z-[95] flex items-center justify-center bg-[var(--adm-ink)]/50 px-4 backdrop-blur-[2px] animate-in fade-in-0">
+          <div className="w-full max-w-lg rounded-xl border border-[var(--adm-line)] bg-white p-6 shadow-[0_30px_80px_-30px_rgba(22,48,31,0.55)] animate-in fade-in-0 zoom-in-95 duration-200">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#F07C00]">
-                  Réassignation
-                </p>
-                <h2 className="mt-2 text-2xl font-black text-[#264129]">
-                  Commande #{reassignTarget.commande.id}
+                <h2 id="reassign-title" className="text-lg font-semibold text-[var(--adm-text)]">
+                  Déplacer la commande N-{reassignTarget.commande.id}
                 </h2>
-                <p className="mt-1 text-sm text-[#6F8070]">
-                  Choisissez une autre tournée pour déplacer cette commande.
+                <p className="mt-1 text-sm text-[var(--adm-muted)]">
+                  Choisissez la tournée du jour qui la prendra en charge.
                 </p>
               </div>
               <button
                 onClick={closeReassignModal}
-                className="rounded-xl p-2 text-[#6F8070] transition hover:bg-[#F0FAF1] hover:text-[#264129]"
+                aria-label="Fermer" className="rounded-lg p-2 text-[var(--adm-muted)] transition-colors hover:bg-[var(--adm-green-soft)] hover:text-[var(--adm-text)]"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <label className="mt-6 block text-sm font-bold text-[#264129]">
+            <label className="mt-5 block text-sm font-semibold text-[var(--adm-text)]">
               Nouvelle tournée
               <select
                 value={selectedTourneeId}
                 onChange={(event) => setSelectedTourneeId(event.target.value)}
                 disabled={availableTargetTournees.length === 0}
-                className="mt-2 w-full rounded-2xl border border-[#D7EBD9] bg-[#FAFCFA] px-4 py-3 text-[#264129] outline-none transition focus:border-[#1E8A3C] disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-2 min-h-11 w-full rounded-lg border border-[var(--adm-line-strong)] bg-white px-3 text-[var(--adm-text)] outline-none transition-colors focus:border-[var(--adm-green)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {availableTargetTournees.length === 0 ? (
                   <option value="">Aucune autre tournée disponible</option>
                 ) : (
                   availableTargetTournees.map((tournee) => (
                     <option key={tournee.id} value={tournee.id}>
-                      Tournée #{tournee.id} - {tournee.livreur.nom}
+                      Tournée {tournee.id}, {tournee.livreur.nom} ({tournee.commandes.length} commandes)
                     </option>
                   ))
                 )}
@@ -784,17 +744,17 @@ export default function AdminLivreurPage() {
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
                 onClick={closeReassignModal}
-                className="rounded-2xl border border-[#D7EBD9] px-5 py-3 font-bold text-[#264129] transition hover:bg-[#F0FAF1]"
+                className="min-h-11 rounded-lg border border-[var(--adm-line-strong)] px-5 text-sm font-semibold text-[var(--adm-text)] transition-colors hover:bg-[var(--adm-green-soft)]"
               >
                 Annuler
               </button>
               <button
                 onClick={() => void submitReassign()}
                 disabled={!selectedTourneeId || isSubmittingReassign}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#1E8A3C] px-5 py-3 font-bold text-white transition hover:bg-[#176B2E] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[var(--adm-green)] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#176B2E] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmittingReassign && <Loader2 className="h-4 w-4 animate-spin" />}
-                Valider la réassignation
+                Déplacer la commande
               </button>
             </div>
           </div>

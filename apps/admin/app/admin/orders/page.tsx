@@ -1,13 +1,10 @@
 "use client"
 
-import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { Fragment, type ReactNode, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import {
-  ArrowLeft,
   BarChart3,
   Banknote,
-  CalendarDays,
   ChevronDown,
   ChevronRight,
   CheckCircle2,
@@ -1606,18 +1603,12 @@ export default function AdminOrdersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F0]">
-      <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 shadow-sm backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 lg:px-8">
+    <div>
+      <header className="border-b border-[var(--adm-line)]">
+        <div className="flex min-h-16 flex-wrap items-center justify-between gap-4 px-4 py-3 lg:px-8">
           <div className="flex items-center gap-4 min-w-0">
-            <Link href="/admin" className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-[#1E8A3C]">
-              <ArrowLeft className="w-4 h-4" />
-              <span className="font-medium hidden sm:inline">Retour</span>
-            </Link>
 
             <div className="flex items-center gap-3 min-w-0">
-              <SoukiLogoLink variant="symbol" height={36} />
-              <div className="hidden h-6 w-px bg-gray-200 sm:block" />
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="truncate text-xl font-semibold tracking-tight text-gray-900">Gestion des Commandes</h1>
@@ -1666,18 +1657,18 @@ export default function AdminOrdersPage() {
       </header>
 
       {codAlerte18h?.alerte_active && (
-        <div className="sticky top-16 z-30 border-b border-amber-200 bg-amber-50 px-6 py-2 text-sm font-medium text-amber-800 lg:pl-72">
+        <div className="border-b border-[#F5D7B8] bg-[var(--adm-saffron-soft)] px-4 py-2.5 text-sm font-medium text-[#8A4B08] lg:px-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>⚠️ {codAlerte18h.nb_non_confirmees} commandes COD non confirmées — À confirmer avant la livraison</span>
+            <span>{codAlerte18h.nb_non_confirmees} commandes COD non confirmées — À confirmer avant la livraison</span>
             <button type="button" onClick={() => setActiveSection("cod")} className="text-xs font-semibold text-[#1E8A3C] hover:underline">
-              Voir COD →
+              Voir les COD
             </button>
           </div>
         </div>
       )}
 
-      <aside className="fixed left-0 top-16 z-20 hidden h-[calc(100vh-4rem)] w-64 flex-col border-r border-gray-200 bg-white lg:flex">
-        <nav className="flex-1 space-y-1 overflow-y-auto p-4">
+      <aside className="sticky top-16 z-30 border-b border-[var(--adm-line)] bg-[var(--adm-paper)]/90 px-4 backdrop-blur-md lg:px-8">
+        <nav className="flex gap-1 overflow-x-auto py-2" aria-label="Sections commandes">
               {sidebarItems.map((item) => {
                 const isActive = activeSection === item.id
                 const Icon = item.icon
@@ -1688,7 +1679,7 @@ export default function AdminOrdersPage() {
                 type="button"
                 onClick={() => setActiveSection(item.id)}
                 className={cn(
-                  "inline-flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
+                  "inline-flex shrink-0 items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
                   isActive ? "bg-[#F0FDF4] text-[#1E8A3C]" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                 )}
                 >
@@ -1706,7 +1697,7 @@ export default function AdminOrdersPage() {
           })}
         </nav>
 
-        <div className="mt-auto border-t border-gray-100 p-4">
+        <div className="hidden">
           <p className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-400">KPI rapides</p>
           <div className="space-y-3">
             <div>
@@ -1729,7 +1720,7 @@ export default function AdminOrdersPage() {
         </div>
       </aside>
 
-      <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 lg:ml-64 lg:px-8 lg:py-8">
+      <main className="space-y-6 px-4 py-6 lg:px-8 lg:py-8">
         <section className={cn("overflow-hidden rounded-3xl border border-[#DDE7DE] bg-white shadow-sm", activeSection !== "overview" && "hidden")}>
           <div className="relative p-6 lg:p-8">
             <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-[#1E8A3C]/10 blur-3xl" />

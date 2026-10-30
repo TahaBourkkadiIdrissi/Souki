@@ -1,41 +1,28 @@
 "use client"
 
 import { Fragment, useCallback, useEffect, useState, type FormEvent } from "react"
-import Link from "next/link"
-import { AlertTriangle, CircleDollarSign, Gift, LayoutDashboard, MapPinned, Menu, Package, QrCode, RefreshCw, Repeat, ShoppingBasket, Tags, Truck, Users, X } from "lucide-react"
-import { SoukiLogoLink } from "@/components/souki/souki-logo"
+import { RefreshCw } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
 import {
-  arreterCommandeRecurrenteAdmin, listCommandesRecurrentes, listLivraisonsRecurrentes, pauseCommandeRecurrenteAdmin,
-  reprendreCommandeRecurrenteAdmin, type CommandeRecurrenteAdminDTO, type CommandeRecurrenteLivraisonAdminDTO,
+  arreterCommandeRecurrenteAdmin,
+  listCommandesRecurrentes,
+  listLivraisonsRecurrentes,
+  pauseCommandeRecurrenteAdmin,
+  reprendreCommandeRecurrenteAdmin,
+  type CommandeRecurrenteAdminDTO,
+  type CommandeRecurrenteLivraisonAdminDTO,
 } from "@/lib/api"
 import { FREQUENCE_LABELS, LIVRAISON_LABELS, STATUT_RECURRENCE, TYPE_RECURRENCE_LABELS, addDaysIso, formatDateFr, formatDh, formatVariation, todayMorocco } from "@/lib/commandes-recurrentes"
 
 const inputClass = "min-h-11 w-full rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm focus:border-[#1E8A3C] focus:outline-none"
 const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#E5E7EB] bg-white px-4 text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
-const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/admin", permission: "admin.panel.access" },
-  { icon: Package, label: "Commandes du jour", href: "/admin/orders", permission: "orders.read" },
-  { icon: Users, label: "Clients", href: "/admin/clients", permission: "clients.read" },
-  { icon: AlertTriangle, label: "Blackliste", href: "/admin/blacklist", permission: "clients.blacklist" },
-  { icon: Truck, label: "Logistique & Livreurs", href: "/admin/livreur", permission: "admin.panel.access" },
-  { icon: ShoppingBasket, label: "Gestion Produits & Prix", href: "/admin/produits", permission: "products.manage" },
-  { icon: CircleDollarSign, label: "Pricing", href: "/admin/pricing", permission: "admin.panel.access" },
-  { icon: Tags, label: "Catégories", href: "/admin/categories", permission: "admin.panel.access" },
-  { icon: MapPinned, label: "Zones de livraison", href: "/admin/zones", permission: "admin.panel.access" },
-  { icon: AlertTriangle, label: "Exceptions / Backlog", href: "/admin/commandes/exceptions", permission: "admin.panel.access" },
-  { icon: Gift, label: "Parrainage", href: "/admin/parrainage", permission: "admin.panel.access" },
-  { icon: QrCode, label: "Campagnes", href: "/admin/compaign", permission: "admin.panel.access" },
-  { icon: Repeat, label: "Abonnements", href: "/admin/abonnements", permission: "admin.panel.access" },
-]
 
 type PendingAction = { type: "pause" | "stop"; row: CommandeRecurrenteAdminDTO } | null
 
 export default function AbonnementsAdminPage() {
-  const { isAuthenticated, can } = useAuth()
+  const { isAuthenticated } = useAuth()
   const [tab, setTab] = useState<"abonnes" | "nuit">("abonnes")
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [rows, setRows] = useState<CommandeRecurrenteAdminDTO[]>([])
   const [livraisons, setLivraisons] = useState<CommandeRecurrenteLivraisonAdminDTO[]>([])
   const [statut, setStatut] = useState("")
@@ -83,20 +70,9 @@ export default function AbonnementsAdminPage() {
 
   const compte = (value: "CREEE" | "SAUTEE" | "ECHEC") => livraisons.filter(item => item.statut === value).length
 
-  return <div className="min-h-screen bg-[#F5F5F0] text-[#1F2937]">
-    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-[#E5E7EB] bg-white px-4 lg:px-6">
-      <div className="flex items-center gap-3"><button aria-label="Ouvrir le menu" className="lg:hidden" onClick={() => setSidebarOpen(true)}><Menu /></button><SoukiLogoLink height={32} /></div>
-      <p className="text-sm font-bold">SOUKI Dashboard</p>
-    </header>
+  return <div className="text-[var(--adm-text)]">
     <div className="flex">
-      <aside className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} fixed left-0 top-0 z-40 h-screen w-64 bg-[#1E8A3C] p-3 text-white lg:sticky lg:top-14 lg:h-[calc(100vh-56px)] lg:translate-x-0`}>
-        <button aria-label="Fermer le menu" onClick={() => setSidebarOpen(false)} className="mb-6 ml-auto block lg:hidden"><X /></button>
-        <nav className="max-h-[calc(100vh-100px)] space-y-2 overflow-y-auto">
-          {navItems.filter(item => can(item.permission)).map(item => <Link key={item.href} href={item.href} aria-current={item.href === "/admin/abonnements" ? "page" : undefined} className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm ${item.href === "/admin/abonnements" ? "bg-white/20 font-semibold" : "text-white/75 hover:bg-white/10"}`}><item.icon className="h-5 w-5 shrink-0" />{item.label}</Link>)}
-        </nav>
-      </aside>
-      {sidebarOpen && <button aria-label="Fermer le menu" className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />}
-      <main className="min-w-0 flex-1 space-y-6 p-4 lg:p-6">
+      <main className="min-w-0 flex-1 space-y-6 p-4 lg:p-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div><h1 className="text-2xl font-bold">Abonnements</h1><p className="mt-1 text-sm text-[#6B7280]">Commandes récurrentes des clients. Elles sont créées automatiquement à 01h00, au prix du site.</p></div>
           <button className={buttonClass} disabled={loading || saving} onClick={() => void (tab === "abonnes" ? loadAbonnes() : loadNuit())}><RefreshCw className="h-4 w-4" />Actualiser</button>

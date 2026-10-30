@@ -1,10 +1,8 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import Link from "next/link"
 import {
   AlertTriangle,
-  ArrowLeft,
   ChevronLeft,
   ChevronRight,
   Link2,
@@ -18,7 +16,6 @@ import {
   AdminCommandeException,
   AdminCommandeExceptionsPage,
   AdminDispatchTournee,
-  API_BASE_URL,
   annulerAdminCommande,
   getAdminCommandeExceptions,
   getAdminDispatchTournees,
@@ -175,17 +172,14 @@ export default function AdminCommandesExceptionsPage() {
   )
 
   return (
-    <main className="min-h-screen bg-[#F5F5F0] px-4 py-8">
-      <div className="mx-auto max-w-6xl">
+    <main className="px-4 py-6 lg:px-8 lg:py-8">
+      <div className="max-w-6xl">
         <header className="mb-6 flex items-center gap-3">
-          <Link href="/admin" className="rounded-lg p-2 text-[#6F8070] hover:bg-white">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
           <div className="flex-1">
             <h1 className="text-xl font-black text-[#264129]">Exceptions / Backlog</h1>
             <p className="text-sm text-[#6F8070]">File de rattrapage administrative, sans suppression.</p>
           </div>
-          <button onClick={() => void load()} className="rounded-xl border border-[#DDEBDD] bg-white p-2">
+          <button onClick={() => void load()} aria-label="Actualiser" className="rounded-lg border border-[var(--adm-line)] bg-white p-2 transition-colors hover:bg-[var(--adm-green-soft)]">
             <RefreshCw className="h-4 w-4 text-[#1E8A3C]" />
           </button>
         </header>

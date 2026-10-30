@@ -1,33 +1,22 @@
 "use client"
 
-import { SoukiLogoLink } from "@/components/souki/souki-logo"
-import { useCallback, useEffect, useMemo, useState } from "react"
-import Link from "next/link"
+import { useCallback, useEffect, useState } from "react"
 import type { LucideIcon } from "lucide-react"
 import {
   AlertTriangle,
-  Bell,
   Camera,
   CheckCircle2,
   CircleDollarSign,
   Edit3,
   Image as ImageIcon,
-  LayoutDashboard,
-  Leaf,
-  LogOut,
-  Menu,
   Package,
   Plus,
   RefreshCw,
   Save,
   ShieldAlert,
-  ShoppingBasket,
   Trash2,
   TrendingDown,
-  Truck,
   Upload,
-  Tags,
-  Users,
   X,
   XCircle,
 } from "lucide-react"
@@ -61,27 +50,6 @@ import {
   type ProduitVolatilite,
 } from "@/lib/api"
 import { cn } from "@/lib/utils"
-
-const adminNavItems: Array<{ icon: LucideIcon; label: string; href: string; active?: boolean }> = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/admin" },
-  { icon: Package, label: "Commandes du jour", href: "/admin/orders" },
-  { icon: Users, label: "Clients", href: "/admin/clients" },
-  { icon: AlertTriangle, label: "Blackliste", href: "/admin/blacklist" },
-  { icon: Truck, label: "Logistique & Livreurs", href: "/admin/livreur" },
-  { icon: ShoppingBasket, label: "Gestion Produits & Prix", href: "/admin/produits" },
-  { icon: CircleDollarSign, label: "Pricing", href: "/admin/pricing", active: true },
-  { icon: Tags, label: "Catégories", href: "/admin/categories" },
-]
-
-const adminNavPermissions: Record<string, string> = {
-  "/admin": "admin.panel.access",
-  "/admin/orders": "orders.read",
-  "/admin/clients": "clients.read",
-  "/admin/blacklist": "clients.blacklist",
-  "/admin/livreur": "admin.panel.access",
-  "/admin/produits": "products.manage",
-  "/admin/pricing": "admin.panel.access",
-}
 
 const niveauOptions: ProduitNiveau[] = [1, 2, 3]
 const volatiliteOptions: ProduitVolatilite[] = ["STABLE", "VARIABLE", "SAISONNIER"]
@@ -300,8 +268,7 @@ function EmptyState() {
 }
 
 export default function AdminPricingPage() {
-  const { token, isLoading: isAuthLoading, can, logout } = useAuth()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { token, isLoading: isAuthLoading } = useAuth()
   const [pricingList, setPricingList] = useState<ProduitPricingListDTO | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
@@ -323,16 +290,6 @@ export default function AdminPricingPage() {
   const totalProduits = pricingList?.total ?? 0
   const nbAlertes = pricingList?.nb_alertes ?? 0
   const produitsSansPrixGros = produits.filter((produit) => produit.prix_gros_saisi === null).length
-
-  const visibleAdminNavItems = useMemo(
-    () => adminNavItems.filter((item) => can(adminNavPermissions[item.href] || "admin.panel.access")),
-    [can]
-  )
-
-  const handleAdminLogout = async () => {
-    await logout()
-    window.location.assign("/login?logged_out=1")
-  }
 
   const loadPricing = useCallback(async (signal?: AbortSignal) => {
     if (!token) {
@@ -679,7 +636,7 @@ export default function AdminPricingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA]">
+    <div>
       {toast ? (
         <div className="fixed right-4 top-20 z-50 rounded-xl border border-emerald-200 bg-[#F0FDF4] px-4 py-3 text-sm font-semibold text-[#1E8A3C] shadow-lg">
           {toast}
@@ -785,73 +742,12 @@ export default function AdminPricingPage() {
       </AlertDialog>
 
 
-      <header className="sticky top-0 z-50 border-b border-[#E5E7EB] bg-white shadow-sm">
-        <div className="flex h-14 items-center justify-between px-4 lg:px-6">
-          <div className="flex items-center gap-4">
-            <button type="button" onClick={() => setSidebarOpen(true)} className="rounded-lg p-2 text-[#1F2937] hover:bg-gray-100 lg:hidden">
-              <Menu className="h-5 w-5" />
-            </button>
-            <SoukiLogoLink height={36} priority />
-          </div>
-
-          <div className="hidden text-center md:block">
-            <p className="text-sm font-bold text-[#1F2937]">Gestion des Prix Produits</p>
-            <p className="text-xs text-[#6B7280]">Pricing catalogue</p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button type="button" className="relative rounded-xl p-2 text-[#1F2937] hover:bg-gray-100">
-              <Bell className="h-5 w-5" />
-              {nbAlertes > 0 ? <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" /> : null}
-            </button>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1E8A3C] font-bold text-white">
-              A
-            </div>
-          </div>
-        </div>
-      </header>
 
       <div className="flex">
-        <aside
-          className={cn(
-            "fixed left-0 top-0 z-40 flex h-screen w-64 flex-col bg-[#1E8A3C] transition-transform lg:sticky lg:top-14 lg:h-[calc(100vh-56px)] lg:translate-x-0",
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          )}
-        >
-          <button type="button" onClick={() => setSidebarOpen(false)} className="absolute right-4 top-4 rounded-lg p-2 text-white hover:bg-white/10 lg:hidden">
-            <X className="h-5 w-5" />
-          </button>
 
-          <nav className="mt-12 flex-1 space-y-2 overflow-y-auto p-3 lg:mt-0">
-            {visibleAdminNavItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                title={item.label}
-                aria-label={item.label}
-                className={cn(
-                  "flex h-11 w-full items-center gap-3 rounded-xl px-3 font-medium transition-colors",
-                  item.active ? "bg-white/20 text-white" : "text-white/75 hover:bg-white/10 hover:text-white"
-                )}
-              >
-                <item.icon className="h-5 w-5 shrink-0" />
-                <span className="truncate text-sm">{item.label}</span>
-              </Link>
-            ))}
-          </nav>
-
-          <div className="border-t border-white/20 p-3">
-            <button type="button" title="Deconnexion" aria-label="Deconnexion" onClick={handleAdminLogout} className="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-white/75 transition-colors hover:bg-white/10 hover:text-white">
-              <LogOut className="h-5 w-5 shrink-0" />
-              <span className="text-sm font-medium">Déconnexion</span>
-            </button>
-          </div>
-        </aside>
-
-        {sidebarOpen ? <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} /> : null}
 
         <main className="min-w-0 flex-1">
-          <div className="sticky top-14 z-30 border-b border-[#E5E7EB] bg-white px-4 py-3 lg:px-6">
+          <div className="sticky top-16 z-30 border-b border-[var(--adm-line)] bg-[var(--adm-paper)]/90 px-4 py-4 backdrop-blur-md lg:px-8">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-3">

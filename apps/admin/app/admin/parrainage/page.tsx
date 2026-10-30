@@ -1,58 +1,15 @@
 "use client"
 
-import { SoukiLogoLink } from "@/components/souki/souki-logo"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import {
-  AlertTriangle,
   ArrowRight,
-  CircleDollarSign,
-  Gift,
-  LayoutDashboard,
-  Leaf,
-  LogOut,
-  MapPinned,
-  Menu,
-  Package,
   RefreshCw,
-  Repeat,
-  ShoppingBasket,
-  Truck,
-  Users,
-  X,
 } from "lucide-react"
 
 import { useAuth } from "@/hooks/useAuth"
 import { getAdminParrainages, type ParrainageAdminOverviewDTO } from "@/lib/api"
 import { cn } from "@/lib/utils"
-
-const adminNavItems = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/admin" },
-  { icon: Package, label: "Commandes du jour", href: "/admin/orders" },
-  { icon: Users, label: "Clients", href: "/admin/clients" },
-  { icon: AlertTriangle, label: "Blackliste", href: "/admin/blacklist" },
-  { icon: Truck, label: "Logistique & Livreurs", href: "/admin/livreur" },
-  { icon: ShoppingBasket, label: "Gestion Produits & Prix", href: "/admin/produits" },
-  { icon: CircleDollarSign, label: "Pricing", href: "/admin/pricing" },
-  { icon: MapPinned, label: "Zones de livraison", href: "/admin/zones" },
-  { icon: AlertTriangle, label: "Exceptions / Backlog", href: "/admin/commandes/exceptions" },
-  { icon: Gift, label: "Parrainage", href: "/admin/parrainage" },
-  { icon: Repeat, label: "Abonnements", href: "/admin/abonnements" },
-]
-
-const adminNavPermissions: Record<string, string> = {
-  "/admin": "admin.panel.access",
-  "/admin/orders": "orders.read",
-  "/admin/clients": "clients.read",
-  "/admin/blacklist": "clients.blacklist",
-  "/admin/livreur": "admin.panel.access",
-  "/admin/produits": "products.manage",
-  "/admin/pricing": "admin.panel.access",
-  "/admin/zones": "admin.panel.access",
-  "/admin/commandes/exceptions": "admin.panel.access",
-  "/admin/parrainage": "admin.panel.access",
-  "/admin/abonnements": "admin.panel.access",
-}
 
 function formatMoney(value: number | null | undefined) {
   if (typeof value !== "number" || !Number.isFinite(value)) return "0 DH"
@@ -92,8 +49,7 @@ function StatCard({ label, value, accent = false }: { label: string; value: stri
 }
 
 export default function AdminParrainagePage() {
-  const { token, can, logout } = useAuth()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { token } = useAuth()
   const [data, setData] = useState<ParrainageAdminOverviewDTO | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
@@ -122,75 +78,14 @@ export default function AdminParrainagePage() {
     return () => controller.abort()
   }, [loadData])
 
-  const visibleAdminNavItems = useMemo(
-    () => adminNavItems.filter((item) => can(adminNavPermissions[item.href] || "admin.panel.access")),
-    [can]
-  )
-
-  const handleAdminLogout = async () => {
-    await logout()
-    window.location.assign("/login?logged_out=1")
-  }
-
   return (
-    <div className="min-h-screen bg-[#F8F9FA]">
-      <header className="sticky top-0 z-50 glass-ios26 border-b border-[#E5E7EB]">
-        <div className="flex h-14 items-center justify-between px-4 lg:px-6">
-          <div className="flex items-center gap-4">
-            <button type="button" onClick={() => setSidebarOpen(true)} className="rounded-lg p-2 text-[#1F2937] hover:bg-gray-100 lg:hidden">
-              <Menu className="h-5 w-5" />
-            </button>
-            <SoukiLogoLink height={36} priority />
-          </div>
-          <div className="hidden text-center md:block">
-            <p className="text-sm font-bold text-[#1F2937]">Parrainage viral</p>
-            <p className="text-xs text-[#6B7280]">Acquisition à coût zéro</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1E8A3C] font-bold text-white">A</div>
-          </div>
-        </div>
-      </header>
+    <div>
 
       <div className="flex">
-        <aside
-          className={cn(
-            "fixed left-0 top-0 z-40 flex h-screen w-64 flex-col bg-[#1E8A3C] transition-transform lg:sticky lg:top-14 lg:h-[calc(100vh-56px)] lg:translate-x-0",
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          )}
-        >
-          <button type="button" onClick={() => setSidebarOpen(false)} className="absolute right-4 top-4 rounded-lg p-2 text-white hover:bg-white/10 lg:hidden">
-            <X className="h-5 w-5" />
-          </button>
-          <nav className="mt-12 flex-1 space-y-2 overflow-y-auto p-3 lg:mt-0">
-            {visibleAdminNavItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                title={item.label}
-                aria-label={item.label}
-                className={cn(
-                  "flex h-11 w-full items-center gap-3 rounded-xl px-3 font-medium transition-colors",
-                  item.href === "/admin/parrainage" ? "bg-white/20 text-white" : "text-white/75 hover:bg-white/10 hover:text-white"
-                )}
-              >
-                <item.icon className="h-5 w-5 shrink-0" />
-                <span className="truncate text-sm">{item.label}</span>
-              </Link>
-            ))}
-          </nav>
-          <div className="border-t border-white/20 p-3">
-            <button type="button" title="Deconnexion" aria-label="Deconnexion" onClick={handleAdminLogout} className="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-white/75 transition-colors hover:bg-white/10 hover:text-white">
-              <LogOut className="h-5 w-5 shrink-0" />
-              <span className="text-sm font-medium">Déconnexion</span>
-            </button>
-          </div>
-        </aside>
 
-        {sidebarOpen ? <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} /> : null}
 
         <main className="min-w-0 flex-1">
-          <div className="sticky top-14 z-30 glass-ios26 border-b border-[#E5E7EB] px-4 py-3 lg:px-6">
+          <div className="sticky top-16 z-30 border-b border-[var(--adm-line)] bg-[var(--adm-paper)]/90 px-4 py-4 backdrop-blur-md lg:px-8">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h1 className="text-2xl font-bold tracking-tight text-[#1F2937]">Parrainage</h1>

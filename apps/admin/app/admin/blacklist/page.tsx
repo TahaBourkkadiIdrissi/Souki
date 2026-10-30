@@ -1,9 +1,7 @@
 "use client"
 
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react"
-import Link from "next/link"
 import {
-  ArrowLeft,
   BarChart3,
   Banknote,
   CalendarDays,
@@ -513,7 +511,7 @@ export default function AdminBlacklistPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F0]">
+    <div>
       {toast && (
         <div className="fixed right-5 top-5 z-[70] flex items-center gap-3 rounded-2xl border border-emerald-100 bg-white px-5 py-4 text-sm font-semibold text-[#1E8A3C] shadow-xl">
           <CheckCircle2 className="h-5 w-5" />
@@ -521,13 +519,9 @@ export default function AdminBlacklistPage() {
         </div>
       )}
 
-      <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 px-6 py-4 backdrop-blur-sm">
+      <header className="border-b border-[var(--adm-line)] px-4 py-4 lg:px-8">
         <div className="flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
-            <Link href="/admin" className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-[#1E8A3C]">
-              <ArrowLeft className="h-4 w-4" />
-              <span className="hidden sm:inline">Retour</span>
-            </Link>
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-red-700">
                 <ShieldAlert className="h-5 w-5" />
@@ -557,8 +551,8 @@ export default function AdminBlacklistPage() {
         </div>
       </header>
 
-      <aside className="fixed left-0 top-[73px] z-10 hidden h-[calc(100vh-73px)] w-56 flex-col border-r border-gray-100 bg-white lg:flex">
-        <nav className="flex-1 space-y-1 overflow-y-auto p-4">
+      <aside className="sticky top-16 z-20 border-b border-[var(--adm-line)] bg-[var(--adm-paper)]/90 px-4 backdrop-blur-md lg:px-8">
+        <nav className="flex gap-1 overflow-x-auto py-2" aria-label="Sections blacklist">
           {[
             { id: "liste" as const, label: "Liste blacklistes", icon: UserX, count: clients.length },
             { id: "rapport" as const, label: "Rapport mensuel", icon: FileBarChart, count: null },
@@ -572,7 +566,7 @@ export default function AdminBlacklistPage() {
                 type="button"
                 onClick={() => setActiveSection(item.id)}
                 className={cn(
-                  "inline-flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
+                  "inline-flex shrink-0 items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
                   isActive ? "bg-[#F0FDF4] text-[#1E8A3C]" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                 )}
               >
@@ -591,7 +585,7 @@ export default function AdminBlacklistPage() {
         </nav>
       </aside>
 
-      <main className="lg:pl-56">
+      <main>
         {error && (
           <div className="mx-6 mt-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
