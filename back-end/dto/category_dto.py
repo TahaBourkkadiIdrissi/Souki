@@ -4,7 +4,6 @@ from pydantic import BaseModel, Field, field_validator
 
 class CategoryWriteDTO(BaseModel):
     nom: str = Field(min_length=1, max_length=80)
-    emoji: str | None = Field(default=None, max_length=16)
     ordre: int = Field(default=0, ge=0, le=999)
     actif: bool = True
 
@@ -37,6 +36,5 @@ class CatalogueCategoryDTO(BaseModel):
     id: int
     slug: str
     nom: str
-    emoji: str | None = None
     ordre: int
     product_ids: list[int] = Field(default_factory=list)

@@ -5,12 +5,17 @@ import { DeliveryPromise } from "@/components/souki/delivery-promise"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
+  Apple,
   ArrowRight,
+  Carrot,
   ChevronRight,
   Clock,
   Search,
+  ShoppingBasket,
+  Tag,
   Truck,
   Leaf,
+  type LucideIcon,
 } from "lucide-react"
 
 import { SuggestionCard } from "@/components/souki/suggestion-card"
@@ -57,13 +62,13 @@ const CATALOGUE_REFRESH_INTERVAL_MS = 5 * 60 * 1000
 // Rail de categories facon Glovo, reinterprete pour le marche frais.
 // Chaque tuile filtre reellement le catalogue (deep-link ?category=).
 const CATEGORY_TILES = [
-  { label: "Tout le marché", href: "/catalogue", emoji: "🧺", from: "#1E8A3C", to: "#2DA050" },
-  { label: "Légumes", href: "/catalogue?focus=legumes", emoji: "🥬", from: "#2DA050", to: "#7BC96F" },
-  { label: "Fruits", href: "/catalogue?focus=fruits", emoji: "🍊", from: "#F07C00", to: "#FFB347" },
-  { label: "Herbes", href: "/catalogue?focus=herbes", emoji: "🌿", from: "#1A4F2C", to: "#4CB84A" },
+  { label: "Tout le marché", href: "/catalogue", icon: ShoppingBasket, from: "#1E8A3C", to: "#2DA050" },
+  { label: "Légumes", href: "/catalogue?focus=legumes", icon: Carrot, from: "#2DA050", to: "#7BC96F" },
+  { label: "Fruits", href: "/catalogue?focus=fruits", icon: Apple, from: "#F07C00", to: "#FFB347" },
+  { label: "Herbes", href: "/catalogue?focus=herbes", icon: Leaf, from: "#1A4F2C", to: "#4CB84A" },
 ] as const
 
-type CategoryTile = { label: string; href: string; emoji: string; from: string; to: string }
+type CategoryTile = { label: string; href: string; icon: LucideIcon; from: string; to: string }
 // Degrades des tuiles historiques, reutilises en boucle pour les rayons crees dans l'admin.
 const TILE_GRADIENTS = CATEGORY_TILES.slice(1).map(({ from, to }) => ({ from, to }))
 
@@ -77,7 +82,8 @@ function buildCategoryTiles(sections: CatalogueSection[]): CategoryTile[] {
         ...(legacy ?? TILE_GRADIENTS[index % TILE_GRADIENTS.length]),
         label: section.nom,
         href,
-        emoji: section.emoji || legacy?.emoji || "🧺",
+        // Rayons crees dans l'admin : icone generique « etiquette »
+        icon: legacy?.icon ?? Tag,
       }
     }),
   ]
@@ -560,7 +566,7 @@ export default function PwaWelcomePage() {
                 className="group flex w-[84px] shrink-0 snap-start flex-col items-center gap-2 transition-transform active:scale-95"
               >
                 <span
-                  className="relative flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-[22px] text-[28px] ring-1 ring-white/50 transition-all duration-300 group-active:scale-90 group-active:shadow-inner"
+                  className="relative flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-[22px] text-white ring-1 ring-white/50 transition-all duration-300 group-active:scale-90 group-active:shadow-inner"
                   style={{
                     background: `linear-gradient(145deg, ${tile.from}, ${tile.to})`,
                     boxShadow: `0 14px 26px -12px ${tile.from}A6, inset 0 1px 1px rgba(255,255,255,0.5)`,
@@ -568,9 +574,11 @@ export default function PwaWelcomePage() {
                 >
                   {/* Reflet en haut — donne le relief d'une vraie icône d'app */}
                   <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/40 to-transparent" />
-                  <span className="relative drop-shadow-sm transition-transform duration-300 group-hover:-translate-y-0.5 group-active:scale-110">
-                    {tile.emoji}
-                  </span>
+                  <tile.icon
+                    aria-hidden="true"
+                    strokeWidth={2.2}
+                    className="relative h-8 w-8 drop-shadow-sm transition-transform duration-300 group-hover:-translate-y-0.5 group-active:scale-110"
+                  />
                 </span>
                 <span className="text-center text-[12px] font-bold leading-tight text-[#3D3D3D]">{tile.label}</span>
               </button>

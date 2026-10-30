@@ -23,11 +23,10 @@ class CategoryService(ICategoryService):
         values["nom"] = values["nom"].strip()
         if not values["nom"]:
             raise HTTPException(400, "Le nom de la catégorie est obligatoire.")
-        values["emoji"] = (values["emoji"] or "").strip() or None
         return values
 
     def _dto(self, row, product_ids):
-        return CategoryDTO(**{key: getattr(row, key) for key in ("id", "slug", "nom", "emoji", "ordre", "actif", "created_at")},
+        return CategoryDTO(**{key: getattr(row, key) for key in ("id", "slug", "nom", "ordre", "actif", "created_at")},
                            product_ids=product_ids.get(row.id, []))
 
     def list_admin(self):
@@ -36,7 +35,7 @@ class CategoryService(ICategoryService):
 
     def list_public(self):
         product_ids = self.dao.product_ids_by_category(self.session, active_products_only=True)
-        return [CatalogueCategoryDTO(id=row.id, slug=row.slug, nom=row.nom, emoji=row.emoji, ordre=row.ordre,
+        return [CatalogueCategoryDTO(id=row.id, slug=row.slug, nom=row.nom, ordre=row.ordre,
                                      product_ids=product_ids.get(row.id, []))
                 for row in self.dao.list(self.session, active_only=True)]
 

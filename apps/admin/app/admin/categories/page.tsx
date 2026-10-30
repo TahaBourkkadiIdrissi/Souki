@@ -7,7 +7,7 @@ import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { useAuth } from "@/hooks/useAuth"
 import { createCategory, getProduitsPricing, listCategories, setCategoryProducts, updateCategory, type Category, type CategoryForm, type ProduitPricingDTO } from "@/lib/api"
 
-const emptyForm: CategoryForm & { slug: string } = { nom: "", slug: "", emoji: "", ordre: 0, actif: true }
+const emptyForm: CategoryForm & { slug: string } = { nom: "", slug: "", ordre: 0, actif: true }
 const inputClass = "min-h-11 w-full rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm focus:border-[#1E8A3C] focus:outline-none"
 const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#E5E7EB] bg-white px-4 text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
 const primaryClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#1E8A3C] px-4 text-sm font-semibold text-white hover:bg-[#166d30] disabled:opacity-50"
@@ -74,7 +74,7 @@ export default function CategoriesPage() {
     setEditing(null); setForm(emptyForm); setError(""); setNotice(""); setShowForm(true)
   }
   const startEdit = (row: Category) => {
-    setEditing(row); setForm({ nom: row.nom, slug: row.slug, emoji: row.emoji ?? "", ordre: row.ordre, actif: row.actif }); setError(""); setNotice(""); setShowForm(true)
+    setEditing(row); setForm({ nom: row.nom, slug: row.slug, ordre: row.ordre, actif: row.actif }); setError(""); setNotice(""); setShowForm(true)
   }
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -85,8 +85,7 @@ export default function CategoriesPage() {
     setSaving(true); setError(""); setNotice("")
     try {
       const { slug, ...values } = form
-      const body = { ...values, emoji: values.emoji?.trim() || null }
-      const result = editing ? await updateCategory(editing.id, body) : await createCategory({ ...body, slug })
+      const result = editing ? await updateCategory(editing.id, values) : await createCategory({ ...values, slug })
       setShowForm(false); setEditing(null); setForm(emptyForm)
       await load(); setSelectedId(result.id)
       setNotice(editing ? "Catégorie mise à jour." : "Catégorie créée. Cochez maintenant ses produits.")
@@ -137,7 +136,6 @@ export default function CategoriesPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-1 text-sm">Nom affiché aux clients<input required maxLength={80} className={inputClass} value={form.nom} onChange={e => setForm({ ...form, nom: e.target.value, slug: editing ? form.slug : toSlug(e.target.value) })} placeholder="Fruits de saison" /></label>
             <label className="space-y-1 text-sm">Identifiant<input required disabled={Boolean(editing)} maxLength={48} className={inputClass} value={form.slug} onChange={e => setForm({ ...form, slug: e.target.value.toLowerCase().trim() })} placeholder="fruits-de-saison" /><span className="block text-xs text-[#6B7280]">Utilisé dans les liens du catalogue. Il ne change plus après la création.</span></label>
-            <label className="space-y-1 text-sm">Emoji<input maxLength={16} className={inputClass} value={form.emoji ?? ""} onChange={e => setForm({ ...form, emoji: e.target.value })} placeholder="🥭" /><span className="block text-xs text-[#6B7280]">Affiché sur les tuiles de l&apos;accueil de l&apos;application.</span></label>
             <label className="space-y-1 text-sm">Ordre d&apos;affichage<input type="number" min={0} max={999} required className={inputClass} value={form.ordre} onChange={e => setForm({ ...form, ordre: Number(e.target.value) })} /><span className="block text-xs text-[#6B7280]">Le plus petit nombre apparaît en premier.</span></label>
           </div>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.actif} onChange={e => setForm({ ...form, actif: e.target.checked })} />Visible dans le catalogue client</label>
@@ -150,7 +148,7 @@ export default function CategoriesPage() {
               <ul className="divide-y divide-[#E5E7EB]">
                 {categories.map(row => <li key={row.id} className={`flex items-center gap-3 px-4 py-3 ${row.id === selectedId ? "bg-[#F0FDF4]" : "hover:bg-gray-50"}`}>
                   <button className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-current={row.id === selectedId} onClick={() => { setSelectedId(row.id); setNotice("") }}>
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F5F5F0] text-xl" aria-hidden="true">{row.emoji || "🧺"}</span>
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F5F5F0] text-[#1E8A3C]" aria-hidden="true"><Tags className="h-5 w-5" /></span>
                     <span className="min-w-0"><span className="block truncate font-semibold">{row.nom}</span><span className="block text-xs text-[#6B7280]">{row.slug} · ordre {row.ordre} · {row.product_ids.length} produit{row.product_ids.length > 1 ? "s" : ""}</span></span>
                   </button>
                   <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${row.actif ? "border-green-200 bg-[#F0FDF4] text-[#1E8A3C]" : "border-gray-200 bg-gray-50 text-gray-500"}`}>{row.actif ? "Visible" : "Masquée"}</span>

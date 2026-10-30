@@ -32,7 +32,7 @@ class CategoryServiceTests(unittest.TestCase):
         self.engine.dispose()
 
     def create(self, **changes):
-        return self.service.create(CategoryCreateDTO(**{"slug": "fruits", "nom": "Fruits", "emoji": "🍊", "ordre": 20, **changes}))
+        return self.service.create(CategoryCreateDTO(**{"slug": "fruits", "nom": "Fruits", "ordre": 20, **changes}))
 
     def test_create_assign_and_public_listing(self):
         fruits = self.create()
@@ -74,8 +74,8 @@ class CategoryServiceTests(unittest.TestCase):
 
     def test_update_and_hide_category(self):
         fruits = self.create()
-        updated = self.service.update(fruits.id, CategoryUpdateDTO(nom="  Fruits frais ", emoji=" ", ordre=1, actif=False))
-        self.assertEqual((updated.nom, updated.emoji, updated.slug, updated.actif), ("Fruits frais", None, "fruits", False))
+        updated = self.service.update(fruits.id, CategoryUpdateDTO(nom="  Fruits frais ", ordre=1, actif=False))
+        self.assertEqual((updated.nom, updated.slug, updated.actif), ("Fruits frais", "fruits", False))
         self.assertEqual(self.service.list_public(), [])
         with self.assertRaises(HTTPException) as missing:
             self.service.update(404, CategoryUpdateDTO(nom="X"))

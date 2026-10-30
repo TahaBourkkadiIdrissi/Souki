@@ -31,14 +31,13 @@ export interface CatalogueProduct {
 export interface CatalogueSection {
   slug: CatalogueCategory
   nom: string
-  emoji: string | null
   productIds: number[]
 }
 
 export const LEGACY_CATALOGUE_SECTIONS: CatalogueSection[] = [
-  { slug: "legumes", nom: "Légumes", emoji: "🥬", productIds: [] },
-  { slug: "fruits", nom: "Fruits", emoji: "🍊", productIds: [] },
-  { slug: "herbes", nom: "Herbes", emoji: "🌿", productIds: [] },
+  { slug: "legumes", nom: "Légumes", productIds: [] },
+  { slug: "fruits", nom: "Fruits", productIds: [] },
+  { slug: "herbes", nom: "Herbes", productIds: [] },
 ]
 
 const SECTIONS_TTL_MS = 60 * 1000
@@ -52,7 +51,7 @@ export function fetchCatalogueSections(): Promise<CatalogueSection[]> {
       promise: fetchCatalogueCategories()
         .then((rows) => rows.length === 0
           ? LEGACY_CATALOGUE_SECTIONS
-          : rows.map((row) => ({ slug: row.slug, nom: row.nom, emoji: row.emoji, productIds: row.product_ids })))
+          : rows.map((row) => ({ slug: row.slug, nom: row.nom, productIds: row.product_ids })))
         .catch(() => {
           sectionsRequest = null
           return LEGACY_CATALOGUE_SECTIONS

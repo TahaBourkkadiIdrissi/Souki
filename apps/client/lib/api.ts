@@ -167,7 +167,6 @@ export interface CatalogueCategoryDTO {
   id: number
   slug: string
   nom: string
-  emoji: string | null
   ordre: number
   product_ids: number[]
 }

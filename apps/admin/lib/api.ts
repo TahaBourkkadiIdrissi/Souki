@@ -45,7 +45,6 @@ export const getCampaignQr = (id: number) => apiCall<{ svg: string }>(`/api/admi
 
 export interface CategoryForm {
   nom: string
-  emoji: string | null
   ordre: number
   actif: boolean
 }
