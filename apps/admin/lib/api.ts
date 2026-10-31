@@ -1035,6 +1035,17 @@ export interface ParrainageAdminItemDTO {
   credit_total: number
   created_at: string | null
   converted_at: string | null
+  signaux: ParrainageSignal[]
+}
+
+export type ParrainageSignal = "MEME_ADRESSE" | "MEME_CONNEXION" | "IP_PARTAGEE"
+
+export interface ParrainageContactsDTO {
+  parrainage_id: number
+  parrain_id: number
+  parrain_contact: string | null
+  filleul_id: number
+  filleul_contact: string | null
 }
 
 
@@ -1060,6 +1071,11 @@ export interface ParrainageAdminOverviewDTO {
 
 export async function getAdminParrainages(token: string, signal?: AbortSignal) {
   return apiCall<ParrainageAdminOverviewDTO>("/admin/parrainages", { token, signal })
+}
+
+/** Coordonnees completes d'un parrainage : chaque appel est journalise cote serveur. */
+export async function revealParrainageContacts(token: string, parrainageId: number) {
+  return apiCall<ParrainageContactsDTO>(`/admin/parrainages/${parrainageId}/contacts`, { method: "POST", token })
 }
 
 

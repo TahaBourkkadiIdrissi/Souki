@@ -146,7 +146,7 @@ function niveauBadge(niveau: ProduitNiveau) {
 
   return {
     label: "N3 Profit",
-    className: "border-emerald-200 bg-[#F0FDF4] text-[#1E8A3C]",
+    className: "border-emerald-200 bg-[var(--adm-green-soft)] text-[#1E8A3C]",
   }
 }
 
@@ -170,7 +170,7 @@ function alerteBadge(alerte: ProduitAlerte) {
   return {
     icon: CheckCircle2,
     label: "OK",
-    className: "border-emerald-200 bg-[#F0FDF4] text-[#1E8A3C]",
+    className: "border-emerald-200 bg-[var(--adm-green-soft)] text-[#1E8A3C]",
   }
 }
 
@@ -218,13 +218,13 @@ function KpiCard({
   tone?: "green" | "red" | "amber"
 }) {
   const tones = {
-    green: "border-emerald-100 bg-[#F0FDF4] text-[#1E8A3C]",
+    green: "border-emerald-100 bg-[var(--adm-green-soft)] text-[#1E8A3C]",
     red: "border-red-100 bg-red-50 text-red-700",
     amber: "border-amber-100 bg-amber-50 text-amber-700",
   }
 
   return (
-    <div className="rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
+    <div className="rounded-xl border border-[var(--adm-line)] bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-gray-500">{label}</p>
@@ -256,7 +256,7 @@ function TableSkeleton() {
 function EmptyState() {
   return (
     <div className="px-6 py-16 text-center">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-[#F0FDF4] text-[#1E8A3C]">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--adm-green-soft)] text-[#1E8A3C]">
         <CircleDollarSign className="h-6 w-6" />
       </div>
       <p className="mt-4 text-base font-semibold text-gray-950">Aucun produit pricing</p>
@@ -638,7 +638,7 @@ export default function AdminPricingPage() {
   return (
     <div>
       {toast ? (
-        <div className="fixed right-4 top-20 z-50 rounded-xl border border-emerald-200 bg-[#F0FDF4] px-4 py-3 text-sm font-semibold text-[#1E8A3C] shadow-lg">
+        <div className="fixed right-4 top-20 z-50 rounded-xl border border-emerald-200 bg-[var(--adm-green-soft)] px-4 py-3 text-sm font-semibold text-[#1E8A3C] shadow-lg">
           {toast}
         </div>
       ) : null}
@@ -696,7 +696,7 @@ export default function AdminPricingPage() {
                     type="file"
                     accept="image/png,image/jpeg,image/webp"
                     onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
-                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-normal file:mr-3 file:rounded-md file:border-0 file:bg-[#F0FDF4] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[#1E8A3C]"
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-normal file:mr-3 file:rounded-md file:border-0 file:bg-[var(--adm-green-soft)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[#1E8A3C]"
                   />
                 </label>
                 <button
@@ -751,20 +751,20 @@ export default function AdminPricingPage() {
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-3">
-                  <h1 className="text-2xl font-bold text-[#1F2937]">Gestion des Prix Produits</h1>
+                  <h1 className="text-2xl font-bold text-[var(--adm-text)]">Gestion des Prix Produits</h1>
                   <span
                     className={cn(
                       "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-bold",
                       nbAlertes > 0
                         ? "border-red-200 bg-red-50 text-red-700"
-                        : "border-emerald-200 bg-[#F0FDF4] text-[#1E8A3C]"
+                        : "border-emerald-200 bg-[var(--adm-green-soft)] text-[#1E8A3C]"
                     )}
                   >
                     {nbAlertes > 0 ? <AlertTriangle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                     {nbAlertes} alertes actives
                   </span>
                 </div>
-                <p className="text-sm text-[#6B7280]">Niveaux de marge, coussins de securite, prix affiches</p>
+                <p className="text-sm text-[var(--adm-muted)]">Niveaux de marge, coussins de securite, prix affiches</p>
               </div>
 
               <div className="flex flex-wrap gap-3">
@@ -830,7 +830,7 @@ export default function AdminPricingPage() {
               <KpiCard icon={TrendingDown} label="Produits sans prix gros" value={produitsSansPrixGros} helper="Prix catalogue utilise" tone={produitsSansPrixGros > 0 ? "amber" : "green"} />
             </section>
 
-            <section className="overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-sm">
+            <section className="overflow-hidden rounded-xl border border-[var(--adm-line)] bg-white shadow-sm">
               <div className="flex flex-col gap-2 border-b border-gray-100 p-5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-lg font-bold text-gray-950">Tableau pricing</h2>
@@ -847,18 +847,18 @@ export default function AdminPricingPage() {
                   <table className="w-full min-w-[1360px]">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Produit</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Darija</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Niveau</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Prix gros saisi</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Marge %</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Coussin %</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Prix affiche</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Promo client</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">vs Khddar</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Prix khddar reel</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Alerte</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Actions</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--adm-muted)]">Produit</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--adm-muted)]">Darija</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--adm-muted)]">Niveau</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--adm-muted)]">Prix gros saisi</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--adm-muted)]">Marge %</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--adm-muted)]">Coussin %</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--adm-muted)]">Prix affiche</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--adm-muted)]">Promo client</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--adm-muted)]">vs Khddar</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--adm-muted)]">Prix khddar reel</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--adm-muted)]">Alerte</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--adm-muted)]">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -879,7 +879,7 @@ export default function AdminPricingPage() {
                                     className="h-9 w-9 rounded-lg object-cover"
                                   />
                                 ) : (
-                                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#F0FDF4] text-lg">
+                                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--adm-green-soft)] text-lg">
                                     🥬
                                   </span>
                                 )}
@@ -905,13 +905,13 @@ export default function AdminPricingPage() {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-4 text-sm text-[#3D3D3D]">{produit.nom_darija}</td>
+                            <td className="px-4 py-4 text-sm text-[var(--adm-text)]">{produit.nom_darija}</td>
                             <td className="px-4 py-4">
                               {isEditing && editValues ? (
                                 <select
                                   value={editValues.niveau}
                                   onChange={(event) => updateEditValue("niveau", Number(event.target.value) as ProduitNiveau)}
-                                  className="w-24 rounded-lg border border-[#E5E7EB] bg-white px-2 py-2 text-sm font-semibold outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                                  className="w-24 rounded-lg border border-[var(--adm-line)] bg-white px-2 py-2 text-sm font-semibold outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
                                 >
                                   {niveauOptions.map((option) => (
                                     <option key={option} value={option}>N{option}</option>
@@ -931,10 +931,10 @@ export default function AdminPricingPage() {
                                   step="0.1"
                                   value={editValues.prix_gros_saisi}
                                   onChange={(event) => updateEditValue("prix_gros_saisi", event.target.value)}
-                                  className="w-28 rounded-lg border border-[#E5E7EB] bg-white px-2 py-2 text-sm outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                                  className="w-28 rounded-lg border border-[var(--adm-line)] bg-white px-2 py-2 text-sm outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
                                 />
                               ) : (
-                                <span className="text-sm font-semibold text-[#3D3D3D]">{formatMoney(produit.prix_gros_saisi)}</span>
+                                <span className="text-sm font-semibold text-[var(--adm-text)]">{formatMoney(produit.prix_gros_saisi)}</span>
                               )}
                             </td>
                             <td className="px-4 py-4">
@@ -946,10 +946,10 @@ export default function AdminPricingPage() {
                                   step="0.1"
                                   value={editValues.marge_cible}
                                   onChange={(event) => updateEditValue("marge_cible", event.target.value)}
-                                  className="w-24 rounded-lg border border-[#E5E7EB] bg-white px-2 py-2 text-sm outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                                  className="w-24 rounded-lg border border-[var(--adm-line)] bg-white px-2 py-2 text-sm outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
                                 />
                               ) : (
-                                <span className="text-sm font-semibold text-[#3D3D3D]">{formatPercent(produit.marge_cible)}</span>
+                                <span className="text-sm font-semibold text-[var(--adm-text)]">{formatPercent(produit.marge_cible)}</span>
                               )}
                             </td>
                             <td className="px-4 py-4">
@@ -961,10 +961,10 @@ export default function AdminPricingPage() {
                                   step="0.1"
                                   value={editValues.coussin_securite}
                                   onChange={(event) => updateEditValue("coussin_securite", event.target.value)}
-                                  className="w-24 rounded-lg border border-[#E5E7EB] bg-white px-2 py-2 text-sm outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                                  className="w-24 rounded-lg border border-[var(--adm-line)] bg-white px-2 py-2 text-sm outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
                                 />
                               ) : (
-                                <span className="text-sm font-semibold text-[#3D3D3D]">{formatPercent(produit.coussin_securite)}</span>
+                                <span className="text-sm font-semibold text-[var(--adm-text)]">{formatPercent(produit.coussin_securite)}</span>
                               )}
                             </td>
                             <td className="px-4 py-4">
@@ -976,7 +976,7 @@ export default function AdminPricingPage() {
                                   placeholder="Auto"
                                   value={editValues.prix_vente_manuel}
                                   onChange={(event) => updatePriceLinkedValue(produit, "prix_vente_manuel", event.target.value)}
-                                  className="w-28 rounded-lg border border-[#E5E7EB] bg-white px-2 py-2 text-sm font-bold text-[#1E8A3C] outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                                  className="w-28 rounded-lg border border-[var(--adm-line)] bg-white px-2 py-2 text-sm font-bold text-[#1E8A3C] outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
                                 />
                               ) : (
                                 <span className="font-bold text-[#1E8A3C]">{formatMoney(produit.prix_affiche)}</span>
@@ -992,7 +992,7 @@ export default function AdminPricingPage() {
                                     step="1"
                                     value={editValues.promo_pct}
                                     onChange={(event) => updatePromoPct(produit, event.target.value)}
-                                    className="w-20 rounded-lg border border-[#E5E7EB] bg-white px-2 py-2 text-sm font-bold text-[#F07C00] outline-none focus:border-[#F07C00] focus:ring-2 focus:ring-[#F07C00]/10"
+                                    className="w-20 rounded-lg border border-[var(--adm-line)] bg-white px-2 py-2 text-sm font-bold text-[#F07C00] outline-none focus:border-[#F07C00] focus:ring-2 focus:ring-[#F07C00]/10"
                                   />
                                   <span className="text-sm font-semibold text-gray-500">%</span>
                                 </div>
@@ -1014,7 +1014,7 @@ export default function AdminPricingPage() {
                                   placeholder="Optionnel"
                                   value={editValues.prix_khddar_reel}
                                   onChange={(event) => updatePriceLinkedValue(produit, "prix_khddar_reel", event.target.value)}
-                                  className="w-28 rounded-lg border border-[#E5E7EB] bg-white px-2 py-2 text-sm outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                                  className="w-28 rounded-lg border border-[var(--adm-line)] bg-white px-2 py-2 text-sm outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
                                 />
                               ) : (
                                 <span className="text-sm text-gray-600">{formatMoney(produit.prix_khddar_reel)}</span>
@@ -1025,7 +1025,7 @@ export default function AdminPricingPage() {
                                 <select
                                   value={editValues.volatilite}
                                   onChange={(event) => updateEditValue("volatilite", event.target.value as ProduitVolatilite)}
-                                  className="w-36 rounded-lg border border-[#E5E7EB] bg-white px-2 py-2 text-sm font-semibold outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                                  className="w-36 rounded-lg border border-[var(--adm-line)] bg-white px-2 py-2 text-sm font-semibold outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
                                 >
                                   {volatiliteOptions.map((option) => (
                                     <option key={option} value={option}>{option}</option>
@@ -1067,7 +1067,7 @@ export default function AdminPricingPage() {
                                   <button
                                     type="button"
                                     onClick={() => startEdit(produit)}
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[#1E8A3C] hover:bg-[#F0FDF4]"
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--adm-line)] bg-white text-[#1E8A3C] hover:bg-[var(--adm-green-soft)]"
                                     title="Modifier"
                                     aria-label="Modifier"
                                   >
@@ -1076,7 +1076,7 @@ export default function AdminPricingPage() {
                                   <button
                                     type="button"
                                     onClick={() => openImageModal(produit)}
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-gray-700 hover:bg-gray-50"
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--adm-line)] bg-white text-gray-700 hover:bg-gray-50"
                                     title="Photo"
                                     aria-label="Photo"
                                   >

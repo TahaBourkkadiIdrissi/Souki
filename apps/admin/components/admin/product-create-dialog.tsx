@@ -267,7 +267,7 @@ export function ProductCreateDialog({
                     event.preventDefault()
                     choosePhoto(event.dataTransfer.files?.[0] ?? null)
                   }}
-                  className="group relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 text-gray-500 transition-colors hover:border-[#1E8A3C]/50 hover:bg-[#F0FDF4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3C]/40 sm:w-[132px]"
+                  className="group relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 text-gray-500 transition-colors hover:border-[#1E8A3C]/50 hover:bg-[var(--adm-green-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3C]/40 sm:w-[132px]"
                 >
                   {photoPreview ? (
                     // eslint-disable-next-line @next/next/no-img-element -- apercu local (blob:)
@@ -324,7 +324,7 @@ export function ProductCreateDialog({
                     className={cn(
                       "min-h-11 rounded-xl border px-4 text-sm font-semibold transition-colors",
                       values.unite === unit.value
-                        ? "border-[#1E8A3C] bg-[#F0FDF4] text-[#1E8A3C]"
+                        ? "border-[#1E8A3C] bg-[var(--adm-green-soft)] text-[#1E8A3C]"
                         : "border-gray-200 text-gray-600 hover:bg-gray-50"
                     )}
                   >
@@ -365,7 +365,7 @@ export function ProductCreateDialog({
               <p
                 className={cn(
                   "rounded-xl px-3 py-2.5 text-sm sm:col-span-2",
-                  price === null ? "bg-amber-50 text-amber-700" : "bg-[#F0FDF4] text-[#14522A]"
+                  price === null ? "bg-amber-50 text-amber-700" : "bg-[var(--adm-green-soft)] text-[#14522A]"
                 )}
                 aria-live="polite"
               >
@@ -464,7 +464,7 @@ export function ProductCreateDialog({
                 type="button"
                 onClick={() => void create(true)}
                 disabled={saving}
-                className="min-h-11 rounded-xl border border-[#1E8A3C]/30 px-4 text-sm font-semibold text-[#1E8A3C] hover:bg-[#F0FDF4] disabled:opacity-60"
+                className="min-h-11 rounded-xl border border-[#1E8A3C]/30 px-4 text-sm font-semibold text-[#1E8A3C] hover:bg-[var(--adm-green-soft)] disabled:opacity-60"
               >
                 Créer et en ajouter un autre
               </button>

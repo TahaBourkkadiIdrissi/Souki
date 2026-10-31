@@ -4,9 +4,11 @@ from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session, aliased
 
+from entities.address_entity import Address
 from entities.client_entity import Client
 from entities.parrainage_entity import PARRAINAGE_CONVERTI, PARRAINAGE_EN_ATTENTE, Parrainage
 from entities.user_entity import User
+from entities.user_session_entity import UserSession
 from interfaces.parrainage_dao_interface import IParrainageDao
 
 
@@ -148,5 +150,44 @@ class ParrainageDaoBD(IParrainageDao):
             .outerjoin(filleul_user, filleul_user.id == Parrainage.filleul_id)
             .order_by(Parrainage.created_at.desc())
             .limit(limit)
+            .all()
+        )
+
+
+    def get_with_contacts(self, session: Session, parrainage_id: int) -> Optional[tuple]:
+        parrain_user = aliased(User)
+        filleul_user = aliased(User)
+        return (
+            session.query(
+                Parrainage,
+                parrain_user.phone,
+                parrain_user.email,
+                filleul_user.phone,
+                filleul_user.email,
+            )
+            .outerjoin(parrain_user, parrain_user.id == Parrainage.parrain_id)
+            .outerjoin(filleul_user, filleul_user.id == Parrainage.filleul_id)
+            .filter(Parrainage.id == parrainage_id)
+            .first()
+        )
+
+    def list_address_points(self, session: Session, user_ids: list[int]) -> list:
+        if not user_ids:
+            return []
+        return (
+            session.query(Address.user_id, Address.latitude, Address.longitude)
+            .filter(Address.user_id.in_(user_ids))
+            .filter(Address.latitude.isnot(None), Address.longitude.isnot(None))
+            .all()
+        )
+
+    def list_session_ips(self, session: Session, user_ids: list[int]) -> list:
+        if not user_ids:
+            return []
+        return (
+            session.query(UserSession.user_id, UserSession.ip)
+            .filter(UserSession.user_id.in_(user_ids))
+            .filter(UserSession.ip.isnot(None))
+            .distinct()
             .all()
         )

@@ -15,6 +15,19 @@ class ParrainageAdminItemDTO(BaseModel):
     credit_total: float = 0.0
     created_at: Optional[datetime] = None
     converted_at: Optional[datetime] = None
+    # Indices de parrainage suspect, calcules sans exposer les donnees :
+    # MEME_ADRESSE (adresses a moins de 30 m), MEME_CONNEXION (IP d'inscription du filleul
+    # vue sur une session du parrain), IP_PARTAGEE (autres filleuls du meme parrain, meme IP).
+    signaux: List[str] = []
+
+
+class ParrainageContactsDTO(BaseModel):
+    """Contacts complets d'un parrainage, renvoyes uniquement sur demande explicite (journalisee)."""
+    parrainage_id: int
+    parrain_id: int
+    parrain_contact: Optional[str] = None
+    filleul_id: int
+    filleul_contact: Optional[str] = None
 
 
 class ParrainageTopParrainDTO(BaseModel):

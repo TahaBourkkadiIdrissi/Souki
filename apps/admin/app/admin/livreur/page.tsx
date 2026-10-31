@@ -108,13 +108,13 @@ function formatMoney(value: number | null | undefined) {
 function getStatusClassName(status: string) {
   const normalizedStatus = status.toUpperCase()
   if (normalizedStatus === "A_LIVRER") {
-    return "bg-[#EAF8EC] text-[#1E8A3C] border-[#BFE6C4]"
+    return "bg-[var(--adm-green-soft)] text-[#1E8A3C] border-[#BFE6C4]"
   }
   if (normalizedStatus === "EN_ROUTE") {
     return "bg-[#EEF7FF] text-[#1A5F96] border-[#B9D7F2]"
   }
   if (normalizedStatus === "LIVRE") {
-    return "bg-[#F0FAF1] text-[#176B2E] border-[#CDE8D0]"
+    return "bg-[var(--adm-green-soft)] text-[#176B2E] border-[#CDE8D0]"
   }
   if (["ABSENT", "REFUS", "ANNULEE"].includes(normalizedStatus)) {
     return "bg-[#FFF1F1] text-[#B42318] border-[#F1C6C6]"

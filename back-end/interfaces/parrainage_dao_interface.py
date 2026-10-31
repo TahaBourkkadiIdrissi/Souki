@@ -68,3 +68,15 @@ class IParrainageDao(ABC):
     @abstractmethod
     def list_recent_with_contacts(self, session: Session, limit: int = 100) -> list:
         pass
+
+    @abstractmethod
+    def get_with_contacts(self, session: Session, parrainage_id: int) -> Optional[tuple]:
+        pass
+
+    @abstractmethod
+    def list_address_points(self, session: Session, user_ids: list[int]) -> list:
+        pass
+
+    @abstractmethod
+    def list_session_ips(self, session: Session, user_ids: list[int]) -> list:
+        pass

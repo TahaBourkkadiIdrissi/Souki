@@ -134,8 +134,8 @@ export default function AdminZonesPage() {
       <div className="max-w-5xl">
         <header className="mb-6 flex items-center gap-3">
           <div className="flex-1">
-            <h1 className="text-xl font-black text-[#264129]">Zones de livraison</h1>
-            <p className="text-sm text-[#6F8070]">Définissez les zones desservies depuis le point Souki.</p>
+            <h1 className="text-xl font-black text-[var(--adm-text)]">Zones de livraison</h1>
+            <p className="text-sm text-[var(--adm-muted)]">Définissez les zones desservies depuis le point Souki.</p>
           </div>
           <button onClick={() => void loadData()} aria-label="Actualiser" className="rounded-lg border border-[var(--adm-line)] bg-white p-2 transition-colors hover:bg-[var(--adm-green-soft)]">
             <RefreshCw className="h-4 w-4 text-[#1E8A3C]" />
@@ -144,25 +144,25 @@ export default function AdminZonesPage() {
 
         {error && <div className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{error}</div>}
 
-        <form onSubmit={submitZone} className="mb-6 rounded-2xl border border-[#DDEBDD] bg-white p-5 shadow-sm">
+        <form onSubmit={submitZone} className="mb-6 rounded-2xl border border-[var(--adm-line)] bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 font-black text-[#264129]">
+            <h2 className="flex items-center gap-2 font-black text-[var(--adm-text)]">
               <Plus className="h-4 w-4 text-[#1E8A3C]" />
               {editingId ? "Modifier la zone" : "Créer une zone"}
             </h2>
             {editingId && (
-              <button type="button" onClick={resetForm} className="rounded-lg p-1 text-[#6F8070]">
+              <button type="button" onClick={resetForm} className="rounded-lg p-1 text-[var(--adm-muted)]">
                 <X className="h-4 w-4" />
               </button>
             )}
           </div>
 
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            <input required value={form.nom_ville} onChange={(e) => setForm({ ...form, nom_ville: e.target.value })} placeholder="Ville / nom de zone" className="rounded-xl border border-[#DDEBDD] px-3 py-2.5 text-sm outline-none focus:border-[#1E8A3C]" />
-            <input required type="number" step="any" min="-90" max="90" value={form.lat_centre} onChange={(e) => setForm({ ...form, lat_centre: e.target.value })} placeholder="Latitude du centre" className="rounded-xl border border-[#DDEBDD] px-3 py-2.5 text-sm outline-none focus:border-[#1E8A3C]" />
-            <input required type="number" step="any" min="-180" max="180" value={form.lng_centre} onChange={(e) => setForm({ ...form, lng_centre: e.target.value })} placeholder="Longitude du centre" className="rounded-xl border border-[#DDEBDD] px-3 py-2.5 text-sm outline-none focus:border-[#1E8A3C]" />
-            <input required type="number" step="0.1" min="0.1" max="500" value={form.rayon_km} onChange={(e) => setForm({ ...form, rayon_km: e.target.value })} placeholder="Rayon (km)" className="rounded-xl border border-[#DDEBDD] px-3 py-2.5 text-sm outline-none focus:border-[#1E8A3C]" />
-            <label className="flex items-center gap-2 rounded-xl border border-[#DDEBDD] px-3 py-2.5 text-sm font-bold text-[#264129]">
+            <input required value={form.nom_ville} onChange={(e) => setForm({ ...form, nom_ville: e.target.value })} placeholder="Ville / nom de zone" className="rounded-xl border border-[var(--adm-line)] px-3 py-2.5 text-sm outline-none focus:border-[#1E8A3C]" />
+            <input required type="number" step="any" min="-90" max="90" value={form.lat_centre} onChange={(e) => setForm({ ...form, lat_centre: e.target.value })} placeholder="Latitude du centre" className="rounded-xl border border-[var(--adm-line)] px-3 py-2.5 text-sm outline-none focus:border-[#1E8A3C]" />
+            <input required type="number" step="any" min="-180" max="180" value={form.lng_centre} onChange={(e) => setForm({ ...form, lng_centre: e.target.value })} placeholder="Longitude du centre" className="rounded-xl border border-[var(--adm-line)] px-3 py-2.5 text-sm outline-none focus:border-[#1E8A3C]" />
+            <input required type="number" step="0.1" min="0.1" max="500" value={form.rayon_km} onChange={(e) => setForm({ ...form, rayon_km: e.target.value })} placeholder="Rayon (km)" className="rounded-xl border border-[var(--adm-line)] px-3 py-2.5 text-sm outline-none focus:border-[#1E8A3C]" />
+            <label className="flex items-center gap-2 rounded-xl border border-[var(--adm-line)] px-3 py-2.5 text-sm font-bold text-[var(--adm-text)]">
               <input type="checkbox" checked={form.actif} onChange={(e) => setForm({ ...form, actif: e.target.checked })} />
               Zone active
             </label>
@@ -174,28 +174,28 @@ export default function AdminZonesPage() {
         </form>
 
         {loading ? (
-          <div className="h-40 animate-pulse rounded-2xl bg-[#DDEBDD]" />
+          <div className="h-40 animate-pulse rounded-2xl bg-[var(--adm-line)]" />
         ) : zones.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[#DDEBDD] bg-white py-14 text-center">
+          <div className="rounded-2xl border border-dashed border-[var(--adm-line)] bg-white py-14 text-center">
             <MapPinned className="mx-auto mb-2 h-9 w-9 text-[#A9B8AA]" />
-            <p className="font-bold text-[#6F8070]">Aucune zone configurée.</p>
+            <p className="font-bold text-[var(--adm-muted)]">Aucune zone configurée.</p>
           </div>
         ) : (
           <div className="grid gap-3 md:grid-cols-2">
             {zones.map((zone) => (
-              <article key={zone.id} className="rounded-2xl border border-[#DDEBDD] bg-white p-4 shadow-sm">
+              <article key={zone.id} className="rounded-2xl border border-[var(--adm-line)] bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h2 className="font-black capitalize text-[#264129]">{zone.nom_ville}</h2>
-                    <p className="text-xs text-[#6F8070]">{zone.lat_centre}, {zone.lng_centre} · rayon {zone.rayon_km} km</p>
+                    <h2 className="font-black capitalize text-[var(--adm-text)]">{zone.nom_ville}</h2>
+                    <p className="text-xs text-[var(--adm-muted)]">{zone.lat_centre}, {zone.lng_centre} · rayon {zone.rayon_km} km</p>
                     <p className="mt-2 text-sm font-bold text-[#1E8A3C]">Point de ramassage Souki</p>
                   </div>
                   <span className={`rounded-lg px-2 py-1 text-xs font-bold ${zone.actif ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>
                     {zone.actif ? "Active" : "Inactive"}
                   </span>
                 </div>
-                <div className="mt-3 flex gap-2 border-t border-[#DDEBDD] pt-3">
-                  <button onClick={() => editZone(zone)} className="inline-flex items-center gap-1 rounded-lg bg-[#EAF8EC] px-3 py-1.5 text-xs font-bold text-[#1E8A3C]">
+                <div className="mt-3 flex gap-2 border-t border-[var(--adm-line)] pt-3">
+                  <button onClick={() => editZone(zone)} className="inline-flex items-center gap-1 rounded-lg bg-[var(--adm-green-soft)] px-3 py-1.5 text-xs font-bold text-[#1E8A3C]">
                     <Pencil className="h-3.5 w-3.5" /> Modifier
                   </button>
                   {zone.actif && (

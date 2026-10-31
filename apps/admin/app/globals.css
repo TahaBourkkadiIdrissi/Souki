@@ -2211,10 +2211,122 @@ html {
 .adm-stagger > *:nth-child(6) { animation-delay: 150ms; }
 .adm-stagger > *:nth-child(n + 7) { animation-delay: 180ms; }
 
+/* Gris de l'admin teintes olive : toutes les classes gray-* des pages suivent la palette du cadre. */
+@theme {
+  --color-gray-50: #F6F8F5;
+  --color-gray-100: #EDF1EB;
+  --color-gray-200: #DCE5DA;
+  --color-gray-300: #C5D3C3;
+  --color-gray-400: #93A494;
+  --color-gray-500: #5E6F61;
+  --color-gray-600: #4B5B4E;
+  --color-gray-700: #38463B;
+  --color-gray-800: #27332A;
+  --color-gray-900: #1B2A1F;
+  --color-gray-950: #122017;
+}
+
+/* Les clics ne sont pas perdus pendant une transition de page. */
+::view-transition { pointer-events: none; }
+
+/* Indicateur du menu : il glisse de l'ancienne rubrique a la nouvelle, c'est le seul mouvement "signature". */
+::view-transition-group(.adm-morph) {
+  animation-duration: 380ms;
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  z-index: 60;
+}
+::view-transition-old(.adm-morph) { animation: none; opacity: 0; }
+::view-transition-new(.adm-morph) { animation: none; }
+
+/* Titre de l'en-tete : l'ancien part, le nouveau arrive dans le sens de la navigation. */
+@keyframes adm-title-in-down { from { opacity: 0; transform: translateY(8px); } }
+@keyframes adm-title-out-down { to { opacity: 0; transform: translateY(-6px); } }
+@keyframes adm-title-in-up { from { opacity: 0; transform: translateY(-8px); } }
+@keyframes adm-title-out-up { to { opacity: 0; transform: translateY(6px); } }
+::view-transition-old(.adm-title-down) { animation: 120ms ease-in both adm-title-out-down; }
+::view-transition-new(.adm-title-down) { animation: 260ms var(--adm-ease) 50ms both adm-title-in-down; }
+::view-transition-old(.adm-title-up) { animation: 120ms ease-in both adm-title-out-up; }
+::view-transition-new(.adm-title-up) { animation: 260ms var(--adm-ease) 50ms both adm-title-in-up; }
+
+/* Barre de chargement sous l'en-tete. Elle n'apparait qu'apres 150 ms pour ne pas clignoter. */
+.adm-progress {
+  position: absolute;
+  inset: auto 0 -1px 0;
+  height: 2px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+.adm-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--adm-saffron) 40%, var(--adm-green));
+  transform: translateX(-100%);
+}
+.adm-progress[data-active] { opacity: 1; transition-delay: 150ms; }
+.adm-progress[data-active]::after { animation: adm-progress-run 1.1s var(--adm-ease) infinite; }
+@keyframes adm-progress-run { to { transform: translateX(260%); } }
+
+/* Retour immediat sous le doigt : les boutons s'enfoncent legerement quand on appuie. */
+@layer base {
+  .adm-content button:not(:disabled) {
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    transition-duration: 150ms;
+  }
+  .adm-content button:not(:disabled):active { transform: scale(0.97); }
+
+  .adm-content :is(input, select, textarea):not([type="checkbox"], [type="radio"], [type="range"]) {
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+  .adm-content :is(input, select, textarea):not([type="checkbox"], [type="radio"], [type="range"]):focus {
+    border-color: var(--adm-green);
+    box-shadow: 0 0 0 3px rgb(30 138 60 / 0.14);
+    outline: none;
+  }
+
+  /* Lignes de tableau : survol discret pour suivre une ligne a l'oeil. */
+  .adm-content tbody tr { transition: background-color 120ms ease; }
+  .adm-content tbody tr:hover { background-color: rgb(230 242 231 / 0.45); }
+
+  .adm-content table thead th { color: var(--adm-muted); letter-spacing: 0; }
+}
+
+/* Modales et menus : la fenetre monte de quelques pixels en apparaissant. */
+[data-slot="dialog-overlay"],
+[data-slot="alert-dialog-overlay"] {
+  background: rgb(22 48 31 / 0.42);
+  backdrop-filter: blur(3px);
+}
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"] {
+  border-color: var(--adm-line);
+  box-shadow: 0 28px 70px -24px rgb(22 48 31 / 0.5);
+  --tw-enter-translate-y: 8px;
+  --tw-exit-translate-y: 4px;
+}
+
+.adm-scroll-light::-webkit-scrollbar { width: 8px; }
+.adm-scroll-light::-webkit-scrollbar-thumb { background: var(--adm-line-strong); border-radius: 8px; }
+
+/* Notifications (sonner) aux couleurs de l'admin. */
+[data-sonner-toaster] {
+  --normal-bg: var(--adm-surface);
+  --normal-text: var(--adm-text);
+  --normal-border: var(--adm-line);
+  font-family: inherit;
+}
+[data-sonner-toast] { border-radius: 14px; box-shadow: 0 14px 34px -16px rgb(22 48 31 / 0.4); }
+
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*),
   ::view-transition-old(*),
   ::view-transition-new(*) { animation: none !important; }
   .adm-stagger > * { animation: none !important; }
   .adm-day-marker { transition: none; }
+  .adm-progress[data-active]::after { animation: none; transform: none; width: 100%; }
+  .adm-content button:not(:disabled):active { transform: none; }
 }

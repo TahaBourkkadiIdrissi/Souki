@@ -2,13 +2,14 @@
 "use client"
 
 import { useEffect, useMemo, useState, ViewTransition, type ReactNode } from "react"
-import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LogOut, Menu, RefreshCcw, X } from "lucide-react"
+import { LogOut, Menu, RefreshCcw, Search, X } from "lucide-react"
 
+import { AdminCommandPalette } from "@/components/admin/admin-command-palette"
+import { AdminLink, AdminNavigationProvider, useAdminNavigation } from "@/components/admin/admin-link"
 import { SoukiLogo } from "@/components/souki/souki-logo"
 import { useAuth } from "@/hooks/useAuth"
-import { ADMIN_NAV, ADMIN_NAV_ITEMS, findAdminNavItem } from "@/lib/admin-nav"
+import { ADMIN_NAV, findAdminNavItem } from "@/lib/admin-nav"
 import { cn } from "@/lib/utils"
 
 const MOROCCO_TZ = "Africa/Casablanca"
@@ -79,10 +80,10 @@ function DayTimeline() {
   )
 }
 
-function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+/** `morph` : seule la barre laterale de bureau fait glisser l'indicateur d'une rubrique a l'autre. */
+function SidebarContent({ pathname, onNavigate, morph = false }: { pathname: string; onNavigate?: () => void; morph?: boolean }) {
   const { can, user, logout } = useAuth()
   const current = findAdminNavItem(pathname)
-  const currentIndex = ADMIN_NAV_ITEMS.findIndex((item) => item.href === current?.href)
   const groups = useMemo(
     () => ADMIN_NAV.map((group) => ({ ...group, items: group.items.filter((item) => can(item.permission)) })).filter((group) => group.items.length),
     [can],
@@ -96,9 +97,9 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
   return (
     <div className="flex h-full flex-col">
       <div className="px-5 pb-5 pt-5">
-        <Link href="/admin" onClick={onNavigate} className="inline-flex rounded-xl bg-white px-3 py-2 shadow-sm">
+        <AdminLink href="/admin" onNavigate={onNavigate} aria-label="Tableau de bord" className="inline-flex rounded-xl bg-white px-3 py-2 shadow-sm transition-transform duration-150 active:scale-[0.97]">
           <SoukiLogo height={30} priority />
-        </Link>
+        </AdminLink>
         <p className="mt-3 text-xs text-white/55">Back-office du marché de Fès</p>
       </div>
       <nav className="adm-scroll flex-1 space-y-5 overflow-y-auto px-3 pb-4" aria-label="Navigation admin">
@@ -108,29 +109,28 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
             <ul className="space-y-0.5">
               {group.items.map((item) => {
                 const active = item.href === current?.href
-                const index = ADMIN_NAV_ITEMS.findIndex((entry) => entry.href === item.href)
+                const indicator = (
+                  <span className="absolute inset-0 rounded-lg bg-white/[0.12]" aria-hidden="true">
+                    <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-[var(--adm-saffron)]" />
+                  </span>
+                )
                 return (
                   <li key={item.href}>
-                    <Link
+                    <AdminLink
                       href={item.href}
-                      onClick={onNavigate}
-                      transitionTypes={[index >= currentIndex ? "adm-down" : "adm-up"]}
+                      onNavigate={onNavigate}
                       aria-current={active ? "page" : undefined}
                       className={cn(
-                        "group relative flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm transition-colors duration-150",
-                        active ? "bg-white/[0.12] font-semibold text-white" : "text-white/70 hover:bg-white/[0.06] hover:text-white",
+                        "group relative flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition-[color,background-color,transform] duration-150 active:scale-[0.985]",
+                        active ? "font-semibold text-white" : "text-white/70 hover:bg-white/[0.06] hover:text-white",
                       )}
                     >
-                      <span
-                        className={cn(
-                          "absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-[var(--adm-saffron)] transition-opacity",
-                          active ? "opacity-100" : "opacity-0",
-                        )}
-                        aria-hidden="true"
-                      />
-                      <item.icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-[#8FD49B]" : "text-white/55 group-hover:text-white/80")} aria-hidden="true" />
-                      {item.label}
-                    </Link>
+                      {active && (morph
+                        ? <ViewTransition name="adm-nav-indicator" share="adm-morph" default="none">{indicator}</ViewTransition>
+                        : indicator)}
+                      <item.icon className={cn("relative h-[18px] w-[18px] shrink-0 transition-colors", active ? "text-[#8FD49B]" : "text-white/55 group-hover:text-white/80")} aria-hidden="true" />
+                      <span className="relative">{item.label}</span>
+                    </AdminLink>
                   </li>
                 )
               })}
@@ -156,10 +156,28 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
   )
 }
 
+/** Barre de progression fine sous l'en-tete pendant le chargement d'une page. */
+function NavigationProgress() {
+  const { pending } = useAdminNavigation()
+  return <div className="adm-progress" data-active={pending || undefined} aria-hidden="true" />
+}
+
 export function AdminShell({ children }: { children: ReactNode }) {
+  return (
+    <AdminNavigationProvider>
+      <AdminFrame>{children}</AdminFrame>
+    </AdminNavigationProvider>
+  )
+}
+
+function AdminFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [isMac, setIsMac] = useState(false)
   const current = findAdminNavItem(pathname)
+
+  useEffect(() => { setIsMac(/Mac|iPhone|iPad/.test(navigator.userAgent)) }, [])
 
   useEffect(() => {
     if (!drawerOpen) return
@@ -171,7 +189,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   return (
     <div className="adm-body min-h-screen lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
       <aside className="sticky top-0 hidden h-screen bg-[var(--adm-ink)] lg:block">
-        <SidebarContent pathname={pathname} />
+        <SidebarContent pathname={pathname} morph />
       </aside>
 
       {drawerOpen && (
@@ -193,12 +211,31 @@ export function AdminShell({ children }: { children: ReactNode }) {
               className="rounded-lg p-2 text-[var(--adm-text)] hover:bg-[var(--adm-line)] lg:hidden">
               <Menu className="h-5 w-5" />
             </button>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[15px] font-semibold text-[var(--adm-text)]">{current?.label ?? "Back-office"}</p>
-              {current?.description && <p className="truncate text-xs text-[var(--adm-muted)]">{current.description}</p>}
-            </div>
+            <ViewTransition
+              key={current?.href ?? pathname}
+              enter={{ "adm-down": "adm-title-down", "adm-up": "adm-title-up", default: "adm-title-down" }}
+              exit={{ "adm-down": "adm-title-down", "adm-up": "adm-title-up", default: "adm-title-down" }}
+              default="none"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[15px] font-semibold text-[var(--adm-text)]">{current?.label ?? "Back-office"}</p>
+                {current?.description && <p className="truncate text-xs text-[var(--adm-muted)]">{current.description}</p>}
+              </div>
+            </ViewTransition>
+            <button
+              type="button"
+              onClick={() => setPaletteOpen(true)}
+              aria-label="Aller à une page"
+              aria-keyshortcuts="Control+K Meta+K"
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-[var(--adm-line)] bg-[var(--adm-surface)] px-3 text-sm text-[var(--adm-muted)] transition-[border-color,color,transform] duration-150 hover:border-[var(--adm-line-strong)] hover:text-[var(--adm-text)] active:scale-[0.97]"
+            >
+              <Search className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden xl:inline">Aller à…</span>
+              <kbd className="hidden rounded-md bg-[var(--adm-paper)] px-1.5 py-0.5 text-[11px] font-semibold sm:inline">{isMac ? "⌘" : "Ctrl"} K</kbd>
+            </button>
             <DayTimeline />
           </div>
+          <NavigationProgress />
         </header>
         <main className="min-w-0 flex-1">
           <ViewTransition
@@ -211,6 +248,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </ViewTransition>
         </main>
       </div>
+      <AdminCommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
     </div>
   )
 }

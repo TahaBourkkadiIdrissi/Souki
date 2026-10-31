@@ -107,7 +107,7 @@ function KpiCard({
   tone?: "green" | "orange" | "blue" | "red"
 }) {
   const toneClasses = {
-    green: "bg-[#F0FAF1] text-[#1E8A3C] border-emerald-100",
+    green: "bg-[var(--adm-green-soft)] text-[#1E8A3C] border-emerald-100",
     orange: "bg-orange-50 text-[#F07C00] border-orange-100",
     blue: "bg-blue-50 text-[#1A4F8A] border-blue-100",
     red: "bg-red-50 text-red-700 border-red-100",
@@ -160,7 +160,7 @@ function TableSkeleton({ rows = 6, columns = 8 }: { rows?: number; columns?: num
 function EmptyState() {
   return (
     <div className="px-6 py-16 text-center">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F0FAF1] text-[#1E8A3C]">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--adm-green-soft)] text-[#1E8A3C]">
         <Users className="h-6 w-6" />
       </div>
       <p className="mt-4 text-base font-semibold text-gray-950">Aucun client trouve</p>
@@ -338,7 +338,7 @@ export default function AdminClientsPage() {
         <div className="flex min-h-16 flex-wrap items-center justify-between gap-4 px-4 py-3 lg:px-8">
           <div className="flex min-w-0 items-center gap-4">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F0FDF4] text-[#1E8A3C]">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--adm-green-soft)] text-[#1E8A3C]">
                 <Users className="h-5 w-5" />
               </div>
               <div className="min-w-0">
@@ -387,12 +387,12 @@ export default function AdminClientsPage() {
 
             <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
               <label className="relative block w-full lg:w-80">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8A8A8A]" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--adm-muted)]" />
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Rechercher nom ou telephone..."
-                  className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm text-[#3D3D3D] outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
+                  className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm text-[var(--adm-text)] outline-none focus:border-[#1E8A3C] focus:ring-2 focus:ring-[#1E8A3C]/10"
                 />
               </label>
             </div>
@@ -407,13 +407,13 @@ export default function AdminClientsPage() {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Client</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Téléphone</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Nb commandes</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Montant total</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Mode paiement favori</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Date inscription</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-[#8A8A8A]">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--adm-muted)]">Client</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--adm-muted)]">Téléphone</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--adm-muted)]">Nb commandes</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--adm-muted)]">Montant total</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--adm-muted)]">Mode paiement favori</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--adm-muted)]">Date inscription</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--adm-muted)]">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -427,25 +427,25 @@ export default function AdminClientsPage() {
                       <Fragment key={client.client_id}>
                         <tr
                           onClick={() => void handleToggleClientSheet(client)}
-                          className={cn("cursor-pointer transition-colors duration-100 hover:bg-gray-50 animate-cascade", isClientOpen && "bg-[#F8FBF8]")}
+                          className={cn("cursor-pointer transition-colors duration-100 hover:bg-gray-50 animate-cascade", isClientOpen && "bg-[var(--adm-paper)]")}
                           style={{ "--cascade-i": Math.min(clientIndex, 10) } as CSSProperties}
                         >
-                          <td className="px-6 py-4 text-sm text-[#3D3D3D]">
+                          <td className="px-6 py-4 text-sm text-[var(--adm-text)]">
                             <div className="flex items-center gap-3">
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F0FDF4] text-[#1E8A3C]">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--adm-green-soft)] text-[#1E8A3C]">
                                 <User className="h-4 w-4" />
                               </div>
                               <div>
                                 <p className="font-semibold text-gray-950">{getClientLabel(client)}</p>
-                                <p className="text-xs text-[#8A8A8A]">Client #{client.client_id}</p>
+                                <p className="text-xs text-[var(--adm-muted)]">Client #{client.client_id}</p>
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-sm text-[#3D3D3D]">{emptyValue(client.phone)}</td>
+                          <td className="px-6 py-4 text-sm text-[var(--adm-text)]">{emptyValue(client.phone)}</td>
                           <td className="px-6 py-4 text-sm font-semibold text-[#1E8A3C]">{client.nb_commandes}</td>
                           <td className="px-6 py-4 text-sm font-semibold text-[#F07C00]">{formatMoney(client.montant_total)}</td>
-                          <td className="px-6 py-4 text-sm text-[#3D3D3D]">{emptyValue(client.mode_paiement_favori)}</td>
-                          <td className="px-6 py-4 text-sm text-[#3D3D3D]">{formatDate(client.date_inscription)}</td>
+                          <td className="px-6 py-4 text-sm text-[var(--adm-text)]">{emptyValue(client.mode_paiement_favori)}</td>
+                          <td className="px-6 py-4 text-sm text-[var(--adm-text)]">{formatDate(client.date_inscription)}</td>
                           <td className="px-6 py-4">
                             <div className="flex flex-wrap items-center gap-2">
                               <button
@@ -455,7 +455,7 @@ export default function AdminClientsPage() {
                                   void handleToggleClientSheet(client)
                                 }}
                                 disabled={isFicheLoading}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-1.5 text-xs font-semibold text-[#1E8A3C] shadow-sm transition-all duration-150 hover:border-[#1E8A3C] hover:bg-[#1E8A3C] hover:text-white hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-[#BBF7D0] bg-[var(--adm-green-soft)] px-3 py-1.5 text-xs font-semibold text-[#1E8A3C] shadow-sm transition-all duration-150 hover:border-[#1E8A3C] hover:bg-[#1E8A3C] hover:text-white hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
                               >
                                 {isFicheLoading ? <Spinner className="size-4 text-[#1E8A3C]" /> : <User className="h-3.5 w-3.5" />}
                                 {isClientOpen ? "Masquer fiche" : "Fiche client"}
@@ -477,7 +477,7 @@ export default function AdminClientsPage() {
                         </tr>
 
                         {isClientOpen ? (
-                          <tr className="bg-[#F8FBF8]">
+                          <tr className="bg-[var(--adm-paper)]">
                             <td colSpan={7} className="px-6 py-4">
                               {isFicheLoading ? (
                                 <div className="flex items-center justify-center gap-3 rounded-2xl border border-gray-100 bg-white py-8">

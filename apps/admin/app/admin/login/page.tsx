@@ -40,7 +40,7 @@ function AdminLoginContent() {
   }
 
   return (
-    <div className="min-h-screen flex bg-[#F5F5F0]">
+    <div className="min-h-screen flex bg-[var(--adm-paper)]">
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#1E8A3C] via-[#145428] to-[#0F2D16] p-12 flex-col justify-between relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-16 left-16 h-40 w-40 rounded-full bg-white blur-3xl" />
@@ -69,12 +69,12 @@ function AdminLoginContent() {
       </div>
 
       <div className="flex-1 flex items-center justify-center px-6 py-12">
-        <div className="w-full max-w-md rounded-[32px] border border-[#DDE7DE] bg-white p-8 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.25)]">
+        <div className="w-full max-w-md rounded-[32px] border border-[var(--adm-line)] bg-white p-8 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.25)]">
           <SoukiLogoLink variant="secondary" height={104} priority className="mb-6 lg:hidden" />
           <div className="mb-8">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#6E8B73]">Back-office</p>
+            <p className="text-xs font-semibold text-[#6E8B73]">Back-office</p>
             <h2 className="mt-2 text-3xl font-bold text-[#223126]">Connexion admin</h2>
-            <p className="mt-3 text-sm leading-6 text-[#677669]">
+            <p className="mt-3 text-sm leading-6 text-[var(--adm-muted)]">
               Aucun acces admin n&apos;est expose sur la page publique. Cette entree est reservee aux comptes autorises.
             </p>
           </div>
@@ -88,9 +88,9 @@ function AdminLoginContent() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-[#334438] mb-2">Email ou téléphone</label>
+              <label className="block text-sm font-medium text-[var(--adm-text)] mb-2">Email ou téléphone</label>
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--adm-muted)]" />
                 <input
                   type="text"
                   value={loginId}
@@ -103,9 +103,9 @@ function AdminLoginContent() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[#334438] mb-2">Mot de passe</label>
+              <label className="block text-sm font-medium text-[var(--adm-text)] mb-2">Mot de passe</label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--adm-muted)]" />
                 <input
                   type={showPassword ? "text" : "password"}
                   value={password}
@@ -117,7 +117,7 @@ function AdminLoginContent() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((value) => !value)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8A8A8A] hover:text-[#3D3D3D]"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--adm-muted)] hover:text-[var(--adm-text)]"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -143,7 +143,7 @@ export default function AdminLoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center">
+        <div className="min-h-screen bg-[var(--adm-paper)] flex items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-[#1E8A3C]" />
         </div>
       }
