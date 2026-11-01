@@ -16,6 +16,9 @@ export interface WalletState {
   is_activated: boolean
   balance_centimes: number
   solde_centimes: number
+  // Credit offert (parrainage) et argent rembourse : seul le credit offert se perd sur un refus a la porte.
+  solde_offert_centimes?: number
+  solde_rembourse_centimes?: number
   wallet_code_masked: string | null
   wallet_identifier: string | null
   transactions: WalletTransaction[]

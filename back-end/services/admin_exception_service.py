@@ -17,7 +17,11 @@ from entities.client_entity import Client
 from entities.commande_entity import Commande
 from entities.fournisseur_entity import Fournisseur
 from entities.user_entity import User
+from dao.souki_wallet_dao import SoukiWalletDaoBD
+from interfaces.souki_wallet_service_interface import ISoukiWalletService
 from services.commande_state_machine import CommandeTransitionError, TRANSITIONS, changer_statut
+from services.order_payment import is_wallet_mode, order_offert_share, order_wallet_share
+from services.souki_wallet_service import SoukiWalletService
 from services.date_utils import today_morocco
 from services.order_schedule import delivery_date_for_order, local_now
 
@@ -28,8 +32,9 @@ PENDING_STATUSES = {"EN_ATTENTE", "CONFIRMEE"}
 
 
 class AdminExceptionService:
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, souki_wallet_service: Optional[ISoukiWalletService] = None) -> None:
         self.session = session
+        self.souki_wallet_service = souki_wallet_service or SoukiWalletService(SoukiWalletDaoBD())
 
     @staticmethod
     def detect_raisons(
@@ -196,6 +201,8 @@ class AdminExceptionService:
             commande.tournee_id = None
             commande.ordre_passage = None
             commande.livreur_id = None
+            if target_status == "ANNULEE":
+                self._refund_wallet_share(commande)
             if target_status == "EN_ATTENTE":
                 now = local_now()
                 # After closure, a replanification belongs to the next purchase batch.
@@ -217,6 +224,22 @@ class AdminExceptionService:
         except Exception as exc:
             self.session.rollback()
             raise HTTPException(status_code=500, detail="Erreur lors du changement de statut.") from exc
+
+    def _refund_wallet_share(self, commande: Commande) -> None:
+        """Annulation par l'admin : la part payee par le Wallet revient au client.
+        La commande repasse a 0 DH de Wallet, pour qu'une remise en attente fasse tout encaisser a la porte."""
+        share = order_wallet_share(commande)
+        if share <= 0 or commande.client_id is None:
+            return
+        wallet = self.souki_wallet_service.get_or_create_wallet(int(commande.client_id), session=self.session)
+        self.souki_wallet_service.credit_wallet(
+            self.session, wallet=wallet, amount=share, transaction_type="CREDIT_ANNULATION",
+            offert_amount=order_offert_share(commande),
+        )
+        commande.montant_wallet = 0.0
+        commande.montant_wallet_offert = 0.0
+        if is_wallet_mode(commande.mode_paiement):
+            commande.mode_paiement = "cod"
 
     def _get_commande_for_update(self, commande_id: int) -> Commande:
         commande = (

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import {
   ChevronDown,
+  Gift,
   History,
   LogOut,
   Menu,
@@ -19,10 +20,12 @@ import {
 
 import { User } from "@/contexts/auth-context"
 import { useAuth } from "@/hooks/useAuth"
+import { useLocale } from "@/contexts/locale-context"
 import { useProfile } from "@/hooks/useProfile"
 import { cn } from "@/lib/utils"
 
 export function ProfileDropdown({ user }: { user: User }) {
+  const { t, zoneProps } = useLocale()
   const [isOpen, setIsOpen] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [photoVersion, setPhotoVersion] = useState(
@@ -102,7 +105,7 @@ export function ProfileDropdown({ user }: { user: User }) {
       : "U"
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div {...zoneProps} className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen((current) => !current)}
         aria-expanded={isOpen}
@@ -147,7 +150,7 @@ export function ProfileDropdown({ user }: { user: User }) {
                   <span className="truncate">{roleLabel}</span>
                 </div>
                 <p className="mt-2 truncate text-sm font-bold text-[#264129]">{user.email || user.phone}</p>
-                <p className="mt-0.5 text-xs font-medium text-[#6F8070]">Compte Souki actif</p>
+                <p className="mt-0.5 text-xs font-medium text-[#6F8070]">{t("Compte Souki actif")}</p>
               </div>
             </div>
           </div>
@@ -156,13 +159,13 @@ export function ProfileDropdown({ user }: { user: User }) {
 
             <button
               onClick={() => navigateTo("/parametres/compte")}
-              className="group flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all hover:bg-[#F0FAF1]"
+              className="group flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-start transition-all hover:bg-[#F0FAF1]"
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EAF8EC] text-[#1E8A3C] transition-transform group-hover:scale-105">
                 <UserIcon size={18} />
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-black text-[#264129]">Mon profil</span>
+                <span className="block text-sm font-black text-[#264129]">{t("Mon profil")}</span>
                 <span className="block text-xs font-medium text-[#7B8B7D]">
                   Photo, adresse et informations personnelles
                 </span>
@@ -171,13 +174,13 @@ export function ProfileDropdown({ user }: { user: User }) {
 
             <button
               onClick={() => navigateTo("/wallet")}
-              className="group flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all hover:bg-[#F0FAF1]"
+              className="group flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-start transition-all hover:bg-[#F0FAF1]"
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#1E8A3C] to-[#4CB84A] text-white shadow-inner transition-transform group-hover:scale-105">
                 <Wallet size={18} />
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-black text-[#264129]">Mon Wallet</span>
+                <span className="block text-sm font-black text-[#264129]">{t("Mon Wallet")}</span>
                 <span className="block text-xs font-medium text-[#7B8B7D]">
                   Gérer votre solde et transactions
                 </span>
@@ -185,27 +188,40 @@ export function ProfileDropdown({ user }: { user: User }) {
             </button>
 
             <button
+              onClick={() => navigateTo("/parrainage")}
+              className="group flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-start transition-all hover:bg-[#F0FAF1]"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FFF1E2] text-[#F07C00] transition-transform group-hover:scale-105">
+                <Gift size={18} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-black text-[#264129]">{t("Parrainage")}</span>
+                <span className="block text-xs font-medium text-[#7B8B7D]">{t("Invitez vos proches")}</span>
+              </span>
+            </button>
+
+            <button
               onClick={() => navigateTo("/parametres/notifications")}
-              className="group flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all hover:bg-[#F0FAF1]"
+              className="group flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-start transition-all hover:bg-[#F0FAF1]"
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FFF7EE] text-[#F07C00] transition-transform group-hover:scale-105">
                 <Settings size={18} />
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-black text-[#264129]">Paramètres</span>
-                <span className="block text-xs font-medium text-[#7B8B7D]">Notifications, sécurité et paiement</span>
+                <span className="block text-sm font-black text-[#264129]">{t("Paramètres")}</span>
+                <span className="block text-xs font-medium text-[#7B8B7D]">{t("Notifications, sécurité et paiement")}</span>
               </span>
             </button>
 
             <button
               onClick={() => navigateTo("/historique")}
-              className="group flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all hover:bg-[#F0FAF1]"
+              className="group flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-start transition-all hover:bg-[#F0FAF1]"
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F7F8F5] text-[#607061] transition-transform group-hover:scale-105">
                 <History size={18} />
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-black text-[#264129]">Historique</span>
+                <span className="block text-sm font-black text-[#264129]">{t("Historique")}</span>
                 <span className="block text-xs font-medium text-[#7B8B7D]">
                   Commandes validées et produits consultés
                 </span>
@@ -216,24 +232,24 @@ export function ProfileDropdown({ user }: { user: User }) {
 
             <button
               onClick={handleSwitchAccount}
-              className="group flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all hover:bg-[#F0FAF1]"
+              className="group flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-start transition-all hover:bg-[#F0FAF1]"
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EAF2FF] text-[#1A73E8] transition-transform group-hover:scale-105">
                 <RefreshCcw size={17} />
               </span>
-              <span className="text-sm font-black text-[#264129]">Changer de compte</span>
+              <span className="text-sm font-black text-[#264129]">{t("Changer de compte")}</span>
             </button>
 
             <button
               onClick={handleLogout}
-              className="group flex min-h-12 w-full items-center gap-3 rounded-2xl border border-red-100 bg-red-50/70 px-3 py-2.5 text-left transition-all hover:bg-red-100"
+              className="group flex min-h-12 w-full items-center gap-3 rounded-2xl border border-red-100 bg-red-50/70 px-3 py-2.5 text-start transition-all hover:bg-red-100"
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-red-600 transition-transform group-hover:scale-105">
                 <LogOut size={17} />
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-black text-red-700">Se déconnecter</span>
-                <span className="block text-xs font-semibold text-red-500">Fermer la session sur cet appareil</span>
+                <span className="block text-sm font-black text-red-700">{t("Se déconnecter")}</span>
+                <span className="block text-xs font-semibold text-red-500">{t("Fermer la session sur cet appareil")}</span>
               </span>
             </button>
           </div>

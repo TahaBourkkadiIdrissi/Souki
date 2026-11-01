@@ -15,6 +15,17 @@ import { toast } from "sonner"
 
 function dhFromCentimes(c: number) { return `${(c / 100).toFixed(2).replace(".", ",")} DH` }
 
+const TRANSACTION_LABELS: Record<string, string> = {
+  DEBIT_COMMANDE: "Paiement de commande",
+  DEBIT_MODIFICATION: "Modification de commande",
+  CREDIT_MODIFICATION: "Modification de commande",
+  CREDIT_ANNULATION: "Remboursement d'annulation",
+  CREDIT_SAV: "Remboursement de réclamation",
+  CREDIT_REFUS: "Retour après refus de commande",
+  PARRAINAGE_PARRAIN: "Parrainage (crédit offert)",
+  PARRAINAGE_FILLEUL: "Bienvenue parrainage (crédit offert)",
+}
+
 /* Compte de maniere fluide vers la nouvelle valeur quand le solde change
    (recharge, gain de parrainage). Pas d'animation au premier rendu ni si
    l'utilisateur prefere le mouvement reduit. */
@@ -125,10 +136,9 @@ export default function WalletPage() {
         setLocalParrainageCode(res.code_parrainage);
       }
       await validateToken();
-    } catch (e) {
-      // Fallback: Generate arbitrarily in frontend if backend endpoint is unavailable
-      const randomCode = Array.from({ length: 8 }, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[Math.floor(Math.random() * 36)]).join('');
-      setLocalParrainageCode(randomCode);
+    } catch {
+      // Jamais de code invente cote navigateur : il ne serait reconnu par personne a l'inscription.
+      toast.error("Impossible de créer votre code. Réessayez dans un instant.");
     } finally {
       setIsGeneratingParrainage(false);
     }
@@ -238,6 +248,16 @@ export default function WalletPage() {
                 <div className="relative z-10 mb-6">
                   <p className="text-sm font-medium text-white/70 mb-1">Solde disponible</p>
                   <h3 className="text-4xl font-black tracking-tight souki-tabular-nums">{dhFromCentimes(animatedBalanceCentimes)}</h3>
+                  {(walletState.solde_offert_centimes ?? 0) > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
+                      <span className="rounded-full bg-white/15 px-3 py-1">
+                        Argent remboursé : {dhFromCentimes(walletState.solde_rembourse_centimes ?? 0)}
+                      </span>
+                      <span className="rounded-full bg-[#F5C400]/25 px-3 py-1 text-[#FFF4C2]">
+                        Crédit offert : {dhFromCentimes(walletState.solde_offert_centimes ?? 0)}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="relative z-10 flex justify-between items-end">
@@ -272,7 +292,7 @@ export default function WalletPage() {
                   </div>
                   <span className="text-sm font-semibold text-[#3D3D3D]">Demander</span>
                 </button>
-                <button onClick={() => setShowParrainageModal(true)} className="group relative flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-[#1E8A3C] to-[#165f2e] border-none rounded-3xl p-4 shadow-[0_8px_20px_rgba(30,138,60,0.25)] hover:shadow-[0_12px_25px_rgba(30,138,60,0.35)] transition-all hover:-translate-y-1 overflow-hidden">
+                <button onClick={() => router.push("/parrainage")} className="group relative flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-[#1E8A3C] to-[#165f2e] border-none rounded-3xl p-4 shadow-[0_8px_20px_rgba(30,138,60,0.25)] hover:shadow-[0_12px_25px_rgba(30,138,60,0.35)] transition-all hover:-translate-y-1 overflow-hidden">
                   <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
                   <div className="relative z-10 w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white group-hover:scale-110 transition-transform">
                     <Sparkles className="w-6 h-6" />
@@ -326,7 +346,7 @@ export default function WalletPage() {
                             {tx.montant_centimes > 0 ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>}
                           </div>
                           <div className="flex flex-col">
-                            <span className="font-bold text-sm text-[#3D3D3D]">{tx.type.replace(/_/g, ' ')}</span>
+                            <span className="font-bold text-sm text-[#3D3D3D]">{TRANSACTION_LABELS[tx.type] ?? tx.type.replace(/_/g, ' ')}</span>
                             <span className="text-xs font-medium text-[#8A8A8A]">{tx.date ? new Date(tx.date).toLocaleDateString("fr-FR", { day: 'numeric', month: 'long', hour: '2-digit', minute:'2-digit' }) : ""}</span>
                           </div>
                         </div>

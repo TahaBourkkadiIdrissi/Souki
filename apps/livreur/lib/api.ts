@@ -52,6 +52,9 @@ export interface TourneeItem {
   delivered_at?: string | null
   absent_at?: string | null
   montant_total: number
+  // Part deja payee par le Wallet du client et montant a encaisser a la porte.
+  montant_wallet?: number
+  montant_a_encaisser?: number
   mode_paiement: string | null
   payment_validated?: boolean | null
   lat: number | null
@@ -143,6 +146,7 @@ export interface CodValidationResponse {
   payment_validated: boolean
   mode_paiement?: string | null
   montant_total: number
+  montant_a_encaisser?: number
   idempotent: boolean
   message: string
 }

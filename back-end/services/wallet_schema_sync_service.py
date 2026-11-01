@@ -18,6 +18,14 @@ class WalletSchemaSyncService:
         connection.execute(
             text(
                 """
+                ALTER TABLE wallets
+                ADD COLUMN IF NOT EXISTS solde_offert NUMERIC(12, 2) NOT NULL DEFAULT 0
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
                 ALTER TABLE t_transactions_wallet
                 DROP CONSTRAINT IF EXISTS t_transactions_wallet_wallet_id_fkey
                 """

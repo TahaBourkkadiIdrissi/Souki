@@ -527,7 +527,8 @@ function mapTourneeItemToDeliveryView(item: TourneeItem, index: number): Deliver
     clientPhone: item.client_phone || "Téléphone indisponible",
     callHref: buildCallHref(item.client_phone),
     packageCount: item.colis_count,
-    amount: Number(item.montant_total || 0),
+    // Le livreur encaisse seulement le reste : le credit Wallet du client est deja deduit.
+    amount: Number(item.montant_a_encaisser ?? item.montant_total ?? 0),
     paymentMethod: normalizePaymentMethod(item.mode_paiement),
     paymentValidated: Boolean(item.payment_validated),
     status: normalizeDeliveryStatus(item.statut),

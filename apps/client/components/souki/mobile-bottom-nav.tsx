@@ -6,6 +6,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   Crown,
+  Gift,
   Home,
   Leaf,
   Menu,
@@ -18,6 +19,8 @@ import {
 } from "lucide-react"
 
 import { useAuth } from "@/hooks/useAuth"
+import { useLocale } from "@/contexts/locale-context"
+import { LanguageSwitch } from "@/components/souki/language-switch"
 import { isPwaStandalone } from "@/lib/pwa"
 import { cn } from "@/lib/utils"
 
@@ -39,6 +42,7 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
   const pathname = usePathname()
   const router = useRouter()
   const { user } = useAuth()
+  const { t, zoneProps } = useLocale()
 
 
   // Accueil : /pwa-welcome en standalone (navigation directe, sans passer par
@@ -65,16 +69,17 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
   }, [isStandalone])
 
   const linkItems = [
-    { label: "Accueil", href: homeHref, icon: Home },
-    { label: "Produits", href: "/catalogue", icon: Leaf },
+    { label: t("Accueil"), href: homeHref, icon: Home },
+    { label: t("Produits"), href: "/catalogue", icon: Leaf },
   ]
 
   const secondaryItems = [
-    { label: "Historique", href: "/historique", icon: PackageCheck },
-    { label: "Abonnements", href: "/abonnements", icon: Crown },
-    { label: "Mon Wallet", href: "/wallet", icon: Wallet },
-    { label: "Mon profil", href: "/parametres/compte", icon: User },
-    { label: "Paramètres", href: "/parametres/notifications", icon: Settings },
+    { label: t("Historique"), href: "/historique", icon: PackageCheck },
+    { label: t("Abonnements"), href: "/abonnements", icon: Crown },
+    { label: t("Mon Wallet"), href: "/wallet", icon: Wallet },
+    { label: t("Parrainage"), href: "/parrainage", icon: Gift },
+    { label: t("Mon profil"), href: "/parametres/compte", icon: User },
+    { label: t("Paramètres"), href: "/parametres/notifications", icon: Settings },
   ]
 
   const gridCols = "grid-cols-4"
@@ -105,16 +110,18 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
     return (
       <>
         <nav
+          {...zoneProps}
           className="fixed inset-x-0 top-0 z-40 border-b border-[#DDEBDD] bg-white/95 backdrop-blur-md shadow-[0_4px_24px_rgba(0,0,0,0.04)] md:hidden"
-          aria-label="Navigation principale"
+          aria-label={t("Navigation principale")}
         >
           <div className="flex h-14 items-center justify-between px-4">
             <SoukiLogoLink href={homeHref} height={36} priority />
 
             <div className="flex items-center gap-2">
+              <LanguageSwitch compact />
               <Link
                 href={user ? "/parametres/compte" : "/login"}
-                aria-label={user ? "Mon profil" : "Se connecter"}
+                aria-label={user ? t("Mon profil") : t("Se connecter")}
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#1E8A3C] to-[#4CB84A] text-white shadow-sm ring-2 ring-white transition-transform active:scale-90"
               >
                 <User className="h-5 w-5" />
@@ -122,7 +129,7 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
               <button
                 type="button"
                 onClick={openDrawer}
-                aria-label="Ouvrir le menu"
+                aria-label={t("Ouvrir le menu")}
                 className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#DDEBDD] bg-white text-[#264129] transition-transform active:scale-90"
               >
                 <Menu className="h-5 w-5" />
@@ -140,7 +147,7 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
         </nav>
 
         {drawerOpen && (
-          <div className="fixed inset-0 z-[70] bg-[#122018]/45 backdrop-blur-sm md:hidden" onClick={() => setDrawerOpen(false)}>
+          <div {...zoneProps} className="fixed inset-0 z-[70] bg-[#122018]/45 backdrop-blur-sm md:hidden" onClick={() => setDrawerOpen(false)}>
             <div
               className="absolute inset-x-0 top-0 max-h-[85dvh] overflow-y-auto rounded-b-[28px] bg-white/95 p-4 pt-[max(env(safe-area-inset-top),1rem)] shadow-[0_8px_32px_rgba(0,0,0,0.1)] backdrop-blur-md"
               onClick={(event) => event.stopPropagation()}
@@ -148,13 +155,13 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-black text-[#264129]">SOUKI</p>
-                  <p className="text-xs font-semibold text-[#7B8B7D]">Menu de navigation</p>
+                  <p className="text-xs font-semibold text-[#7B8B7D]">{t("Menu de navigation")}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setDrawerOpen(false)}
                   className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#DDEBDD] text-[#607061]"
-                  aria-label="Fermer le menu"
+                  aria-label={t("Fermer le menu")}
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -191,9 +198,9 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
                   className="flex min-h-14 w-full items-center gap-3 rounded-2xl border border-[#EEF2EE] bg-[#FBFDF9] px-4 text-sm font-bold text-[#264129]"
                 >
                   <ShoppingCart className="h-5 w-5 text-[#1E8A3C]" />
-                  Panier
+                  {t("Panier")}
                   {cartCount > 0 && (
-                    <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F07C00] px-1.5 text-[10px] font-black text-white">
+                    <span className="ms-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F07C00] px-1.5 text-[10px] font-black text-white">
                       {cartCount}
                     </span>
                   )}
@@ -214,6 +221,10 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
                   )
                 })}
               </div>
+              <div className="mt-4 flex items-center justify-between rounded-2xl border border-[#EEF2EE] bg-[#FBFDF9] px-4 py-2.5">
+                <span className="text-sm font-bold text-[#264129]">{t("Langue")}</span>
+                <LanguageSwitch compact />
+              </div>
             </div>
           </div>
         )}
@@ -224,6 +235,7 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
   return (
     <>
       <nav
+        {...zoneProps}
         className="fixed inset-x-0 bottom-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#DDEBDD] px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-2 md:hidden shadow-[0_-4px_24px_rgba(0,0,0,0.04)]"
         aria-label="Navigation mobile principale"
       >
@@ -255,7 +267,7 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
             )}
           >
             <ShoppingCart className="h-5 w-5" />
-            <span>Panier</span>
+            <span>{t("Panier")}</span>
             {cartCount > 0 && (
               // key={cartCount} : rejoue le pop a chaque changement de quantite
               <span
@@ -273,24 +285,24 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
             className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl px-2 text-[11px] font-bold text-[#607061] transition-colors hover:bg-[#F7FCF7]"
           >
             <Menu className="h-5 w-5" />
-            <span>Plus</span>
+            <span>{t("Plus")}</span>
           </button>
         </div>
       </nav>
 
       {drawerOpen && (
-        <div className="fixed inset-0 z-[70] bg-[#122018]/45 backdrop-blur-sm md:hidden">
+        <div {...zoneProps} className="fixed inset-0 z-[70] bg-[#122018]/45 backdrop-blur-sm md:hidden">
           <div className="absolute bottom-0 left-0 right-0 rounded-t-[28px] bg-white/95 backdrop-blur-md p-4 pb-[max(env(safe-area-inset-bottom),1rem)] shadow-[0_-8px_32px_rgba(0,0,0,0.1)]">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <p className="text-sm font-black text-[#264129]">SOUKI</p>
-                <p className="text-xs font-semibold text-[#7B8B7D]">Options secondaires</p>
+                <p className="text-xs font-semibold text-[#7B8B7D]">{t("Options secondaires")}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setDrawerOpen(false)}
                 className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#DDEBDD] text-[#607061]"
-                aria-label="Fermer le menu"
+                aria-label={t("Fermer le menu")}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -311,6 +323,10 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
                   </Link>
                 )
               })}
+            </div>
+            <div className="mt-4 flex items-center justify-between rounded-2xl border border-[#EEF2EE] bg-[#FBFDF9] px-4 py-2.5">
+              <span className="text-sm font-bold text-[#264129]">{t("Langue")}</span>
+              <LanguageSwitch compact />
             </div>
           </div>
         </div>

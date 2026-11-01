@@ -27,6 +27,10 @@ class Commande(Base):
     client_history_deleted = Column(Boolean, nullable=False, default=False, server_default="false")
     mode_paiement      = Column(String(50))
     montant_total      = Column(Float)
+    # Part deja payee par le Wallet SOUKI ; le livreur encaisse montant_total - montant_wallet.
+    montant_wallet     = Column(Float, nullable=False, default=0, server_default="0")
+    # Dont credit offert (parrainage) : seule part perdue si le client refuse la commande a la porte.
+    montant_wallet_offert = Column(Float, nullable=False, default=0, server_default="0")
 
     client          = relationship("Client", back_populates="commandes")
     panier          = relationship("Panier", back_populates="commande")

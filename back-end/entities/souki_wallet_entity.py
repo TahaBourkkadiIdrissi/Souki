@@ -15,6 +15,9 @@ class SoukiWallet(Base):
     wallet_code = Column(String(32), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     balance = Column(Numeric(12, 2), nullable=False, default=0)
+    # Part du solde venant d'un credit offert (parrainage). Le reste (balance - solde_offert)
+    # est de l'argent rembourse au client : il ne se perd jamais, meme sur un refus a la porte.
+    solde_offert = Column(Numeric(12, 2), nullable=False, default=0, server_default="0")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     user = relationship("User", back_populates="souki_wallet")

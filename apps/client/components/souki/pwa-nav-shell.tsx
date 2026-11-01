@@ -17,6 +17,7 @@ const HIDDEN_ROUTES = [
   "/checkout",
   "/commandes/",
   "/historique",
+  "/parrainage",
 ]
 
 function isNavHidden(pathname: string): boolean {

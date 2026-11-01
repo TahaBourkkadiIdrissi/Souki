@@ -11,7 +11,9 @@ from config import LocalSession
 from dto.parrainage_admin_dto import (
     ParrainageAdminItemDTO,
     ParrainageAdminOverviewDTO,
+    ParrainageClientDTO,
     ParrainageContactsDTO,
+    ParrainageFilleulClientDTO,
     ParrainageTopParrainDTO,
 )
 from entities.parrainage_entity import (
@@ -28,9 +30,9 @@ from services.business_errors import ResourceNotFoundError
 audit_logger = logging.getLogger("souki.audit")
 
 
-# Montant du credit de parrainage (DH). Correspond a la valeur d'un produit
-# d'appel dont le cout de revient gros reste inferieur a 3 DH. Configurable.
-REFERRAL_CREDIT_DH = 3.0
+# Credit de parrainage (DH) verse au parrain ET au filleul a la 1ere commande livree du filleul.
+# 15 DH = le prix d'une livraison. Il se deduit du montant a payer (credit Wallet partiel au checkout).
+REFERRAL_CREDIT_DH = 15.0
 
 # Plafond souple anti-farming par IP : au-dela de REFERRAL_IP_CAP parrainages
 # enregistres depuis la meme IP sur REFERRAL_IP_WINDOW_DAYS jours, on n'enregistre
@@ -174,6 +176,7 @@ class ParrainageService(IParrainageService):
                     wallet=parrain_wallet,
                     amount=amount,
                     transaction_type=REFERRAL_TX_TYPE_PARRAIN,
+                    offert_amount=amount,
                 )
                 filleul_wallet = self.souki_wallet_service.get_or_create_wallet(
                     filleul_id, session=session
@@ -183,6 +186,7 @@ class ParrainageService(IParrainageService):
                     wallet=filleul_wallet,
                     amount=amount,
                     transaction_type=REFERRAL_TX_TYPE_FILLEUL,
+                    offert_amount=amount,
                 )
 
                 parrainage.statut = PARRAINAGE_CONVERTI
@@ -248,6 +252,41 @@ class ParrainageService(IParrainageService):
             top_parrains=top_parrains,
             recent=recent,
         )
+
+    def get_client_overview(self, session: Session, *, user_id: int) -> ParrainageClientDTO:
+        client = self.parrainage_dao.get_client_by_id(session, user_id)
+        filleuls = []
+        en_attente = convertis = 0
+        gains = 0.0
+        for parrainage, prenom, nom in self.parrainage_dao.list_by_parrain_with_names(session, user_id):
+            if parrainage.statut == PARRAINAGE_CONVERTI:
+                convertis += 1
+                gains += float(parrainage.credit_parrain or 0.0)
+            elif parrainage.statut == PARRAINAGE_EN_ATTENTE:
+                en_attente += 1
+            filleuls.append(ParrainageFilleulClientDTO(
+                prenom=self._display_first_name(prenom, nom),
+                statut=parrainage.statut,
+                created_at=parrainage.created_at,
+                converted_at=parrainage.converted_at,
+            ))
+        return ParrainageClientDTO(
+            code=getattr(client, "code_parrainage", None),
+            credit_par_filleul=REFERRAL_CREDIT_DH,
+            plafond_filleuls=REFERRAL_PARRAIN_CAP,
+            en_attente=en_attente,
+            convertis=convertis,
+            gains_total=round(gains, 2),
+            filleuls=filleuls,
+        )
+
+    @staticmethod
+    def _display_first_name(prenom: Optional[str], nom: Optional[str]) -> str:
+        first = (prenom or "").strip()
+        initial = (nom or "").strip()[:1]
+        if not first:
+            return "Un proche"
+        return f"{first} {initial.upper()}." if initial else first
 
     def reveal_contacts(self, session: Session, *, parrainage_id: int, staff_user_id: int) -> ParrainageContactsDTO:
         row = self.parrainage_dao.get_with_contacts(session, parrainage_id)

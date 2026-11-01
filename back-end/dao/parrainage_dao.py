@@ -191,3 +191,12 @@ class ParrainageDaoBD(IParrainageDao):
             .distinct()
             .all()
         )
+
+    def list_by_parrain_with_names(self, session: Session, parrain_id: int) -> list:
+        return (
+            session.query(Parrainage, User.prenom, User.nom)
+            .outerjoin(User, User.id == Parrainage.filleul_id)
+            .filter(Parrainage.parrain_id == parrain_id)
+            .order_by(Parrainage.created_at.desc())
+            .all()
+        )

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import List, Optional
 from datetime import date
 
@@ -9,8 +10,11 @@ from entities.commande_entity import Commande
 from entities.ligne_panier_entity import LignePanier
 from entities.panier_entity import Panier
 from entities.product_entity import Product
+from entities.souki_wallet_entity import SoukiWallet
+from entities.transaction_wallet_entity import TransactionWallet
 from entities.user_entity import User
 from interfaces.checkout_dao_interface import ICheckoutDao
+from services.order_payment import split_debit
 
 
 class CheckoutDaoBD(ICheckoutDao):
@@ -140,6 +144,8 @@ class CheckoutDaoBD(ICheckoutDao):
         mode_paiement: str,
         montant_total: float,
         date_livraison: Optional[date] = None,
+        montant_wallet: float = 0.0,
+        montant_wallet_offert: float = 0.0,
     ) -> Commande:
         statut_propre = str(statut or "EN_ATTENTE").strip().upper().replace(" ", "_")
 
@@ -151,8 +157,21 @@ class CheckoutDaoBD(ICheckoutDao):
             creneau_livraison=creneau_livraison,
             mode_paiement=mode_paiement,
             montant_total=montant_total,
+            montant_wallet=montant_wallet,
+            montant_wallet_offert=montant_wallet_offert,
             date_livraison=date_livraison,
         )
         session.add(commande)
         session.flush()
         return commande
+
+    def get_wallet_for_update(self, session: Session, user_id: int) -> Optional[SoukiWallet]:
+        return session.query(SoukiWallet).filter(SoukiWallet.user_id == user_id).with_for_update().first()
+
+    def debit_wallet(self, session: Session, wallet: SoukiWallet, amount: Decimal) -> Decimal:
+        offert, _ = split_debit(wallet.solde_offert, amount)
+        wallet.balance = Decimal(str(wallet.balance or "0.00")) - amount
+        wallet.solde_offert = Decimal(str(wallet.solde_offert or "0.00")) - offert
+        session.add(TransactionWallet(wallet_id=wallet.id, type="DEBIT_COMMANDE", montant=float(-amount)))
+        session.flush()
+        return offert

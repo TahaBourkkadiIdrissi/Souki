@@ -80,3 +80,7 @@ class IParrainageDao(ABC):
     @abstractmethod
     def list_session_ips(self, session: Session, user_ids: list[int]) -> list:
         pass
+
+    @abstractmethod
+    def list_by_parrain_with_names(self, session: Session, parrain_id: int) -> list:
+        pass

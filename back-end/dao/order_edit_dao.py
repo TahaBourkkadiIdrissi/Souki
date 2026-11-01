@@ -10,8 +10,9 @@ from interfaces.order_edit_dao_interface import IOrderEditDao
 
 
 class OrderEditDaoBD(IOrderEditDao):
-    def refund_wallet(self, session: Session, wallet: SoukiWallet, amount: Decimal) -> None:
+    def refund_wallet(self, session: Session, wallet: SoukiWallet, amount: Decimal, offert_amount: Decimal = Decimal(0)) -> None:
         wallet.balance = Decimal(str(wallet.balance)) + amount
+        wallet.solde_offert = Decimal(str(wallet.solde_offert or 0)) + offert_amount
         session.add(TransactionWallet(wallet_id=wallet.id, type="CREDIT_ANNULATION", montant=float(amount)))
         session.flush()
 
@@ -32,8 +33,19 @@ class OrderEditDaoBD(IOrderEditDao):
     def get_wallet_for_update(self, session: Session, user_id: int):
         return session.query(SoukiWallet).filter(SoukiWallet.user_id == user_id).with_for_update().first()
 
-    def adjust_wallet(self, session: Session, wallet: SoukiWallet, difference: Decimal) -> None:
+    def set_wallet_share(self, session: Session, order: Commande, amount: Decimal, offert_amount: Decimal,
+                         mode_paiement: str) -> None:
+        order.montant_wallet = float(amount)
+        order.montant_wallet_offert = float(offert_amount)
+        order.mode_paiement = mode_paiement
+        session.flush()
+
+    def adjust_wallet(self, session: Session, wallet: SoukiWallet, difference: Decimal,
+                      offert_amount: Decimal = Decimal(0)) -> None:
+        """difference > 0 : debit (offert_amount pris sur le credit offert) ; < 0 : retour (offert_amount rendu)."""
         wallet.balance = Decimal(str(wallet.balance)) - difference
+        offert_delta = offert_amount if difference > 0 else -offert_amount
+        wallet.solde_offert = Decimal(str(wallet.solde_offert or 0)) - offert_delta
         session.add(TransactionWallet(wallet_id=wallet.id,
                     type="DEBIT_MODIFICATION" if difference > 0 else "CREDIT_MODIFICATION",
                     montant=float(-difference)))

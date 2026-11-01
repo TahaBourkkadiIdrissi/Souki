@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from decimal import Decimal
 from typing import List, Optional
 from datetime import date
 
@@ -9,6 +10,7 @@ from entities.commande_entity import Commande
 from entities.ligne_panier_entity import LignePanier
 from entities.panier_entity import Panier
 from entities.product_entity import Product
+from entities.souki_wallet_entity import SoukiWallet
 
 
 class ICheckoutDao(ABC):
@@ -76,5 +78,16 @@ class ICheckoutDao(ABC):
         mode_paiement: str,
         montant_total: float,
         date_livraison: Optional[date] = None,
+        montant_wallet: float = 0.0,
+        montant_wallet_offert: float = 0.0,
     ) -> Commande:
+        pass
+
+    @abstractmethod
+    def get_wallet_for_update(self, session: Session, user_id: int) -> Optional[SoukiWallet]:
+        pass
+
+    @abstractmethod
+    def debit_wallet(self, session: Session, wallet: SoukiWallet, amount: Decimal) -> Decimal:
+        """Debite le Wallet (credit offert en premier) et retourne la part offerte consommee."""
         pass

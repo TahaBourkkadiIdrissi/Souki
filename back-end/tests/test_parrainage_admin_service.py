@@ -8,6 +8,7 @@ from services.parrainage_service import (
     SIGNAL_IP_PARTAGEE,
     SIGNAL_MEME_ADRESSE,
     SIGNAL_MEME_CONNEXION,
+    REFERRAL_CREDIT_DH,
     ParrainageService,
 )
 
@@ -88,3 +89,19 @@ def test_reveal_unknown_parrainage_raises_not_found():
     service, _ = _service(contacts=None)
     with pytest.raises(ResourceNotFoundError):
         service.reveal_contacts(MagicMock(), parrainage_id=404, staff_user_id=1)
+
+
+def test_client_overview_counts_gains_and_hides_contacts():
+    service, dao = _service()
+    dao.get_client_by_id.return_value = SimpleNamespace(code_parrainage="ABC234")
+    converti = _parrainage(pid=1)
+    converti.statut, converti.credit_parrain = "CONVERTI", 3.0
+    dao.list_by_parrain_with_names.return_value = [
+        (converti, "Salma", "Bennani"),
+        (_parrainage(pid=2, filleul_id=21), None, None),
+    ]
+    overview = service.get_client_overview(MagicMock(), user_id=10)
+    assert overview.code == "ABC234"
+    assert (overview.convertis, overview.en_attente, overview.gains_total) == (1, 1, 3.0)
+    assert [f.prenom for f in overview.filleuls] == ["Salma B.", "Un proche"]
+    assert overview.credit_par_filleul == REFERRAL_CREDIT_DH and overview.plafond_filleuls == 50

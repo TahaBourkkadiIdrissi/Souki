@@ -414,6 +414,27 @@ export async function fetchPersonalizedSuggestions(token: string): Promise<Catal
 }
 
 
+export interface ParrainageFilleulDTO {
+  prenom: string
+  statut: "EN_ATTENTE" | "CONVERTI" | "REJETE" | string
+  created_at: string | null
+  converted_at: string | null
+}
+
+export interface MonParrainageDTO {
+  code: string | null
+  credit_par_filleul: number
+  plafond_filleuls: number
+  en_attente: number
+  convertis: number
+  gains_total: number
+  filleuls: ParrainageFilleulDTO[]
+}
+
+export async function getMonParrainage(token: string, signal?: AbortSignal): Promise<MonParrainageDTO> {
+  return apiCall<MonParrainageDTO>("/api/user/parrainage", { token, signal })
+}
+
 export async function generateParrainageCode(token: string): Promise<{ code_parrainage: string }> {
   return apiCall<{ code_parrainage: string }>("/api/user/parrainage/generate", {
     method: "POST",

@@ -28,7 +28,6 @@ import {
   Clock,
   Truck,
   Banknote,
-  Star,
   ArrowRight,
   ArrowUpRight,
   MessageCircle,
@@ -36,8 +35,6 @@ import {
   Sparkles,
   Sunrise,
   PackageCheck,
-  BadgeCheck,
-  Quote,
   Wallet,
   CreditCard,
   Recycle,
@@ -60,13 +57,30 @@ const AIModals = dynamic(() => import("@/components/souki/ai-modals").then((modu
 import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
 import { LetterReveal } from "@/components/souki/letter-reveal"
 import { useScrollReveal } from "@/hooks/useScrollReveal"
+import { useLocale } from "@/contexts/locale-context"
 
 /* ── Données (identiques à l'accueil actuel — parité fonctionnelle) ─────── */
 
-const testimonials = [
-  { name: "Fatima B.", city: "Fès", rating: 5, text: "Service exceptionnel ! Les légumes sont toujours frais et la livraison est ponctuelle. Je recommande vivement.", avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop" },
-  { name: "Ahmed M.", city: "Fès", rating: 5, text: "Depuis que j'utilise SOUKI, je ne vais plus au marché. Qualité impeccable et prix imbattables.", avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&h=150&fit=crop" },
-  { name: "Khadija EL", city: "Fès", rating: 4, text: "Très pratique pour les familles occupées. L'abonnement premium est une excellente idée !", avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&h=150&fit=crop" },
+/* Engagements reels du service, verifiables des la premiere commande (aucun avis invente). */
+const commitments = [
+  {
+    icon: Banknote,
+    title: "Prix du kilo affiché = prix du kilo payé",
+    text: "Vous payez le poids commandé, au prix du jour affiché. Livraison 15 DH, offerte dès 300 DH d'achats.",
+    proof: "Visible dans votre panier avant de valider",
+  },
+  {
+    icon: Clock,
+    title: "Votre commande reste modifiable",
+    text: "Ajoutez, retirez ou annulez vos produits jusqu'à 01h00, la veille de la livraison.",
+    proof: "Depuis votre historique de commandes",
+  },
+  {
+    icon: Shield,
+    title: "Un produit abîmé ? On rembourse",
+    text: "Signalez-le dans les 24 h après la livraison : le montant est recrédité aussitôt sur votre Wallet SOUKI.",
+    proof: "Bouton « Signaler un problème » sur la commande",
+  },
 ]
 
 /* Étapes du parcours — copie resserrée, une idée par étape. */
@@ -104,6 +118,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
   const router = useRouter()
   const [activeModal, setActiveModal] = useState<"voice" | "smart" | null>(null)
   const revealRef = useScrollReveal<HTMLDivElement>()
+  const { t, zoneProps } = useLocale()
 
   // Parité PWA : en standalone, l'accueil dédié reste /pwa-welcome.
   useEffect(() => {
@@ -135,7 +150,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E8A3C] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBFBF7]"
 
   return (
-    <div ref={revealRef} className="min-h-screen overflow-x-hidden bg-[#FBFBF7] pb-24 md:pb-0" suppressHydrationWarning>
+    <div ref={revealRef} {...zoneProps} className="min-h-screen overflow-x-hidden bg-[#FBFBF7] pb-24 md:pb-0" suppressHydrationWarning>
       <Navbar />
 
       {/* ═══════════════ HERO — éditorial clair, split 7/5 ═══════════════ */}
@@ -178,7 +193,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
             {/* Overline */}
             <p className="inline-flex items-center gap-2 rounded-full border border-[#DCEEDE] bg-white px-4 py-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[#1E8A3C] shadow-sm animate-fade-in-up">
               <Sunrise className="h-3.5 w-3.5" />
-              Marché de gros de Fès — acheté à l&apos;aube
+              {t("Marché de gros de Fès — acheté à l'aube")}
             </p>
 
             {/* H1 — écriture lettre par lettre (signature SOUKI) */}
@@ -190,15 +205,14 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
               startDelay={220}
               className="mt-7 font-[family-name:var(--font-poppins)] text-[clamp(2.75rem,5.2vw,4.35rem)] font-bold leading-[1.05] tracking-[-0.03em] text-[#14301B] text-balance"
               segments={[
-                { text: "Le vrai goût du marché," },
-                { text: "livré entre 8h et 15h à la date confirmée.", block: true, className: "text-[#1E8A3C]" },
+                { text: t("Le vrai goût du marché,") },
+                { text: t("livré entre 8h et 15h à la date confirmée."), block: true, className: "text-[#1E8A3C]" },
               ]}
             />
 
             <p className="mt-6 max-w-[34rem] text-[17px] leading-[1.65] text-[#5F6F61] animate-fade-in-up-delay-2">
-              SOUKI sélectionne vos légumes au marché de gros de Fès, prépare
-              votre panier et le livre entre 8h et 15h.{" "}
-              <span className="font-semibold text-[#3D3D3D]">Commandez de 8h à 1h du matin.</span>
+              {t("SOUKI sélectionne vos légumes au marché de gros de Fès, prépare votre panier et le livre entre 8h et 15h.")}{" "}
+              <span className="font-semibold text-[#3D3D3D]">{t("Commandez de 8h à 1h du matin.")}</span>
             </p>
 
             {/* CTA — une action dominante, puis les deux agents IA à poids égal */}
@@ -207,11 +221,11 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
                 className={`group inline-flex min-h-14 items-center justify-center gap-3 rounded-full bg-[#1E8A3C] px-8 text-[16px] font-bold text-white shadow-[0_18px_40px_-14px_rgba(30,138,60,0.55)] transition-transform hover:scale-[1.03] hover:bg-[#176B2E] active:scale-[0.98] ${focusRing}`}
               >
                 <ShoppingCart className="h-5 w-5" />
-                Composer mon panier
-                <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                {t("Composer mon panier")}
+                <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1 rtl:-scale-x-100 rtl:group-hover:-translate-x-1" />
               </Link>
 
-              <p className="mt-6 text-[14px] font-semibold text-[#5F6F61]">Ou laissez Souki le faire pour vous :</p>
+              <p className="mt-6 text-[14px] font-semibold text-[#5F6F61]">{t("Ou laissez Souki le faire pour vous :")}</p>
               <AiAgentCards
                 variant="inline"
                 className="mt-3"
@@ -222,20 +236,19 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
 
             {/* Preuve sociale rattachée à l'action */}
             <div className="mt-9 flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-[#E7EFE8] pt-6 animate-fade-in-up-delay-3">
-              <span className="flex items-center gap-1.5">
-                <span className="flex gap-0.5" aria-hidden="true">
-                  {Array(5).fill(0).map((_, i) => (
-                    <Star key={i} className="h-4 w-4 fill-[#F5C400] text-[#F5C400]" />
-                  ))}
-                </span>
-                <span className="text-sm font-bold text-[#14301B]">4,9/5</span>
+              <span className="flex items-center gap-1.5 text-sm font-semibold text-[#14301B]">
+                <Clock className="h-4 w-4 text-[#1E8A3C]" aria-hidden="true" />
+                {t("Commande jusqu'à 01h00")}
               </span>
               <span className="h-4 w-px bg-[#DDE8DE]" aria-hidden="true" />
-              <span className="text-sm font-semibold text-[#5F6F61]">+250 familles livrées à Fès</span>
+              <span className="flex items-center gap-1.5 text-sm font-semibold text-[#5F6F61]">
+                <Banknote className="h-4 w-4 text-[#1E8A3C]" aria-hidden="true" />
+                {t("Paiement à la livraison")}
+              </span>
               <span className="hidden h-4 w-px bg-[#DDE8DE] sm:block" aria-hidden="true" />
               <span className="hidden items-center gap-1.5 text-sm font-semibold text-[#5F6F61] sm:flex">
                 <Shield className="h-4 w-4 text-[#1E8A3C]" />
-                Satisfait ou remboursé
+                {t("Satisfait ou remboursé")}
               </span>
             </div>
           </div>
@@ -245,7 +258,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
             <div className="relative aspect-[4/5] overflow-hidden rounded-[32px] shadow-[0_40px_80px_-40px_rgba(20,48,27,0.45)]">
               <Image
                 src="https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=1000&q=80"
-                alt="Étal de légumes frais du marché de Fès"
+                alt={t("Étal de légumes frais du marché de Fès")}
                 fill
                 sizes="(max-width: 1024px) 90vw, 460px"
                 className="object-cover"
@@ -266,7 +279,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
                 />
               </span>
               <span>
-                <span className="block text-[13px] font-bold text-[#14301B]">Tomates du jour</span>
+                <span className="block text-[13px] font-bold text-[#14301B]">{t("Tomates du jour")}</span>
                 <span className="block text-[15px] font-black text-[#F07C00]">
                   7,00 DH <span className="text-[11px] font-semibold text-[#8A9A8C]">/ kg</span>
                 </span>
@@ -278,7 +291,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
               className="absolute -right-2 top-[-1.25rem] hidden rounded-full bg-[#F5C400] px-4 py-2 text-[13px] font-black text-[#14301B] shadow-[0_16px_35px_-18px_rgba(20,48,27,0.6)] animate-gentle-float sm:-right-5 sm:block"
               style={{ animationDelay: "1.1s" }}
             >
-              −25% vs épicier
+              {t("Prix du jour, achetés au gros")}
             </div>
 
             {/* Carte livraison — bas droite */}
@@ -290,7 +303,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
                 <Truck className="h-5 w-5 text-[#1E8A3C]" />
               </span>
               <span>
-                <span className="block text-[13px] font-bold text-[#14301B]">Livraison de produits frais</span>
+                <span className="block text-[13px] font-bold text-[#14301B]">{t("Livraison de produits frais")}</span>
                 <span className="flex items-center gap-1 text-[13px] font-semibold text-[#1E8A3C]">
                   8h – 15h <Check className="h-3.5 w-3.5" />
                 </span>
@@ -302,7 +315,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
               <FarmerAvatar
                 size="md"
                 expression="welcome"
-                label="Récolte, la mascotte SOUKI"
+                label={t("Récolte, la mascotte SOUKI")}
                 className="drop-shadow-[0_18px_30px_rgba(12,26,16,0.35)]"
               />
             </div>
@@ -311,7 +324,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
       </section>
 
       {/* ═══════════════ TICKER PRIX DU JOUR (marquee) ═══════════════ */}
-      <section className="border-y border-[#0F2E17] bg-[#14301B] py-4" aria-label="Prix du jour">
+      <section className="border-y border-[#0F2E17] bg-[#14301B] py-4" aria-label={t("Prix du jour")}>
         <div className="marquee" style={{ "--marquee-gap": "3rem", "--marquee-duration": "36s" } as CSSProperties}>
           <div className="marquee__track">
             {[0, 1].flatMap((copy) =>
@@ -333,12 +346,12 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
       <section id="comment-ca-marche" className="py-20 lg:py-28">
         <div className="mx-auto w-full max-w-[1200px] px-6 lg:px-8">
           <div className="mx-auto mb-14 max-w-[42rem] text-center lg:mb-16" data-reveal="up">
-            <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#1E8A3C]">Fonctionnement</p>
+            <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#1E8A3C]">{t("Fonctionnement")}</p>
             <h2 className="mt-3 text-[clamp(2rem,3.4vw,2.75rem)] font-bold leading-[1.12] tracking-[-0.02em] text-[#14301B]" style={display}>
-              Du marché à votre table, en trois temps
+              {t("Du marché à votre table, en trois temps")}
             </h2>
             <p className="mx-auto mt-4 max-w-[32rem] text-[17px] leading-[1.65] text-[#5F6F61]">
-              Une seule promesse : la fraîcheur du gros, sans les files, le transport ni les prix opaques.
+              {t("Une seule promesse : la fraîcheur du gros, sans les files, le transport ni les prix opaques.")}
             </p>
           </div>
 
@@ -366,11 +379,11 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
                   <span className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EAF8EC] text-[#1E8A3C] transition-transform duration-300 group-hover:scale-105">
                     <step.icon className="h-6 w-6" />
                   </span>
-                  <p className="relative mt-6 text-[12px] font-bold uppercase tracking-[0.14em] text-[#F07C00]">{step.kicker}</p>
+                  <p className="relative mt-6 text-[12px] font-bold uppercase tracking-[0.14em] text-[#F07C00]">{t(step.kicker)}</p>
                   <h3 className="relative mt-2 text-[1.25rem] font-bold tracking-[-0.01em] text-[#14301B]" style={display}>
-                    {step.title}
+                    {t(step.title)}
                   </h3>
-                  <p className="relative mt-2.5 text-[15px] leading-[1.6] text-[#5F6F61]">{step.desc}</p>
+                  <p className="relative mt-2.5 text-[15px] leading-[1.6] text-[#5F6F61]">{t(step.desc)}</p>
                 </li>
               ))}
             </ol>
@@ -383,17 +396,17 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
         <div className="mx-auto w-full max-w-[1200px] px-6 lg:px-8">
           <div className="mb-10 flex flex-wrap items-end justify-between gap-5 lg:mb-12" data-reveal="up">
             <div className="max-w-[34rem]">
-              <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#1E8A3C]">Prix du gros, chaque matin</p>
+              <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#1E8A3C]">{t("Prix du gros, chaque matin")}</p>
               <h2 className="mt-3 text-[clamp(2rem,3.4vw,2.75rem)] font-bold leading-[1.12] tracking-[-0.02em] text-[#14301B]" style={display}>
-                Les produits frais du jour
+                {t("Les produits frais du jour")}
               </h2>
             </div>
             <button
               onClick={() => requireAuth(() => router.push("/catalogue"))}
               className={`inline-flex min-h-12 items-center gap-2 rounded-full border border-[#D7E7D9] bg-white px-6 text-[15px] font-bold text-[#14301B] transition-colors hover:border-[#1E8A3C]/40 hover:bg-[#F3FAF4] ${focusRing}`}
             >
-              Tout le catalogue
-              <ArrowUpRight className="h-5 w-5 text-[#1E8A3C]" />
+              {t("Tout le catalogue")}
+              <ArrowUpRight className="h-5 w-5 text-[#1E8A3C] rtl:-scale-x-100" />
             </button>
           </div>
 
@@ -417,9 +430,9 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
       <section className="py-20 lg:py-28">
         <div className="mx-auto w-full max-w-[1200px] px-6 lg:px-8">
           <div className="mx-auto mb-14 max-w-[42rem] text-center" data-reveal="up">
-            <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#1E8A3C]">Notre mission</p>
+            <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#1E8A3C]">{t("Notre mission")}</p>
             <h2 className="mt-3 text-[clamp(2rem,3.4vw,2.75rem)] font-bold leading-[1.12] tracking-[-0.02em] text-[#14301B]" style={display}>
-              Pourquoi les familles choisissent SOUKI
+              {t("Pourquoi les familles choisissent SOUKI")}
             </h2>
           </div>
 
@@ -428,16 +441,16 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
             <div className="group relative min-h-[280px] overflow-hidden rounded-3xl md:col-span-2" data-reveal="up" data-delay="1">
               <Image
                 src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=1400&q=80"
-                alt="Marché de gros de Fès à l'aube"
+                alt={t("Marché de gros de Fès à l'aube")}
                 fill
                 sizes="(max-width: 768px) 100vw, 760px"
                 className="object-cover transition-transform duration-700 group-hover:scale-[1.04]"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#14301B]/85 via-[#14301B]/25 to-transparent" aria-hidden="true" />
               <div className="absolute inset-x-0 bottom-0 p-8">
-                <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#A7D7B5]">Sourcing direct</p>
+                <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#A7D7B5]">{t("Sourcing direct")}</p>
                 <p className="mt-2 max-w-[26rem] text-[1.35rem] font-bold leading-[1.25] text-white" style={display}>
-                  Acheté à l&apos;aube au marché de gros, sans intermédiaire.
+                  {t("Acheté à l'aube au marché de gros, sans intermédiaire.")}
                 </p>
               </div>
             </div>
@@ -465,14 +478,14 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
               <FarmerAvatar
                 size="lg"
                 expression="explain"
-                label="Récolte, la mascotte SOUKI, garante de la qualité"
+                label={t("Récolte, la mascotte SOUKI, garante de la qualité")}
                 className="relative z-10 animate-gentle-float drop-shadow-[0_18px_30px_rgba(12,26,16,0.45)]"
               />
               <p className="relative z-10 mt-5 text-[1.1rem] font-bold text-white" style={display}>
-                Récolte veille au grain
+                {t("Récolte veille au grain")}
               </p>
               <p className="relative z-10 mt-1.5 text-[14px] leading-[1.55] text-white/85">
-                IA &amp; traçabilité : chaque panier est contrôlé du marché à votre porte.
+                {t("IA & traçabilité : chaque panier est contrôlé du marché à votre porte.")}
               </p>
             </div>
 
@@ -480,9 +493,9 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
             <div className="flex min-h-[220px] flex-col justify-between rounded-3xl border border-[#F1E4C8] bg-[#FFF9EB] p-8" data-reveal="up" data-delay="1">
               <Banknote className="h-6 w-6 text-[#B07B00]" aria-hidden="true" />
               <div>
-                <p className="text-[3rem] font-black leading-none tracking-[-0.02em] text-[#14301B]" style={display}>−25%</p>
+                <p className="text-[1.9rem] font-black leading-[1.05] tracking-[-0.02em] text-[#14301B]" style={display}>{t("Prix du jour affichés")}</p>
                 <p className="mt-2.5 text-[15px] leading-[1.55] text-[#6E6142]">
-                  en moyenne face à l&apos;épicier de quartier, à qualité supérieure.
+                  {t("achetés au marché de gros de Fès, le matin même de votre livraison.")}
                 </p>
               </div>
             </div>
@@ -491,9 +504,9 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
             <div className="flex min-h-[220px] flex-col justify-between rounded-3xl border border-[#E7EFE8] bg-white p-8" data-reveal="up" data-delay="2">
               <Recycle className="h-6 w-6 text-[#1E8A3C]" aria-hidden="true" />
               <div>
-                <p className="text-[1.2rem] font-bold text-[#14301B]" style={display}>Zéro gaspillage</p>
+                <p className="text-[1.2rem] font-bold text-[#14301B]" style={display}>{t("Zéro gaspillage")}</p>
                 <p className="mt-2.5 text-[15px] leading-[1.55] text-[#5F6F61]">
-                  Acheté à la commande : rien ne dort en entrepôt, tout part le matin même.
+                  {t("Acheté à la commande : rien ne dort en entrepôt, tout part le matin même.")}
                 </p>
               </div>
             </div>
@@ -506,9 +519,9 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
                 <CreditCard className="h-6 w-6 text-[#1E8A3C]" />
               </div>
               <div>
-                <p className="text-[1.2rem] font-bold text-[#14301B]" style={display}>Paiement à votre façon</p>
+                <p className="text-[1.2rem] font-bold text-[#14301B]" style={display}>{t("Paiement à votre façon")}</p>
                 <p className="mt-2.5 text-[15px] leading-[1.55] text-[#5F6F61]">
-                  Cash à la porte, Wallet SOUKI ou carte CMI — 100% sécurisé.
+                  {t("Cash à la porte, Wallet SOUKI ou carte CMI — 100% sécurisé.")}
                 </p>
               </div>
             </div>
@@ -541,7 +554,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
               <div>
                 <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-[12px] font-bold uppercase tracking-[0.16em] text-white backdrop-blur">
                   <Sparkles className="h-3.5 w-3.5 text-[#7BC96F]" />
-                  Nouveau — Abonnement
+                  {t("Nouveau — Abonnement")}
                 </span>
 
                 <LetterReveal
@@ -550,15 +563,14 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
                   stagger={26}
                   className="mt-6 font-[family-name:var(--font-poppins)] text-[clamp(2rem,3.6vw,3rem)] font-bold leading-[1.08] tracking-[-0.02em] text-white text-balance"
                   segments={[
-                    { text: "Vos paniers frais," },
-                    { text: "en pilote automatique.", block: true, className: "text-[#7BC96F]" },
+                    { text: t("Vos paniers frais,") },
+                    { text: t("en pilote automatique."), block: true, className: "text-[#7BC96F]" },
                   ]}
                 />
 
                 <p className="mt-5 max-w-[32rem] text-[16px] leading-[1.65] text-white/85">
-                  Une souscription mensuelle simplifiée pour garantir des paniers de légumes{" "}
-                  <span className="font-semibold text-[#9FE0AB]">frais et premium</span>, livrés
-                  directement chaque semaine — sans même y penser.
+                  {t("Une souscription mensuelle simplifiée pour garantir des paniers de légumes")}{" "}
+                  <span className="font-semibold text-[#9FE0AB]">{t("frais et premium")}</span>{t(", livrés directement chaque semaine — sans même y penser.")}
                 </p>
 
                 <div className="mt-8 flex flex-col items-start gap-4">
@@ -566,12 +578,12 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
                     onClick={() => requireAuth(() => router.push("/abonnements"))}
                     className={`group inline-flex min-h-14 items-center justify-center gap-3 rounded-full bg-[#F07C00] px-8 text-[16px] font-bold text-white shadow-[0_20px_45px_-16px_rgba(240,124,0,0.65)] transition-transform hover:scale-[1.03] hover:bg-[#D66B00] active:scale-[0.98] ${focusRing}`}
                   >
-                    Découvrir l&apos;abonnement
-                    <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                    {t("Découvrir l'abonnement")}
+                    <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1 rtl:-scale-x-100 rtl:group-hover:-translate-x-1" />
                   </button>
                   <span className="inline-flex items-center gap-2 text-[13px] font-semibold text-white/70">
                     <Shield className="h-4 w-4 text-[#7BC96F]" />
-                    Paiement 100% sécurisé via CMI &amp; Visa
+                    {t("Paiement 100% sécurisé via CMI & Visa")}
                   </span>
                 </div>
               </div>
@@ -591,8 +603,8 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
                       <item.icon className="h-5 w-5" />
                     </span>
                     <span className="min-w-0">
-                      <span className="block text-[15px] font-bold text-white">{item.title}</span>
-                      <span className="mt-0.5 block text-[13px] leading-[1.5] text-white/75">{item.desc}</span>
+                      <span className="block text-[15px] font-bold text-white">{t(item.title)}</span>
+                      <span className="mt-0.5 block text-[13px] leading-[1.5] text-white/75">{t(item.desc)}</span>
                     </span>
                   </li>
                 ))}
@@ -610,7 +622,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
             className="rounded-[28px] border border-[#E7EFE8] bg-white px-6 py-8 shadow-[0_28px_60px_-46px_rgba(20,48,27,0.4)] sm:px-10"
           >
             <p className="text-center text-[12px] font-bold uppercase tracking-[0.16em] text-[#1E8A3C]">
-              Paiements 100% sécurisés
+              {t("Paiements 100% sécurisés")}
             </p>
             {/* Grille 3 colonnes égales : les trois cartes partagent la même
                 largeur et la même hauteur, contenu centré — alignement net. */}
@@ -620,7 +632,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EAF8EC]">
                   <Banknote className="h-5 w-5 text-[#1E8A3C]" />
                 </span>
-                <span className="text-[14px] font-semibold text-[#14301B]">Cash à la livraison</span>
+                <span className="text-[14px] font-semibold text-[#14301B]">{t("Cash à la livraison")}</span>
               </div>
               {/* Carte bancaire */}
               <div className="flex items-center justify-center gap-3 rounded-2xl border border-[#E7EFE8] bg-[#FBFBF7] px-5 py-3.5">
@@ -635,66 +647,49 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
                     </span>
                   </span>
                 </span>
-                <span className="text-[14px] font-semibold text-[#14301B]">Carte bancaire</span>
+                <span className="text-[14px] font-semibold text-[#14301B]">{t("Carte bancaire")}</span>
               </div>
               {/* Abonnement */}
               <div className="flex items-center justify-center gap-3 rounded-2xl border border-[#E7EFE8] bg-[#FBFBF7] px-5 py-3.5">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#1E8A3C] to-[#4CB84A]">
                   <Users className="h-5 w-5 text-white" />
                 </span>
-                <span className="text-[14px] font-semibold text-[#14301B]">Abonnement Premium</span>
+                <span className="text-[14px] font-semibold text-[#14301B]">{t("Abonnement Premium")}</span>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ═══════════════ TÉMOIGNAGES ═══════════════ */}
+      {/* ═══════════════ ENGAGEMENTS — ce que le client peut verifier ═══════════════ */}
       <section className="bg-white py-20 lg:py-28">
         <div className="mx-auto w-full max-w-[1200px] px-6 lg:px-8">
           <div className="mx-auto mb-12 max-w-[42rem] text-center lg:mb-14" data-reveal="up">
-            <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#1E8A3C]">Avis clients</p>
+            <p className="text-[13px] font-bold text-[#1E8A3C]">{t("Nos engagements")}</p>
             <h2 className="mt-3 text-[clamp(2rem,3.4vw,2.75rem)] font-bold leading-[1.12] tracking-[-0.02em] text-[#14301B]" style={display}>
-              Ce que disent les familles de Fès
+              {t("Ce que vous pouvez vérifier dès la première commande")}
             </h2>
-            <div className="mt-6 inline-flex items-center gap-3 rounded-full border border-[#E7EFE8] bg-[#FBFBF7] px-5 py-2.5">
-              <span className="flex gap-0.5" aria-hidden="true">
-                {Array(5).fill(0).map((_, i) => (
-                  <Star key={i} className="h-4 w-4 fill-[#F5C400] text-[#F5C400]" />
-                ))}
-              </span>
-              <span className="text-sm font-black text-[#14301B]">4,9/5</span>
-              <span className="h-4 w-px bg-[#DDE8DE]" aria-hidden="true" />
-              <span className="text-sm font-semibold text-[#5F6F61]">+250 familles à Fès</span>
-            </div>
+            <p className="mx-auto mt-4 max-w-[34rem] text-[15px] leading-[1.6] text-[#5F6F61]">
+              {t("Pas d'avis inventés ni de chiffres gonflés : les avis de nos clients seront publiés tels quels, après leurs livraisons.")}
+            </p>
           </div>
 
           <div className="grid gap-5 md:grid-cols-3 md:gap-6">
-            {testimonials.map((t, index) => (
+            {commitments.map((item, index) => (
               <figure
-                key={t.name}
+                key={item.title}
                 data-reveal="up"
                 data-delay={String(index + 1)}
-                className="relative flex flex-col rounded-3xl border border-[#E7EFE8] bg-[#FBFBF7] p-8 transition-shadow duration-300 hover:shadow-[0_28px_60px_-32px_rgba(30,138,60,0.3)]"
+                className="relative flex flex-col rounded-3xl border border-[#E7EFE8] bg-[#FBFBF7] p-8"
               >
-                <Quote className="absolute right-6 top-6 h-10 w-10 text-[#1E8A3C]/[0.08]" aria-hidden="true" />
-                <span className="flex gap-1" aria-label={`Note : ${t.rating} sur 5`}>
-                  {Array(t.rating).fill(0).map((_, i) => (
-                    <Star key={i} className="h-4 w-4 fill-[#F5C400] text-[#F5C400]" />
-                  ))}
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EAF8EC]">
+                  <item.icon className="h-6 w-6 text-[#1E8A3C]" aria-hidden="true" />
                 </span>
-                <blockquote className="mt-4 flex-1 text-[15px] leading-[1.65] text-[#3D3D3D]">
-                  «&nbsp;{t.text}&nbsp;»
-                </blockquote>
-                <figcaption className="mt-6 flex items-center gap-3.5 border-t border-[#E7EFE8] pt-5">
-                  <img src={t.avatar} alt="" className="h-11 w-11 rounded-full object-cover ring-2 ring-white" />
-                  <span>
-                    <span className="flex items-center gap-1.5 text-[14px] font-bold text-[#14301B]">
-                      {t.name}
-                      <BadgeCheck className="h-4 w-4 text-[#1E8A3C]" aria-hidden="true" />
-                    </span>
-                    <span className="text-[13px] font-medium text-[#5F6F61]">Client vérifié · {t.city}</span>
-                  </span>
+                <h3 className="mt-6 text-[1.15rem] font-bold leading-snug text-[#14301B]" style={display}>{t(item.title)}</h3>
+                <p className="mt-2.5 flex-1 text-[15px] leading-[1.65] text-[#3D3D3D]">{t(item.text)}</p>
+                <figcaption className="mt-6 flex items-center gap-2 border-t border-[#E7EFE8] pt-5 text-[13px] font-semibold text-[#1E8A3C]">
+                  <Check className="h-4 w-4" aria-hidden="true" />
+                  {t(item.proof)}
                 </figcaption>
               </figure>
             ))}
@@ -713,7 +708,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
             <div className="relative min-h-[260px] lg:min-h-[440px]">
               <Image
                 src="https://images.unsplash.com/photo-1540420773420-3366772f4999?w=1200&q=80"
-                alt="Panier de légumes frais du marché de Fès"
+                alt={t("Panier de légumes frais du marché de Fès")}
                 fill
                 sizes="(max-width: 1024px) 100vw, 600px"
                 className="object-cover"
@@ -723,18 +718,18 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
               {/* Badge flottant — charme & réassurance */}
               <div className="absolute left-5 top-5 inline-flex items-center gap-2 rounded-full bg-white/95 px-4 py-2 shadow-[0_14px_30px_-14px_rgba(20,48,27,0.5)] backdrop-blur">
                 <Leaf className="h-4 w-4 text-[#1E8A3C]" />
-                <span className="text-[13px] font-bold text-[#14301B]">100% frais du jour</span>
+                <span className="text-[13px] font-bold text-[#14301B]">{t("100% frais du jour")}</span>
               </div>
             </div>
 
             {/* ── Texte + CTA ── */}
             <div className="relative flex flex-col justify-center gap-5 px-7 py-10 sm:px-10 lg:py-14 lg:pr-14">
-              <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#1E8A3C]">Votre marché vous attend</p>
+              <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#1E8A3C]">{t("Votre marché vous attend")}</p>
               <h2 className="text-[clamp(2rem,3.4vw,2.75rem)] font-bold leading-[1.12] tracking-[-0.02em] text-[#14301B] text-balance" style={display}>
-                Prêt à goûter la différence du marché&nbsp;?
+                {t("Prêt à goûter la différence du marché ?")}
               </h2>
               <p className="max-w-[34rem] text-[17px] leading-[1.65] text-[#5F6F61]">
-                Commandez avant 1h du matin — vos légumes arrivent entre 8h et 15h à la date confirmée.
+                {t("Commandez avant 1h du matin — vos légumes arrivent entre 8h et 15h à la date confirmée.")}
               </p>
               <div className="mt-2 flex flex-col items-start gap-4">
                 <button
@@ -742,12 +737,12 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
                   className={`group inline-flex min-h-14 items-center justify-center gap-3 rounded-full bg-[#1E8A3C] px-9 text-[16px] font-bold text-white shadow-[0_18px_40px_-14px_rgba(30,138,60,0.55)] transition-transform hover:scale-[1.03] hover:bg-[#176B2E] active:scale-[0.98] ${focusRing}`}
                 >
                   <ShoppingCart className="h-5 w-5" />
-                  Commencer mes courses
-                  <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                  {t("Commencer mes courses")}
+                  <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1 rtl:-scale-x-100 rtl:group-hover:-translate-x-1" />
                 </button>
                 <span className="inline-flex items-center gap-2 text-[13px] font-semibold text-[#5F6F61]">
                   <Clock className="h-4 w-4 text-[#F5C400]" />
-                  Commande avant 1h du matin, livraison entre 8h et 15h
+                  {t("Commande avant 1h du matin, livraison entre 8h et 15h")}
                 </span>
               </div>
             </div>
@@ -762,7 +757,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
             <div className="md:col-span-2">
               <SoukiLogoLink height={40} support className="mb-4" />
               <p className="mb-5 max-w-sm text-[15px] leading-[1.6] text-white/70">
-                Du champ au panier, le matin même. Légumes frais du marché de gros de Fès livrés chez vous.
+                {t("Du champ au panier, le matin même. Légumes frais du marché de gros de Fès livrés chez vous.")}
               </p>
               <div className="flex gap-3">
                 <a href="#" aria-label="WhatsApp SOUKI" className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 transition-colors hover:bg-white/20">
@@ -772,25 +767,25 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
               </div>
             </div>
             <div>
-              <h3 className="mb-4 text-[15px] font-semibold">Liens utiles</h3>
+              <h3 className="mb-4 text-[15px] font-semibold">{t("Liens utiles")}</h3>
               <ul className="space-y-2.5 text-[15px] text-white/70">
-                <li><Link href="/catalogue" className="transition-colors hover:text-white">Nos légumes</Link></li>
-                <li><Link href="/a-propos" className="transition-colors hover:text-white">À propos</Link></li>
-                <li><Link href="/abonnements" className="transition-colors hover:text-white">Abonnements</Link></li>
-                <li><Link href="/faq" className="transition-colors hover:text-white">Questions fréquentes</Link></li>
-                <li><Link href="#comment-ca-marche" className="transition-colors hover:text-white">Comment ça marche</Link></li>
+                <li><Link href="/catalogue" className="transition-colors hover:text-white">{t("Nos légumes")}</Link></li>
+                <li><Link href="/a-propos" className="transition-colors hover:text-white">{t("À propos")}</Link></li>
+                <li><Link href="/abonnements" className="transition-colors hover:text-white">{t("Abonnements")}</Link></li>
+                <li><Link href="/faq" className="transition-colors hover:text-white">{t("Questions fréquentes")}</Link></li>
+                <li><Link href="#comment-ca-marche" className="transition-colors hover:text-white">{t("Comment ça marche")}</Link></li>
               </ul>
             </div>
             <div>
-              <h3 className="mb-4 text-[15px] font-semibold">Légal</h3>
+              <h3 className="mb-4 text-[15px] font-semibold">{t("Légal")}</h3>
               <ul className="space-y-2.5 text-[15px] text-white/70">
-                <li><PolicyLink className="transition-colors hover:text-white">Politique de confidentialité</PolicyLink></li>
-                <li><Link href="/mentions-legales" className="transition-colors hover:text-white">Mentions légales</Link></li>
+                <li><PolicyLink className="transition-colors hover:text-white">{t("Politique de confidentialité")}</PolicyLink></li>
+                <li><Link href="/mentions-legales" className="transition-colors hover:text-white">{t("Mentions légales")}</Link></li>
               </ul>
             </div>
           </div>
           <div className="border-t border-white/15 pt-7 text-center text-sm text-white/50">
-            <p>© 2026 SOUKI Fresh Market — Fès, Maroc — «&nbsp;Du champ au panier, le matin même.&nbsp;»</p>
+            <p>{t("© 2026 SOUKI Fresh Market — Fès, Maroc — « Du champ au panier, le matin même. »")}</p>
           </div>
         </div>
       </footer>

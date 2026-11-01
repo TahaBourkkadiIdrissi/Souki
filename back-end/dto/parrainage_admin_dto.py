@@ -46,3 +46,21 @@ class ParrainageAdminOverviewDTO(BaseModel):
     credit_distribue: float = 0.0
     top_parrains: List[ParrainageTopParrainDTO] = []
     recent: List[ParrainageAdminItemDTO] = []
+
+
+class ParrainageFilleulClientDTO(BaseModel):
+    """Filleul vu par son parrain : prenom et initiale seulement, jamais le contact."""
+    prenom: str
+    statut: str
+    created_at: Optional[datetime] = None
+    converted_at: Optional[datetime] = None
+
+
+class ParrainageClientDTO(BaseModel):
+    code: Optional[str] = None
+    credit_par_filleul: float = 0.0
+    plafond_filleuls: int = 0
+    en_attente: int = 0
+    convertis: int = 0
+    gains_total: float = 0.0
+    filleuls: List[ParrainageFilleulClientDTO] = []

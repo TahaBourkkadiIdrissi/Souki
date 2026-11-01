@@ -355,6 +355,9 @@ class SettingsService:
                 "is_activated": True,
                 "balance_centimes": self._to_centimes(wallet.balance),
                 "solde_centimes": self._to_centimes(wallet.balance),
+                # Credit offert (parrainage) et argent rembourse (reclamations, annulations).
+                "solde_offert_centimes": self._to_centimes(min(wallet.solde_offert or 0, wallet.balance or 0)),
+                "solde_rembourse_centimes": self._to_centimes(max((wallet.balance or 0) - (wallet.solde_offert or 0), 0)),
                 "wallet_code_masked": masked_wallet_code,
                 "wallet_identifier": masked_wallet_code,
                 "transactions": transactions,

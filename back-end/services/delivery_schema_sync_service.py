@@ -65,7 +65,9 @@ class DeliverySchemaSyncService:
                     ADD COLUMN IF NOT EXISTS retour_depot_at TIMESTAMPTZ NULL,
                     ADD COLUMN IF NOT EXISTS payment_validated BOOLEAN DEFAULT false,
                     ADD COLUMN IF NOT EXISTS client_history_deleted BOOLEAN DEFAULT false,
-                    ADD COLUMN IF NOT EXISTS status_version INTEGER
+                    ADD COLUMN IF NOT EXISTS status_version INTEGER,
+                    ADD COLUMN IF NOT EXISTS montant_wallet DOUBLE PRECISION NOT NULL DEFAULT 0,
+                    ADD COLUMN IF NOT EXISTS montant_wallet_offert DOUBLE PRECISION NOT NULL DEFAULT 0
                     """
                 )
             )

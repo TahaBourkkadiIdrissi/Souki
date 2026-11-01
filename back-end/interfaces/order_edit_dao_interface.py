@@ -9,7 +9,7 @@ from dto.order_edit_dto import OrderEditLineDTO
 
 class IOrderEditDao(ABC):
     @abstractmethod
-    def refund_wallet(self, session: Session, wallet: SoukiWallet, amount: Decimal) -> None:
+    def refund_wallet(self, session: Session, wallet: SoukiWallet, amount: Decimal, offert_amount: Decimal = Decimal(0)) -> None:
         pass
 
     @abstractmethod
@@ -25,7 +25,13 @@ class IOrderEditDao(ABC):
         pass
 
     @abstractmethod
-    def adjust_wallet(self, session: Session, wallet: SoukiWallet, difference: Decimal) -> None:
+    def set_wallet_share(self, session: Session, order: Commande, amount: Decimal, offert_amount: Decimal,
+                         mode_paiement: str) -> None:
+        pass
+
+    @abstractmethod
+    def adjust_wallet(self, session: Session, wallet: SoukiWallet, difference: Decimal,
+                      offert_amount: Decimal = Decimal(0)) -> None:
         pass
 
     @abstractmethod

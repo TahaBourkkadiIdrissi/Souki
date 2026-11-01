@@ -387,3 +387,62 @@ def test_cancellation_refunds_current_total_after_wallet_edit(setup):
     result = service.cancel(7, 1, OrderCancelRequestDTO(expected_version=2))
     assert result.refunded_amount == 75
     assert session.query(SoukiWallet).one().balance == 165
+
+
+def test_partial_wallet_credit_stays_when_total_grows(setup):
+    # 65 DH dont 15 DH payes par le Wallet : passer a 6 kg (75 DH) ne touche pas au Wallet.
+    service, session, _ = setup
+    session.get(Commande, 1).montant_wallet = 15
+    session.commit()
+    result = save(service)
+    order = session.get(Commande, 1)
+    assert result.total == 75
+    assert (order.montant_wallet, order.mode_paiement) == (15, "cod")
+    assert session.query(SoukiWallet).one().balance == 100
+    assert session.query(TransactionWallet).count() == 0
+
+
+def test_partial_wallet_excess_returns_when_total_drops_below_credit(setup):
+    # 65 DH dont 60 DH Wallet ; reduire a 3 kg (45 DH) rend 15 DH et la commande est payee en entier.
+    service, session, _ = setup
+    session.get(Commande, 1).montant_wallet = 60
+    session.commit()
+    result = save(service, request(quantity=3))
+    order = session.get(Commande, 1)
+    assert result.total == 45
+    assert (order.montant_wallet, order.mode_paiement) == (45, "wallet")
+    assert session.query(SoukiWallet).one().balance == Decimal("115")
+
+
+def test_cancel_refunds_only_the_partial_wallet_share(setup):
+    service, session, _ = setup
+    session.get(Commande, 1).montant_wallet = 15
+    session.commit()
+    result = service.cancel(7, 1, OrderCancelRequestDTO(expected_version=1))
+    assert result.refunded_amount == 15
+    assert session.query(SoukiWallet).one().balance == 115
+
+
+def test_cancel_returns_each_part_to_its_own_balance(setup):
+    # Part Wallet 40 DH dont 15 offerts : l'annulation rend 25 DH rembourses et 15 DH offerts.
+    service, session, _ = setup
+    order = session.get(Commande, 1)
+    order.montant_wallet, order.montant_wallet_offert = 40, 15
+    session.commit()
+    result = service.cancel(7, 1, OrderCancelRequestDTO(expected_version=1))
+    wallet = session.query(SoukiWallet).one()
+    assert result.refunded_amount == 40
+    assert (wallet.balance, wallet.solde_offert) == (140, 15)
+
+
+def test_edit_below_credit_returns_refunded_money_first(setup):
+    # 65 DH dont 60 Wallet (20 offerts) ; passer a 45 DH rend 15 DH, pris sur l'argent rembourse.
+    service, session, _ = setup
+    order = session.get(Commande, 1)
+    order.montant_wallet, order.montant_wallet_offert = 60, 20
+    session.commit()
+    save(service, request(quantity=3))
+    order = session.get(Commande, 1)
+    wallet = session.query(SoukiWallet).one()
+    assert (order.montant_wallet, order.montant_wallet_offert) == (45, 20)
+    assert (wallet.balance, wallet.solde_offert) == (115, 0)

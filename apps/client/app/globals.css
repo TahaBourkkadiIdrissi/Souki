@@ -2207,3 +2207,11 @@ html {
 .pwa-home-motion[data-motion-paused="true"] *::after {
   animation-play-state: paused !important;
 }
+
+/* Arabe (zones traduites, attribut lang="ar-MA") : Poppins n'a pas de glyphes arabes, le navigateur bascule sur une police arabe systeme
+   pour ces caracteres seulement (les chiffres et le latin restent en Poppins). */
+[lang|="ar"],
+[lang|="ar"] .font-sans {
+  font-family: var(--font-poppins), 'Poppins', 'Segoe UI', 'Noto Sans Arabic', 'Geeza Pro', Tahoma, system-ui, sans-serif;
+}
+[lang|="ar"], [lang|="ar"] * { letter-spacing: 0 !important; }

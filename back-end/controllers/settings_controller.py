@@ -1,6 +1,10 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from auth_dependencies import require_auth, require_client
+from config import LocalSession
+from dependencies import get_parrainage_service
+from dto.parrainage_admin_dto import ParrainageClientDTO
+from interfaces.parrainage_service_interface import IParrainageService
 from dto.settings_dto import (
     AddressUpdateDTO,
     ChangePasswordDTO,
@@ -116,3 +120,16 @@ def activate_wallet(data: WalletActivationDTO, principal=Depends(require_client)
 @settings_router.post("/parrainage/generate")
 def generate_parrainage_code(principal=Depends(require_client)):
     return _service.generate_parrainage_code(principal.user_id)
+
+
+@settings_router.get("/parrainage", response_model=ParrainageClientDTO)
+def get_my_parrainage(
+    principal=Depends(require_client),
+    service: IParrainageService = Depends(get_parrainage_service),
+):
+    """Parrainage du client connecte : son code, ses filleuls (prenom seul) et ses gains."""
+    session = LocalSession()
+    try:
+        return service.get_client_overview(session, user_id=principal.user_id)
+    finally:
+        session.close()

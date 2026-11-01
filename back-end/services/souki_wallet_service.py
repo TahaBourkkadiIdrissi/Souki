@@ -97,11 +97,16 @@ class SoukiWalletService(ISoukiWalletService):
         wallet: SoukiWallet,
         amount: Decimal,
         transaction_type: str,
+        offert_amount: Decimal = Decimal("0.00"),
     ) -> TransactionWallet:
+        """Credite le Wallet. `offert_amount` (<= amount) va au credit offert, le reste est de l'argent rembourse."""
         if amount <= Decimal("0.00"):
             raise ValueError("Le montant a crediter doit etre positif")
+        if offert_amount < Decimal("0.00") or offert_amount > amount:
+            raise ValueError("La part offerte doit etre comprise entre 0 et le montant credite")
 
         wallet.balance = Decimal(str(wallet.balance or "0.00")) + amount
+        wallet.solde_offert = Decimal(str(wallet.solde_offert or "0.00")) + offert_amount
         return self.souki_wallet_dao.create_transaction(
             session,
             wallet_id=wallet.id,

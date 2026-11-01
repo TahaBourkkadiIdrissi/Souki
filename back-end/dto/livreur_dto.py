@@ -32,6 +32,9 @@ class TourneeItemDTO(BaseModel):
     delivered_at: Optional[datetime] = None
     absent_at: Optional[datetime] = None
     montant_total: float = 0.0
+    # Part deja payee par le Wallet et montant a encaisser a la porte.
+    montant_wallet: float = 0.0
+    montant_a_encaisser: float = 0.0
     mode_paiement: Optional[str] = None
     payment_validated: Optional[bool] = None
     lat: Optional[float] = None
@@ -124,5 +127,6 @@ class CodValidationResponseDTO(BaseModel):
     payment_validated: bool = True
     mode_paiement: Optional[str] = None
     montant_total: float = 0.0
+    montant_a_encaisser: float = 0.0
     idempotent: bool = False
     message: str
