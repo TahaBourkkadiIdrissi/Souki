@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+from datetime import date
+from typing import Optional
 
 from dto.checkout_dto import CheckoutRequestDTO, CheckoutResponseDTO
 
@@ -15,6 +17,6 @@ class ICheckoutService(ABC):
 
     @abstractmethod
     def create_checkout(
-        self, user_id: int, payload: CheckoutRequestDTO
+        self, user_id: int, payload: CheckoutRequestDTO, system_delivery_date: Optional[date] = None
     ) -> CheckoutResponseDTO:
         pass

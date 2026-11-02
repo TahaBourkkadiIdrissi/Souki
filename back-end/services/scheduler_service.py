@@ -14,12 +14,16 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from config import LocalSession
+from dao.checkout_dao import CheckoutDaoBD
 from dao.cod_confirmation_log_dao import CODConfirmationLogDaoBD
+from dao.commande_recurrente_dao import CommandeRecurrenteDao
 from dao.commande_dao import CommandeVocaleDaoBD
 from dao.jit_dao import JITDaoBD
 from dao.livreur_dao import LivreurDaoBD
 from dao.tournee_dao import TourneeDaoBD
 from dao.zone_jit_dao import ZoneJITDaoBD
+from services.checkout_service import CheckoutService
+from services.commande_recurrente_service import CommandeRecurrenteService
 from services.delivery_outbox_worker import run_outbox_cycle
 from services.dispatch_service import DispatchService
 from services.jit_service import JITService
@@ -166,10 +170,36 @@ def job_dispatch_daily():
             session.close()
 
 
+def job_commandes_recurrentes():
+    """
+    Create today's recurring orders at site prices, before the JIT closes the batch.
+    Idempotent: the delivery cycle retries every 5 minutes.
+    """
+    session = None
+    try:
+        session = LocalSession()
+        service = CommandeRecurrenteService(
+            CommandeRecurrenteDao(), CheckoutService(CheckoutDaoBD(), session), session,
+        )
+        rapport = service.generer_commandes_du_jour()
+        print(
+            f"[RECURRENTES] {rapport.date_livraison} : {rapport.creees} creee(s), "
+            f"{rapport.sautees} sautee(s), {rapport.echecs} echec(s)"
+            + (" - JIT deja execute, rien a creer" if rapport.ignore else "")
+        )
+    except Exception as exc:
+        # Never block the JIT: the recurring orders are retried on the next cycle.
+        print(f"[RECURRENTES] ERREUR lors de la creation: {exc}")
+    finally:
+        if session is not None:
+            session.close()
+
+
 def job_delivery_cycle():
     # No new purchase batch before closure; no new-night batch after reopening.
     if not 1 <= datetime.now(MOROCCO_TIMEZONE).hour < 8:
         return
+    job_commandes_recurrentes()
     if job_agregation_jit():
         job_dispatch_daily()
 

@@ -1,13 +1,10 @@
 "use client"
 
-import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { Fragment, type ReactNode, useEffect, useMemo, useState } from "react"
-import Link from "next/link"
+import { AdminLink } from "@/components/admin/admin-link"
 import {
-  ArrowLeft,
   BarChart3,
   Banknote,
-  CalendarDays,
   ChevronDown,
   ChevronRight,
   CheckCircle2,
@@ -70,8 +67,10 @@ import {
   jitDernierLog,
   jitDeverrouiller,
   jitExecuter,
+  listCommandeIdsRecurrentes,
   type ResultatAgregationJIT,
 } from "@/lib/api"
+import { addDaysIso, todayMorocco } from "@/lib/commandes-recurrentes"
 
 const ORDERS_ENDPOINT = "/api/commandes"
 
@@ -80,6 +79,11 @@ type RawRecord = Record<string, unknown>
 interface OrderLineLike {
   productName: string
   quantityKg: number | null
+}
+
+function RecurrenteBadge({ show }: { show: boolean }) {
+  if (!show) return null
+  return <span className="ml-2 inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-700">Récurrente</span>
 }
 
 interface AdminOrderRow {
@@ -826,15 +830,15 @@ function ProductDetailsTable({ details }: { details: DetailProduitJIT[] }) {
       <table className="w-full">
         <thead className="bg-gray-50">
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Produit</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Quantité brute</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Buffer 10%</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Volume total</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Unité</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Prix vente kg</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Prix achat kg</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">CA estimé</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Coût achat</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Produit</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Quantité brute</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Buffer 10%</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Volume total</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Unité</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Prix vente kg</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Prix achat kg</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">CA estimé</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Coût achat</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -869,15 +873,15 @@ function JITFinancialSummary({ result }: { result: ResultatAgregationJIT | null 
     <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="grid gap-3 md:grid-cols-3">
         <div className="rounded-xl bg-green-50 px-4 py-3">
-          <p className="text-xs font-semibold uppercase text-gray-500">CA du lot de livraison</p>
+          <p className="text-xs font-semibold text-gray-500">CA du lot de livraison</p>
           <p className="mt-1 text-xl font-bold text-[#1E8A3C]">{formatMoney(result.ca_estime_total)}</p>
         </div>
         <div className="rounded-xl bg-amber-50 px-4 py-3">
-          <p className="text-xs font-semibold uppercase text-gray-500">Coût achat estimé</p>
+          <p className="text-xs font-semibold text-gray-500">Coût achat estimé</p>
           <p className="mt-1 text-xl font-bold text-amber-700">{formatMoney(result.cout_achat_estime)}</p>
         </div>
         <div className="rounded-xl bg-green-50 px-4 py-3">
-          <p className="text-xs font-semibold uppercase text-gray-500">Marge estimée</p>
+          <p className="text-xs font-semibold text-gray-500">Marge estimée</p>
           <p className="mt-1 text-xl font-bold text-[#1E8A3C]">{formatMoney(result.marge_estimee)}</p>
         </div>
       </div>
@@ -899,11 +903,11 @@ function JITLogDetailsTable({ log }: { log: JITLogDTO | null }) {
       <table className="w-full">
         <thead className="bg-gray-50">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Produit</th>
-            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Quantité brute</th>
-            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Buffer 10%</th>
-            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Volume final</th>
-            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Unité</th>
+            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500">Produit</th>
+            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500">Quantité brute</th>
+            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500">Buffer 10%</th>
+            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500">Volume final</th>
+            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500">Unité</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -943,10 +947,10 @@ function UnlockDetailsTable({ details }: { details: JITCommandeDeverrouillee[] }
       <table className="w-full">
         <thead className="bg-gray-50">
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">ID commande</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Date</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Avant</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Après</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">ID commande</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Date</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Avant</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Après</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -1038,6 +1042,18 @@ export default function AdminOrdersPage() {
   const [clientSheetLoadingId, setClientSheetLoadingId] = useState<number | null>(null)
   const [openClientBlocks, setOpenClientBlocks] = useState<Record<string, boolean>>({})
   const [activeSection, setActiveSection] = useState<"overview" | "commandes" | "jit" | "cod" | "logs">("overview")
+  // Commandes creees par un abonnement (badge "Recurrente"), rafraichies avec la liste.
+  const [recurrentOrderIds, setRecurrentOrderIds] = useState<Set<number>>(() => new Set())
+
+  useEffect(() => {
+    if (!token) return
+    const today = todayMorocco()
+    let cancelled = false
+    listCommandeIdsRecurrentes(addDaysIso(today, -7), addDaysIso(today, 1))
+      .then((ids) => { if (!cancelled) setRecurrentOrderIds(new Set(ids)) })
+      .catch(() => { if (!cancelled) setRecurrentOrderIds(new Set()) })
+    return () => { cancelled = true }
+  }, [token, orders])
   const [ordersSearch, setOrdersSearch] = useState("")
   const [ordersStatusFilter, setOrdersStatusFilter] = useState("tous")
 
@@ -1575,30 +1591,24 @@ export default function AdminOrdersPage() {
 
   if (isAuthLoading) {
     return (
-      <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center px-6">
+      <div className="min-h-screen bg-[var(--adm-paper)] flex items-center justify-center px-6">
         <div className="rounded-3xl bg-white shadow-sm border border-gray-100 px-8 py-10 text-center max-w-md">
           <Spinner className="mx-auto mb-4 size-6 text-[#1E8A3C]" />
           <p className="text-sm uppercase tracking-[0.25em] text-gray-500">Back-office</p>
           <h1 className="mt-3 text-2xl font-bold text-[#1E8A3C]">Chargement des commandes</h1>
-          <p className="mt-3 text-[#6F6F6F]">Nous préparons le tableau de suivi JIT.</p>
+          <p className="mt-3 text-[var(--adm-muted)]">Nous préparons le tableau de suivi JIT.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F0]">
-      <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 shadow-sm backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 lg:px-8">
+    <div>
+      <header className="border-b border-[var(--adm-line)]">
+        <div className="flex min-h-16 flex-wrap items-center justify-between gap-4 px-4 py-3 lg:px-8">
           <div className="flex items-center gap-4 min-w-0">
-            <Link href="/admin" className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-[#1E8A3C]">
-              <ArrowLeft className="w-4 h-4" />
-              <span className="font-medium hidden sm:inline">Retour</span>
-            </Link>
 
             <div className="flex items-center gap-3 min-w-0">
-              <SoukiLogoLink variant="symbol" height={36} />
-              <div className="hidden h-6 w-px bg-gray-200 sm:block" />
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="truncate text-xl font-semibold tracking-tight text-gray-900">Gestion des Commandes</h1>
@@ -1647,18 +1657,18 @@ export default function AdminOrdersPage() {
       </header>
 
       {codAlerte18h?.alerte_active && (
-        <div className="sticky top-16 z-30 border-b border-amber-200 bg-amber-50 px-6 py-2 text-sm font-medium text-amber-800 lg:pl-72">
+        <div className="border-b border-[#F5D7B8] bg-[var(--adm-saffron-soft)] px-4 py-2.5 text-sm font-medium text-[#8A4B08] lg:px-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>⚠️ {codAlerte18h.nb_non_confirmees} commandes COD non confirmées — À confirmer avant la livraison</span>
+            <span>{codAlerte18h.nb_non_confirmees} commandes COD non confirmées — À confirmer avant la livraison</span>
             <button type="button" onClick={() => setActiveSection("cod")} className="text-xs font-semibold text-[#1E8A3C] hover:underline">
-              Voir COD →
+              Voir les COD
             </button>
           </div>
         </div>
       )}
 
-      <aside className="fixed left-0 top-16 z-20 hidden h-[calc(100vh-4rem)] w-64 flex-col border-r border-gray-200 bg-white lg:flex">
-        <nav className="flex-1 space-y-1 overflow-y-auto p-4">
+      <aside className="sticky top-16 z-30 border-b border-[var(--adm-line)] bg-[var(--adm-paper)]/90 px-4 backdrop-blur-md lg:px-8">
+        <nav className="flex gap-1 overflow-x-auto py-2" aria-label="Sections commandes">
               {sidebarItems.map((item) => {
                 const isActive = activeSection === item.id
                 const Icon = item.icon
@@ -1669,8 +1679,8 @@ export default function AdminOrdersPage() {
                 type="button"
                 onClick={() => setActiveSection(item.id)}
                 className={cn(
-                  "inline-flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
-                  isActive ? "bg-[#F0FDF4] text-[#1E8A3C]" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  "inline-flex shrink-0 items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
+                  isActive ? "bg-[var(--adm-green-soft)] text-[#1E8A3C]" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                 )}
                 >
                   <span className="inline-flex items-center gap-2">
@@ -1687,8 +1697,8 @@ export default function AdminOrdersPage() {
           })}
         </nav>
 
-        <div className="mt-auto border-t border-gray-100 p-4">
-          <p className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-400">KPI rapides</p>
+        <div className="hidden">
+          <p className="mb-3 text-xs font-mediumr text-gray-400">KPI rapides</p>
           <div className="space-y-3">
             <div>
               <p className="text-xs text-gray-400">Commandes</p>
@@ -1710,14 +1720,14 @@ export default function AdminOrdersPage() {
         </div>
       </aside>
 
-      <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 lg:ml-64 lg:px-8 lg:py-8">
-        <section className={cn("overflow-hidden rounded-3xl border border-[#DDE7DE] bg-white shadow-sm", activeSection !== "overview" && "hidden")}>
+      <main className="space-y-6 px-4 py-6 lg:px-8 lg:py-8">
+        <section className={cn("overflow-hidden rounded-3xl border border-[var(--adm-line)] bg-white shadow-sm", activeSection !== "overview" && "hidden")}>
           <div className="relative p-6 lg:p-8">
             <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-[#1E8A3C]/10 blur-3xl" />
             <div className="absolute bottom-0 right-20 h-24 w-24 rounded-full bg-amber-50 blur-3xl" />
             <div className="relative flex flex-wrap items-start justify-between gap-5">
               <div>
-                <p className="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-green-600">
+                <p className="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold text-green-600">
                   Back-office commandes
                 </p>
                 <h1 className="mt-4 text-3xl font-bold tracking-tight text-gray-950 lg:text-4xl">Gestion des Commandes</h1>
@@ -1727,7 +1737,7 @@ export default function AdminOrdersPage() {
               </div>
 
               <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-right shadow-sm">
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Aujourd'hui</p>
+                <p className="text-xs font-medium text-gray-400">Aujourd'hui</p>
                 <p className="mt-1 text-lg font-semibold text-gray-950">{todayLabel}</p>
                 {lastOrdersRefresh ? <p className="mt-1 text-xs text-gray-400">MAJ {lastOrdersRefresh}</p> : null}
               </div>
@@ -1752,7 +1762,7 @@ export default function AdminOrdersPage() {
             onClick={() => setActiveSection("commandes")}
             className="rounded-xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all duration-150 hover:border-[#1E8A3C]/30 hover:shadow-md"
           >
-            <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-gray-500">
+            <p className="inline-flex items-center gap-1.5 text-xs font-mediumr text-gray-500">
               <Package className="h-3.5 w-3.5" aria-hidden="true" />
               Commandes à livrer
             </p>
@@ -1766,7 +1776,7 @@ export default function AdminOrdersPage() {
             onClick={() => setActiveSection("jit")}
             className="rounded-xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all duration-150 hover:border-[#1E8A3C]/30 hover:shadow-md"
           >
-            <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-gray-500">
+            <p className="inline-flex items-center gap-1.5 text-xs font-mediumr text-gray-500">
               <Rocket className="h-3.5 w-3.5" aria-hidden="true" />
               JIT
             </p>
@@ -1781,7 +1791,7 @@ export default function AdminOrdersPage() {
             className="relative rounded-xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all duration-150 hover:border-[#1E8A3C]/30 hover:shadow-md"
           >
             {codUncalledClientsCount > 0 ? <span className="absolute right-4 top-4 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">{codUncalledClientsCount} a appeler</span> : null}
-            <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-gray-500">
+            <p className="inline-flex items-center gap-1.5 text-xs font-mediumr text-gray-500">
               <PhoneCall className="h-3.5 w-3.5" aria-hidden="true" />
               COD
             </p>
@@ -1795,7 +1805,7 @@ export default function AdminOrdersPage() {
             onClick={() => setActiveSection("logs")}
             className="rounded-xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all duration-150 hover:border-[#1E8A3C]/30 hover:shadow-md"
           >
-            <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-gray-500">
+            <p className="inline-flex items-center gap-1.5 text-xs font-mediumr text-gray-500">
               <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />
               Logs
             </p>
@@ -1877,13 +1887,13 @@ export default function AdminOrdersPage() {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Client</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Téléphone</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Nb commandes</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Statuts</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Volume total</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Montant total</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500">Client</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500">Téléphone</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500">Nb commandes</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500">Statuts</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500">Volume total</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500">Montant total</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -1947,7 +1957,7 @@ export default function AdminOrdersPage() {
                                 className={cn(
                                   "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-all duration-150",
                                   isOrdersOpen
-                                    ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#1E8A3C] hover:bg-[#DCFCE7]"
+                                    ? "border-[#BBF7D0] bg-[var(--adm-green-soft)] text-[#1E8A3C] hover:bg-[#DCFCE7]"
                                     : "border-transparent text-gray-500 hover:border-gray-200 hover:bg-gray-100 hover:text-gray-900"
                                 )}
                               >
@@ -1961,7 +1971,7 @@ export default function AdminOrdersPage() {
                                 void handleToggleClientSheet(firstOrder)
                               }}
                               disabled={!group.clientId || isFicheLoading}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-1.5 text-xs font-semibold text-[#1E8A3C] shadow-sm transition-all duration-150 hover:border-[#1E8A3C] hover:bg-[#1E8A3C] hover:text-white hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-[#BBF7D0] bg-[var(--adm-green-soft)] px-3 py-1.5 text-xs font-semibold text-[#1E8A3C] shadow-sm transition-all duration-150 hover:border-[#1E8A3C] hover:bg-[#1E8A3C] hover:text-white hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               {isFicheLoading && <Spinner className="size-4 text-[#1E8A3C]" />}
                               {!isFicheLoading && <User className="h-3.5 w-3.5" />}
@@ -1977,14 +1987,14 @@ export default function AdminOrdersPage() {
                                 <table className="w-full">
                                   <thead className="bg-gray-50">
                                     <tr>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">ID</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Date</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Produits</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Volume kg</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Montant</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Paiement</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Statut</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Créneau</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">ID</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Date</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Produits</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Volume kg</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Montant</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Paiement</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Statut</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Créneau</th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-gray-100">
@@ -1994,7 +2004,7 @@ export default function AdminOrdersPage() {
 
                                       return (
                                         <tr key={order.id} className="hover:bg-gray-50">
-                                          <td className="px-4 py-3 font-medium text-[#1E8A3C]">{order.id}</td>
+                                          <td className="px-4 py-3 font-medium text-[#1E8A3C]">{order.id}<RecurrenteBadge show={recurrentOrderIds.has(Number(order.id))} /></td>
                                           <td className="px-4 py-3 text-sm text-gray-900">{formatShortDateTime(order.dateCommande)}</td>
                                           <td className="px-4 py-3 text-sm text-gray-500 max-w-[320px] whitespace-normal">{order.produits}</td>
                                           <td className="px-4 py-3 text-gray-900">{formatWeight(order.volumeKg)}</td>
@@ -2032,7 +2042,7 @@ export default function AdminOrdersPage() {
                           </tr>
                         )}
                         {isClientOpen && (
-                          <tr className="bg-[#F8FBF8]">
+                          <tr className="bg-[var(--adm-paper)]">
                             <td colSpan={7} className="px-6 py-4">
                               {isFicheLoading ? (
                                 <div className="flex items-center justify-center gap-3 rounded-2xl border border-gray-100 bg-white py-8">
@@ -2119,9 +2129,9 @@ export default function AdminOrdersPage() {
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               <span>{jitError}</span>
               {jitError.includes("Aucune zone JIT active") && (
-                <Link href="/admin/zones" className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700">
+                <AdminLink href="/admin/zones" className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700">
                   Configurer les zones
-                </Link>
+                </AdminLink>
               )}
             </div>
           )}
@@ -2135,13 +2145,13 @@ export default function AdminOrdersPage() {
           {hasLockedOrdersToday && (
             <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700 flex flex-wrap items-center justify-between gap-3">
               <TriangleAlert className="w-4 h-4 mt-0.5 shrink-0" />
-              <Link
+              <AdminLink
                 href="/admin/livreur"
                 className="inline-flex items-center gap-2 rounded-lg bg-[#F07C00] px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#D66B00]"
               >
                 <Truck className="h-4 w-4" />
                 Faire le dispatch
-              </Link>
+              </AdminLink>
               <span>Le JIT du jour est déjà lancé. Déverrouillez les commandes avant de relancer une agrégation.</span>
             </div>
           )}
@@ -2351,7 +2361,7 @@ export default function AdminOrdersPage() {
           <div className="p-6 border-b border-gray-100 space-y-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <div className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-700">
+                <div className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
                   Validation COD
                 </div>
                 <h2 className="mt-3 text-lg font-bold text-gray-900">Commandes COD verrouillées par le JIT</h2>
@@ -2373,19 +2383,19 @@ export default function AdminOrdersPage() {
 
             <div className="grid gap-3 md:grid-cols-4">
               <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3">
-                <p className="text-xs font-semibold uppercase text-green-600">Clients appelés</p>
+                <p className="text-xs font-semibold text-green-600">Clients appelés</p>
                 <p className="mt-2 text-2xl font-bold text-green-600">{codCalledClientsCount}</p>
               </div>
               <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-                <p className="text-xs font-semibold uppercase text-gray-500">Commandes COD</p>
+                <p className="text-xs font-semibold text-gray-500">Commandes COD</p>
                 <p className="mt-2 text-2xl font-bold text-gray-900">{codOrders.length}</p>
               </div>
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-                <p className="text-xs font-semibold uppercase text-amber-700">Clients non appelés</p>
+                <p className="text-xs font-semibold text-amber-700">Clients non appelés</p>
                 <p className="mt-2 text-2xl font-bold text-amber-700">{codUncalledClientsCount}</p>
               </div>
               <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-                <p className="text-xs font-semibold uppercase text-gray-500">Montant COD</p>
+                <p className="text-xs font-semibold text-gray-500">Montant COD</p>
                 <p className="mt-2 text-2xl font-bold text-gray-900">{formatMoney(codTotalAmount)}</p>
               </div>
             </div>
@@ -2453,11 +2463,11 @@ export default function AdminOrdersPage() {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Client</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Téléphone</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Commandes COD</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Montant total</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500">Client</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500">Téléphone</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500">Commandes COD</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500">Montant total</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -2503,7 +2513,7 @@ export default function AdminOrdersPage() {
                                 type="button"
                                 onClick={() => void handleToggleCodClientSheet(group.clientId)}
                                 disabled={!group.clientId}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-1.5 text-xs font-semibold text-[#1E8A3C] shadow-sm transition-all duration-150 hover:border-[#1E8A3C] hover:bg-[#1E8A3C] hover:text-white hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-[#BBF7D0] bg-[var(--adm-green-soft)] px-3 py-1.5 text-xs font-semibold text-[#1E8A3C] shadow-sm transition-all duration-150 hover:border-[#1E8A3C] hover:bg-[#1E8A3C] hover:text-white hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
                               >
                                 <User className="w-4 h-4 text-gray-500" />
                                 {isClientSheetOpen ? "Masquer fiche" : "Voir fiche"}
@@ -2536,11 +2546,11 @@ export default function AdminOrdersPage() {
                                 <table className="w-full">
                                   <thead className="bg-gray-50">
                                     <tr>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500"># Commande</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Montant</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Créneau</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Statut</th>
-                                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Actions</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500"># Commande</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Montant</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Créneau</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Statut</th>
+                                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Actions</th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-gray-100">
@@ -2552,7 +2562,7 @@ export default function AdminOrdersPage() {
 
                                       return (
                                         <tr key={order.id} className="hover:bg-gray-50">
-                                          <td className="px-4 py-3 font-medium text-[#1E8A3C]">#{order.id}</td>
+                                          <td className="px-4 py-3 font-medium text-[#1E8A3C]">#{order.id}<RecurrenteBadge show={recurrentOrderIds.has(Number(order.id))} /></td>
                                           <td className="px-4 py-3 font-semibold text-gray-900">{formatMoney(order.montant ?? null)}</td>
                                           <td className="px-4 py-3 text-sm text-gray-900">{emptyValue([order.date_livraison, order.creneau_livraison].filter(Boolean).join(" · "))}</td>
                                           <td className="px-4 py-3">
@@ -2571,7 +2581,7 @@ export default function AdminOrdersPage() {
                                                 type="button"
                                                 onClick={() => void handleCodConfirmation(order.id, "CONFIRMEE_PAR_APPEL")}
                                                 disabled={isUpdating || isCodCancellationSubmitting || isConfirmed}
-                                                className="inline-flex items-center gap-1.5 rounded-md border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1.5 text-xs font-medium transition-all duration-150 hover:border-[#1E8A3C] hover:bg-[#1E8A3C] hover:text-white"
+                                                className="inline-flex items-center gap-1.5 rounded-md border border-[#BBF7D0] bg-[var(--adm-green-soft)] px-2.5 py-1.5 text-xs font-medium transition-all duration-150 hover:border-[#1E8A3C] hover:bg-[#1E8A3C] hover:text-white"
                                               >
                                                 {isUpdating ? <Spinner className="size-4" /> : <CheckCircle2 className="w-4 h-4" />}
                                                 Confirmer

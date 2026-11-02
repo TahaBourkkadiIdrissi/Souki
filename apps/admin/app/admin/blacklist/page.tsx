@@ -1,9 +1,7 @@
 "use client"
 
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react"
-import Link from "next/link"
 import {
-  ArrowLeft,
   BarChart3,
   Banknote,
   CalendarDays,
@@ -179,7 +177,7 @@ function KpiCard({
   tone?: "green" | "red" | "orange" | "blue"
 }) {
   const toneClasses = {
-    green: "bg-[#F0FAF1] text-[#1E8A3C] border-emerald-100",
+    green: "bg-[var(--adm-green-soft)] text-[#1E8A3C] border-emerald-100",
     red: "bg-red-50 text-red-700 border-red-100",
     orange: "bg-orange-50 text-[#F07C00] border-orange-100",
     blue: "bg-blue-50 text-[#1A4F8A] border-blue-100",
@@ -260,7 +258,7 @@ function EmptyState({
 }) {
   return (
     <div className="px-6 py-16 text-center">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F0FAF1] text-[#1E8A3C]">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--adm-green-soft)] text-[#1E8A3C]">
         <Icon className="h-6 w-6" />
       </div>
       <p className="mt-4 text-base font-semibold text-gray-950">{title}</p>
@@ -513,7 +511,7 @@ export default function AdminBlacklistPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F0]">
+    <div>
       {toast && (
         <div className="fixed right-5 top-5 z-[70] flex items-center gap-3 rounded-2xl border border-emerald-100 bg-white px-5 py-4 text-sm font-semibold text-[#1E8A3C] shadow-xl">
           <CheckCircle2 className="h-5 w-5" />
@@ -521,13 +519,9 @@ export default function AdminBlacklistPage() {
         </div>
       )}
 
-      <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 px-6 py-4 backdrop-blur-sm">
+      <header className="border-b border-[var(--adm-line)] px-4 py-4 lg:px-8">
         <div className="flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
-            <Link href="/admin" className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-[#1E8A3C]">
-              <ArrowLeft className="h-4 w-4" />
-              <span className="hidden sm:inline">Retour</span>
-            </Link>
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-red-700">
                 <ShieldAlert className="h-5 w-5" />
@@ -557,8 +551,8 @@ export default function AdminBlacklistPage() {
         </div>
       </header>
 
-      <aside className="fixed left-0 top-[73px] z-10 hidden h-[calc(100vh-73px)] w-56 flex-col border-r border-gray-100 bg-white lg:flex">
-        <nav className="flex-1 space-y-1 overflow-y-auto p-4">
+      <aside className="sticky top-16 z-20 border-b border-[var(--adm-line)] bg-[var(--adm-paper)]/90 px-4 backdrop-blur-md lg:px-8">
+        <nav className="flex gap-1 overflow-x-auto py-2" aria-label="Sections blacklist">
           {[
             { id: "liste" as const, label: "Liste blacklistes", icon: UserX, count: clients.length },
             { id: "rapport" as const, label: "Rapport mensuel", icon: FileBarChart, count: null },
@@ -572,8 +566,8 @@ export default function AdminBlacklistPage() {
                 type="button"
                 onClick={() => setActiveSection(item.id)}
                 className={cn(
-                  "inline-flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
-                  isActive ? "bg-[#F0FDF4] text-[#1E8A3C]" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  "inline-flex shrink-0 items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
+                  isActive ? "bg-[var(--adm-green-soft)] text-[#1E8A3C]" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                 )}
               >
                 <span className="inline-flex items-center gap-2">
@@ -591,7 +585,7 @@ export default function AdminBlacklistPage() {
         </nav>
       </aside>
 
-      <main className="lg:pl-56">
+      <main>
         {error && (
           <div className="mx-6 mt-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -667,14 +661,14 @@ export default function AdminBlacklistPage() {
                     <table className="w-full">
                       <thead className="border-b border-gray-200 bg-gray-50">
                         <tr>
-                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Client</th>
-                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Téléphone</th>
-                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Date</th>
-                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Source</th>
-                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Commande refusee</th>
-                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Perte</th>
-                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Livreur</th>
-                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Actions</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semiboldr text-gray-500">Client</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semiboldr text-gray-500">Téléphone</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semiboldr text-gray-500">Date</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semiboldr text-gray-500">Source</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semiboldr text-gray-500">Commande refusee</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semiboldr text-gray-500">Perte</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semiboldr text-gray-500">Livreur</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semiboldr text-gray-500">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
@@ -715,7 +709,7 @@ export default function AdminBlacklistPage() {
                                   setSelectedClient(client)
                                   setLiftReason("")
                                 }}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-1.5 text-xs font-semibold text-[#1E8A3C] shadow-sm transition-all duration-150 hover:border-[#1E8A3C] hover:bg-[#1E8A3C] hover:text-white hover:shadow"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-[#BBF7D0] bg-[var(--adm-green-soft)] px-3 py-1.5 text-xs font-semibold text-[#1E8A3C] shadow-sm transition-all duration-150 hover:border-[#1E8A3C] hover:bg-[#1E8A3C] hover:text-white hover:shadow"
                               >
                                 <CheckCircle2 className="h-3.5 w-3.5" />
                                 Lever
@@ -757,11 +751,11 @@ export default function AdminBlacklistPage() {
                     <table className="w-full">
                       <thead className="border-b border-amber-200 bg-amber-100/60">
                         <tr>
-                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-amber-800">Client</th>
-                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-amber-800">Telephone</th>
-                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-amber-800">Motif</th>
-                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-amber-800">Date demande</th>
-                          <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-amber-800">Actions</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semiboldr text-amber-800">Client</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semiboldr text-amber-800">Telephone</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semiboldr text-amber-800">Motif</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semiboldr text-amber-800">Date demande</th>
+                          <th className="px-5 py-3.5 text-left text-xs font-semiboldr text-amber-800">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-amber-100 bg-white/70">
@@ -807,7 +801,7 @@ export default function AdminBlacklistPage() {
               <SectionShell>
                 <div className="flex flex-col gap-4 border-b border-gray-100 p-6 lg:flex-row lg:items-end lg:justify-between">
                   <div>
-                    <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-[#F0FAF1] px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-[#1E8A3C]">
+                    <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-[var(--adm-green-soft)] px-3 py-1 text-xs font-bold text-[#1E8A3C]">
                       <FileBarChart className="h-4 w-4" />
                       Rapport mensuel
                     </div>
@@ -1054,7 +1048,7 @@ function ReportTable({
   return (
     <div className={cn("overflow-hidden rounded-2xl border border-gray-200 bg-white", className)}>
       <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F0FAF1] text-[#1E8A3C]">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--adm-green-soft)] text-[#1E8A3C]">
           <Icon className="h-4 w-4" />
         </div>
         <h3 className="font-semibold text-gray-950">{title}</h3>
@@ -1064,7 +1058,7 @@ function ReportTable({
           <thead className="border-b border-gray-200 bg-gray-50">
             <tr>
               {columns.map((column) => (
-                <th key={column} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th key={column} className="px-4 py-3 text-left text-xs font-mediumr text-gray-500">
                   {column}
                 </th>
               ))}

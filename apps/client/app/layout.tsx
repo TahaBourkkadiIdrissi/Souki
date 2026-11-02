@@ -3,9 +3,12 @@ import type { Metadata, Viewport } from 'next'
 import { Suspense } from 'react'
 import localFont from 'next/font/local'
 import Script from 'next/script'
+import { cookies } from 'next/headers'
 import { SITE_URL } from '@/lib/seo'
 import './globals.css'
 import { AuthProvider } from '@/contexts/auth-context'
+import { LocaleProvider } from '@/contexts/locale-context'
+import { LOCALE_COOKIE, parseLocale } from '@/lib/i18n'
 import { ThemeProvider } from "@/components/theme-provider"
 import { MobilePullToRefresh } from "@/components/souki/mobile-pull-to-refresh"
 import { PwaInstallPrompt } from "@/components/souki/pwa-install-prompt"
@@ -118,11 +121,13 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // Francais par defaut ; l'arabe (droite a gauche) est un choix du visiteur, garde en cookie.
+  const locale = parseLocale((await cookies()).get(LOCALE_COOKIE)?.value)
   return (
     <html lang="fr" suppressHydrationWarning>
       <head>
@@ -171,6 +176,7 @@ export default function RootLayout({
         {analyticsEnabled && (
           <Script src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}`} strategy="afterInteractive" />
         )}
+        <LocaleProvider initialLocale={locale}>
         <AuthProvider>
           <WebVitals />
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
@@ -186,6 +192,7 @@ export default function RootLayout({
             <PwaLaunchOverlay />
           </ThemeProvider>
         </AuthProvider>
+        </LocaleProvider>
       </body>
     </html>
   )

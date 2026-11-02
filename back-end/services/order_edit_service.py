@@ -11,6 +11,9 @@ from operating_mode import preorders_enabled
 from services.checkout_service import FRAIS_LIVRAISON, SEUIL_LIVRAISON_GRATUITE
 from services.notification_service import notification_service
 from services.commande_state_machine import changer_statut
+from services.order_payment import (
+    WALLET_MODE, is_wallet_mode, order_offert_share, order_wallet_share, split_debit, split_return,
+)
 from services.order_schedule import ORDER_BATCH_LOCK_ID, delivery_cutoff, local_now, orders_closed
 
 COD_MODES = {"cod", "cash", "especes", "especes_livraison", "cash_on_delivery"}
@@ -100,10 +103,10 @@ class OrderEditService(IOrderEditService):
                 for line in order.panier.lignes:
                     quantities[line.produit_id] = quantities.get(line.produit_id, Decimal(0)) + Decimal(str(line.quantite_kg))
                 products = self.checkout_dao.get_products_by_ids(self.session, sorted(quantities), for_update=True)
-            refunded = Decimal(0)
+            # Rembourse la part payee par le Wallet (totale ou partielle).
+            refunded = order_wallet_share(order)
             wallet = None
-            if str(order.mode_paiement).lower() == "wallet":
-                refunded = money(order.montant_total)
+            if refunded > 0:
                 wallet = self.dao.get_wallet_for_update(self.session, user_id)
                 if wallet is None:
                     raise HTTPException(400, "Portefeuille Souki introuvable. Contactez SOUKI pour annuler cette commande.")
@@ -111,7 +114,8 @@ class OrderEditService(IOrderEditService):
             # Locks may have waited until after the delivery batch cutoff.
             self._assert_cancellable(order)
             if wallet is not None and refunded:
-                self.dao.refund_wallet(self.session, wallet, refunded)
+                # Chaque part revient a son solde : credit offert et argent rembourse.
+                self.dao.refund_wallet(self.session, wallet, refunded, order_offert_share(order))
             if products:
                 self.dao.restore_stock(self.session, products, quantities)
             # Reuse the existing transition and notification path; keep the paid total for history.
@@ -182,17 +186,33 @@ class OrderEditService(IOrderEditService):
                 raise HTTPException(409, "Le total a changé. Vérifiez le nouvel aperçu avant de confirmer.")
             previous = money(order.montant_total)
             difference = total - previous
+            # Paiement complet par Wallet : le Wallet suit la difference. Credit partiel : il reste
+            # acquis, sauf si le nouveau total devient inferieur ; l'excedent revient alors au Wallet.
+            paid_by_wallet = order_wallet_share(order)
+            full_wallet = is_wallet_mode(order.mode_paiement)
+            wallet_delta = difference if full_wallet else min(Decimal(0), total - paid_by_wallet)
             wallet = None
-            if str(order.mode_paiement).lower() == "wallet" and difference:
+            if wallet_delta:
                 wallet = self.dao.get_wallet_for_update(self.session, user_id)
                 if wallet is None:
                     raise HTTPException(400, "Portefeuille Souki introuvable.")
-                if Decimal(str(wallet.balance)) < difference:
+                if Decimal(str(wallet.balance)) < wallet_delta:
                     raise HTTPException(400, "Solde Wallet insuffisant pour payer la différence. Rechargez votre Wallet.")
             # Product/wallet locks can have waited past 01:00: recheck before any write.
             self._assert_editable(order)
+            offert_share = order_offert_share(order)
             if wallet is not None:
-                self.dao.adjust_wallet(self.session, wallet, difference)
+                if wallet_delta > 0:
+                    offert_moved, _ = split_debit(wallet.solde_offert, wallet_delta)
+                    offert_share += offert_moved
+                else:
+                    offert_moved, _ = split_return(-wallet_delta, paid_by_wallet, offert_share)
+                    offert_share -= offert_moved
+                self.dao.adjust_wallet(self.session, wallet, wallet_delta, offert_moved)
+            if paid_by_wallet > 0:
+                new_share = total if full_wallet else min(paid_by_wallet, total)
+                self.dao.set_wallet_share(self.session, order, new_share, offert_share,
+                                          WALLET_MODE if new_share == total else order.mode_paiement)
             for product_id, stock in stock_changes.items():
                 products[product_id].stock = stock
             self.dao.save_order(self.session, order, lines, total)

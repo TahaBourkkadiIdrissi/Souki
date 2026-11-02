@@ -147,6 +147,8 @@ function CheckoutContent() {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(DELIVERY_MIN_TIME)
   const [timeError, setTimeError] = useState("")
   const [selectedPayment, setSelectedPayment] = useState("cod")
+  // Credit Wallet deduit du montant a payer en cash a la porte (active par defaut des qu'il y a du solde).
+  const [useWalletCredit, setUseWalletCredit] = useState(true)
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [address, setAddress] = useState("")
   const [city, setCity] = useState("")
@@ -425,8 +427,12 @@ function CheckoutContent() {
   const totalProduits = subtotal
   const progressionLivraison = Math.min(100, (totalProduits / SEUIL) * 100)
   const deliveryFee = totalProduits >= SEUIL ? 0 : FRAIS
-  const walletDiscount = 0
-  const total = subtotal + deliveryFee - walletDiscount
+  const orderTotal = subtotal + deliveryFee
+  const walletDiscount = selectedPayment === "cod" && useWalletCredit
+    ? Math.round(Math.min(walletBalance, orderTotal) * 100) / 100
+    : 0
+  // Montant restant a regler a la livraison (ou total complet paye par le Wallet).
+  const total = orderTotal - walletDiscount
   const savings = merchantPrice - subtotal
   const isCodBlocked = Boolean(blacklistStatus?.is_blacklisted)
   const shouldShowLiftNotification = Boolean(
@@ -521,7 +527,7 @@ function CheckoutContent() {
     setCity(detectedCity || extractCityFromAddress(detectedAddress))
   }
 
-  const isWalletInsufficient = selectedPayment === "wallet" && walletBalance < total
+  const isWalletInsufficient = selectedPayment === "wallet" && walletBalance < orderTotal
   const isPhoneMissing = phoneNumber.trim().length === 0
   const isPhoneInvalid = phoneNumber.trim().length > 0 && !isValidMoroccanPhone(phoneNumber)
   const isAddressMissing = address.trim().length === 0
@@ -594,6 +600,7 @@ function CheckoutContent() {
         })),
         creneau_livraison: selectedTimeSlot,
         mode_paiement: selectedPayment,
+        utiliser_wallet: walletDiscount > 0,
         contact_phone: phoneNumber.trim() ? normalizeMoroccanPhone(phoneNumber) : null,
         delivery_address: address.trim(),
         delivery_city: city.trim(),
@@ -903,12 +910,20 @@ function CheckoutContent() {
                     {deliveryFee > 0 ? `${deliveryFee.toFixed(2)} DH` : "Offerte ✅"}
                   </span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-[#8A8A8A]">Réduction Wallet</span>
-                  <span className="font-medium">-{walletDiscount.toFixed(2)} DH</span>
-                </div>
+                {walletDiscount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[#8A8A8A]">Total TTC</span>
+                    <span className="font-medium">{orderTotal.toFixed(2)} DH</span>
+                  </div>
+                )}
+                {walletDiscount > 0 && (
+                  <div className="flex justify-between text-sm text-[#1E8A3C]">
+                    <span>Crédit Wallet SOUKI</span>
+                    <span className="font-semibold">-{walletDiscount.toFixed(2)} DH</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-bold text-lg pt-2 border-t border-[#4CB84A]/30">
-                  <span>Total TTC</span>
+                  <span>{walletDiscount > 0 ? (total > 0 ? "À payer à la livraison" : "Payé par votre Wallet") : "Total TTC"}</span>
                   <span className="text-[#F07C00]">{total.toFixed(2)} DH</span>
                 </div>
                 <div className="flex items-center gap-2 text-[#1E8A3C] text-sm">
@@ -1108,6 +1123,26 @@ function CheckoutContent() {
                   )}
                 </button>
 
+                {/* Credit Wallet deduit du paiement a la livraison */}
+                {selectedPayment === "cod" && walletBalance > 0 && (
+                  <label className="flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border-2 border-[#CDE8D0] bg-[#F0FAF1] px-4 py-3 animate-in fade-in-0 slide-in-from-top-1 duration-200">
+                    <input
+                      type="checkbox"
+                      checked={useWalletCredit}
+                      onChange={(event) => { haptic("light"); setUseWalletCredit(event.target.checked) }}
+                      className="h-5 w-5 shrink-0 accent-[#1E8A3C]"
+                    />
+                    <span className="flex-1">
+                      <span className="block text-sm font-semibold text-[#14301B]">
+                        Utiliser mon crédit Wallet ({Math.min(walletBalance, orderTotal).toFixed(2)} DH)
+                      </span>
+                      <span className="block text-xs text-[#5F6F61]">
+                        Déduit du montant à payer, le reste se règle en cash à la porte.
+                      </span>
+                    </span>
+                  </label>
+                )}
+
                 {/* Wallet */}
                 <button
                   onClick={() => { haptic("light"); setSelectedPayment("wallet") }}
@@ -1118,7 +1153,7 @@ function CheckoutContent() {
                     <p className="font-semibold text-[#3D3D3D]">Wallet SOUKI</p>
                     <p className={cn("text-sm mt-1", isWalletInsufficient ? "text-red-500 font-semibold" : "text-[#8A8A8A]")}>
                       Solde : {walletBalance.toFixed(2)} DH
-                      {isWalletInsufficient && " — Crédit insuffisant"}
+                      {isWalletInsufficient && " — insuffisant pour tout payer : choisissez le paiement à la livraison, votre crédit sera déduit."}
                     </p>
                   </div>
                   {selectedPayment === "wallet" && (
@@ -1243,7 +1278,7 @@ function CheckoutContent() {
             )}
           >
             <span className="flex flex-col items-start leading-tight">
-              <span className="text-[11px] font-semibold text-white/80">Total TTC</span>
+              <span className="text-[11px] font-semibold text-white/80">{walletDiscount > 0 ? "À payer à la livraison" : "Total TTC"}</span>
               <span className="text-[17px] font-black souki-tabular-nums">{total.toFixed(2)} DH</span>
             </span>
             <span className="flex items-center gap-1.5 text-[15px] font-black">

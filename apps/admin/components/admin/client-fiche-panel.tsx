@@ -1,10 +1,12 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Lock } from "lucide-react"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
-import type { CommandeHistoriqueDTO, FicheClientDTO } from "@/lib/api"
+import { listCommandesRecurrentesClient, type CommandeHistoriqueDTO, type CommandeRecurrenteAdminDTO, type FicheClientDTO } from "@/lib/api"
+import { FREQUENCE_LABELS, LIVRAISON_LABELS, STATUT_RECURRENCE, TYPE_RECURRENCE_LABELS, formatDateFr, formatDh, formatVariation } from "@/lib/commandes-recurrentes"
 
 export type ClientBlockKey =
   | "identity"
@@ -168,8 +170,8 @@ function ClientInfoGrid({ items }: { items: { label: string; value: string | num
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {items.map((item) => (
         <div key={item.label} className="rounded-xl bg-gray-50 px-4 py-3">
-          <p className="text-xs font-semibold uppercase text-[#8A8A8A]">{item.label}</p>
-          <p className="mt-1 text-sm font-medium text-[#3D3D3D]">{emptyValue(item.value)}</p>
+          <p className="text-xs font-semibold text-[var(--adm-muted)]">{item.label}</p>
+          <p className="mt-1 text-sm font-medium text-[var(--adm-text)]">{emptyValue(item.value)}</p>
         </div>
       ))}
     </div>
@@ -178,7 +180,7 @@ function ClientInfoGrid({ items }: { items: { label: string; value: string | num
 
 export function EmptyClientBlock() {
   return (
-    <div className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-[#8A8A8A]">
+    <div className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-[var(--adm-muted)]">
       Aucune donnee disponible
     </div>
   )
@@ -192,7 +194,7 @@ function CommandeClientCard({ commande }: { commande: CommandeHistoriqueDTO }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-semibold text-[#1E8A3C]">Commande #{commande.id}</p>
-          <p className="text-sm text-[#8A8A8A]">{formatShortDateTime(commande.date_commande)}</p>
+          <p className="text-sm text-[var(--adm-muted)]">{formatShortDateTime(commande.date_commande)}</p>
         </div>
         <span className={cn("inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium", badge.className)}>
           {badge.locked && <Lock className="h-3 w-3" />}
@@ -202,20 +204,20 @@ function CommandeClientCard({ commande }: { commande: CommandeHistoriqueDTO }) {
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl bg-gray-50 px-3 py-2">
-          <p className="text-xs uppercase text-[#8A8A8A]">Montant</p>
+          <p className="text-xs text-[var(--adm-muted)]">Montant</p>
           <p className="font-semibold text-[#F07C00]">{formatMoney(commande.montant_total)}</p>
         </div>
         <div className="rounded-xl bg-gray-50 px-3 py-2">
-          <p className="text-xs uppercase text-[#8A8A8A]">Paiement</p>
-          <p className="font-medium text-[#3D3D3D]">{emptyValue(commande.mode_paiement)}</p>
+          <p className="text-xs text-[var(--adm-muted)]">Paiement</p>
+          <p className="font-medium text-[var(--adm-text)]">{emptyValue(commande.mode_paiement)}</p>
         </div>
         <div className="rounded-xl bg-gray-50 px-3 py-2">
-          <p className="text-xs uppercase text-[#8A8A8A]">Valide</p>
-          <p className="font-medium text-[#3D3D3D]">{formatBool(commande.payment_validated)}</p>
+          <p className="text-xs text-[var(--adm-muted)]">Valide</p>
+          <p className="font-medium text-[var(--adm-text)]">{formatBool(commande.payment_validated)}</p>
         </div>
         <div className="rounded-xl bg-gray-50 px-3 py-2">
-          <p className="text-xs uppercase text-[#8A8A8A]">A encaisser</p>
-          <p className="font-semibold text-[#3D3D3D]">{formatMoney(commande.montant_a_encaisser)}</p>
+          <p className="text-xs text-[var(--adm-muted)]">A encaisser</p>
+          <p className="font-semibold text-[var(--adm-text)]">{formatMoney(commande.montant_a_encaisser)}</p>
         </div>
       </div>
 
@@ -229,19 +231,63 @@ function CommandeClientCard({ commande }: { commande: CommandeHistoriqueDTO }) {
       />
 
       <div className="mt-4">
-        <p className="mb-2 text-xs font-semibold uppercase text-[#8A8A8A]">Produits</p>
+        <p className="mb-2 text-xs font-semibold text-[var(--adm-muted)]">Produits</p>
         {commande.produits.length === 0 ? (
           <EmptyClientBlock />
         ) : (
           <div className="flex flex-wrap gap-2">
             {commande.produits.map((produit, index) => (
-              <span key={`${produit.nom_fr}-${index}`} className="rounded-full border border-[#1E8A3C]/20 bg-[#F0FAF1] px-3 py-1 text-xs font-medium text-[#1E8A3C]">
+              <span key={`${produit.nom_fr}-${index}`} className="rounded-full border border-[#1E8A3C]/20 bg-[var(--adm-green-soft)] px-3 py-1 text-xs font-medium text-[#1E8A3C]">
                 {produit.nom_fr} - {formatWeight(produit.quantite_kg)}
               </span>
             ))}
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function CommandesRecurrentesClient({ clientId }: { clientId: number }) {
+  const [items, setItems] = useState<CommandeRecurrenteAdminDTO[] | null>(null)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    let cancelled = false
+    listCommandesRecurrentesClient(clientId)
+      .then((rows) => { if (!cancelled) { setItems(rows); setError("") } })
+      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : "Abonnements indisponibles.") })
+    return () => { cancelled = true }
+  }, [clientId])
+
+  if (error) return <p className="mb-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">{error}</p>
+  if (items === null) return <p className="mb-3 text-xs text-gray-500">Chargement des abonnements…</p>
+  if (items.length === 0) return <p className="mb-3 text-xs text-gray-500">Aucune commande récurrente active.</p>
+
+  return (
+    <div className="mb-4 space-y-3">
+      {items.map((item) => {
+        const derniere = item.dernieres_livraisons[0]
+        return (
+          <div key={item.id} className="rounded-xl border border-gray-100 bg-white p-3 text-xs text-gray-700">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-semibold text-gray-900">{TYPE_RECURRENCE_LABELS[item.type]} · {FREQUENCE_LABELS[item.frequence]}</p>
+              <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", STATUT_RECURRENCE[item.statut].className)}>{STATUT_RECURRENCE[item.statut].label}</span>
+            </div>
+            <p className="mt-1">
+              {item.statut === "ACTIVE" ? `Prochaine livraison ${formatDateFr(item.prochaine_livraison)}` : item.statut === "EN_PAUSE" ? `Reprise ${formatDateFr(item.pause_jusqu_au)}` : "—"}
+              {" · "}Estimation {formatDh(item.total_estime)}
+              {Math.abs(item.variation_prix) >= 0.01 ? ` (${formatVariation(item.variation_prix)})` : ""}
+            </p>
+            <p className="mt-1 text-gray-500">{item.lignes.map((ligne) => `${ligne.nom_produit} ${ligne.quantite} ${ligne.unite}`).join(" · ")}</p>
+            {derniere && (
+              <p className="mt-1 text-gray-500">
+                Dernière : {formatDateFr(derniere.date_livraison)} · {LIVRAISON_LABELS[derniere.statut]}{derniere.commande_id ? ` N-${derniere.commande_id}` : ""}{derniere.motif ? ` · ${derniere.motif}` : ""}
+              </p>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -263,7 +309,7 @@ export function FicheClientPanel({
     <div className="rounded-2xl border border-[#1E8A3C]/20 bg-white shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#1E8A3C]">Fiche client</p>
+          <p className="text-xs font-semibold text-[#1E8A3C]">Fiche client</p>
           <h3 className="mt-1 text-base font-bold text-gray-950">Client #{fiche.id}</h3>
           <p className="mt-1 text-sm text-gray-500">{fiche.email || fiche.phone || "Aucune donnee disponible"}</p>
         </div>
@@ -296,7 +342,7 @@ export function FicheClientPanel({
             ]}
           />
           <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Adresses</p>
+            <p className="mb-2 text-xs font-semibold text-gray-500">Adresses</p>
             {(fiche.adresses || []).length === 0 ? (
               <EmptyClientBlock />
             ) : (
@@ -332,7 +378,7 @@ export function FicheClientPanel({
             </div>
           )}
           <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Paiements</p>
+            <p className="mb-2 text-xs font-semibold text-gray-500">Paiements</p>
             {paiements.length === 0 ? (
               <EmptyClientBlock />
             ) : (
@@ -408,6 +454,7 @@ export function FicheClientPanel({
         </TabsContent>
 
         <TabsContent value="subscription">
+          <CommandesRecurrentesClient clientId={fiche.id} />
           {!fiche.abonnement ? (
             <EmptyClientBlock />
           ) : (

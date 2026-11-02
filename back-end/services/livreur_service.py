@@ -32,6 +32,7 @@ from interfaces.livreur_dao_interface import ILivreurDao
 from interfaces.livreur_service_interface import ILivreurService
 from interfaces.client_blacklist_service_interface import IClientBlacklistService
 from interfaces.dispatch_service_interface import IDispatchService
+from services.order_payment import cash_due, order_cash_due, order_offert_share, order_wallet_share
 from services.commande_state_machine import CommandeTransitionError, TRANSITIONS, changer_statut
 from services.date_utils import today_morocco
 from services.logistics_visibility import (
@@ -64,6 +65,10 @@ _parrainage_conversion_service = ParrainageService(
     ParrainageDaoBD(),
     SoukiWalletService(SoukiWalletDaoBD()),
 )
+
+# Refus a la porte : rend au client la part Wallet payee avec de l'argent rembourse.
+_wallet_refund_service = SoukiWalletService(SoukiWalletDaoBD())
+WALLET_REFUSAL_TX_TYPE = "CREDIT_REFUS"
 
 
 class LivreurService(ILivreurService):
@@ -270,6 +275,7 @@ class LivreurService(ILivreurService):
                     payment_validated=True,
                     mode_paiement=self._clean_optional_text(commande.mode_paiement),
                     montant_total=float(commande.montant_total or 0.0),
+                    montant_a_encaisser=order_cash_due(commande),
                     idempotent=True,
                     message="Encaissement COD deja confirme.",
                 )
@@ -278,7 +284,8 @@ class LivreurService(ILivreurService):
                 session=session,
                 commande_id=int(commande.id),
                 mode_paiement=commande.mode_paiement,
-                montant_total=commande.montant_total,
+                # Le paiement COD enregistre ce qui est encaisse a la porte, hors part Wallet.
+                montant_total=order_cash_due(commande),
             )
 
             self.livreur_dao.create_notification_outbox(
@@ -291,6 +298,7 @@ class LivreurService(ILivreurService):
                     "livreur_id": int(commande.livreur_id or 0),
                     "mode_paiement": self._clean_optional_text(commande.mode_paiement),
                     "montant_total": float(commande.montant_total or 0.0),
+                    "montant_a_encaisser": order_cash_due(commande),
                     "payment_validated": True,
                     "server_timestamp": datetime.now(timezone.utc).isoformat(),
                 },
@@ -303,6 +311,7 @@ class LivreurService(ILivreurService):
                 payment_validated=True,
                 mode_paiement=self._clean_optional_text(commande.mode_paiement),
                 montant_total=float(commande.montant_total or 0.0),
+                montant_a_encaisser=order_cash_due(commande),
                 idempotent=was_already_validated,
                 message=(
                     "Encaissement COD deja confirme."
@@ -550,6 +559,11 @@ class LivreurService(ILivreurService):
                 livreur_id=livreur_id,
                 target_status=target_status,
             )
+            self._refund_real_wallet_share_on_refusal(
+                session=session,
+                commande=commande,
+                target_status=target_status,
+            )
 
             self._queue_notifications(
                 session=session,
@@ -724,6 +738,8 @@ class LivreurService(ILivreurService):
             delivered_at=row.get("delivered_at"),
             absent_at=row.get("absent_at"),
             montant_total=float(row.get("montant_total") or 0.0),
+            montant_wallet=float(row.get("montant_wallet") or 0.0),
+            montant_a_encaisser=cash_due(row.get("montant_total"), row.get("montant_wallet"), row.get("mode_paiement")),
             mode_paiement=self._clean_optional_text(row.get("mode_paiement")),
             payment_validated=row.get("payment_validated"),
             lat=self._as_float(row.get("lat", row.get("latitude"))),
@@ -794,6 +810,27 @@ class LivreurService(ILivreurService):
             current_lng = next_item.lng
 
         return ordered_items
+
+    def _refund_real_wallet_share_on_refusal(
+        self,
+        *,
+        session: Session,
+        commande: Commande,
+        target_status: str,
+    ) -> None:
+        """Le client refuse a la porte : seul le credit offert utilise est perdu (le trajet est paye).
+        L'argent rembourse qu'il avait mis dans la commande lui revient."""
+        if target_status != REFUSED_STATUS or commande.client_id is None:
+            return
+        offert = order_offert_share(commande)
+        real = order_wallet_share(commande) - offert
+        if real <= 0:
+            return
+        wallet = _wallet_refund_service.get_or_create_wallet(int(commande.client_id), session=session)
+        _wallet_refund_service.credit_wallet(
+            session, wallet=wallet, amount=real, transaction_type=WALLET_REFUSAL_TX_TYPE,
+        )
+        commande.montant_wallet = float(offert)
 
     def _apply_refusal_blacklist(
         self,

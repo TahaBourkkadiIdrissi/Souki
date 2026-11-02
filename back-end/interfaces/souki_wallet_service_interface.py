@@ -30,5 +30,6 @@ class ISoukiWalletService(ABC):
         wallet: SoukiWallet,
         amount: Decimal,
         transaction_type: str,
+        offert_amount: Decimal = Decimal("0.00"),
     ) -> TransactionWallet:
         pass

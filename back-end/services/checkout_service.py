@@ -1,7 +1,7 @@
 from operating_mode import preorders_enabled
 import os
 
-from datetime import datetime, time
+from datetime import date, datetime, time
 from typing import Optional
 from zoneinfo import ZoneInfo
 
@@ -13,8 +13,7 @@ from dto.checkout_dto import CheckoutLineDTO, CheckoutRequestDTO, CheckoutRespon
 from decimal import Decimal
 from interfaces.checkout_dao_interface import ICheckoutDao
 from interfaces.checkout_service_interface import ICheckoutService
-from entities.souki_wallet_entity import SoukiWallet
-from entities.transaction_wallet_entity import TransactionWallet
+from services.order_payment import WALLET_MODE, is_wallet_mode
 from services.notification_service import notification_service
 from services.order_schedule import (
     ORDER_BATCH_LOCK_ID, ORDER_CLOSED_MESSAGE, delivery_date_for_order, local_now, orders_closed,
@@ -23,6 +22,10 @@ from services.order_schedule import (
 PANIER_MINIMUM_DH = 50.0
 SEUIL_LIVRAISON_GRATUITE = 300.0
 FRAIS_LIVRAISON = 15.0
+BLACKLIST_COD_MESSAGE = (
+    "Votre compte ne peut pas passer de commandes COD. "
+    "Veuillez utiliser Wallet ou CMI."
+)
 DELIVERY_FEE = FRAIS_LIVRAISON
 MOROCCO_TIMEZONE = ZoneInfo("Africa/Casablanca")
 ORDER_CUTOFF_START = time(1, 0)
@@ -74,9 +77,12 @@ class CheckoutService(ICheckoutService):
         self._close_owned_session(rollback=exc_type is not None)
 
     def create_checkout(
-        self, user_id: int, payload: CheckoutRequestDTO
+        self, user_id: int, payload: CheckoutRequestDTO, system_delivery_date: Optional[date] = None
     ) -> CheckoutResponseDTO:
-        if ORDER_CUTOFF_ENABLED and is_order_cutoff_active():
+        # system_delivery_date : reserve au job de 01h00 (commandes recurrentes). La commande
+        # est creee pour cette date malgre la fermeture, et l'appelant fait le commit.
+        system_run = system_delivery_date is not None
+        if ORDER_CUTOFF_ENABLED and not system_run and is_order_cutoff_active():
             raise HTTPException(status_code=403, detail=ORDER_CUTOFF_MESSAGE)
 
         if not payload.items:
@@ -89,18 +95,12 @@ class CheckoutService(ICheckoutService):
             # JIT takes the exclusive counterpart before reading the closed batch.
             self.checkout_dao.lock_order_batch(session, ORDER_BATCH_LOCK_ID)
             accepted_at = local_now()
-            if ORDER_CUTOFF_ENABLED and is_order_cutoff_active(accepted_at):
+            if ORDER_CUTOFF_ENABLED and not system_run and is_order_cutoff_active(accepted_at):
                 raise HTTPException(status_code=403, detail=ORDER_CUTOFF_MESSAGE)
-            delivery_date = delivery_date_for_order(accepted_at)
+            delivery_date = system_delivery_date if system_run else delivery_date_for_order(accepted_at)
             client = self.checkout_dao.get_or_create_client(session, user_id)
-            if bool(client.is_blacklisted) and self._is_cod_mode(payload.mode_paiement):
-                raise HTTPException(
-                    status_code=403,
-                    detail=(
-                        "Votre compte ne peut pas passer de commandes COD. "
-                        "Veuillez utiliser Wallet ou CMI."
-                    ),
-                )
+            if bool(client.is_blacklisted) and self._is_cod_mode(payload.mode_paiement) and not payload.utiliser_wallet:
+                raise HTTPException(status_code=403, detail=BLACKLIST_COD_MESSAGE)
 
             contact_phone = (payload.contact_phone or "").strip()
             delivery_address = (payload.delivery_address or "").strip()
@@ -184,26 +184,34 @@ class CheckoutService(ICheckoutService):
 
             montant_total = round(total_produits + frais_livraison, 2)
 
-            is_wallet_payment = (payload.mode_paiement or "").strip().casefold() == "wallet"
-            if is_wallet_payment:
-                wallet = session.query(SoukiWallet).filter(SoukiWallet.user_id == user_id).with_for_update().first()
-                if not wallet:
-                    raise HTTPException(status_code=400, detail="Portefeuille Souki introuvable ou non activé.")
-                
-                montant_decimal = Decimal(str(montant_total))
-                if wallet.balance < montant_decimal:
-                    raise HTTPException(
-                        status_code=400, 
-                        detail=f"Solde insuffisant dans votre portefeuille. Solde actuel: {wallet.balance} DH, requis: {montant_total} DH."
-                    )
-                
-                wallet.balance -= montant_decimal
-                transaction = TransactionWallet(
-                    wallet_id=wallet.id,
-                    type="DEBIT_COMMANDE",
-                    montant=float(-montant_decimal)
-                )
-                session.add(transaction)
+            # Wallet : paiement complet (mode "wallet") ou credit deduit du montant a payer
+            # (utiliser_wallet), le reste etant encaisse a la porte.
+            mode_paiement = payload.mode_paiement
+            montant_decimal = Decimal(str(montant_total))
+            montant_wallet = Decimal("0.00")
+            montant_wallet_offert = Decimal("0.00")
+            if is_wallet_mode(mode_paiement) or payload.utiliser_wallet:
+                wallet = self.checkout_dao.get_wallet_for_update(session, user_id)
+                balance = Decimal(str(wallet.balance or "0.00")) if wallet else Decimal("0.00")
+                if is_wallet_mode(mode_paiement):
+                    if not wallet:
+                        raise HTTPException(status_code=400, detail="Portefeuille Souki introuvable ou non activé.")
+                    if balance < montant_decimal:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Solde insuffisant dans votre portefeuille. Solde actuel: {wallet.balance} DH, requis: {montant_total} DH."
+                        )
+                    montant_wallet = montant_decimal
+                elif balance > 0:
+                    montant_wallet = min(balance, montant_decimal)
+                    if montant_wallet == montant_decimal:
+                        mode_paiement = WALLET_MODE
+                if montant_wallet > 0:
+                    montant_wallet_offert = self.checkout_dao.debit_wallet(session, wallet, montant_wallet)
+
+            # Un compte bloque en COD ne commande que si le Wallet couvre tout.
+            if bool(client.is_blacklisted) and self._is_cod_mode(mode_paiement):
+                raise HTTPException(status_code=403, detail=BLACKLIST_COD_MESSAGE)
 
             panier = self.checkout_dao.create_panier(
                 session=session,
@@ -237,9 +245,11 @@ class CheckoutService(ICheckoutService):
                 brouillon_vocal_id=payload.brouillon_vocal_id,
                 statut="EN_ATTENTE",
                 creneau_livraison=payload.creneau_livraison,
-                mode_paiement=payload.mode_paiement,
+                mode_paiement=mode_paiement,
                 montant_total=montant_total,
                 date_livraison=delivery_date,
+                montant_wallet=float(montant_wallet),
+                montant_wallet_offert=float(montant_wallet_offert),
             )
 
             notification_service.notify(
@@ -259,7 +269,10 @@ class CheckoutService(ICheckoutService):
                 from dao.campaign_dao import CampaignDao
                 from services.campaign_service import CampaignService
                 CampaignService(CampaignDao(), session).attribute_order(payload._campaign_visit, int(commande.id))
-            session.commit()
+            if system_run:
+                session.flush()
+            else:
+                session.commit()
 
             return CheckoutResponseDTO(
                 status="success",
@@ -269,6 +282,9 @@ class CheckoutService(ICheckoutService):
                 sous_total=total_produits,
                 frais_livraison=frais_livraison,
                 montant_total=montant_total,
+                montant_wallet=float(montant_wallet),
+                reste_a_payer=float(montant_decimal - montant_wallet),
+                mode_paiement=mode_paiement,
                 message="Commande enregistree avec succes.",
                 date_livraison=delivery_date,
                 lignes=confirmed_lines,

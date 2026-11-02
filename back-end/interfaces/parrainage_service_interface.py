@@ -3,7 +3,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from dto.parrainage_admin_dto import ParrainageAdminOverviewDTO
+from dto.parrainage_admin_dto import ParrainageAdminOverviewDTO, ParrainageClientDTO, ParrainageContactsDTO
 from entities.parrainage_entity import Parrainage
 
 
@@ -50,4 +50,12 @@ class IParrainageService(ABC):
 
     @abstractmethod
     def get_admin_overview(self, session: Session) -> ParrainageAdminOverviewDTO:
+        pass
+
+    @abstractmethod
+    def reveal_contacts(self, session: Session, *, parrainage_id: int, staff_user_id: int) -> ParrainageContactsDTO:
+        pass
+
+    @abstractmethod
+    def get_client_overview(self, session: Session, *, user_id: int) -> ParrainageClientDTO:
         pass

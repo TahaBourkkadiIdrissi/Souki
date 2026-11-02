@@ -5,17 +5,23 @@ import { DeliveryPromise } from "@/components/souki/delivery-promise"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
+  Apple,
   ArrowRight,
+  Carrot,
   ChevronRight,
   Clock,
-  Mic,
   Search,
   ShoppingBasket,
+  Tag,
   Truck,
   Leaf,
+  type LucideIcon,
 } from "lucide-react"
 
+import Image from "@/components/souki/optimized-image"
 import { SuggestionCard } from "@/components/souki/suggestion-card"
+import { AiAgentCards } from "@/components/souki/ai-agent-cards"
+import { SocialLinks } from "@/components/souki/social-links"
 import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
 import { MascotChatSheet } from "@/components/souki/pwa/mascot-chat-sheet"
 import { PwaHomeHeader } from "@/components/souki/pwa/pwa-home-header"
@@ -24,14 +30,18 @@ import { SearchHint } from "@/components/souki/search-hint"
 import { useHomeParallax } from "@/hooks/useHomeParallax"
 import { MOROCCO_TIME_ZONE } from "@/lib/order-hours"
 import { useClientCollection } from "@/hooks/useClientCollection"
-import type { CartItem, CatalogueProduct } from "@/lib/catalogue"
+import type { CartItem, CatalogueProduct, CatalogueSection } from "@/lib/catalogue"
 import {
+  LEGACY_CATALOGUE_SECTIONS,
+  fetchCatalogueSections,
   fetchCatalogueProducts,
   FREE_DELIVERY_THRESHOLD,
   getCataloguePresentation,
+  isIllustrationImage,
   resolveCatalogueImage,
   upsertCartItem,
 } from "@/lib/catalogue"
+import { categoryIcon } from "@/lib/category-icons"
 import { fetchPersonalizedSuggestions } from "@/lib/api"
 import type { CatalogueProductDTO } from "@/lib/api"
 import { isPwaStandalone } from "@/lib/pwa"
@@ -55,11 +65,37 @@ const CATALOGUE_REFRESH_INTERVAL_MS = 5 * 60 * 1000
 // Rail de categories facon Glovo, reinterprete pour le marche frais.
 // Chaque tuile filtre reellement le catalogue (deep-link ?category=).
 const CATEGORY_TILES = [
-  { label: "Tout le marché", href: "/catalogue", emoji: "🧺", from: "#1E8A3C", to: "#2DA050" },
-  { label: "Légumes", href: "/catalogue?focus=legumes", emoji: "🥬", from: "#2DA050", to: "#7BC96F" },
-  { label: "Fruits", href: "/catalogue?focus=fruits", emoji: "🍊", from: "#F07C00", to: "#FFB347" },
-  { label: "Herbes", href: "/catalogue?focus=herbes", emoji: "🌿", from: "#1A4F2C", to: "#4CB84A" },
+  { label: "Tout le marché", href: "/catalogue", icon: ShoppingBasket, from: "#1E8A3C", to: "#2DA050" },
+  { label: "Légumes", href: "/catalogue?focus=legumes", icon: Carrot, from: "#2DA050", to: "#7BC96F" },
+  { label: "Fruits", href: "/catalogue?focus=fruits", icon: Apple, from: "#F07C00", to: "#FFB347" },
+  { label: "Herbes", href: "/catalogue?focus=herbes", icon: Leaf, from: "#1A4F2C", to: "#4CB84A" },
 ] as const
+
+type CategoryTile = { label: string; href: string; icon: LucideIcon; from: string; to: string; image?: string }
+// Degrades des tuiles historiques, reutilises en boucle pour les rayons crees dans l'admin.
+const TILE_GRADIENTS = CATEGORY_TILES.slice(1).map(({ from, to }) => ({ from, to }))
+
+// Tuile d'un rayon : photo du produit phare choisi dans l'admin, sinon son icone,
+// sinon l'icone historique du rayon, sinon une etiquette generique.
+function buildCategoryTiles(sections: CatalogueSection[], products: CatalogueProduct[]): CategoryTile[] {
+  return [
+    CATEGORY_TILES[0],
+    ...sections.map((section, index) => {
+      const href = `/catalogue?focus=${encodeURIComponent(section.slug)}`
+      const legacy = CATEGORY_TILES.find((tile) => tile.href === href)
+      const featured = section.produitVedetteId === null
+        ? undefined
+        : products.find((product) => product.id === section.produitVedetteId)
+      return {
+        ...(legacy ?? TILE_GRADIENTS[index % TILE_GRADIENTS.length]),
+        label: section.nom,
+        href,
+        icon: categoryIcon(section.icone) ?? legacy?.icon ?? Tag,
+        image: featured?.image || undefined,
+      }
+    }),
+  ]
+}
 
 // Mappe un produit renvoye par l'API vers le modele d'affichage du catalogue
 // (image resolue, prix affiche, unite de presentation...).
@@ -103,6 +139,19 @@ export default function PwaWelcomePage() {
   const revealRef = useScrollReveal<HTMLElement>()
   const haptic = useHaptic()
   const { favorites: favoriteIds, isFavorite, toggleFavorite } = useFavorites()
+  // Tuiles de rayons : rayons de l'admin, repli sur Légumes / Fruits / Herbes.
+  const [sections, setSections] = useState<CatalogueSection[]>(LEGACY_CATALOGUE_SECTIONS)
+  const categoryTiles = useMemo(() => buildCategoryTiles(sections, products), [sections, products])
+
+  useEffect(() => {
+    let active = true
+    void fetchCatalogueSections().then((value) => {
+      if (active) setSections(value)
+    })
+    return () => {
+      active = false
+    }
+  }, [products])
 
   // Photo de profil (televersee dans Parametres) : le bouton profil du header
   // l'affiche des qu'elle existe, initiale en repli. Meme mecanique que
@@ -517,7 +566,7 @@ export default function PwaWelcomePage() {
         {/* ===== RAIL DE CATEGORIES (decouverte facon Glovo) ===== */}
         <div className="mt-6 animate-slide-in-up">
           <div className="flex gap-3.5 overflow-x-auto px-4 pb-1 scroll-px-4 scrollbar-none snap-x snap-mandatory">
-            {CATEGORY_TILES.map((tile) => (
+            {categoryTiles.map((tile) => (
               <button
                 key={tile.label}
                 type="button"
@@ -525,7 +574,7 @@ export default function PwaWelcomePage() {
                 className="group flex w-[84px] shrink-0 snap-start flex-col items-center gap-2 transition-transform active:scale-95"
               >
                 <span
-                  className="relative flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-[22px] text-[28px] ring-1 ring-white/50 transition-all duration-300 group-active:scale-90 group-active:shadow-inner"
+                  className="relative flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-[22px] text-white ring-1 ring-white/50 transition-all duration-300 group-active:scale-90 group-active:shadow-inner"
                   style={{
                     background: `linear-gradient(145deg, ${tile.from}, ${tile.to})`,
                     boxShadow: `0 14px 26px -12px ${tile.from}A6, inset 0 1px 1px rgba(255,255,255,0.5)`,
@@ -533,9 +582,25 @@ export default function PwaWelcomePage() {
                 >
                   {/* Reflet en haut — donne le relief d'une vraie icône d'app */}
                   <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/40 to-transparent" />
-                  <span className="relative drop-shadow-sm transition-transform duration-300 group-hover:-translate-y-0.5 group-active:scale-110">
-                    {tile.emoji}
-                  </span>
+                  {tile.image ? (
+                    <Image
+                      src={tile.image}
+                      alt=""
+                      fill
+                      sizes="72px"
+                      className={
+                        isIllustrationImage(tile.image)
+                          ? "bg-white object-contain p-2 transition-transform duration-300 group-active:scale-110"
+                          : "object-cover transition-transform duration-300 group-active:scale-110"
+                      }
+                    />
+                  ) : (
+                    <tile.icon
+                      aria-hidden="true"
+                      strokeWidth={2.2}
+                      className="relative h-8 w-8 drop-shadow-sm transition-transform duration-300 group-hover:-translate-y-0.5 group-active:scale-110"
+                    />
+                  )}
                 </span>
                 <span className="text-center text-[12px] font-bold leading-tight text-[#3D3D3D]">{tile.label}</span>
               </button>
@@ -545,37 +610,10 @@ export default function PwaWelcomePage() {
 
         {/* ===== ACTIONS IA (Panier Intelligent + Commande Vocale) ===== */}
         <div className="mt-6 px-4 animate-slide-in-up">
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => router.push("/catalogue?assistant=smart")}
-              className="group relative flex flex-col items-start gap-2.5 overflow-hidden rounded-3xl border border-[#1E8A3C]/10 bg-white p-4 shadow-[0_14px_34px_-22px_rgba(30,138,60,0.4)] transition active:scale-[0.97] active:shadow-inner"
-            >
-              <span className="pointer-events-none absolute -right-6 -top-6 h-16 w-16 rounded-full bg-[#1E8A3C]/[0.07]" />
-              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#1E8A3C]/10">
-                <ShoppingBasket className="h-6 w-6 text-[#1E8A3C]" />
-              </span>
-              <span className="relative text-left">
-                <span className="block text-[15px] font-black leading-tight text-[#3D3D3D]">Panier Intelligent</span>
-                <span className="mt-0.5 block text-[12px] font-medium text-gray-400">L&apos;IA compose pour vous</span>
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => router.push("/catalogue?assistant=voice")}
-              className="group relative flex flex-col items-start gap-2.5 overflow-hidden rounded-3xl border border-[#F07C00]/10 bg-white p-4 shadow-[0_14px_34px_-22px_rgba(240,124,0,0.4)] transition active:scale-[0.97] active:shadow-inner"
-            >
-              <span className="pointer-events-none absolute -right-6 -top-6 h-16 w-16 rounded-full bg-[#F07C00]/[0.07]" />
-              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F07C00]/10">
-                <Mic className="h-6 w-6 text-[#F07C00]" />
-              </span>
-              <span className="relative text-left">
-                <span className="block text-[15px] font-black leading-tight text-[#3D3D3D]">Commande Vocale</span>
-                <span className="mt-0.5 block text-[12px] font-medium text-gray-400">Dictez votre marché</span>
-              </span>
-            </button>
-          </div>
+          <AiAgentCards
+            onSmart={() => router.push("/catalogue?assistant=smart")}
+            onVoice={() => router.push("/catalogue?assistant=voice")}
+          />
 
           {/* Bulle d'aide du fermier */}
           <div className="mt-3 flex items-center gap-3 rounded-2xl border border-[#1E8A3C]/10 bg-gradient-to-r from-[#F0FAF1] to-white px-4 py-3 shadow-[0_10px_28px_-22px_rgba(30,138,60,0.5)] animate-fade-in" style={{ animationDelay: "0.2s" }}>
@@ -700,6 +738,17 @@ export default function PwaWelcomePage() {
             </div>
           </div>
         )}
+
+        {/* ===== RESEAUX SOCIAUX ===== */}
+        <div className="mt-8 px-4" data-reveal="up">
+          <div className="flex items-center justify-between gap-3 rounded-3xl border border-[#1E8A3C]/10 bg-white px-4 py-3.5 shadow-[0_10px_28px_-22px_rgba(30,138,60,0.5)]">
+            <div className="min-w-0">
+              <p className="text-[15px] font-black leading-tight text-[#3D3D3D]">Suivez Souki</p>
+              <p className="mt-0.5 text-[12px] font-medium leading-snug text-[#647366]">Arrivages, recettes et coulisses du marché</p>
+            </div>
+            <SocialLinks tone="light" className="shrink-0 gap-2" />
+          </div>
+        </div>
 
         {/* Espace bas pour la barre de navigation */}
         <div className="h-6" />

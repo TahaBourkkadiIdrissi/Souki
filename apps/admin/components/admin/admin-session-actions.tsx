@@ -19,7 +19,7 @@ export function AdminSessionActions() {
         onClick={() => void leaveAdmin("/login?switch=1")}
         title="Changer de compte"
         aria-label="Changer de compte"
-        className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#DDE7DE] bg-white text-[#1E8A3C] shadow-[0_18px_45px_-24px_rgba(0,0,0,0.45)] transition-all hover:-translate-y-0.5 hover:bg-[#F0FAF1]"
+        className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--adm-line)] bg-white text-[#1E8A3C] shadow-[0_18px_45px_-24px_rgba(0,0,0,0.45)] transition-all hover:-translate-y-0.5 hover:bg-[var(--adm-green-soft)]"
       >
         <RefreshCcw className="h-5 w-5" />
       </button>

@@ -14,7 +14,7 @@ from dependencies import (
     get_parrainage_service,
 )
 from dto.client_admin_dto import AdminClientsPageDTO
-from dto.parrainage_admin_dto import ParrainageAdminOverviewDTO
+from dto.parrainage_admin_dto import ParrainageAdminOverviewDTO, ParrainageContactsDTO
 from interfaces.parrainage_service_interface import IParrainageService
 from dto.client_blacklist_dto import (
     BlacklistReportDTO,
@@ -29,6 +29,7 @@ from interfaces.client_blacklist_service_interface import IClientBlacklistServic
 from interfaces.dashboard_service_interface import IDashboardService
 from entities.user_entity import User
 from services.authorization_service import AuthorizationService
+from services.business_errors import BusinessError
 from services.user_session_service import UserSessionService
 from services.ws_ticket_service import WS_TICKET_TTL_SECONDS, ws_ticket_service
 
@@ -138,6 +139,22 @@ def get_admin_parrainages(
     session = LocalSession()
     try:
         return service.get_admin_overview(session)
+    finally:
+        session.close()
+
+
+@admin_router.post("/parrainages/{parrainage_id}/contacts", response_model=ParrainageContactsDTO)
+def reveal_admin_parrainage_contacts(
+    parrainage_id: int,
+    principal=Depends(require_permission("admin.panel.access", "clients.read")),
+    service: IParrainageService = Depends(get_parrainage_service),
+):
+    """Coordonnees completes d'un parrainage, sur demande explicite. Chaque appel est journalise."""
+    session = LocalSession()
+    try:
+        return service.reveal_contacts(session, parrainage_id=parrainage_id, staff_user_id=principal.user_id)
+    except BusinessError as exc:
+        raise exc.to_http()
     finally:
         session.close()
 

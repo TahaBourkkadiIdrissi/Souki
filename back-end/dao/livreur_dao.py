@@ -109,6 +109,7 @@ class LivreurDaoBD(ILivreurDao):
                 Commande.absent_at.label("absent_at"),
                 Commande.mode_paiement.label("mode_paiement"),
                 Commande.montant_total.label("montant_total"),
+                Commande.montant_wallet.label("montant_wallet"),
                 User.phone.label("client_phone"),
                 self._payment_validated_expression().label("payment_validated"),
                 address_alias.c.street.label("street"),

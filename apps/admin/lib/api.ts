@@ -43,6 +43,98 @@ export const restoreCampaign = (id: number, expected_version: number) => apiCall
 export const getCampaignStats = (id: number, start: string, end: string, signal?: AbortSignal) => apiCall<CampaignStats>(`/api/admin/campaigns/${id}/stats?${new URLSearchParams({ start, end })}`, { cache: "no-store", signal })
 export const getCampaignQr = (id: number) => apiCall<{ svg: string }>(`/api/admin/campaigns/${id}/qr-preview`, { cache: "no-store" })
 
+export type FrequenceRecurrente = "QUOTIDIENNE" | "TOUS_LES_3_JOURS" | "HEBDOMADAIRE" | "TOUTES_LES_2_SEMAINES"
+export type StatutRecurrence = "ACTIVE" | "EN_PAUSE" | "SUSPENDUE" | "ARRETEE"
+export interface CommandeRecurrenteLigneDTO { product_id: number; nom_produit: string; unite: string; image_url: string | null; quantite: number; prix_unitaire: number; prix_reference: number | null; sous_total: number; variation: number; disponible: boolean }
+export interface CommandeRecurrenteLivraisonDTO { date_livraison: string; statut: "CREEE" | "SAUTEE" | "ECHEC"; commande_id: number | null; montant: number | null; motif: string | null }
+export interface CommandeRecurrenteAdminDTO {
+  id: number
+  type: "COMMANDE" | "PANIER"
+  commande_origine_id: number | null
+  frequence: FrequenceRecurrente
+  prochaine_livraison: string
+  statut: StatutRecurrence
+  pause_jusqu_au: string | null
+  mode_paiement: string
+  contact_phone: string
+  delivery_address: string
+  delivery_city: string
+  lignes: CommandeRecurrenteLigneDTO[]
+  sous_total_estime: number
+  frais_livraison_estimes: number
+  total_estime: number
+  variation_prix: number
+  dernieres_livraisons: CommandeRecurrenteLivraisonDTO[]
+  created_at: string | null
+  client_id: number
+  client_nom: string | null
+  client_phone: string | null
+}
+export interface CommandeRecurrenteLivraisonAdminDTO extends CommandeRecurrenteLivraisonDTO { recurrence_id: number; type: "COMMANDE" | "PANIER"; client_id: number; client_nom: string | null }
+export const listCommandesRecurrentes = (filters: { statut?: string; type?: string; recherche?: string } = {}) =>
+  apiCall<CommandeRecurrenteAdminDTO[]>(`/api/admin/commandes-recurrentes?${new URLSearchParams(Object.entries(filters).filter(([, value]) => value) as [string, string][])}`, { cache: "no-store" })
+export const listLivraisonsRecurrentes = (dateLivraison: string) => apiCall<CommandeRecurrenteLivraisonAdminDTO[]>(`/api/admin/commandes-recurrentes/livraisons?${new URLSearchParams({ date_livraison: dateLivraison })}`, { cache: "no-store" })
+export const listCommandeIdsRecurrentes = (dateDebut: string, dateFin: string) => apiCall<number[]>(`/api/admin/commandes-recurrentes/commandes?${new URLSearchParams({ date_debut: dateDebut, date_fin: dateFin })}`, { cache: "no-store" })
+export const listCommandesRecurrentesClient = (clientId: number) => apiCall<CommandeRecurrenteAdminDTO[]>(`/api/admin/clients/${clientId}/commandes-recurrentes`, { cache: "no-store" })
+export const pauseCommandeRecurrenteAdmin = (id: number, jusquAu: string) => apiCall<CommandeRecurrenteAdminDTO>(`/api/admin/commandes-recurrentes/${id}/pause`, { method: "POST", body: { jusqu_au: jusquAu } })
+export const reprendreCommandeRecurrenteAdmin = (id: number) => apiCall<CommandeRecurrenteAdminDTO>(`/api/admin/commandes-recurrentes/${id}/reprendre`, { method: "POST" })
+export const arreterCommandeRecurrenteAdmin = (id: number) => apiCall<CommandeRecurrenteAdminDTO>(`/api/admin/commandes-recurrentes/${id}/arreter`, { method: "POST" })
+
+// Paniers SOUKI proposes a l'abonnement (page Abonnements du site client). Prix estimes au prix du jour.
+export interface PanierSoukiLigneDTO {
+  product_id: number
+  nom_produit: string
+  nom_darija: string | null
+  unite: string
+  image_url: string | null
+  quantite: number
+  prix_unitaire: number
+  sous_total: number
+  disponible: boolean
+}
+export interface PanierSoukiDTO {
+  id: number
+  nom: string
+  description: string | null
+  image_url: string | null
+  actif: boolean
+  ordre: number
+  lignes: PanierSoukiLigneDTO[]
+  sous_total_estime: number
+  frais_livraison_estimes: number
+  total_estime: number
+  created_at: string | null
+}
+export interface PanierSoukiForm {
+  nom: string
+  description: string | null
+  image_url: string | null
+  actif: boolean
+  ordre: number
+  lignes: { product_id: number; quantite: number }[]
+}
+export const listPaniersSouki = () => apiCall<PanierSoukiDTO[]>("/api/admin/paniers-souki", { cache: "no-store" })
+export const createPanierSouki = (body: PanierSoukiForm) => apiCall<PanierSoukiDTO>("/api/admin/paniers-souki", { method: "POST", body })
+export const updatePanierSouki = (id: number, body: PanierSoukiForm) => apiCall<PanierSoukiDTO>(`/api/admin/paniers-souki/${id}`, { method: "PUT", body })
+
+export interface CategoryForm {
+  nom: string
+  icone: string | null
+  produit_vedette_id: number | null
+  ordre: number
+  actif: boolean
+}
+export interface Category extends CategoryForm {
+  id: number
+  slug: string
+  created_at: string
+  product_ids: number[]
+}
+export const listCategories = () => apiCall<Category[]>("/api/admin/categories", { cache: "no-store" })
+export const createCategory = (body: CategoryForm & { slug: string }) => apiCall<Category>("/api/admin/categories", { method: "POST", body })
+export const updateCategory = (id: number, body: CategoryForm) => apiCall<Category>(`/api/admin/categories/${id}`, { method: "PUT", body })
+export const setCategoryProducts = (id: number, product_ids: number[]) => apiCall<Category>(`/api/admin/categories/${id}/produits`, { method: "PUT", body: { product_ids } })
+
 
 interface ApiOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
@@ -980,6 +1072,17 @@ export interface ParrainageAdminItemDTO {
   credit_total: number
   created_at: string | null
   converted_at: string | null
+  signaux: ParrainageSignal[]
+}
+
+export type ParrainageSignal = "MEME_ADRESSE" | "MEME_CONNEXION" | "IP_PARTAGEE"
+
+export interface ParrainageContactsDTO {
+  parrainage_id: number
+  parrain_id: number
+  parrain_contact: string | null
+  filleul_id: number
+  filleul_contact: string | null
 }
 
 
@@ -1005,6 +1108,11 @@ export interface ParrainageAdminOverviewDTO {
 
 export async function getAdminParrainages(token: string, signal?: AbortSignal) {
   return apiCall<ParrainageAdminOverviewDTO>("/admin/parrainages", { token, signal })
+}
+
+/** Coordonnees completes d'un parrainage : chaque appel est journalise cote serveur. */
+export async function revealParrainageContacts(token: string, parrainageId: number) {
+  return apiCall<ParrainageContactsDTO>(`/admin/parrainages/${parrainageId}/contacts`, { method: "POST", token })
 }
 
 

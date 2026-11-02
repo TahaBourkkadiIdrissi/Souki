@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation"
 
 import { useAuth } from "@/hooks/useAuth"
-import { AdminSessionActions } from "@/components/admin/admin-session-actions"
+import { AdminShell } from "@/components/admin/admin-shell"
 import { canAccessRoute } from "@/lib/routes"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -19,20 +19,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!decision.allowed) {
     return (
-      <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center px-6">
-        <div className="rounded-3xl bg-white shadow-sm border border-gray-100 px-8 py-10 text-center max-w-md">
-          <p className="text-sm uppercase tracking-[0.25em] text-[#8A8A8A]">Back-office</p>
-          <h1 className="mt-3 text-2xl font-bold text-[#1E8A3C]">Verification des acces</h1>
-          <p className="mt-3 text-[#6F6F6F]">Nous validons votre session et vos permissions.</p>
+      <div className="flex min-h-screen items-center justify-center bg-[var(--adm-paper)] px-6">
+        <div className="max-w-md text-center animate-in fade-in-0 duration-300">
+          <span className="mx-auto block h-1 w-24 overflow-hidden rounded-full bg-[var(--adm-line)]">
+            <span className="block h-full w-1/2 animate-[adm-progress-run_1.1s_var(--adm-ease)_infinite] rounded-full bg-[var(--adm-green)]" style={{ transform: "translateX(-100%)" }} />
+          </span>
+          <h1 className="mt-5 text-lg font-semibold text-[var(--adm-text)]">Vérification des accès</h1>
+          <p className="mt-1 text-sm text-[var(--adm-muted)]">Validation de votre session et de vos permissions.</p>
         </div>
       </div>
     )
   }
 
-  return (
-    <>
-      {children}
-      <AdminSessionActions />
-    </>
-  )
+  return <AdminShell>{children}</AdminShell>
 }

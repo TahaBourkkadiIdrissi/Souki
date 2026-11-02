@@ -1,3 +1,5 @@
+import logging
+import math
 import secrets
 from datetime import datetime
 from decimal import Decimal
@@ -9,6 +11,9 @@ from config import LocalSession
 from dto.parrainage_admin_dto import (
     ParrainageAdminItemDTO,
     ParrainageAdminOverviewDTO,
+    ParrainageClientDTO,
+    ParrainageContactsDTO,
+    ParrainageFilleulClientDTO,
     ParrainageTopParrainDTO,
 )
 from entities.parrainage_entity import (
@@ -20,11 +25,14 @@ from entities.parrainage_entity import (
 from interfaces.parrainage_dao_interface import IParrainageDao
 from interfaces.parrainage_service_interface import IParrainageService
 from interfaces.souki_wallet_service_interface import ISoukiWalletService
+from services.business_errors import ResourceNotFoundError
+
+audit_logger = logging.getLogger("souki.audit")
 
 
-# Montant du credit de parrainage (DH). Correspond a la valeur d'un produit
-# d'appel dont le cout de revient gros reste inferieur a 3 DH. Configurable.
-REFERRAL_CREDIT_DH = 3.0
+# Credit de parrainage (DH) verse au parrain ET au filleul a la 1ere commande livree du filleul.
+# 15 DH = le prix d'une livraison. Il se deduit du montant a payer (credit Wallet partiel au checkout).
+REFERRAL_CREDIT_DH = 15.0
 
 # Plafond souple anti-farming par IP : au-dela de REFERRAL_IP_CAP parrainages
 # enregistres depuis la meme IP sur REFERRAL_IP_WINDOW_DAYS jours, on n'enregistre
@@ -45,6 +53,13 @@ REFERRAL_TX_TYPE_FILLEUL = "PARRAINAGE_FILLEUL"
 REFERRAL_CODE_LENGTH = 6
 REFERRAL_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 REFERRAL_CODE_MAX_ATTEMPTS = 10
+
+# Indices de parrainage suspect affiches a l'admin. Ce sont des indices, pas des preuves :
+# une famille partage une adresse, et les operateurs mobiles partagent souvent une IP.
+SIGNAL_MEME_ADRESSE = "MEME_ADRESSE"
+SIGNAL_MEME_CONNEXION = "MEME_CONNEXION"
+SIGNAL_IP_PARTAGEE = "IP_PARTAGEE"
+SAME_ADDRESS_RADIUS_M = 30.0
 
 
 class ParrainageService(IParrainageService):
@@ -161,6 +176,7 @@ class ParrainageService(IParrainageService):
                     wallet=parrain_wallet,
                     amount=amount,
                     transaction_type=REFERRAL_TX_TYPE_PARRAIN,
+                    offert_amount=amount,
                 )
                 filleul_wallet = self.souki_wallet_service.get_or_create_wallet(
                     filleul_id, session=session
@@ -170,6 +186,7 @@ class ParrainageService(IParrainageService):
                     wallet=filleul_wallet,
                     amount=amount,
                     transaction_type=REFERRAL_TX_TYPE_FILLEUL,
+                    offert_amount=amount,
                 )
 
                 parrainage.statut = PARRAINAGE_CONVERTI
@@ -199,8 +216,11 @@ class ParrainageService(IParrainageService):
             for row in self.parrainage_dao.top_parrains(session, limit=5)
         ]
 
+        rows = self.parrainage_dao.list_recent_with_contacts(session, limit=100)
+        signaux_par_id = self._compute_signals(session, [row[0] for row in rows])
+
         recent = []
-        for row in self.parrainage_dao.list_recent_with_contacts(session, limit=100):
+        for row in rows:
             parrainage = row[0]
             credit_total = round(
                 float(parrainage.credit_parrain or 0.0) + float(parrainage.credit_filleul or 0.0),
@@ -218,6 +238,7 @@ class ParrainageService(IParrainageService):
                     credit_total=credit_total,
                     created_at=parrainage.created_at,
                     converted_at=parrainage.converted_at,
+                    signaux=signaux_par_id.get(int(parrainage.id), []),
                 )
             )
 
@@ -232,13 +253,114 @@ class ParrainageService(IParrainageService):
             recent=recent,
         )
 
+    def get_client_overview(self, session: Session, *, user_id: int) -> ParrainageClientDTO:
+        client = self.parrainage_dao.get_client_by_id(session, user_id)
+        filleuls = []
+        en_attente = convertis = 0
+        gains = 0.0
+        for parrainage, prenom, nom in self.parrainage_dao.list_by_parrain_with_names(session, user_id):
+            if parrainage.statut == PARRAINAGE_CONVERTI:
+                convertis += 1
+                gains += float(parrainage.credit_parrain or 0.0)
+            elif parrainage.statut == PARRAINAGE_EN_ATTENTE:
+                en_attente += 1
+            filleuls.append(ParrainageFilleulClientDTO(
+                prenom=self._display_first_name(prenom, nom),
+                statut=parrainage.statut,
+                created_at=parrainage.created_at,
+                converted_at=parrainage.converted_at,
+            ))
+        return ParrainageClientDTO(
+            code=getattr(client, "code_parrainage", None),
+            credit_par_filleul=REFERRAL_CREDIT_DH,
+            plafond_filleuls=REFERRAL_PARRAIN_CAP,
+            en_attente=en_attente,
+            convertis=convertis,
+            gains_total=round(gains, 2),
+            filleuls=filleuls,
+        )
+
+    @staticmethod
+    def _display_first_name(prenom: Optional[str], nom: Optional[str]) -> str:
+        first = (prenom or "").strip()
+        initial = (nom or "").strip()[:1]
+        if not first:
+            return "Un proche"
+        return f"{first} {initial.upper()}." if initial else first
+
+    def reveal_contacts(self, session: Session, *, parrainage_id: int, staff_user_id: int) -> ParrainageContactsDTO:
+        row = self.parrainage_dao.get_with_contacts(session, parrainage_id)
+        if row is None:
+            raise ResourceNotFoundError("Parrainage introuvable.")
+        parrainage = row[0]
+        # Trace d'audit : qui a affiche les coordonnees completes, et de quel parrainage.
+        audit_logger.info(
+            "[AUDIT] contacts parrainage affiches parrainage_id=%s parrain_id=%s filleul_id=%s staff_user_id=%s at=%s",
+            parrainage.id, parrainage.parrain_id, parrainage.filleul_id, staff_user_id, datetime.utcnow().isoformat(),
+        )
+        return ParrainageContactsDTO(
+            parrainage_id=int(parrainage.id),
+            parrain_id=int(parrainage.parrain_id),
+            parrain_contact=(row[1] or row[2] or None),
+            filleul_id=int(parrainage.filleul_id),
+            filleul_contact=(row[3] or row[4] or None),
+        )
+
+    def _compute_signals(self, session: Session, parrainages: list) -> dict[int, list[str]]:
+        if not parrainages:
+            return {}
+        user_ids = sorted({int(p.parrain_id) for p in parrainages} | {int(p.filleul_id) for p in parrainages})
+        points: dict[int, list[tuple[float, float]]] = {}
+        for user_id, lat, lng in self.parrainage_dao.list_address_points(session, user_ids):
+            points.setdefault(int(user_id), []).append((float(lat), float(lng)))
+        session_ips: dict[int, set[str]] = {}
+        for user_id, ip in self.parrainage_dao.list_session_ips(session, sorted({int(p.parrain_id) for p in parrainages})):
+            session_ips.setdefault(int(user_id), set()).add(str(ip).strip())
+
+        ip_counts: dict[tuple[int, str], int] = {}
+        for p in parrainages:
+            if p.ip_inscription:
+                key = (int(p.parrain_id), p.ip_inscription.strip())
+                ip_counts[key] = ip_counts.get(key, 0) + 1
+
+        result: dict[int, list[str]] = {}
+        for p in parrainages:
+            signaux = []
+            parrain_points = points.get(int(p.parrain_id), [])
+            filleul_points = points.get(int(p.filleul_id), [])
+            if any(
+                self._distance_m(a, b) <= SAME_ADDRESS_RADIUS_M
+                for a in parrain_points for b in filleul_points
+            ):
+                signaux.append(SIGNAL_MEME_ADRESSE)
+            ip = (p.ip_inscription or "").strip()
+            if ip and ip in session_ips.get(int(p.parrain_id), set()):
+                signaux.append(SIGNAL_MEME_CONNEXION)
+            if ip and ip_counts.get((int(p.parrain_id), ip), 0) > 1:
+                signaux.append(SIGNAL_IP_PARTAGEE)
+            if signaux:
+                result[int(p.id)] = signaux
+        return result
+
+    @staticmethod
+    def _distance_m(a: tuple[float, float], b: tuple[float, float]) -> float:
+        lat1, lng1 = map(math.radians, a)
+        lat2, lng2 = map(math.radians, b)
+        h = math.sin((lat2 - lat1) / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin((lng2 - lng1) / 2) ** 2
+        return 2 * 6_371_000 * math.asin(math.sqrt(h))
+
     @staticmethod
     def _mask_contact(phone: Optional[str], email: Optional[str]) -> Optional[str]:
         if phone:
-            value = phone.strip()
-            if len(value) <= 4:
-                return "*" * len(value)
-            return f"{value[:4]}{'*' * max(1, len(value) - 6)}{value[-2:]}"
+            digits = "".join(ch for ch in phone if ch.isdigit())
+            # Numeros stockes en +212XXXXXXXXX : affichage national 06 / 07, utile pour distinguer.
+            if digits.startswith("212") and len(digits) == 12:
+                digits = f"0{digits[3:]}"
+            if len(digits) == 10:
+                return f"{digits[:2]} •• •• {digits[6:8]} {digits[8:]}"
+            if len(digits) <= 4:
+                return "•" * len(digits)
+            return f"{digits[:2]}{'•' * (len(digits) - 6)}{digits[-4:]}"
         if email:
             local, _, domain = email.partition("@")
             if not domain:
