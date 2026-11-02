@@ -19,7 +19,17 @@ from services.order_schedule import (
     ORDER_BATCH_LOCK_ID, ORDER_CLOSED_MESSAGE, delivery_date_for_order, local_now, orders_closed,
 )
 
+# Minimum d'une commande : 50 DH de produits, hors frais de livraison. Meme regle pour les
+# commandes, leurs modifications et les abonnements.
 PANIER_MINIMUM_DH = 50.0
+
+
+def minimum_commande_message(sous_total_produits: float) -> str:
+    manque = max(PANIER_MINIMUM_DH - float(sous_total_produits), 0.01)
+    return (
+        f"Le minimum de commande est de {PANIER_MINIMUM_DH:.0f} DH de produits, hors livraison. "
+        f"Ajoutez encore {manque:.2f} DH de produits."
+    )
 SEUIL_LIVRAISON_GRATUITE = 300.0
 FRAIS_LIVRAISON = 15.0
 BLACKLIST_COD_MESSAGE = (
@@ -171,6 +181,9 @@ class CheckoutService(ICheckoutService):
                     product.stock = available_stock - requested_quantity # type: ignore
 
             total_produits = round(sous_total, 2)
+            # Le job de 01h00 verifie deja le minimum avant de creer la commande d'un abonnement.
+            if not system_run and total_produits < PANIER_MINIMUM_DH:
+                raise ValueError(minimum_commande_message(total_produits))
 
             is_b2b = False
             if (

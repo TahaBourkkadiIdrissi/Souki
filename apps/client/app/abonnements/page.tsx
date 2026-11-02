@@ -252,7 +252,7 @@ export default function AbonnementsPage() {
             {[
               { icon: Scale, title: "Le prix du jour, rien d'autre", text: "Pas de prix figé, pas de remise ni de frais d'abonnement : chaque commande suit le prix du site, et l'écart s'affiche avant la livraison." },
               { icon: CalendarClock, title: "Vous gardez la main", text: "Modifiez le contenu, sautez une livraison, mettez en pause ou arrêtez jusqu'à 01h00 la veille." },
-              { icon: Truck, title: "Mêmes règles qu'une commande", text: "Minimum 50 DH. Livraison 15 DH, offerte dès 300 DH. Paiement à la livraison ou par Wallet SOUKI." },
+              { icon: Truck, title: "Mêmes règles qu'une commande", text: "Minimum 50 DH de produits, hors livraison. Livraison 15 DH, offerte dès 300 DH. Paiement à la livraison ou par Wallet SOUKI." },
             ].map((item) => (
               <div key={item.title} className="rounded-3xl border border-[#E7EFE8] bg-[#FBFBF7] p-6">
                 <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#EAF8EC]"><item.icon className="h-5 w-5 text-[#1E8A3C]" aria-hidden="true" /></span>

@@ -58,6 +58,9 @@ export interface OrderEditResponse {
   total: number
   previous_total: number
   difference: number
+  // Part payee par le Wallet SOUKI et reste a payer a la livraison.
+  wallet_paid: number
+  amount_due: number
 }
 
 export interface OrderEditRequest {

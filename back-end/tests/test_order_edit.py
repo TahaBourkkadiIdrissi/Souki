@@ -90,26 +90,32 @@ def test_save_keeps_order_basket_date_slot_and_line_ids(setup):
     assert notify.call_args.kwargs["event_key"] == "ORDER_UPDATED"
 
 
-@pytest.mark.parametrize("mode", ["cod", "wallet"])
-def test_order_below_50_dh_can_be_previewed_and_reduced(setup, mode):
+def test_old_order_below_50_dh_can_be_previewed_and_completed_but_not_reduced(setup):
+    # Commande d'avant la regle : 18 DH de produits + 15 DH de livraison.
     service, session, _ = setup
     order = session.get(Commande, 1)
-    order.mode_paiement = mode
-    order.montant_total = order.panier.total_facture = 33  # 18 DH products + 15 DH delivery.
+    order.montant_total = order.panier.total_facture = 33
     order.panier.lignes[0].quantite_kg = 1.8
     order.panier.lignes[0].sous_total = 18
     session.commit()
 
     quote = service.preview(7, 1, request(1.8))
     assert quote.subtotal == 18 and quote.total == 33
-    assert session.get(Commande, 1).status_version == 1
+    with pytest.raises(HTTPException) as exc:
+        service.preview(7, 1, request(1))
+    assert exc.value.status_code == 400 and "50 DH de produits" in exc.value.detail
+    result = save(service, request(6))
+    assert result.subtotal == 60 and result.total == 75
 
-    result = save(service, request(1))
-    assert result.subtotal == 10 and result.delivery_fee == 15 and result.total == 25
-    assert session.get(Commande, 1).montant_total == 25
-    assert session.get(LignePanier, 1).quantite_kg == 1
-    assert session.query(SoukiWallet).one().balance == (108 if mode == "wallet" else 100)
-    assert session.query(TransactionWallet).count() == (1 if mode == "wallet" else 0)
+
+def test_edit_cannot_drop_below_50_dh_of_products(setup):
+    # 50 DH de produits : passer a 4 kg (40 DH) est refuse, il faut annuler la commande.
+    service, session, _ = setup
+    with pytest.raises(HTTPException) as exc:
+        save(service, request(4))
+    assert exc.value.status_code == 400 and "annulez la commande" in exc.value.detail
+    assert session.get(Commande, 1).montant_total == 65
+
 
 
 def test_add_remove_and_free_delivery_threshold(setup):
@@ -403,14 +409,16 @@ def test_partial_wallet_credit_stays_when_total_grows(setup):
 
 
 def test_partial_wallet_excess_returns_when_total_drops_below_credit(setup):
-    # 65 DH dont 60 DH Wallet ; reduire a 3 kg (45 DH) rend 15 DH et la commande est payee en entier.
+    # 95 DH dont 90 DH Wallet ; reduire a 6 kg (75 DH) rend 15 DH et la commande est payee en entier.
     service, session, _ = setup
-    session.get(Commande, 1).montant_wallet = 60
-    session.commit()
-    result = save(service, request(quantity=3))
     order = session.get(Commande, 1)
-    assert result.total == 45
-    assert (order.montant_wallet, order.mode_paiement) == (45, "wallet")
+    order.montant_total, order.montant_wallet = 95, 90
+    order.panier.lignes[0].quantite_kg, order.panier.lignes[0].sous_total = 8, 80
+    session.commit()
+    result = save(service, request(quantity=6))
+    order = session.get(Commande, 1)
+    assert result.total == 75
+    assert (order.montant_wallet, order.mode_paiement) == (75, "wallet")
     assert session.query(SoukiWallet).one().balance == Decimal("115")
 
 
@@ -436,13 +444,34 @@ def test_cancel_returns_each_part_to_its_own_balance(setup):
 
 
 def test_edit_below_credit_returns_refunded_money_first(setup):
-    # 65 DH dont 60 Wallet (20 offerts) ; passer a 45 DH rend 15 DH, pris sur l'argent rembourse.
+    # 95 DH dont 90 Wallet (20 offerts) ; passer a 75 DH rend 15 DH, pris sur l'argent rembourse.
     service, session, _ = setup
     order = session.get(Commande, 1)
-    order.montant_wallet, order.montant_wallet_offert = 60, 20
+    order.montant_total, order.montant_wallet, order.montant_wallet_offert = 95, 90, 20
+    order.panier.lignes[0].quantite_kg, order.panier.lignes[0].sous_total = 8, 80
     session.commit()
-    save(service, request(quantity=3))
+    save(service, request(quantity=6))
     order = session.get(Commande, 1)
     wallet = session.query(SoukiWallet).one()
-    assert (order.montant_wallet, order.montant_wallet_offert) == (45, 20)
+    assert (order.montant_wallet, order.montant_wallet_offert) == (75, 20)
     assert (wallet.balance, wallet.solde_offert) == (115, 0)
+
+
+def test_edit_screen_shows_wallet_share_and_cash_due(setup):
+    # 65 DH dont 15 DH de credit Wallet : l'ecran affiche 50 DH a payer, avant et apres l'ajout d'1 kg.
+    service, session, _ = setup
+    session.get(Commande, 1).montant_wallet = 15
+    session.commit()
+    current = service.get_order(7, 1)
+    assert (current.wallet_paid, current.amount_due) == (15, 50)
+    quote = service.preview(7, 1, request(6))
+    assert (quote.total, quote.wallet_paid, quote.amount_due) == (75, 15, 60)
+
+
+def test_edit_screen_full_wallet_order_has_nothing_due(setup):
+    service, session, _ = setup
+    session.get(Commande, 1).mode_paiement = "wallet"
+    session.commit()
+    quote = service.preview(7, 1, request(6))
+    assert (quote.wallet_paid, quote.amount_due) == (75, 0)
+

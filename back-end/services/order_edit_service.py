@@ -8,7 +8,7 @@ from interfaces.checkout_dao_interface import ICheckoutDao
 from interfaces.order_edit_dao_interface import IOrderEditDao
 from interfaces.order_edit_service_interface import IOrderEditService
 from operating_mode import preorders_enabled
-from services.checkout_service import FRAIS_LIVRAISON, SEUIL_LIVRAISON_GRATUITE
+from services.checkout_service import FRAIS_LIVRAISON, PANIER_MINIMUM_DH, SEUIL_LIVRAISON_GRATUITE, minimum_commande_message
 from services.notification_service import notification_service
 from services.commande_state_machine import changer_statut
 from services.order_payment import (
@@ -73,6 +73,8 @@ class OrderEditService(IOrderEditService):
         previous = money(order.montant_total) if previous is None else previous
         reason = self._reason(order)
         cancellation_reason = self._reason(order, cancelling=True)
+        # Paiement complet par Wallet : le Wallet suit le total. Credit partiel : il ne depasse jamais le total.
+        wallet_paid = total if is_wallet_mode(order.mode_paiement) else min(order_wallet_share(order), total)
         return OrderEditResponseDTO(commande_id=order.id, version=order.status_version or 1,
             editable=reason is None, reason=reason, server_time=local_now(),
             cancellable=cancellation_reason is None, cancellation_reason=cancellation_reason,
@@ -80,7 +82,8 @@ class OrderEditService(IOrderEditService):
             date_livraison=order.date_livraison, creneau_livraison=order.creneau_livraison,
             mode_paiement=str(order.mode_paiement or ""), items=lines,
             subtotal=float(subtotal), delivery_fee=float(total - subtotal), total=float(total),
-            previous_total=float(previous), difference=float(total - previous))
+            previous_total=float(previous), difference=float(total - previous),
+            wallet_paid=float(wallet_paid), amount_due=float(total - wallet_paid))
 
     def get_order(self, user_id: int, order_id: int) -> OrderEditResponseDTO:
         return self._snapshot(self._owned(user_id, order_id))
@@ -167,6 +170,11 @@ class OrderEditService(IOrderEditService):
             lines.append(OrderEditLineDTO(product_id=product_id, name=product.nom_fr, unit=product.unite,
                          quantity=float(quantity), unit_price=float(price), subtotal=float(money(price * quantity))))
         subtotal = sum((money(line.subtotal) for line in lines), Decimal(0))
+        # Une modification ne peut pas faire passer la commande sous le minimum (pour moins, on annule).
+        # Une ancienne commande deja sous le minimum peut toujours etre completee.
+        previous_subtotal = sum((money(line.sous_total) for line in order.panier.lignes), Decimal(0))
+        if subtotal < Decimal(str(PANIER_MINIMUM_DH)) and subtotal < previous_subtotal:
+            raise HTTPException(400, minimum_commande_message(float(subtotal)) + " Pour moins, annulez la commande.")
         fee = Decimal(0) if subtotal >= Decimal(str(SEUIL_LIVRAISON_GRATUITE)) or (
             order.client and getattr(order.client, "abonnement_actif", False)) else money(FRAIS_LIVRAISON)
         return order, lines, subtotal, subtotal + fee, products, stock_changes

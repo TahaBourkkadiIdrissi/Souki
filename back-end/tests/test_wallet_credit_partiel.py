@@ -150,3 +150,12 @@ def test_refus_a_la_porte_rend_seulement_l_argent_rembourse():
 def test_refus_avec_seulement_du_credit_offert_ne_rend_rien():
     commande = SimpleNamespace(client_id=7, montant_total=115, montant_wallet=15, montant_wallet_offert=15, mode_paiement="cod")
     assert _refus(commande) == []
+
+
+def test_commande_sous_50_dh_de_produits_refusee():
+    # 40 DH de produits (55 DH avec la livraison) : refuse, le minimum ne compte pas la livraison.
+    with pytest.raises(ValueError) as exc:
+        _checkout(_Dao(balance=None), quantity=4, utiliser_wallet=False)
+    assert "50 DH de produits" in str(exc.value) and "10.00 DH" in str(exc.value)
+    # 50 DH de produits pile : accepte.
+    assert _checkout(_Dao(balance=None), quantity=5, utiliser_wallet=False).montant_total == 65.0

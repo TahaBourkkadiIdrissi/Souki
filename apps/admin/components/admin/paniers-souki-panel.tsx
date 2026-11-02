@@ -184,7 +184,7 @@ export function PaniersSoukiPanel() {
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[var(--adm-paper)] px-4 py-3 text-sm">
         <span>Estimation au prix du jour : <strong className="tabular-nums">{formatDh(estimation.sousTotal)}</strong> + livraison {formatDh(estimation.frais)}</span>
-        {sousMinimum && <span className="font-semibold text-red-700">Minimum {MINIMUM_DH} DH par livraison</span>}
+        {sousMinimum && <span className="font-semibold text-red-700">Minimum {MINIMUM_DH} DH de produits, hors livraison</span>}
       </div>
       <div className="flex justify-end gap-2">
         <button type="button" className={buttonClass} onClick={() => setDraft(null)}>Annuler</button>

@@ -38,6 +38,7 @@ import { trackEvent, trackPurchase } from "@/lib/analytics"
 import {
   DELIVERY_FEE,
   FREE_DELIVERY_THRESHOLD,
+  MIN_ORDER_PRODUCTS_DH,
   CatalogueProduct,
   fetchCatalogueProducts,
   getCataloguePresentation,
@@ -528,6 +529,8 @@ function CheckoutContent() {
   }
 
   const isWalletInsufficient = selectedPayment === "wallet" && walletBalance < orderTotal
+  // Minimum : 50 DH de produits, hors livraison (le back-end refuse aussi en dessous).
+  const missingForMinimum = Math.max(0, MIN_ORDER_PRODUCTS_DH - subtotal)
   const isPhoneMissing = phoneNumber.trim().length === 0
   const isPhoneInvalid = phoneNumber.trim().length > 0 && !isValidMoroccanPhone(phoneNumber)
   const isAddressMissing = address.trim().length === 0
@@ -536,6 +539,7 @@ function CheckoutContent() {
     acceptTerms &&
     cart.length > 0 &&
     !isWalletInsufficient &&
+    missingForMinimum === 0 &&
     !isPhoneMissing &&
     !isPhoneInvalid &&
     !isAddressMissing &&
@@ -1185,6 +1189,12 @@ function CheckoutContent() {
               {isOrderCutoffActive && (
                 <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
                   {orderLockMessage}
+                </div>
+              )}
+              {missingForMinimum > 0 && cart.length > 0 && (
+                <div role="status" className="rounded-xl border border-[#F5D7B8] bg-[#FFF7EE] p-4 text-sm font-semibold text-[#9A5C11]">
+                  Minimum de commande : {MIN_ORDER_PRODUCTS_DH} DH de produits, hors livraison. Ajoutez encore {missingForMinimum.toFixed(2)} DH.
+                  <Link href="/catalogue" className="ms-2 underline">Ajouter des produits</Link>
                 </div>
               )}
               <label className="flex items-start gap-3 cursor-pointer">

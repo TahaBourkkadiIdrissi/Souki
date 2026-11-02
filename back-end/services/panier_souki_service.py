@@ -28,7 +28,7 @@ class PanierSoukiService(IPanierSoukiService):
             raise HTTPException(400, "Un ou plusieurs produits sont introuvables.")
         sous_total = sum(_prix(products[product_id]) * quantite for product_id, quantite in quantites.items())
         if round(sous_total, 2) < PANIER_MINIMUM_DH:
-            raise HTTPException(400, f"Un panier doit valoir au moins {PANIER_MINIMUM_DH:.0f} DH au prix du jour.")
+            raise HTTPException(400, f"Un panier doit contenir au moins {PANIER_MINIMUM_DH:.0f} DH de produits au prix du jour, hors livraison.")
         return [dict(product_id=product_id, quantite=quantite) for product_id, quantite in quantites.items()]
 
     @staticmethod

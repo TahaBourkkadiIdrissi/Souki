@@ -70,6 +70,8 @@ export function OrderEditor({ orderId }: { orderId: number }) {
   }, [order])
 
   const locked = !order?.editable || isLocked || expired || mustReload
+  // Paiement complet par Wallet : la difference passe par le Wallet. Sinon, credit partiel eventuel + reste a la porte.
+  const fullWallet = order?.mode_paiement.toLowerCase() === "wallet"
   const cancelLocked = !order?.cancellable || isLocked || expired || mustReload
   const cancel = async () => {
     if (!order || cancelLocked || busy) return
@@ -165,11 +167,19 @@ export function OrderEditor({ orderId }: { orderId: number }) {
             </div>)}</div>
           </section>}
           <section className="space-y-3 rounded-2xl border border-[#D7EBD9] bg-white p-5" aria-label="Récapitulatif de modification">
-            <p>Montant actuel : <strong>{dh(order.total)}</strong></p>
+            <p>Montant actuel : <strong>{dh(order.total)}</strong>{!fullWallet && order.wallet_paid > 0 && <span className="text-sm text-[#6F8070]"> dont {dh(order.wallet_paid)} payés par le Wallet</span>}</p>
             {quote && <div aria-live="polite" className="space-y-2 rounded-xl bg-[#F0FAF1] p-4">
               <p>Produits : {dh(quote.subtotal)}</p><p>Livraison : {dh(quote.delivery_fee)}</p>
               <p className="text-lg font-black">Nouveau total : {dh(quote.total)}</p>
-              <p>{order.mode_paiement.toLowerCase() === "wallet" ? quote.difference > 0 ? `Complément débité du Wallet : ${dh(quote.difference)}` : quote.difference < 0 ? `Montant recrédité au Wallet : ${dh(-quote.difference)}` : "Aucun ajustement du Wallet." : `À payer à la livraison : ${dh(quote.total)}`}</p>
+              {fullWallet ? (
+                <p>{quote.difference > 0 ? `Complément débité du Wallet : ${dh(quote.difference)}` : quote.difference < 0 ? `Montant recrédité au Wallet : ${dh(-quote.difference)}` : "Aucun ajustement du Wallet."}</p>
+              ) : (
+                <>
+                  {quote.wallet_paid > 0 && <p>Déjà payé par le Wallet : {dh(quote.wallet_paid)}</p>}
+                  {order.wallet_paid > quote.wallet_paid && <p>Montant recrédité au Wallet : {dh(order.wallet_paid - quote.wallet_paid)}</p>}
+                  <p className="font-bold">À payer à la livraison : {dh(quote.amount_due)}</p>
+                </>
+              )}
               <p className="text-sm">La date de livraison et le numéro de commande restent identiques.</p>
             </div>}
             <button disabled={locked || busy || items.length === 0} onClick={() => void submit(Boolean(quote))} className="min-h-12 w-full rounded-xl bg-[#1E8A3C] px-4 font-bold text-white hover:bg-[#176B2E] disabled:opacity-50">
@@ -185,7 +195,7 @@ export function OrderEditor({ orderId }: { orderId: number }) {
           </section>
           <dialog ref={cancelDialog} aria-labelledby="cancel-title" aria-describedby="cancel-description" onCancel={event => { if (busy) event.preventDefault(); else setConfirmCancel(false) }} className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl bg-white p-6 text-[#264129] backdrop:bg-black/50">
             <h2 id="cancel-title" className="text-xl font-bold">Annuler la commande N-{order.commande_id} ?</h2>
-            <p id="cancel-description" className="mt-3 text-sm">Cette action est définitive. {order.mode_paiement.toLowerCase() === "wallet" ? `Le total payé de ${dh(order.total)}, livraison comprise, sera recrédité sur votre Wallet.` : "Vous n’aurez rien à payer pour cette commande."} Les modifications non enregistrées seront abandonnées.</p>
+            <p id="cancel-description" className="mt-3 text-sm">Cette action est définitive. {fullWallet ? `Le total payé de ${dh(order.total)}, livraison comprise, sera recrédité sur votre Wallet.` : order.wallet_paid > 0 ? `Les ${dh(order.wallet_paid)} payés par le Wallet seront recrédités, et vous n’aurez rien à payer à la livraison.` : "Vous n’aurez rien à payer pour cette commande."} Les modifications non enregistrées seront abandonnées.</p>
             {cancelLocked && <p role="alert" className="mt-3 text-sm text-amber-800">L’annulation n’est plus disponible. Fermez cette fenêtre et rechargez la commande.</p>}
             <div className="mt-5 flex flex-col gap-3">
               <button autoFocus disabled={busy} onClick={() => setConfirmCancel(false)} className={actionClass}>Garder ma commande</button>

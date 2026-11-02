@@ -7,7 +7,7 @@ from dto.commande_recurrente_dto import (
 )
 from interfaces.commande_recurrente_service_interface import ICommandeRecurrenteService
 from operating_mode import preorders_enabled
-from services.checkout_service import FRAIS_LIVRAISON, PANIER_MINIMUM_DH, SEUIL_LIVRAISON_GRATUITE
+from services.checkout_service import FRAIS_LIVRAISON, PANIER_MINIMUM_DH, SEUIL_LIVRAISON_GRATUITE, minimum_commande_message
 from services.order_schedule import ORDER_CLOSED_MESSAGE, delivery_date_for_order, local_now, orders_closed
 
 FREQUENCE_JOURS = {"QUOTIDIENNE": 1, "TOUS_LES_3_JOURS": 3, "HEBDOMADAIRE": 7, "TOUTES_LES_2_SEMAINES": 14}
@@ -88,7 +88,7 @@ class CommandeRecurrenteService(ICommandeRecurrenteService):
                    for product_id, quantite in quantites.items()]
         sous_total = round(sum(valeur["prix_reference"] * valeur["quantite"] for valeur in valeurs), 2)
         if sous_total < PANIER_MINIMUM_DH:
-            raise HTTPException(400, f"Le minimum est de {PANIER_MINIMUM_DH:.0f} DH par livraison.")
+            raise HTTPException(400, minimum_commande_message(sous_total))
         return valeurs
 
     def _assert_paiement(self, user_id, mode_paiement):
@@ -431,7 +431,7 @@ class CommandeRecurrenteService(ICommandeRecurrenteService):
         if not items:
             return self._sauter_livraison(row, today, "Aucun produit de la liste n'est disponible aujourd'hui.")
         if sous_total < PANIER_MINIMUM_DH:
-            return self._sauter_livraison(row, today, f"Montant de {sous_total:.2f} DH sous le minimum de {PANIER_MINIMUM_DH:.0f} DH.")
+            return self._sauter_livraison(row, today, f"{sous_total:.2f} DH de produits, sous le minimum de {PANIER_MINIMUM_DH:.0f} DH hors livraison.")
 
         motif = None
         if len(items) < len(row.lignes):

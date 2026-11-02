@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from dto.commande_recurrente_dto import CommandeRecurrenteDepuisPanierDTO, CommandeRecurrenteLigneInDTO
+from dto.commande_recurrente_dto import CommandeRecurrenteDepuisCommandeDTO, CommandeRecurrenteDepuisPanierDTO, CommandeRecurrenteLigneInDTO
 from dto.panier_souki_dto import PanierSoukiInDTO
 from services import commande_recurrente_service as recurrente_module
 from services.commande_recurrente_service import CommandeRecurrenteService
@@ -108,3 +108,21 @@ def test_panier_retire_introuvable(_closed):
     with pytest.raises(HTTPException) as exc:
         service.creer_depuis_panier(7, 4, CommandeRecurrenteDepuisPanierDTO(frequence="HEBDOMADAIRE"))
     assert exc.value.status_code == 404
+
+
+@patch.object(recurrente_module, "orders_closed", return_value=False)
+def test_repeter_une_commande_de_50_dh_de_produits_passe_sous_50_refuse(_closed):
+    # 50 DH de produits + 15 DH de livraison : accepte. 45 DH + 15 DH (60 DH payes) : refuse.
+    for quantite, accepte in ((5, True), (4.5, False)):
+        produit = _product(1, 10.0)
+        commande = SimpleNamespace(id=5, mode_paiement="cod", creneau_livraison="08:00", date_livraison=None,
+                                   panier=SimpleNamespace(lignes=[SimpleNamespace(produit_id=1, quantite_kg=quantite)]))
+        service, dao = _recurrente_service(_panier([(produit, quantite)]))
+        dao.get_owned_commande.return_value = commande
+        with patch.object(service, "_to_dto", return_value="ok"), patch.object(service, "_get"):
+            if accepte:
+                assert service.creer_depuis_commande(7, 5, CommandeRecurrenteDepuisCommandeDTO(frequence="HEBDOMADAIRE")) == "ok"
+            else:
+                with pytest.raises(HTTPException) as exc:
+                    service.creer_depuis_commande(7, 5, CommandeRecurrenteDepuisCommandeDTO(frequence="HEBDOMADAIRE"))
+                assert "50 DH de produits, hors livraison" in exc.value.detail

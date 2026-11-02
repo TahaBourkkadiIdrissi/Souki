@@ -59,6 +59,7 @@ import {
   CartItem,
   DELIVERY_FEE,
   FREE_DELIVERY_THRESHOLD,
+  MIN_ORDER_PRODUCTS_DH,
   deleteOrderFromHistory,
   fetchCommandeCheckout,
   fetchCatalogueProducts,
@@ -1110,6 +1111,15 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
         return
       }
 
+      if (cart.reduce((sum, item) => sum + item.price * item.quantity, 0) < MIN_ORDER_PRODUCTS_DH) {
+        showFeedback({
+          tone: "info",
+          title: `Minimum ${MIN_ORDER_PRODUCTS_DH} DH de produits`,
+          message: `La commande minimum est de ${MIN_ORDER_PRODUCTS_DH} DH de produits, hors livraison. Ajoutez encore quelques produits.`,
+        })
+        return
+      }
+
       setIsSubmittingCart(true)
       try {
         const result = await submitManualBasket(cart)
@@ -1218,6 +1228,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
 
   const cartSubtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const reste = Math.max(0, SEUIL - cartSubtotal)
+  const manqueMinimum = Math.max(0, MIN_ORDER_PRODUCTS_DH - cartSubtotal)
   const progression = Math.min(100, (cartSubtotal / SEUIL) * 100)
   const cartDeliveryFee = cartSubtotal >= SEUIL ? 0 : FRAIS
   const cartTotal = cartSubtotal + cartDeliveryFee
@@ -2190,6 +2201,11 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
               </div>
             ) : (
               <div className="space-y-4 pb-4">
+                {manqueMinimum > 0 && (
+                  <p role="status" className="rounded-xl border border-[#F5D7B8] bg-[#FFF7EE] px-4 py-3 text-sm font-bold text-[#9A5C11]">
+                    Minimum {MIN_ORDER_PRODUCTS_DH} DH de produits (hors livraison) : ajoutez encore {manqueMinimum.toFixed(2)} DH.
+                  </p>
+                )}
                 <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 shadow-sm">
                   {reste > 0 ? (
                     <div className="flex items-start justify-between gap-3">
@@ -2345,7 +2361,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
 
               <button
                 onClick={handleCheckout}
-                disabled={isSubmittingCart}
+                disabled={isSubmittingCart || manqueMinimum > 0}
                 className="mt-5 w-full rounded-2xl bg-[#F07C00] px-4 py-3 font-semibold text-white transition-colors hover:bg-[#D66B00] disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {isSubmittingCart ? "Validation en cours..." : "Valider la commande"}
