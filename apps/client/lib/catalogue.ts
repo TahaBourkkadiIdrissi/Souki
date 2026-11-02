@@ -126,8 +126,8 @@ export interface SmartBasketResponse {
 
 export const CART_COLLECTION = "cart"
 export const FREE_DELIVERY_THRESHOLD = 300
-// Minimum d'une commande : 50 DH de produits, hors livraison (verifie aussi par le back-end).
-export const MIN_ORDER_PRODUCTS_DH = 50
+// Minimum d'une commande : 50 DH livraison comprise, ex. 35 DH de produits + 15 DH (verifie aussi par le back-end).
+export const MIN_ORDER_TOTAL_DH = 50
 export const DELIVERY_FEE = 15
 // Photos réalistes haute définition (Pixabay CDN, variante _1280) — une image
 // nette et fidèle par produit, affichée en pleine qualité dans la fiche détail.

@@ -170,13 +170,12 @@ class OrderEditService(IOrderEditService):
             lines.append(OrderEditLineDTO(product_id=product_id, name=product.nom_fr, unit=product.unite,
                          quantity=float(quantity), unit_price=float(price), subtotal=float(money(price * quantity))))
         subtotal = sum((money(line.subtotal) for line in lines), Decimal(0))
-        # Une modification ne peut pas faire passer la commande sous le minimum (pour moins, on annule).
-        # Une ancienne commande deja sous le minimum peut toujours etre completee.
-        previous_subtotal = sum((money(line.sous_total) for line in order.panier.lignes), Decimal(0))
-        if subtotal < Decimal(str(PANIER_MINIMUM_DH)) and subtotal < previous_subtotal:
-            raise HTTPException(400, minimum_commande_message(float(subtotal)) + " Pour moins, annulez la commande.")
         fee = Decimal(0) if subtotal >= Decimal(str(SEUIL_LIVRAISON_GRATUITE)) or (
             order.client and getattr(order.client, "abonnement_actif", False)) else money(FRAIS_LIVRAISON)
+        # Une modification ne peut pas faire passer la commande sous le minimum, livraison comprise
+        # (pour moins, on annule). Une ancienne commande deja sous le minimum peut toujours etre completee.
+        if subtotal + fee < Decimal(str(PANIER_MINIMUM_DH)) and subtotal + fee < money(order.montant_total):
+            raise HTTPException(400, minimum_commande_message(float(subtotal + fee)) + " Pour moins, annulez la commande.")
         return order, lines, subtotal, subtotal + fee, products, stock_changes
 
     def preview(self, user_id: int, order_id: int, payload: OrderEditRequestDTO) -> OrderEditResponseDTO:

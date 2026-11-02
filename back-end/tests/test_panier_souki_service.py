@@ -42,8 +42,9 @@ def test_le_panier_est_estime_au_prix_du_jour_avec_la_livraison():
 
 
 def test_un_panier_sous_le_minimum_est_refuse():
+    # 30 DH + 15 DH de livraison = 45 DH : sous le minimum de 50 DH livraison comprise.
     service, _, session = _admin_service([_product(1, 10.0)])
-    payload = PanierSoukiInDTO(nom="Petit", lignes=[CommandeRecurrenteLigneInDTO(product_id=1, quantite=2)])
+    payload = PanierSoukiInDTO(nom="Petit", lignes=[CommandeRecurrenteLigneInDTO(product_id=1, quantite=3)])
     with pytest.raises(HTTPException) as exc:
         service.create(payload)
     assert exc.value.status_code == 400
@@ -111,9 +112,9 @@ def test_panier_retire_introuvable(_closed):
 
 
 @patch.object(recurrente_module, "orders_closed", return_value=False)
-def test_repeter_une_commande_de_50_dh_de_produits_passe_sous_50_refuse(_closed):
-    # 50 DH de produits + 15 DH de livraison : accepte. 45 DH + 15 DH (60 DH payes) : refuse.
-    for quantite, accepte in ((5, True), (4.5, False)):
+def test_repeter_une_commande_de_50_dh_livraison_comprise(_closed):
+    # 35 DH de produits + 15 DH = 50 DH : accepte. 30 DH + 15 DH = 45 DH : refuse.
+    for quantite, accepte in ((3.5, True), (3, False)):
         produit = _product(1, 10.0)
         commande = SimpleNamespace(id=5, mode_paiement="cod", creneau_livraison="08:00", date_livraison=None,
                                    panier=SimpleNamespace(lignes=[SimpleNamespace(produit_id=1, quantite_kg=quantite)]))
@@ -125,4 +126,4 @@ def test_repeter_une_commande_de_50_dh_de_produits_passe_sous_50_refuse(_closed)
             else:
                 with pytest.raises(HTTPException) as exc:
                     service.creer_depuis_commande(7, 5, CommandeRecurrenteDepuisCommandeDTO(frequence="HEBDOMADAIRE"))
-                assert "50 DH de produits, hors livraison" in exc.value.detail
+                assert "50 DH, livraison comprise" in exc.value.detail

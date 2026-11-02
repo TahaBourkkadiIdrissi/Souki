@@ -87,8 +87,9 @@ class CommandeRecurrenteService(ICommandeRecurrenteService):
         valeurs = [dict(product_id=product_id, quantite=quantite, prix_reference=_prix(products[product_id]))
                    for product_id, quantite in quantites.items()]
         sous_total = round(sum(valeur["prix_reference"] * valeur["quantite"] for valeur in valeurs), 2)
-        if sous_total < PANIER_MINIMUM_DH:
-            raise HTTPException(400, minimum_commande_message(sous_total))
+        total = round(sous_total + _frais(sous_total), 2)
+        if total < PANIER_MINIMUM_DH:
+            raise HTTPException(400, minimum_commande_message(total))
         return valeurs
 
     def _assert_paiement(self, user_id, mode_paiement):
@@ -430,8 +431,8 @@ class CommandeRecurrenteService(ICommandeRecurrenteService):
         sous_total = round(sum(_prix(products[l.product_id]) * float(l.quantite) for l in items), 2)
         if not items:
             return self._sauter_livraison(row, today, "Aucun produit de la liste n'est disponible aujourd'hui.")
-        if sous_total < PANIER_MINIMUM_DH:
-            return self._sauter_livraison(row, today, f"{sous_total:.2f} DH de produits, sous le minimum de {PANIER_MINIMUM_DH:.0f} DH hors livraison.")
+        if sous_total + _frais(sous_total) < PANIER_MINIMUM_DH:
+            return self._sauter_livraison(row, today, f"{sous_total + _frais(sous_total):.2f} DH livraison comprise, sous le minimum de {PANIER_MINIMUM_DH:.0f} DH.")
 
         motif = None
         if len(items) < len(row.lignes):

@@ -103,16 +103,17 @@ def test_old_order_below_50_dh_can_be_previewed_and_completed_but_not_reduced(se
     assert quote.subtotal == 18 and quote.total == 33
     with pytest.raises(HTTPException) as exc:
         service.preview(7, 1, request(1))
-    assert exc.value.status_code == 400 and "50 DH de produits" in exc.value.detail
+    assert exc.value.status_code == 400 and "50 DH, livraison comprise" in exc.value.detail
     result = save(service, request(6))
     assert result.subtotal == 60 and result.total == 75
 
 
-def test_edit_cannot_drop_below_50_dh_of_products(setup):
-    # 50 DH de produits : passer a 4 kg (40 DH) est refuse, il faut annuler la commande.
+def test_edit_cannot_drop_below_50_dh_with_delivery(setup):
+    # 65 DH : 4 kg (40 + 15 = 55 DH) passe, 3 kg (30 + 15 = 45 DH) est refuse : il faut annuler.
     service, session, _ = setup
+    assert service.preview(7, 1, request(4)).total == 55
     with pytest.raises(HTTPException) as exc:
-        save(service, request(4))
+        save(service, request(3))
     assert exc.value.status_code == 400 and "annulez la commande" in exc.value.detail
     assert session.get(Commande, 1).montant_total == 65
 

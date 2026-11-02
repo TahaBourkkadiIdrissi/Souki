@@ -122,7 +122,8 @@ export function PaniersSoukiPanel() {
     finally { setSaving(false) }
   }
 
-  const sousMinimum = draft !== null && estimation.sousTotal < MINIMUM_DH
+  // Minimum : 50 DH livraison comprise, comme une commande.
+  const sousMinimum = draft !== null && estimation.sousTotal + estimation.frais < MINIMUM_DH
 
   return <section className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--adm-line)] bg-white p-5 shadow-sm">
@@ -184,7 +185,7 @@ export function PaniersSoukiPanel() {
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[var(--adm-paper)] px-4 py-3 text-sm">
         <span>Estimation au prix du jour : <strong className="tabular-nums">{formatDh(estimation.sousTotal)}</strong> + livraison {formatDh(estimation.frais)}</span>
-        {sousMinimum && <span className="font-semibold text-red-700">Minimum {MINIMUM_DH} DH de produits, hors livraison</span>}
+        {sousMinimum && <span className="font-semibold text-red-700">Minimum {MINIMUM_DH} DH, livraison comprise</span>}
       </div>
       <div className="flex justify-end gap-2">
         <button type="button" className={buttonClass} onClick={() => setDraft(null)}>Annuler</button>

@@ -38,7 +38,7 @@ import { trackEvent, trackPurchase } from "@/lib/analytics"
 import {
   DELIVERY_FEE,
   FREE_DELIVERY_THRESHOLD,
-  MIN_ORDER_PRODUCTS_DH,
+  MIN_ORDER_TOTAL_DH,
   CatalogueProduct,
   fetchCatalogueProducts,
   getCataloguePresentation,
@@ -529,8 +529,8 @@ function CheckoutContent() {
   }
 
   const isWalletInsufficient = selectedPayment === "wallet" && walletBalance < orderTotal
-  // Minimum : 50 DH de produits, hors livraison (le back-end refuse aussi en dessous).
-  const missingForMinimum = Math.max(0, MIN_ORDER_PRODUCTS_DH - subtotal)
+  // Minimum : 50 DH livraison comprise (le back-end refuse aussi en dessous).
+  const missingForMinimum = Math.max(0, MIN_ORDER_TOTAL_DH - orderTotal)
   const isPhoneMissing = phoneNumber.trim().length === 0
   const isPhoneInvalid = phoneNumber.trim().length > 0 && !isValidMoroccanPhone(phoneNumber)
   const isAddressMissing = address.trim().length === 0
@@ -1193,7 +1193,7 @@ function CheckoutContent() {
               )}
               {missingForMinimum > 0 && cart.length > 0 && (
                 <div role="status" className="rounded-xl border border-[#F5D7B8] bg-[#FFF7EE] p-4 text-sm font-semibold text-[#9A5C11]">
-                  Minimum de commande : {MIN_ORDER_PRODUCTS_DH} DH de produits, hors livraison. Ajoutez encore {missingForMinimum.toFixed(2)} DH.
+                  Minimum de commande : {MIN_ORDER_TOTAL_DH} DH, livraison comprise. Ajoutez encore {missingForMinimum.toFixed(2)} DH de produits.
                   <Link href="/catalogue" className="ms-2 underline">Ajouter des produits</Link>
                 </div>
               )}
