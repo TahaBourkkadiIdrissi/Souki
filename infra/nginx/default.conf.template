@@ -1,4 +1,15 @@
 server_tokens off;
+
+# Les conteneurs recrees (docker compose up --force-recreate) changent d'adresse IP.
+# Sans resolution dynamique, nginx garde l'ancienne IP et peut envoyer souki.io vers un
+# autre conteneur (incident du 02/11 : le site client servait l'admin). Le DNS de Docker
+# est donc reinterroge toutes les 10 s (parametre "resolve", nginx >= 1.27.3).
+resolver 127.0.0.11 valid=10s ipv6=off;
+resolver_timeout 5s;
+upstream souki_backend { zone souki_backend 64k; server backend:8000 resolve; }
+upstream souki_client { zone souki_client 64k; server client:3000 resolve; }
+upstream souki_livreur { zone souki_livreur 64k; server livreur:3000 resolve; }
+upstream souki_admin { zone souki_admin 64k; server admin:3000 resolve; }
 map $upstream_http_content_security_policy $souki_csp {
     default $upstream_http_content_security_policy;
     "" "default-src 'none'; base-uri 'none'; frame-ancestors 'none'";
@@ -43,13 +54,13 @@ server {
     include /etc/nginx/proxy.conf;
     location /backend/ {
         include /etc/nginx/proxy.conf;
-        proxy_pass http://backend:8000/;
+        proxy_pass http://souki_backend/;
         proxy_hide_header Cache-Control;
         add_header Cache-Control "no-store" always;
     }
     location ^~ /_next/static/ {
         include /etc/nginx/proxy.conf;
-        proxy_pass http://client:3000;
+        proxy_pass http://souki_client;
         proxy_cache souki_static;
         proxy_cache_key "$scheme$request_method$host$request_uri";
         proxy_cache_lock on;
@@ -59,7 +70,7 @@ server {
     }
     location ~* ^/(?!backend/).+\.(?:avif|gif|ico|jpe?g|png|svg|webp)$ {
         include /etc/nginx/proxy.conf;
-        proxy_pass http://client:3000;
+        proxy_pass http://souki_client;
         proxy_buffering off;
         proxy_hide_header Cache-Control;
         add_header Cache-Control $souki_image_cache always;
@@ -67,17 +78,17 @@ server {
     # Metadata is revalidated immediately; optimized public images keep Next's cache.
     location ~ ^/(robots\.txt|sitemap\.xml)$ {
         include /etc/nginx/proxy.conf;
-        proxy_pass http://client:3000;
+        proxy_pass http://souki_client;
         proxy_hide_header Cache-Control;
         add_header Cache-Control "public, max-age=0, must-revalidate" always;
     }
     location = /_next/image {
         include /etc/nginx/proxy.conf;
-        proxy_pass http://client:3000;
+        proxy_pass http://souki_client;
     }
     location / {
         include /etc/nginx/proxy.conf;
-        proxy_pass http://client:3000;
+        proxy_pass http://souki_client;
         proxy_hide_header Cache-Control;
         add_header Cache-Control "no-store" always;
     }
@@ -96,7 +107,7 @@ server {
         include /etc/nginx/proxy.conf;
         proxy_hide_header X-Robots-Tag;
         add_header X-Robots-Tag "noindex, nofollow" always;
-        proxy_pass http://backend:8000/;
+        proxy_pass http://souki_backend/;
         proxy_hide_header Cache-Control;
         add_header Cache-Control "no-store" always;
     }
@@ -104,7 +115,7 @@ server {
         include /etc/nginx/proxy.conf;
         proxy_hide_header X-Robots-Tag;
         add_header X-Robots-Tag "noindex, nofollow" always;
-        proxy_pass http://livreur:3000;
+        proxy_pass http://souki_livreur;
         proxy_cache souki_static;
         proxy_cache_key "$scheme$request_method$host$request_uri";
         proxy_cache_lock on;
@@ -116,7 +127,7 @@ server {
         include /etc/nginx/proxy.conf;
         proxy_hide_header X-Robots-Tag;
         add_header X-Robots-Tag "noindex, nofollow" always;
-        proxy_pass http://livreur:3000;
+        proxy_pass http://souki_livreur;
         proxy_buffering off;
         proxy_hide_header Cache-Control;
         add_header Cache-Control $souki_image_cache always;
@@ -125,7 +136,7 @@ server {
         include /etc/nginx/proxy.conf;
         proxy_hide_header X-Robots-Tag;
         add_header X-Robots-Tag "noindex, nofollow" always;
-        proxy_pass http://livreur:3000;
+        proxy_pass http://souki_livreur;
         proxy_hide_header Cache-Control;
         add_header Cache-Control "no-store" always;
     }
@@ -144,7 +155,7 @@ server {
         include /etc/nginx/proxy.conf;
         proxy_hide_header X-Robots-Tag;
         add_header X-Robots-Tag "noindex, nofollow" always;
-        proxy_pass http://backend:8000/;
+        proxy_pass http://souki_backend/;
         proxy_hide_header Cache-Control;
         add_header Cache-Control "no-store" always;
     }
@@ -152,7 +163,7 @@ server {
         include /etc/nginx/proxy.conf;
         proxy_hide_header X-Robots-Tag;
         add_header X-Robots-Tag "noindex, nofollow" always;
-        proxy_pass http://admin:3000;
+        proxy_pass http://souki_admin;
         proxy_cache souki_static;
         proxy_cache_key "$scheme$request_method$host$request_uri";
         proxy_cache_lock on;
@@ -164,7 +175,7 @@ server {
         include /etc/nginx/proxy.conf;
         proxy_hide_header X-Robots-Tag;
         add_header X-Robots-Tag "noindex, nofollow" always;
-        proxy_pass http://admin:3000;
+        proxy_pass http://souki_admin;
         proxy_buffering off;
         proxy_hide_header Cache-Control;
         add_header Cache-Control $souki_image_cache always;
@@ -173,7 +184,7 @@ server {
         include /etc/nginx/proxy.conf;
         proxy_hide_header X-Robots-Tag;
         add_header X-Robots-Tag "noindex, nofollow" always;
-        proxy_pass http://admin:3000;
+        proxy_pass http://souki_admin;
         proxy_hide_header Cache-Control;
         add_header Cache-Control "no-store" always;
     }
