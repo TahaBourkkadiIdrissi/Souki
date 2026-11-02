@@ -112,6 +112,16 @@ export const ARABIC: Record<string, string> = {
   "Gestion automatique": "إدارة تلقائية",
   "Renouvelé chaque semaine, sans effort.": "يتجدّد كل أسبوع دون عناء.",
 
+  "Abonnez-vous à un panier préparé par SOUKI ou répétez une commande : elle revient toute seule, au rythme que vous choisissez.": "اشترك في سلّة تُعِدّها SOUKI أو كرّر أحد طلباتك: يعود تلقائيًا بالوتيرة التي تختارها.",
+  "Paiement à la livraison ou par Wallet SOUKI": "الدفع عند الاستلام أو بمحفظة SOUKI",
+  "Vous gardez la main": "التحكم بيدك",
+  "Modifiez, sautez ou mettez en pause jusqu'à 01h00 la veille.": "عدّل أو تخطَّ أو أوقف مؤقتًا حتى 01h00 من الليلة السابقة.",
+  "Au prix du jour": "بسعر اليوم",
+  "Pas de prix figé, pas de frais d'abonnement.": "لا سعر ثابت ولا رسوم اشتراك.",
+  "Commande automatique": "طلب تلقائي",
+  "Créée toute seule à 01h00, chaque jour, tous les 3 jours ou chaque semaine.": "يُنشأ تلقائيًا عند 01h00، كل يوم أو كل 3 أيام أو كل أسبوع.",
+  "Wallet SOUKI": "محفظة SOUKI",
+
   // Accueil : paiements
   "Paiements 100% sécurisés": "مدفوعات آمنة تمامًا",
   "Cash à la livraison": "نقدًا عند الاستلام",

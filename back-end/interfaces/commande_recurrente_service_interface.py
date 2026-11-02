@@ -7,6 +7,8 @@ class ICommandeRecurrenteService(ABC):
     @abstractmethod
     def creer_depuis_commande(self, user_id, commande_id, payload): pass
     @abstractmethod
+    def creer_depuis_panier(self, user_id, panier_id, payload): pass
+    @abstractmethod
     def modifier_lignes(self, user_id, recurrence_id, payload): pass
     @abstractmethod
     def modifier(self, user_id, recurrence_id, payload): pass

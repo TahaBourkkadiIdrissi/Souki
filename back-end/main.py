@@ -31,6 +31,7 @@ from controllers.catalogue_controller import router_catalogue
 from controllers.campaign_controller import campaign_router
 from controllers.commande_recurrente_controller import commande_recurrente_router
 from controllers.category_controller import category_router
+from controllers.panier_souki_controller import panier_souki_router
 from controllers.claim_controller import claim_router
 from controllers.checkout_controller import router_checkout
 from controllers.order_edit_controller import router_order_edit
@@ -77,6 +78,7 @@ API_ROUTERS: tuple[APIRouter, ...] = (
     favorite_router,
     router_catalogue,
     category_router,
+    panier_souki_router,
     campaign_router,
     router_voice,
     router_panier,

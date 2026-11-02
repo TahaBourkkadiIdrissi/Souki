@@ -6,6 +6,7 @@ from entities.commande_entity import Commande
 from entities.commande_recurrente_entity import CommandeRecurrente, CommandeRecurrenteLigne, CommandeRecurrenteLivraison
 from entities.jit_log_entity import JITLog
 from entities.panier_entity import Panier
+from entities.panier_souki_entity import PanierSouki, PanierSoukiLigne
 from entities.product_entity import Product
 from entities.souki_wallet_entity import SoukiWallet
 from entities.user_entity import User
@@ -59,6 +60,11 @@ class CommandeRecurrenteDao(ICommandeRecurrenteDao):
         return session.query(Commande).options(selectinload(Commande.panier).selectinload(Panier.lignes)).filter(
             Commande.id == commande_id, Commande.client_id == client_id,
         ).first()
+
+    def get_panier_souki(self, session, panier_id):
+        return (session.query(PanierSouki)
+                .options(selectinload(PanierSouki.lignes).selectinload(PanierSoukiLigne.produit))
+                .filter(PanierSouki.id == panier_id, PanierSouki.actif.is_(True)).first())
 
     def get_products(self, session, product_ids):
         if not product_ids:

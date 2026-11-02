@@ -27,7 +27,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { label: "Clients", href: "/admin/clients", icon: Users, permission: "clients.read", description: "Comptes, fiches et historique" },
       { label: "Blacklist", href: "/admin/blacklist", icon: ShieldBan, permission: "clients.blacklist", description: "Blocages COD et demandes de levée" },
-      { label: "Abonnements", href: "/admin/abonnements", icon: Repeat, permission: "admin.panel.access", description: "Commandes récurrentes créées à 01h00" },
+      { label: "Abonnements", href: "/admin/abonnements", icon: Repeat, permission: "admin.panel.access", description: "Paniers proposés et commandes récurrentes de 01h00" },
       { label: "Parrainage", href: "/admin/parrainage", icon: Gift, permission: "admin.panel.access", description: "Parrains, filleuls et crédits" },
     ],
   },

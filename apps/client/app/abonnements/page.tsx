@@ -1,287 +1,270 @@
 "use client"
 
-import { SoukiLogoLink } from "@/components/souki/souki-logo"
-import { MesAbonnements } from "@/components/souki/mes-abonnements"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import Image from "@/components/souki/optimized-image"
-import {
-  Leaf,
-  CheckCircle,
-  Clock,
-  Truck,
-  Users,
-  Star,
-  ArrowRight,
-  Shield,
-  CreditCard,
-  Menu,
-  X
-} from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Banknote, CalendarClock, Check, Leaf, Loader2, Repeat, Scale, Truck, Wallet, X } from "lucide-react"
+import { toast } from "sonner"
 
-export default function AbonnementsPage() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+import { MesAbonnements } from "@/components/souki/mes-abonnements"
+import { Navbar } from "@/components/souki/navbar"
+import Image from "@/components/souki/optimized-image"
+import { useAuth } from "@/hooks/useAuth"
+import { ApiError, creerAbonnementPanier, getPaniersSouki, type FrequenceRecurrente, type PanierSoukiDTO } from "@/lib/api"
+import { FREQUENCES_RECURRENTES, formatDh } from "@/lib/commandes-recurrentes"
+import { cn } from "@/lib/utils"
+
+const APERCU_PRODUITS = 5
+
+/** Fenetre de souscription : rythme et paiement. Le contenu reste modifiable ensuite. */
+function SubscribeSheet({ panier, onClose, onDone }: { panier: PanierSoukiDTO; onClose: () => void; onDone: () => void }) {
+  const [frequence, setFrequence] = useState<FrequenceRecurrente>("HEBDOMADAIRE")
+  const [paiement, setPaiement] = useState<"cod" | "wallet">("cod")
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState("")
+  const closeRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    closeRef.current?.focus()
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose() }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [onClose])
+
+  const submit = async () => {
+    setSaving(true); setError("")
+    try {
+      await creerAbonnementPanier(panier.id, { frequence, mode_paiement: paiement })
+      toast.success(`Abonnement à « ${panier.nom} » activé.`)
+      onDone()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Une erreur est survenue. Réessayez.")
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F0] mobile-native-surface">
-      {/* Navbar Minimaliste */}
-      <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <SoukiLogoLink height={36} priority />
-
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-8">
-              <Link href="/" className="text-[#3D3D3D] hover:text-[#1E8A3C] transition-colors">Accueil</Link>
-              <Link href="/catalogue" className="text-[#3D3D3D] hover:text-[#1E8A3C] transition-colors">Nos Légumes</Link>
-              <Link href="/abonnements" className="text-[#1E8A3C] font-medium transition-colors">Abonnements</Link>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-3">
-              <Link
-                href="/login"
-                className="hidden sm:flex items-center px-4 py-2 border-2 border-[#1E8A3C] text-[#1E8A3C] rounded-xl font-semibold hover:bg-[#1E8A3C] hover:text-white transition-colors"
-              >
-                Espace Client
-              </Link>
-
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 text-[#3D3D3D]"
-              >
-                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-            </div>
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-[#122018]/50 backdrop-blur-[2px] animate-in fade-in-0 sm:items-center" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="abonnement-titre"
+        onClick={(event) => event.stopPropagation()}
+        className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-[28px] bg-white p-6 pb-[max(env(safe-area-inset-bottom),1.5rem)] shadow-2xl animate-in slide-in-from-bottom-4 duration-300 sm:rounded-[28px]"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[13px] font-bold text-[#1E8A3C]">S&apos;abonner</p>
+            <h2 id="abonnement-titre" className="mt-1 text-xl font-bold text-[#14301B]">{panier.nom}</h2>
           </div>
-        </div>
-      </nav>
-
-      {/* Mes abonnements (client connecté) */}
-      <MesAbonnements />
-
-      {/* Hero Section */}
-      <section className="relative overflow-hidden py-16 lg:py-24 text-center px-4">
-        {/* Background photo */}
-        <div className="absolute inset-0">
-          <Image
-            src="https://images.unsplash.com/photo-1518843875459-f738682238a6?w=1600&q=80"
-            alt="Panier de légumes frais de saison"
-            fill
-            className="object-cover"
-            priority
-          />
-          <div className="absolute inset-0 bg-black/40" />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/40" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#1E8A3C]/20 via-transparent to-[#F07C00]/10" />
+          <button ref={closeRef} type="button" onClick={onClose} aria-label="Fermer" className="rounded-xl p-2 text-[#5F6F61] hover:bg-[#F3F7F3]"><X className="h-5 w-5" /></button>
         </div>
 
-        <div className="relative z-10 max-w-4xl mx-auto text-white space-y-6">
-          <span className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-full font-medium text-sm backdrop-blur-sm">
-            <Star className="w-4 h-4 text-yellow-300 fill-yellow-300" />
-            SOUKI Premium
-          </span>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-balance">
-            La sérénité d'un frigo toujours plein
-          </h1>
-          <p className="text-lg md:text-xl text-white/90 max-w-2xl mx-auto font-medium">
-            Des paniers de légumes extra-frais, sourcés chaque matin du marché de gros, livrés automatiquement chez vous ou vos proches selon votre rythme.
+        <fieldset className="mt-5">
+          <legend className="text-sm font-bold text-[#14301B]">À quel rythme ?</legend>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {FREQUENCES_RECURRENTES.map((item) => (
+              <label key={item.value} className={cn(
+                "flex min-h-16 cursor-pointer flex-col justify-center rounded-2xl border-2 px-3 py-2 transition-colors",
+                frequence === item.value ? "border-[#1E8A3C] bg-[#EAF8EC]" : "border-[#E7EFE8] hover:border-[#CDE8D0]",
+              )}>
+                <input type="radio" name="frequence" value={item.value} checked={frequence === item.value} onChange={() => setFrequence(item.value)} className="sr-only" />
+                <span className="text-sm font-bold text-[#14301B]">{item.label}</span>
+                <span className="text-xs text-[#5F6F61]">{item.detail}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="mt-5">
+          <legend className="text-sm font-bold text-[#14301B]">Paiement</legend>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {([["cod", "À la livraison", Banknote], ["wallet", "Wallet SOUKI", Wallet]] as const).map(([value, label, Icon]) => (
+              <label key={value} className={cn(
+                "flex min-h-12 cursor-pointer items-center gap-2 rounded-2xl border-2 px-3 transition-colors",
+                paiement === value ? "border-[#1E8A3C] bg-[#EAF8EC]" : "border-[#E7EFE8] hover:border-[#CDE8D0]",
+              )}>
+                <input type="radio" name="paiement" value={value} checked={paiement === value} onChange={() => setPaiement(value)} className="sr-only" />
+                <Icon className="h-4 w-4 text-[#1E8A3C]" aria-hidden="true" />
+                <span className="text-sm font-bold text-[#14301B]">{label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <div className="mt-5 rounded-2xl bg-[#FBFBF7] p-4 text-sm text-[#3D3D3D]">
+          <p className="flex justify-between gap-3"><span>Aujourd&apos;hui, ce panier coûterait</span><strong className="tabular-nums">{formatDh(panier.total_estime)}</strong></p>
+          <p className="mt-1 text-xs text-[#5F6F61]">
+            Livraison comprise. Chaque commande est créée à 01h00 au prix du jour ; l&apos;écart avec ce montant s&apos;affiche dans « Mes abonnements ».
+            Vous pourrez modifier le contenu, sauter une livraison ou arrêter jusqu&apos;à 01h00 la veille.
           </p>
         </div>
-      </section>
 
-      {/* Pricing Section */}
-      <section className="py-16 -mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+        {error && <p role="alert" className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-600">{error}</p>}
 
-            {/* Solo/Couple Pack */}
-            <div className="bg-white rounded-3xl p-8 shadow-lg border border-gray-100 relative hover:-translate-y-2 transition-transform duration-300 animate-fade-in-up">
-              <div className="mb-6">
-                <h3 className="text-2xl font-bold text-[#3D3D3D] mb-2">Pack Essentiel</h3>
-                <p className="text-[#8A8A8A]">Parfait pour 1 à 2 personnes</p>
-              </div>
-              <div className="mb-6 flex items-baseline gap-2">
-                <span className="text-5xl font-extrabold text-[#1E8A3C]">199</span>
-                <span className="text-xl font-bold text-[#8A8A8A]">DH</span>
-                <span className="text-[#8A8A8A]">/ semaine</span>
-              </div>
+        <button
+          type="button"
+          onClick={() => void submit()}
+          disabled={saving}
+          className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#1E8A3C] px-5 text-base font-bold text-white transition-transform hover:bg-[#176B2E] active:scale-[0.98] disabled:opacity-60"
+        >
+          {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Repeat className="h-5 w-5" />}
+          Confirmer l&apos;abonnement
+        </button>
+      </div>
+    </div>
+  )
+}
 
-              <div className="h-px bg-gray-100 w-full mb-6"></div>
-
-              <ul className="space-y-4 mb-8">
-                {[
-                  "8 à 10 kg de de légumes assortis",
-                  "Choix des légumes via l'application",
-                  "Livraison incluse chaque semaine",
-                  "Support client prioritaire"
-                ].map((feature, idx) => (
-                  <li key={idx} className="flex items-start gap-3">
-                    <CheckCircle className="w-5 h-5 text-[#4CB84A] shrink-0 mt-0.5" />
-                    <span className="text-[#3D3D3D] font-medium">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <button className="w-full py-4 rounded-xl border-2 border-[#1E8A3C] text-[#1E8A3C] font-bold text-lg hover:bg-[#1E8A3C] hover:text-white transition-colors">
-                Choisir ce plan
-              </button>
-            </div>
-
-            {/* Family Pack (Popular) */}
-            <div className="bg-[#1E8A3C] rounded-3xl p-8 shadow-xl shadow-green-900/10 relative hover:-translate-y-2 transition-transform duration-300 animate-fade-in-up-delay-1">
-              <div className="absolute top-0 right-8 transform -translate-y-1/2">
-                <span className="bg-[#F5C400] text-[#3D3D3D] font-bold px-4 py-1.5 rounded-full text-sm shadow-sm">
-                  LE PLUS POPULAIRE
-                </span>
-              </div>
-
-              <div className="mb-6">
-                <h3 className="text-2xl font-bold text-white mb-2">Pack Familial</h3>
-                <p className="text-white/80">Idéal pour 4 à 5 personnes</p>
-              </div>
-              <div className="mb-6 flex items-baseline gap-2">
-                <span className="text-5xl font-extrabold text-white">299</span>
-                <span className="text-xl font-bold text-white/80">DH</span>
-                <span className="text-white/80">/ semaine</span>
-              </div>
-
-              <div className="h-px bg-white/20 w-full mb-6"></div>
-
-              <ul className="space-y-4 mb-8">
-                {[
-                  "15 à 18 kg de de légumes assortis",
-                  "Fruits de saison inclus",
-                  "Livraison gratuite et prioritaire (Dès 8h)",
-                  "Garantie fraîcheur absolue ou remplacé"
-                ].map((feature, idx) => (
-                  <li key={idx} className="flex items-start gap-3">
-                    <CheckCircle className="w-5 h-5 text-[#F5C400] shrink-0 mt-0.5" />
-                    <span className="text-white font-medium">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <button className="w-full py-4 rounded-xl bg-[#F07C00] text-white font-bold text-lg hover:bg-[#D66B00] transition-colors shadow-lg">
-                Choisir ce plan
-              </button>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* Avantages */}
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold text-[#1E8A3C] mb-12">Pourquoi choisir l'abonnement ?</h2>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="p-6 rounded-2xl bg-[#F0FAF1]">
-              <div className="w-14 h-14 bg-[#1E8A3C] text-white rounded-xl flex items-center justify-center mx-auto mb-6">
-                <CreditCard className="w-7 h-7" />
-              </div>
-              <h3 className="text-xl font-bold text-[#3D3D3D] mb-3">Économique</h3>
-              <p className="text-[#8A8A8A]">
-                Profitez des prix de gros directement du marché. Aucune marge intermédiaire.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-[#F0FAF1]">
-              <div className="w-14 h-14 bg-[#1E8A3C] text-white rounded-xl flex items-center justify-center mx-auto mb-6">
-                <Clock className="w-7 h-7" />
-              </div>
-              <h3 className="text-xl font-bold text-[#3D3D3D] mb-3">Gain de Temps</h3>
-              <p className="text-[#8A8A8A]">
-                Fini la corvée du marché. Vos légumes sont sélectionnés et livrés avant que vous ne vous réveillez.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-[#F0FAF1]">
-              <div className="w-14 h-14 bg-[#1E8A3C] text-white rounded-xl flex items-center justify-center mx-auto mb-6">
-                <Users className="w-7 h-7" />
-              </div>
-              <h3 className="text-xl font-bold text-[#3D3D3D] mb-3">Soutien aux Parents</h3>
-              <p className="text-[#8A8A8A]">
-                Gérez l'approvisionnement de vos parents âgés à distance, en toute fiabilité.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Action Finale */}
-      <section className="py-20 bg-[#F5F5F0]">
-        <div className="max-w-6xl mx-auto px-4 text-center">
-          <div className="flex items-center justify-center mb-6">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/70 border border-gray-200 rounded-full shadow-sm">
-              <CheckCircle className="w-4 h-4 text-[#4CB84A] animate-pulse" />
-              <span className="text-sm font-semibold text-[#3D3D3D]">Confiance garantie</span>
-            </div>
-          </div>
-
-          <h2 className="text-3xl sm:text-4xl font-bold text-[#3D3D3D] mb-4">
-            Sans engagement — Annulable à tout moment
-          </h2>
-          <p className="text-[#8A8A8A] text-lg mb-10 max-w-2xl mx-auto leading-relaxed">
-            Vous partez en vacances ? Mettez votre abonnement en pause d'un simple clic depuis votre espace client.
+function PanierCard({ panier, onChoose }: { panier: PanierSoukiDTO; onChoose: () => void }) {
+  const disponibles = panier.lignes.filter((ligne) => ligne.disponible)
+  const reste = disponibles.length - APERCU_PRODUITS
+  return (
+    <article className="flex flex-col overflow-hidden rounded-[28px] border border-[#E7EFE8] bg-white shadow-[0_28px_60px_-46px_rgba(20,48,27,0.5)]">
+      <div className="relative h-40 bg-gradient-to-br from-[#1B4332] via-[#1E8A3C] to-[#4CB84A]">
+        {panier.image_url ? (
+          <Image src={panier.image_url} alt="" fill sizes="(max-width: 768px) 100vw, 400px" className="object-cover" />
+        ) : (
+          <Leaf className="absolute right-6 top-6 h-16 w-16 text-white/25" aria-hidden="true" />
+        )}
+        <span className="absolute bottom-3 left-3 rounded-full bg-white/95 px-3 py-1 text-[13px] font-bold text-[#14301B] shadow-sm">
+          {disponibles.length} produit{disponibles.length > 1 ? "s" : ""}
+        </span>
+      </div>
+      <div className="flex flex-1 flex-col p-6">
+        <h3 className="text-xl font-bold text-[#14301B]">{panier.nom}</h3>
+        {panier.description && <p className="mt-1.5 text-sm leading-relaxed text-[#5F6F61]">{panier.description}</p>}
+        <ul className="mt-4 space-y-1.5 text-sm text-[#3D3D3D]">
+          {disponibles.slice(0, APERCU_PRODUITS).map((ligne) => (
+            <li key={ligne.product_id} className="flex justify-between gap-3">
+              <span className="flex items-center gap-2"><Check className="h-4 w-4 shrink-0 text-[#4CB84A]" aria-hidden="true" />{ligne.nom_produit}</span>
+              <span className="shrink-0 tabular-nums text-[#5F6F61]">{ligne.quantite} {ligne.unite}</span>
+            </li>
+          ))}
+          {reste > 0 && <li className="text-[13px] font-semibold text-[#5F6F61]">et {reste} autre{reste > 1 ? "s" : ""}</li>}
+        </ul>
+        <div className="mt-auto pt-6">
+          <p className="text-[13px] text-[#5F6F61]">Au prix du jour</p>
+          <p className="flex items-baseline gap-2">
+            <span className="text-3xl font-black tabular-nums text-[#14301B]">{formatDh(panier.total_estime)}</span>
+            <span className="text-[13px] text-[#5F6F61]">par livraison</span>
           </p>
-
-          <div className="grid md:grid-cols-3 gap-4 mb-10">
-            <div className="bg-white/80 border border-gray-100 rounded-2xl p-6 shadow-sm">
-              <div className="w-12 h-12 rounded-2xl bg-[#F0FAF1] flex items-center justify-center mx-auto mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1E8A3C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" fill="#D6F5DE" stroke="#1E8A3C"/>
-                  <path d="M7 11V7a5 5 0 0 1 9.9-1" stroke="#4CB84A" fill="none"/>
-                  <circle cx="12" cy="16" r="1.5" fill="#1E8A3C"/>
-                </svg>
-              </div>
-              <h3 className="font-bold text-[#3D3D3D] text-lg mb-1">Sans engagement</h3>
-              <p className="text-sm text-[#8A8A8A]">Pause ou arrêt quand vous voulez, sans pression.</p>
-            </div>
-
-            <div className="bg-white/80 border border-gray-100 rounded-2xl p-6 shadow-sm">
-              <div className="w-12 h-12 rounded-2xl bg-[#F0FAF1] flex items-center justify-center mx-auto mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1E8A3C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="9" fill="#D6F5DE" stroke="#1E8A3C"/>
-                  <polyline points="9 14 7 12 9 10" stroke="#4CB84A" strokeWidth="2" fill="none"/>
-                  <path d="M7 12h6a3 3 0 0 0 0-6h-1" stroke="#1E8A3C" fill="none"/>
-                </svg>
-              </div>
-              <h3 className="font-bold text-[#3D3D3D] text-lg mb-1">Annulation facile</h3>
-              <p className="text-sm text-[#8A8A8A]">Un parcours simple, clair et sécurisé côté client.</p>
-            </div>
-
-            <div className="bg-white/80 border border-gray-100 rounded-2xl p-6 shadow-sm">
-              <div className="w-12 h-12 rounded-2xl bg-[#F0FAF1] flex items-center justify-center mx-auto mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1E8A3C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <rect x="2" y="5" width="20" height="14" rx="2" fill="#D6F5DE" stroke="#1E8A3C"/>
-                  <line x1="2" y1="10" x2="22" y2="10" stroke="#4CB84A" strokeWidth="2"/>
-                  <line x1="6" y1="15" x2="9" y2="15" stroke="#1E8A3C" strokeWidth="2" strokeLinecap="round"/>
-                  <line x1="11" y1="15" x2="14" y2="15" stroke="#1E8A3C" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-              </div>
-              <h3 className="font-bold text-[#3D3D3D] text-lg mb-1">Aucun frais caché</h3>
-              <p className="text-sm text-[#8A8A8A]">Le prix est clair dès le départ, comme chez un pro.</p>
-            </div>
-          </div>
-
-          <Link
-            href="/login"
-            className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-[#1E8A3C] text-white rounded-xl font-bold text-lg hover:bg-[#176B2E] transition-colors shadow-lg"
+          <p className="text-xs text-[#5F6F61]">
+            {panier.frais_livraison_estimes > 0 ? `dont ${formatDh(panier.frais_livraison_estimes)} de livraison` : "livraison offerte"}
+          </p>
+          <button
+            type="button"
+            onClick={onChoose}
+            className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#F07C00] px-5 font-bold text-white transition-transform hover:bg-[#D66B00] active:scale-[0.98]"
           >
-            Créer un compte pour s'abonner <ArrowRight className="w-5 h-5" />
-          </Link>
+            <Repeat className="h-4 w-4" aria-hidden="true" />
+            S&apos;abonner à ce panier
+          </button>
+        </div>
+      </div>
+    </article>
+  )
+}
+
+export default function AbonnementsPage() {
+  const router = useRouter()
+  const { isAuthenticated } = useAuth()
+  const [paniers, setPaniers] = useState<PanierSoukiDTO[] | null>(null)
+  const [error, setError] = useState("")
+  const [choix, setChoix] = useState<PanierSoukiDTO | null>(null)
+  const [refresh, setRefresh] = useState(0)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    getPaniersSouki(controller.signal)
+      .then((rows) => { setPaniers(rows); setError("") })
+      .catch(() => { if (!controller.signal.aborted) setError("Impossible de charger les paniers proposés. Réessayez dans un instant.") })
+    return () => controller.abort()
+  }, [])
+
+  const choisir = (panier: PanierSoukiDTO) => {
+    if (!isAuthenticated) {
+      router.push("/login?redirect=/abonnements")
+      return
+    }
+    setChoix(panier)
+  }
+
+  const termine = () => {
+    setChoix(null)
+    setRefresh((value) => value + 1)
+    window.setTimeout(() => document.getElementById("mes-abonnements")?.scrollIntoView({ behavior: "smooth" }), 150)
+  }
+
+  return (
+    <div className="min-h-screen bg-[#FBFBF7] pb-24 md:pb-0">
+      <Navbar />
+
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#E2F2E6] to-[#FBFBF7] px-4 pb-10 pt-12 sm:pt-16">
+        <div className="mx-auto max-w-3xl text-center animate-fade-in-up">
+          <p className="inline-flex items-center gap-2 rounded-full border border-[#DCEEDE] bg-white px-4 py-2 text-[13px] font-bold text-[#1E8A3C] shadow-sm">
+            <Repeat className="h-4 w-4" aria-hidden="true" />
+            Abonnements
+          </p>
+          <h1 className="mt-5 text-[clamp(2rem,5vw,3.25rem)] font-bold leading-[1.08] tracking-[-0.02em] text-[#14301B] text-balance">
+            Vos courses reviennent toutes seules
+          </h1>
+          <p className="mx-auto mt-4 max-w-xl text-[17px] leading-relaxed text-[#5F6F61]">
+            Choisissez un panier préparé par SOUKI ou répétez une de vos commandes. Livré au rythme choisi, au prix du jour, modifiable jusqu&apos;à 01h00 la veille.
+          </p>
         </div>
       </section>
 
-      {/* Footer Minimaliste */}
-      <footer className="bg-white py-8 border-t border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 text-center text-[#8A8A8A] text-sm font-medium">
-          © 2026 SOUKI Fresh Market — Fès, Maroc.
+      <MesAbonnements key={refresh} />
+
+      <section className="mx-auto max-w-6xl px-4 py-10" aria-labelledby="paniers-titre">
+        <h2 id="paniers-titre" className="text-2xl font-bold text-[#14301B]">Paniers proposés</h2>
+        <p className="mt-1 text-sm text-[#5F6F61]">Composés par l&apos;équipe SOUKI. Après l&apos;abonnement, vous ajustez le contenu à votre goût.</p>
+
+        {error ? (
+          <p role="alert" className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-600">{error}</p>
+        ) : paniers === null ? (
+          <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3" aria-label="Chargement">
+            {[0, 1, 2].map((index) => <div key={index} className="souki-skeleton h-[28rem] rounded-[28px]" />)}
+          </div>
+        ) : paniers.length === 0 ? (
+          <div className="mt-6 rounded-[28px] border border-[#E7EFE8] bg-white p-8 text-center">
+            <p className="text-base font-semibold text-[#14301B]">Pas encore de panier proposé.</p>
+            <p className="mx-auto mt-1 max-w-md text-sm text-[#5F6F61]">
+              Vous pouvez déjà recevoir automatiquement une commande que vous avez aimée : ouvrez votre historique et touchez « Répéter cette commande ».
+            </p>
+            <Link href={isAuthenticated ? "/historique" : "/login?redirect=/historique"} className="mt-5 inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#1E8A3C] px-6 font-bold text-white hover:bg-[#176B2E]">
+              Voir mes commandes
+            </Link>
+          </div>
+        ) : (
+          <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {paniers.map((panier) => <PanierCard key={panier.id} panier={panier} onChoose={() => choisir(panier)} />)}
+          </div>
+        )}
+      </section>
+
+      <section className="bg-white px-4 py-12" aria-labelledby="regles-titre">
+        <div className="mx-auto max-w-5xl">
+          <h2 id="regles-titre" className="text-center text-2xl font-bold text-[#14301B]">Comment ça marche</h2>
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            {[
+              { icon: Scale, title: "Le prix du jour, rien d'autre", text: "Pas de prix figé, pas de remise ni de frais d'abonnement : chaque commande suit le prix du site, et l'écart s'affiche avant la livraison." },
+              { icon: CalendarClock, title: "Vous gardez la main", text: "Modifiez le contenu, sautez une livraison, mettez en pause ou arrêtez jusqu'à 01h00 la veille." },
+              { icon: Truck, title: "Mêmes règles qu'une commande", text: "Minimum 50 DH. Livraison 15 DH, offerte dès 300 DH. Paiement à la livraison ou par Wallet SOUKI." },
+            ].map((item) => (
+              <div key={item.title} className="rounded-3xl border border-[#E7EFE8] bg-[#FBFBF7] p-6">
+                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#EAF8EC]"><item.icon className="h-5 w-5 text-[#1E8A3C]" aria-hidden="true" /></span>
+                <h3 className="mt-4 font-bold text-[#14301B]">{item.title}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-[#5F6F61]">{item.text}</p>
+              </div>
+            ))}
+          </div>
         </div>
-      </footer>
+      </section>
+
+      {choix && <SubscribeSheet panier={choix} onClose={() => setChoix(null)} onDone={termine} />}
     </div>
   )
 }

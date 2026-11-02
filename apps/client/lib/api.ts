@@ -168,6 +168,38 @@ export function creerCommandeRecurrente(commandeId: number, body: { frequence: F
   return apiCall<CommandeRecurrenteDTO>(`/api/commandes-recurrentes/depuis-commande/${commandeId}`, { method: "POST", body })
 }
 
+// Paniers proposes par SOUKI (regles dans le dashboard admin), estimes au prix du jour.
+export interface PanierSoukiLigneDTO {
+  product_id: number
+  nom_produit: string
+  nom_darija: string | null
+  unite: string
+  image_url: string | null
+  quantite: number
+  prix_unitaire: number
+  sous_total: number
+  disponible: boolean
+}
+
+export interface PanierSoukiDTO {
+  id: number
+  nom: string
+  description: string | null
+  image_url: string | null
+  lignes: PanierSoukiLigneDTO[]
+  sous_total_estime: number
+  frais_livraison_estimes: number
+  total_estime: number
+}
+
+export function getPaniersSouki(signal?: AbortSignal) {
+  return apiCall<PanierSoukiDTO[]>("/api/paniers-souki", { cache: "no-store", signal })
+}
+
+export function creerAbonnementPanier(panierId: number, body: { frequence: FrequenceRecurrente; mode_paiement: "cod" | "wallet" }) {
+  return apiCall<CommandeRecurrenteDTO>(`/api/commandes-recurrentes/depuis-panier/${panierId}`, { method: "POST", body })
+}
+
 export function modifierLignesCommandeRecurrente(id: number, lignes: { product_id: number; quantite: number }[]) {
   return apiCall<CommandeRecurrenteDTO>(`/api/commandes-recurrentes/${id}/lignes`, { method: "PUT", body: { lignes } })
 }

@@ -5,7 +5,7 @@ from config import LocalSession
 from dao.checkout_dao import CheckoutDaoBD
 from dao.commande_recurrente_dao import CommandeRecurrenteDao
 from dto.commande_recurrente_dto import (
-    CommandeRecurrenteAdminDTO, CommandeRecurrenteDepuisCommandeDTO, CommandeRecurrenteDTO,
+    CommandeRecurrenteAdminDTO, CommandeRecurrenteDepuisCommandeDTO, CommandeRecurrenteDepuisPanierDTO, CommandeRecurrenteDTO,
     CommandeRecurrenteLignesUpdateDTO, CommandeRecurrenteLivraisonAdminDTO, CommandeRecurrentePauseDTO,
     CommandeRecurrenteUpdateDTO,
 )
@@ -32,6 +32,11 @@ def lister_commandes_recurrentes(response: Response, principal=Depends(require_p
 @commande_recurrente_router.post("/api/commandes-recurrentes/depuis-commande/{commande_id}", response_model=CommandeRecurrenteDTO, status_code=201)
 def creer_commande_recurrente(commande_id: int, payload: CommandeRecurrenteDepuisCommandeDTO, principal=Depends(require_permission("checkout.create")), service: ICommandeRecurrenteService = Depends(get_commande_recurrente_service)):
     return service.creer_depuis_commande(principal.user_id, commande_id, payload)
+
+
+@commande_recurrente_router.post("/api/commandes-recurrentes/depuis-panier/{panier_id}", response_model=CommandeRecurrenteDTO, status_code=201)
+def creer_commande_recurrente_depuis_panier(panier_id: int, payload: CommandeRecurrenteDepuisPanierDTO, principal=Depends(require_permission("checkout.create")), service: ICommandeRecurrenteService = Depends(get_commande_recurrente_service)):
+    return service.creer_depuis_panier(principal.user_id, panier_id, payload)
 
 
 @commande_recurrente_router.put("/api/commandes-recurrentes/{recurrence_id}/lignes", response_model=CommandeRecurrenteDTO)

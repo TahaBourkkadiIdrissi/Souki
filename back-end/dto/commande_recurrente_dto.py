@@ -17,6 +17,12 @@ class CommandeRecurrenteDepuisCommandeDTO(BaseModel):
     premiere_livraison: date | None = None
 
 
+class CommandeRecurrenteDepuisPanierDTO(BaseModel):
+    frequence: Frequence
+    mode_paiement: ModePaiementRecurrent = "cod"
+    premiere_livraison: date | None = None
+
+
 class CommandeRecurrenteLignesUpdateDTO(BaseModel):
     lignes: list[CommandeRecurrenteLigneInDTO] = Field(min_length=1, max_length=80)
 

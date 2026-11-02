@@ -204,6 +204,44 @@ class CommandeRecurrenteService(ICommandeRecurrenteService):
             return self._to_dto(self._get(row.id))
         return self._transaction(action)
 
+    def creer_depuis_panier(self, user_id, panier_id, payload):
+        """Abonnement a un panier propose par SOUKI. Le client peut ensuite modifier son contenu."""
+        self._assert_ouvert()
+
+        def action():
+            panier = self.dao.get_panier_souki(self.session, panier_id)
+            if panier is None:
+                raise HTTPException(404, "Ce panier n'est plus proposé.")
+            if any(row.panier_souki_id == panier_id and row.statut != "ARRETEE"
+                   for row in self.dao.list_by_client(self.session, user_id)):
+                raise HTTPException(409, "Vous êtes déjà abonné à ce panier. Modifiez-le depuis « Mes abonnements ».")
+            self._assert_paiement(user_id, payload.mode_paiement)
+            contact = self.dao.get_contact(self.session, user_id)
+            if not contact["phone"] or not contact["street"] or not contact["ville"]:
+                raise HTTPException(400, "Complétez votre téléphone et votre adresse de livraison avant de vous abonner.")
+            if payload.premiere_livraison is not None:
+                self._assert_date(payload.premiere_livraison)
+                prochaine = payload.premiere_livraison
+            else:
+                prochaine = self._date_minimum()
+            # Les produits retires du catalogue ne sont pas repris ; le minimum de commande s'applique au reste.
+            actives = [ligne for ligne in panier.lignes if ligne.produit is not None and ligne.produit.is_active]
+            if not actives:
+                raise HTTPException(409, "Ce panier n'a plus de produit disponible aujourd'hui.")
+            lignes = self._lignes_valides([
+                CommandeRecurrenteLigneInDTO(product_id=int(ligne.product_id), quantite=float(ligne.quantite))
+                for ligne in actives
+            ])
+            row = self.dao.create(self.session, dict(
+                client_id=user_id, type="PANIER", panier_souki_id=panier.id, frequence=payload.frequence,
+                prochaine_livraison=prochaine, statut="ACTIVE", mode_paiement=payload.mode_paiement,
+                creneau_livraison="08:00", contact_phone=contact["phone"][:20],
+                delivery_address=contact["street"][:200], delivery_city=contact["ville"][:100],
+                delivery_instructions=(contact["details"] or None) and contact["details"][:100],
+            ), lignes)
+            return self._to_dto(self._get(row.id))
+        return self._transaction(action)
+
     def modifier_lignes(self, user_id, recurrence_id, payload):
         self._assert_ouvert()
 

@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 export const metadata: Metadata = {
   title: "Abonnement panier frais à Fès | SOUKI",
-  description: "Découvrez les abonnements SOUKI pour recevoir des produits frais du marché de Fès et simplifier vos courses.",
+  description: "Abonnez-vous à un panier SOUKI ou répétez une commande : livré à Fès au rythme choisi, au prix du jour, modifiable jusqu'à 01h00 la veille.",
   alternates: { canonical: "/abonnements" },
   openGraph: {
     title: "Abonnements SOUKI à Fès",

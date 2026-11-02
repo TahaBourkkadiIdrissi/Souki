@@ -15,6 +15,8 @@ class ICommandeRecurrenteDao(ABC):
     @abstractmethod
     def get_owned_commande(self, session, commande_id, client_id): pass
     @abstractmethod
+    def get_panier_souki(self, session, panier_id): pass
+    @abstractmethod
     def get_products(self, session, product_ids): pass
     @abstractmethod
     def get_client(self, session, user_id): pass

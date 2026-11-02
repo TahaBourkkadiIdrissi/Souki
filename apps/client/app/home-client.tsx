@@ -554,7 +554,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
               <div>
                 <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-[12px] font-bold uppercase tracking-[0.16em] text-white backdrop-blur">
                   <Sparkles className="h-3.5 w-3.5 text-[#7BC96F]" />
-                  {t("Nouveau — Abonnement")}
+                  {t("Abonnements")}
                 </span>
 
                 <LetterReveal
@@ -569,8 +569,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
                 />
 
                 <p className="mt-5 max-w-[32rem] text-[16px] leading-[1.65] text-white/85">
-                  {t("Une souscription mensuelle simplifiée pour garantir des paniers de légumes")}{" "}
-                  <span className="font-semibold text-[#9FE0AB]">{t("frais et premium")}</span>{t(", livrés directement chaque semaine — sans même y penser.")}
+                  {t("Abonnez-vous à un panier préparé par SOUKI ou répétez une commande : elle revient toute seule, au rythme que vous choisissez.")}
                 </p>
 
                 <div className="mt-8 flex flex-col items-start gap-4">
@@ -583,7 +582,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
                   </button>
                   <span className="inline-flex items-center gap-2 text-[13px] font-semibold text-white/70">
                     <Shield className="h-4 w-4 text-[#7BC96F]" />
-                    {t("Paiement 100% sécurisé via CMI & Visa")}
+                    {t("Paiement à la livraison ou par Wallet SOUKI")}
                   </span>
                 </div>
               </div>
@@ -591,9 +590,9 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
               {/* ── Colonne bénéfices — chips de verre ── */}
               <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
                 {[
-                  { icon: Users, title: "Souscription flexible", desc: "Modifiable ou suspendable à tout moment." },
-                  { icon: Truck, title: "Livraison priority", desc: "Vos paniers passent en tête de tournée." },
-                  { icon: Clock, title: "Gestion automatique", desc: "Renouvelé chaque semaine, sans effort." },
+                  { icon: Users, title: "Vous gardez la main", desc: "Modifiez, sautez ou mettez en pause jusqu'à 01h00 la veille." },
+                  { icon: Truck, title: "Au prix du jour", desc: "Pas de prix figé, pas de frais d'abonnement." },
+                  { icon: Clock, title: "Commande automatique", desc: "Créée toute seule à 01h00, chaque jour, tous les 3 jours ou chaque semaine." },
                 ].map((item) => (
                   <li
                     key={item.title}
@@ -652,9 +651,9 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
               {/* Abonnement */}
               <div className="flex items-center justify-center gap-3 rounded-2xl border border-[#E7EFE8] bg-[#FBFBF7] px-5 py-3.5">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#1E8A3C] to-[#4CB84A]">
-                  <Users className="h-5 w-5 text-white" />
+                  <Wallet className="h-5 w-5 text-white" />
                 </span>
-                <span className="text-[14px] font-semibold text-[#14301B]">{t("Abonnement Premium")}</span>
+                <span className="text-[14px] font-semibold text-[#14301B]">{t("Wallet SOUKI")}</span>
               </div>
             </div>
           </div>

@@ -80,6 +80,43 @@ export const pauseCommandeRecurrenteAdmin = (id: number, jusquAu: string) => api
 export const reprendreCommandeRecurrenteAdmin = (id: number) => apiCall<CommandeRecurrenteAdminDTO>(`/api/admin/commandes-recurrentes/${id}/reprendre`, { method: "POST" })
 export const arreterCommandeRecurrenteAdmin = (id: number) => apiCall<CommandeRecurrenteAdminDTO>(`/api/admin/commandes-recurrentes/${id}/arreter`, { method: "POST" })
 
+// Paniers SOUKI proposes a l'abonnement (page Abonnements du site client). Prix estimes au prix du jour.
+export interface PanierSoukiLigneDTO {
+  product_id: number
+  nom_produit: string
+  nom_darija: string | null
+  unite: string
+  image_url: string | null
+  quantite: number
+  prix_unitaire: number
+  sous_total: number
+  disponible: boolean
+}
+export interface PanierSoukiDTO {
+  id: number
+  nom: string
+  description: string | null
+  image_url: string | null
+  actif: boolean
+  ordre: number
+  lignes: PanierSoukiLigneDTO[]
+  sous_total_estime: number
+  frais_livraison_estimes: number
+  total_estime: number
+  created_at: string | null
+}
+export interface PanierSoukiForm {
+  nom: string
+  description: string | null
+  image_url: string | null
+  actif: boolean
+  ordre: number
+  lignes: { product_id: number; quantite: number }[]
+}
+export const listPaniersSouki = () => apiCall<PanierSoukiDTO[]>("/api/admin/paniers-souki", { cache: "no-store" })
+export const createPanierSouki = (body: PanierSoukiForm) => apiCall<PanierSoukiDTO>("/api/admin/paniers-souki", { method: "POST", body })
+export const updatePanierSouki = (id: number, body: PanierSoukiForm) => apiCall<PanierSoukiDTO>(`/api/admin/paniers-souki/${id}`, { method: "PUT", body })
+
 export interface CategoryForm {
   nom: string
   icone: string | null

@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useState, type FormEvent } from "react"
 import { RefreshCw } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
+import { PaniersSoukiPanel } from "@/components/admin/paniers-souki-panel"
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
 import {
   arreterCommandeRecurrenteAdmin,
@@ -22,7 +23,7 @@ type PendingAction = { type: "pause" | "stop"; row: CommandeRecurrenteAdminDTO }
 
 export default function AbonnementsAdminPage() {
   const { isAuthenticated } = useAuth()
-  const [tab, setTab] = useState<"abonnes" | "nuit">("abonnes")
+  const [tab, setTab] = useState<"abonnes" | "nuit" | "paniers">("abonnes")
   const [rows, setRows] = useState<CommandeRecurrenteAdminDTO[]>([])
   const [livraisons, setLivraisons] = useState<CommandeRecurrenteLivraisonAdminDTO[]>([])
   const [statut, setStatut] = useState("")
@@ -75,16 +76,16 @@ export default function AbonnementsAdminPage() {
       <main className="min-w-0 flex-1 space-y-6 p-4 lg:p-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div><h1 className="text-2xl font-bold">Abonnements</h1><p className="mt-1 text-sm text-[var(--adm-muted)]">Commandes récurrentes des clients. Elles sont créées automatiquement à 01h00, au prix du site.</p></div>
-          <button className={buttonClass} disabled={loading || saving} onClick={() => void (tab === "abonnes" ? loadAbonnes() : loadNuit())}><RefreshCw className="h-4 w-4" />Actualiser</button>
+          {tab !== "paniers" && <button className={buttonClass} disabled={loading || saving} onClick={() => void (tab === "abonnes" ? loadAbonnes() : loadNuit())}><RefreshCw className="h-4 w-4" />Actualiser</button>}
         </div>
         <div className="flex flex-wrap gap-2" role="group" aria-label="Vue">
-          {([["abonnes", "Abonnements clients"], ["nuit", "Commandes créées à 01h00"]] as const).map(([value, label]) =>
+          {([["abonnes", "Abonnements clients"], ["paniers", "Paniers proposés"], ["nuit", "Commandes créées à 01h00"]] as const).map(([value, label]) =>
             <button key={value} className={`${buttonClass} ${tab === value ? "border-[#1E8A3C] text-[#1E8A3C]" : ""}`} aria-pressed={tab === value} onClick={() => { setTab(value); setError(""); setNotice("") }}>{label}</button>)}
         </div>
         {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
         {notice && <p role="status" className="rounded-xl border border-green-200 bg-[var(--adm-green-soft)] p-4 text-sm text-[#1E8A3C]">{notice}</p>}
 
-        {tab === "abonnes" ? <section className="overflow-hidden rounded-xl border border-[var(--adm-line)] bg-white shadow-sm">
+        {tab === "paniers" ? <PaniersSoukiPanel /> : tab === "abonnes" ? <section className="overflow-hidden rounded-xl border border-[var(--adm-line)] bg-white shadow-sm">
           <form onSubmit={search} className="flex flex-wrap items-end gap-3 border-b border-[var(--adm-line)] p-5">
             <label className="text-sm">Statut<select className={inputClass} value={statut} onChange={e => setStatut(e.target.value)}><option value="">Tous</option>{Object.entries(STATUT_RECURRENCE).map(([value, item]) => <option key={value} value={value}>{item.label}</option>)}</select></label>
             <label className="text-sm">Type<select className={inputClass} value={type} onChange={e => setType(e.target.value)}><option value="">Tous</option>{Object.entries(TYPE_RECURRENCE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
