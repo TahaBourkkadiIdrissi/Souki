@@ -44,6 +44,16 @@ server {
     listen 443 ssl default_server;
     ssl_reject_handshake on;
 }
+# www.souki.io redirige vers souki.io (adresse principale). Le certificat doit couvrir www.
+server {
+    listen 80;
+    listen 443 ssl;
+    server_name www.${CLIENT_HOST};
+    ssl_certificate /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    return 308 https://${CLIENT_HOST}$request_uri;
+}
 server {
     listen 443 ssl;
     server_name ${CLIENT_HOST};
