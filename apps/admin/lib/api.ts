@@ -558,9 +558,11 @@ export type ProduitAlerte = "PRIX_DEPASSE_KHDDAR" | "PRIX_GROS_MANQUANT" | null
 
 export interface ProduitPricingDTO {
   description?: string | null
+  description_ar?: string | null
   id: number
   nom_fr: string
   nom_darija: string
+  nom_ar?: string | null
   prix_kg: number
   unite: string
   is_active: boolean
@@ -587,6 +589,8 @@ export interface ProduitPricingListDTO {
 
 export interface ProduitPricingUpdateDTO {
   description?: string | null
+  description_ar?: string | null
+  nom_ar?: string | null
   marge_cible?: number
   coussin_securite?: number
   niveau?: ProduitNiveau
@@ -599,8 +603,10 @@ export interface ProduitPricingUpdateDTO {
 
 export interface ProductCreateDTO {
   description?: string | null
+  description_ar?: string | null
   nom_fr: string
   nom_darija: string
+  nom_ar?: string | null
   prix_kg: number
   unite: string
   niveau: ProduitNiveau

@@ -9,12 +9,15 @@ class Product(Base):
     id         = Column(Integer, primary_key=True, index=True)
     nom_fr     = Column(String(100), nullable=False)
     nom_darija = Column(String(100), nullable=False, unique=True)
+    # Nom en darija ecrit en arabe, affiche quand le site est en arabe (sinon nom_fr).
+    nom_ar     = Column(String(100), nullable=True)
     prix_kg    = Column(Float,       nullable=False)
     unite      = Column(String(50),  nullable=False)
     stock      = Column(Float,       nullable=False, default=0.0)
     is_active  = Column(Boolean,     default=True)
     image_url  = Column(String(500), nullable=True)
     description = Column(Text, nullable=True)
+    description_ar = Column(Text, nullable=True)
     # Populated by the versioned public-page freshness trigger, never backfilled.
     updated_at = Column(DateTime(timezone=True), nullable=True)
 

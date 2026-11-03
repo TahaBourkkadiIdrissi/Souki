@@ -65,7 +65,6 @@ import {
   fetchCatalogueProducts,
   fetchOrderHistory,
   fetchPanierDetails,
-  formatQuantity,
   getCataloguePresentation,
   getCatalogueFallbackImage,
   mergeSelectionsIntoCart,
@@ -75,6 +74,7 @@ import {
   upsertCartItem,
 } from "@/lib/catalogue"
 import { cn } from "@/lib/utils"
+import { useLocale } from "@/contexts/locale-context"
 import { productPath } from "@/lib/seo"
 import { isPwaStandalone } from "@/lib/pwa"
 import { trackEvent } from "@/lib/analytics"
@@ -271,6 +271,7 @@ function CatalogueFeedback({
   feedback: FeedbackMessage
   onDismiss: () => void
 }) {
+  const { t } = useLocale()
   const tone = feedbackToneStyles[feedback.tone]
   const Icon = tone.Icon
 
@@ -286,14 +287,14 @@ function CatalogueFeedback({
         <Icon className="h-5 w-5" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-black leading-tight">{feedback.title}</p>
-        <p className="mt-1 text-sm font-semibold leading-5 opacity-85">{feedback.message}</p>
+        <p className="text-sm font-black leading-tight">{t(feedback.title)}</p>
+        <p className="mt-1 text-sm font-semibold leading-5 opacity-85">{t(feedback.message)}</p>
       </div>
       <button
         type="button"
         onClick={onDismiss}
         className="rounded-full p-1 opacity-70 transition-colors hover:bg-white/45 hover:opacity-100"
-        aria-label="Fermer le message"
+        aria-label={t("Fermer le message")}
       >
         <X className="h-4 w-4" />
       </button>
@@ -302,11 +303,12 @@ function CatalogueFeedback({
 }
 
 function RecolteWarmWelcome() {
+  const { t } = useLocale()
   return (
     <div className="pointer-events-none hidden xl:absolute xl:right-5 xl:top-5 xl:z-20 xl:block xl:w-36 2xl:w-44">
       <div className="relative pt-7 sm:pt-8">
         <div className="absolute right-12 top-0 z-30 max-w-[10rem] rounded-2xl border border-[#F3D8B2] bg-white px-3 py-1.5 text-center text-[11px] font-black leading-tight text-[#9A5C11] shadow-[0_12px_30px_-22px_rgba(154,92,17,0.55)] 2xl:right-20 2xl:max-w-none 2xl:text-base">
-          Ach heb lkhater ?
+          {t("Ach heb lkhater ?")}
         </div>
         <FarmerAvatar
           size="lg"
@@ -324,12 +326,13 @@ function RecolteWarmWelcome() {
    d'hydratation ; une seule ligne dans les deux cas, donc pas de CLS. */
 function JitCutoffBanner() {
   const cutoff = useOrderCountdown()
+  const { t, zoneProps } = useLocale()
   const pad = (n: number) => String(n).padStart(2, "0")
   return (
-    <div className="bg-[#F07C00] px-4 py-3 text-center text-sm font-semibold text-white">
-      {cutoff?.closed ? "Commandes fermées — Réouverture à 08h00" : "Clôture des paniers à 01h00"}
-      {cutoff && <span className="souki-tabular-nums"> — {pad(cutoff.hours)}:{pad(cutoff.minutes)}:{pad(cutoff.seconds)}</span>}
-      {" · Heure du Maroc"}
+    <div {...zoneProps} className="bg-[#F07C00] px-4 py-3 text-center text-sm font-semibold text-white">
+      {cutoff?.closed ? t("Commandes fermées — Réouverture à 08h00") : t("Clôture des paniers à 01h00")}
+      {cutoff && <span className="souki-tabular-nums"> — <bdi dir="ltr">{pad(cutoff.hours)}:{pad(cutoff.minutes)}:{pad(cutoff.seconds)}</bdi></span>}
+      {t(" · Heure du Maroc")}
     </div>
   )
 }
@@ -347,12 +350,13 @@ function SoukiGuideAvatar({
   compact?: boolean
   expressionOverride?: FarmerExpression
 }) {
+  const { t } = useLocale()
   const guideMessage =
     cartCount === 0
-      ? "Salam, je peux te composer un panier frais en moins d'une minute."
+      ? t("Salam, je peux te composer un panier frais en moins d'une minute.")
       : remainingForFreeDelivery > 0
-        ? `Encore ${remainingForFreeDelivery.toFixed(0)} DH pour profiter de la livraison offerte.`
-        : "Ton panier est bien parti. Tu peux valider ou ajouter quelques favoris."
+        ? t("Encore {montant} DH pour profiter de la livraison offerte.", { montant: remainingForFreeDelivery.toFixed(0) })
+        : t("Ton panier est bien parti. Tu peux valider ou ajouter quelques favoris.")
 
   const avatarExpression: FarmerExpression =
     expressionOverride ?? (cartCount > 0 ? "celebrate" : "welcome")
@@ -367,7 +371,7 @@ function SoukiGuideAvatar({
         />
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-bold uppercase tracking-wide text-[#1E8A3C]">
-            Recolte de Souki
+            {t("Recolte de Souki")}
           </p>
           <p className="mt-1 text-sm font-bold leading-5 text-[#264129]">{guideMessage}</p>
         </div>
@@ -378,7 +382,7 @@ function SoukiGuideAvatar({
   return (
     <div className="relative overflow-hidden rounded-2xl border border-[#D7EBD9] bg-white p-4 shadow-[0_18px_50px_-36px_rgba(30,65,41,0.35)]">
       <div className="absolute right-4 top-4 rounded-full bg-[#F0FAF1] px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-[#1E8A3C]">
-        Recolte Souki
+        {t("Recolte Souki")}
       </div>
       <div className="flex items-end justify-center pt-5">
         <FarmerAvatar
@@ -390,8 +394,8 @@ function SoukiGuideAvatar({
       <div className="mt-2 rounded-2xl bg-[#F7FCF7] p-4">
         <p className="text-sm font-bold text-[#264129]">{guideMessage}</p>
         <div className="mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-[#6F8070]">
-          <span>{cartCount} article{cartCount > 1 ? "s" : ""}</span>
-          <span>{cartSubtotal.toFixed(2)} DH</span>
+          <span>{t(cartCount > 1 ? "{n} articles" : "{n} article", { n: cartCount })}</span>
+          <span><bdi dir="ltr">{cartSubtotal.toFixed(2)} DH</bdi></span>
         </div>
       </div>
     </div>
@@ -442,6 +446,7 @@ function CatalogueTrustInterlude({
   tone: InterludeTone
   delay?: string
 }) {
+  const { t } = useLocale()
   const styles = interludeToneStyles[tone]
 
   return (
@@ -464,9 +469,9 @@ function CatalogueTrustInterlude({
           <Icon className={cn("h-6 w-6", styles.icon)} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className={cn("text-[10px] font-black uppercase tracking-[0.18em]", styles.eyebrow)}>{eyebrow}</p>
-          <p className="mt-1 text-base font-black leading-snug text-[#264129] sm:text-lg">{title}</p>
-          <p className="mt-1 text-sm leading-6 text-[#6F8070]">{description}</p>
+          <p className={cn("text-[10px] font-black uppercase tracking-[0.18em]", styles.eyebrow)}>{t(eyebrow)}</p>
+          <p className="mt-1 text-base font-black leading-snug text-[#264129] sm:text-lg">{t(title)}</p>
+          <p className="mt-1 text-sm leading-6 text-[#6F8070]">{t(description)}</p>
         </div>
       </div>
     </div>
@@ -484,6 +489,7 @@ function CatalogueStatInterlude({
   tone: InterludeTone
   delay?: string
 }) {
+  const { t } = useLocale()
   const styles = interludeToneStyles[tone]
 
   return (
@@ -495,13 +501,14 @@ function CatalogueStatInterlude({
         styles.shell
       )}
     >
-      <p className={cn("text-[10px] font-black uppercase tracking-[0.16em]", styles.eyebrow)}>{label}</p>
-      <p className="mt-1 text-base font-black leading-tight text-[#264129] sm:text-lg">{value}</p>
+      <p className={cn("text-[10px] font-black uppercase tracking-[0.16em]", styles.eyebrow)}>{t(label)}</p>
+      <p className="mt-1 text-base font-black leading-tight text-[#264129] sm:text-lg">{t(value)}</p>
     </div>
   )
 }
 
 function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProduct[] }) {
+  const { t, productName, quantityLabel, zoneProps } = useLocale()
   const router = useRouter()
   const searchParams = useSearchParams()
   const { isAuthenticated, isLoading } = useAuth()
@@ -580,6 +587,9 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
     return {
       id: product.id,
       name: product.nom_fr,
+      nameAr: product.nom_ar ?? null,
+      description: product.description,
+      descriptionAr: product.description_ar ?? null,
       alias: product.nom_darija,
       price: product.prix_affiche ?? product.prix_kg,
       prix_khddar_estime: product.prix_khddar_estime,
@@ -1114,8 +1124,8 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
       if (manqueMinimum > 0) {
         showFeedback({
           tone: "info",
-          title: `Minimum ${MIN_ORDER_TOTAL_DH} DH`,
-          message: `La commande minimum est de ${MIN_ORDER_TOTAL_DH} DH, livraison comprise. Ajoutez encore ${manqueMinimum.toFixed(2)} DH de produits.`,
+          title: t("Minimum {min} DH", { min: MIN_ORDER_TOTAL_DH }),
+          message: t("La commande minimum est de {min} DH, livraison comprise. Ajoutez encore {manque} DH de produits.", { min: MIN_ORDER_TOTAL_DH, manque: manqueMinimum.toFixed(2) }),
         })
         return
       }
@@ -1307,6 +1317,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
 
   return (
     <div
+      {...zoneProps}
       className={cn(
         "min-h-screen bg-[#FBFDF9] md:pb-0",
         // Réserve l'espace bas : barre de nav mobile seule (pb-24) ou barre de nav
@@ -1333,15 +1344,15 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
               enterKeyHint="search"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Rechercher un produit frais…"
-              aria-label="Rechercher un produit"
+              placeholder={t("Rechercher un produit frais…")}
+              aria-label={t("Rechercher un produit")}
               className="w-full bg-transparent text-[15px] font-semibold text-[#264129] outline-none placeholder:font-medium placeholder:text-[#9BB29E]"
             />
             {searchQuery.length > 0 && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                aria-label="Effacer la recherche"
+                aria-label={t("Effacer la recherche")}
                 className="shrink-0 text-[#9BB29E] active:scale-90"
               >
                 <X className="h-4 w-4" />
@@ -1367,7 +1378,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                     : "bg-white text-[#607061] ring-1 ring-[#E7F0E8]",
                 )}
               >
-                {category.label}
+                {t(category.label)}
               </button>
             )
           })}
@@ -1426,7 +1437,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                 <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#7B8B7D]" />
                 <input
                   type="text"
-                  placeholder="Rechercher un produit..."
+                  placeholder={t("Rechercher un produit...")}
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   className="w-full rounded-2xl border border-[#DDE7DE] bg-[#FAFCFA] py-3 pl-10 pr-4 text-sm text-[#264129] outline-none transition-colors focus:border-[#4CB84A]"
@@ -1437,7 +1448,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
             <div>
               <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-[#264129]">
                 <Filter className="h-4 w-4" />
-                Categories
+                {t("Categories")}
               </h3>
               <div className="space-y-2">
                 {categoryChips.map((category) => (
@@ -1451,7 +1462,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                         : "glass-ios26 text-[#264129] hover:bg-white/45"
                     )}
                   >
-                    {category.label}
+                    {t(category.label)}
                   </button>
                 ))}
               </div>
@@ -1460,7 +1471,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
             <div className="glass-ios26 rounded-3xl border border-[#D7EBD9] p-5">
               <div className="flex items-center gap-3 text-[#1E8A3C]">
                 <Clock className="h-5 w-5" />
-                <span className="font-semibold">Commandes ouvertes</span>
+                <span className="font-semibold">{t("Commandes ouvertes")}</span>
               </div>
               <p className="mt-2 text-sm text-[#718272]">
                 <DeliveryPromise />
@@ -1474,7 +1485,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
               >
                 <span className="flex items-center gap-3 font-semibold">
                   <History className="h-5 w-5" />
-                  Historique
+                  {t("Historique")}
                 </span>
                 <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[#F07C00]">
                   {orderHistory.length}
@@ -1485,13 +1496,13 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
             {!isAuthenticated && !isLoading && (
               <div className="rounded-3xl border border-[#F3D8B2] bg-[#FFF7EE] p-5">
                 <p className="text-sm font-semibold text-[#9A5C11]">
-                  Composez votre panier librement. La connexion sera demandée au moment de valider la commande.
+                  {t("Composez votre panier librement. La connexion sera demandée au moment de valider la commande.")}
                 </p>
                 <button
                   onClick={() => setShowCart(true)}
                   className="mt-4 w-full rounded-2xl bg-[#F07C00] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#D66B00]"
                 >
-                  Voir mon panier
+                  {t("Voir mon panier")}
                 </button>
               </div>
             )}
@@ -1517,13 +1528,13 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                 <span className="pointer-events-none absolute -bottom-12 right-12 h-24 w-24 rounded-full bg-white/10" />
                 <span className="relative min-w-0 flex-1">
                   <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider">
-                    <Leaf className="h-3 w-3" /> Frais du jour
+                    <Leaf className="h-3 w-3" /> {t("Frais du jour")}
                   </span>
                   <span className="mt-2 block text-[19px] font-black leading-tight">
-                    Livraison offerte dès {SEUIL.toFixed(0)} DH
+                    {t("Livraison offerte dès {seuil} DH", { seuil: SEUIL.toFixed(0) })}
                   </span>
                   <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-[12px] font-black text-[#1E8A3C]">
-                    Je commande <ArrowRight className="h-3.5 w-3.5" />
+                    {t("Je commande")} <ArrowRight className="h-3.5 w-3.5" />
                   </span>
                 </span>
                 <FarmerAvatar
@@ -1543,7 +1554,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
 
               <div className="mt-4 flex items-center justify-between">
                 <p className="text-[13px] font-bold text-[#607061]">
-                  {filteredProducts.length} produit{filteredProducts.length > 1 ? "s" : ""}
+                  {t(filteredProducts.length > 1 ? "{n} produits" : "{n} produit", { n: filteredProducts.length })}
                 </p>
                 <div className="relative">
                   <select
@@ -1551,12 +1562,12 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                     onChange={(event) =>
                       setSortBy(event.target.value as (typeof sortOptions)[number]["id"])
                     }
-                    aria-label="Trier les produits"
+                    aria-label={t("Trier les produits")}
                     className="appearance-none rounded-full border border-[#E7F0E8] bg-white py-1.5 pl-3 pr-8 text-[12px] font-bold text-[#264129] outline-none"
                   >
                     {sortOptions.map((option) => (
                       <option key={option.id} value={option.id}>
-                        {option.label}
+                        {t(option.label)}
                       </option>
                     ))}
                   </select>
@@ -1573,20 +1584,19 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                 <div className="mb-4 flex flex-wrap items-center gap-3 pr-24 sm:pr-32 xl:pr-0">
                   <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-[#1E8A3C] ring-1 ring-[#D7EBD9]">
                     <Leaf className="h-4 w-4" />
-                    Produits du jour
+                    {t("Produits du jour")}
                   </span>
                   <span className="inline-flex items-center gap-2 rounded-full bg-[#FFF7EE] px-3 py-1.5 text-xs font-bold text-[#9A5C11] ring-1 ring-[#F3D8B2]">
                     <Sparkles className="h-4 w-4" />
-                    Guide d'achat actif
+                    {t("Guide d'achat actif")}
                   </span>
                 </div>
 
                 <h1 className="max-w-4xl pr-24 text-2xl font-black leading-tight text-[#1E8A3C] sm:pr-32 lg:text-3xl xl:pr-0">
-                  Salam, je t'aide a composer un panier frais sans perdre de temps
+                  {t("Salam, je t'aide a composer un panier frais sans perdre de temps")}
                 </h1>
                 <p className="mt-3 max-w-3xl text-sm leading-6 text-[#5F735F] sm:pr-28 lg:text-base xl:pr-0">
-                  Choisis toi-même tes produits, dicte ta liste avec la commande vocale, ou laisse
-                  Souki composer un panier intelligent selon ton budget.
+                  {t("Choisis toi-même tes produits, dicte ta liste avec la commande vocale, ou laisse Souki composer un panier intelligent selon ton budget.")}
                 </p>
 
                 <div className="mt-4 2xl:hidden">
@@ -1612,9 +1622,9 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                       <ShoppingCart className="h-4 w-4" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-black leading-tight">Commander moi-même</span>
+                      <span className="block text-sm font-black leading-tight">{t("Commander moi-même")}</span>
                       <span className="mt-0.5 block text-[11px] font-semibold leading-snug text-[#6F8070]">
-                        Parcours les produits et choisis librement.
+                        {t("Parcours les produits et choisis librement.")}
                       </span>
                     </span>
                     <ArrowRight className="h-4 w-4 shrink-0 text-[#9AB49C] transition-transform group-hover:translate-x-1" />
@@ -1641,8 +1651,8 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
             <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border-t border-[#EEF2EE] pt-5">
               <p className="text-sm text-[#6F8070]">
                 {showOrderHistory
-                  ? `${orderHistory.length} commande${orderHistory.length > 1 ? "s" : ""} dans l'historique`
-                  : `${filteredProducts.length} produit${filteredProducts.length > 1 ? "s" : ""} affiche${filteredProducts.length > 1 ? "s" : ""}`}
+                  ? t(orderHistory.length > 1 ? "{n} commandes dans l'historique" : "{n} commande dans l'historique", { n: orderHistory.length })
+                  : t(filteredProducts.length > 1 ? "{n} produits affichés" : "{n} produit affiché", { n: filteredProducts.length })}
               </p>
               {!showOrderHistory && (
                 <div className="relative">
@@ -1655,7 +1665,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                   >
                     {sortOptions.map((option) => (
                       <option key={option.id} value={option.id}>
-                        {option.label}
+                        {t(option.label)}
                       </option>
                     ))}
                   </select>
@@ -1684,17 +1694,17 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                 onClick={() => setShowOrderHistory(false)}
                 className="rounded-t-2xl border border-b-0 border-[#DDEBDD] bg-[#F7FCF7] px-4 py-3 text-sm font-bold text-[#607061] transition-colors hover:bg-white"
               >
-                Produits
+                {t("Produits")}
               </button>
               <div className="flex items-center gap-3 rounded-t-2xl border border-b-0 border-[#1E8A3C] bg-[#1E8A3C] px-4 py-3 text-sm font-bold text-white">
                 <span className="inline-flex items-center gap-2">
                   <History className="h-4 w-4" />
-                  Historique commandes
+                  {t("Historique commandes")}
                 </span>
                 <button
                   onClick={() => setShowOrderHistory(false)}
                   className="rounded-full p-1 text-white/80 transition-colors hover:bg-white/15 hover:text-white"
-                  aria-label="Fermer l'onglet historique"
+                  aria-label={t("Fermer l'onglet historique")}
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -1706,17 +1716,17 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
             <section className="mb-8">
               <div className="mb-5 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-2xl border border-[#E6F0E7] bg-white px-4 py-3 shadow-sm">
-                  <p className="text-xs font-bold uppercase tracking-wide text-[#7B8B7D]">Commandes</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#7B8B7D]">{t("Commandes")}</p>
                   <p className="mt-1 text-2xl font-black text-[#264129]">{orderHistory.length}</p>
                 </div>
                 <div className="rounded-2xl border border-[#E6F0E7] bg-white px-4 py-3 shadow-sm">
-                  <p className="text-xs font-bold uppercase tracking-wide text-[#7B8B7D]">Depense totale</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#7B8B7D]">{t("Depense totale")}</p>
                   <p className="mt-1 text-2xl font-black text-[#F07C00]">
                     {orderHistory.reduce((sum, order) => sum + Number(order.montant_total || 0), 0).toFixed(2)} DH
                   </p>
                 </div>
                 <div className="rounded-2xl border border-[#E6F0E7] bg-white px-4 py-3 shadow-sm">
-                  <p className="text-xs font-bold uppercase tracking-wide text-[#7B8B7D]">SAV</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#7B8B7D]">{t("SAV")}</p>
                   <p className="mt-1 text-2xl font-black text-[#1E8A3C]">
                     {orderHistory.filter(canClaimOrder).length} ouvert
                   </p>
@@ -1727,10 +1737,10 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                 <div>
                   <div className="flex items-center gap-2 text-[#1E8A3C]">
                     <ReceiptText className="h-5 w-5" />
-                    <h2 className="text-xl font-black">Historique des commandes</h2>
+                    <h2 className="text-xl font-black">{t("Historique des commandes")}</h2>
                   </div>
                   <p className="mt-1 text-sm text-[#6F8070]">
-                    Retrouvez les commandes validées depuis le checkout.
+                    {t("Retrouvez les commandes validées depuis le checkout.")}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -1747,7 +1757,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                     className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#E5E8E3] bg-white px-4 py-3 text-sm font-semibold text-[#607061] transition-colors hover:bg-[#F7F8F5]"
                   >
                     <X className="h-4 w-4" />
-                    Fermer
+                    {t("Fermer")}
                   </button>
                 </div>
               </div>
@@ -1772,9 +1782,9 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
               {!isFetchingHistory && !historyError && orderHistory.length === 0 && (
                 <div className="rounded-[24px] border border-[#E6EFE7] bg-white p-8 text-center">
                   <PackageCheck className="mx-auto mb-3 h-10 w-10 text-[#B8C9BA]" />
-                  <p className="font-semibold text-[#264129]">Aucune commande validée pour le moment.</p>
+                  <p className="font-semibold text-[#264129]">{t("Aucune commande validée pour le moment.")}</p>
                   <p className="mt-1 text-sm text-[#6F8070]">
-                    Vos prochaines commandes apparaîtront ici après validation.
+                    {t("Vos prochaines commandes apparaîtront ici après validation.")}
                   </p>
                 </div>
               )}
@@ -1803,13 +1813,13 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                               getOrderStatusClassName(order.statut)
                             )}
                           >
-                            {getOrderStatusLabel(order.statut)}
+                            {t(getOrderStatusLabel(order.statut))}
                           </span>
                           <button
                             onClick={() => void handleDeleteOrderHistory(order.id)}
                             disabled={deletingOrderId === order.id}
                             className="rounded-full border border-red-100 bg-red-50 p-2 text-red-500 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                            aria-label="Supprimer de l'historique"
+                            aria-label={t("Supprimer de l'historique")}
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -1830,10 +1840,10 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                             />
                             <div className="min-w-0 flex-1">
                               <p className="truncate font-semibold text-[#264129]">
-                                {product.nom_fr}
+                                {productName({ name: product.nom_fr, nameAr: product.nom_ar ?? products.find((item) => item.id === product.product_id)?.nameAr })}
                               </p>
                               <p className="text-xs font-semibold text-[#6F8070]">
-                                {formatQuantity(product.quantite_kg, "kg")}
+                                {quantityLabel(product.quantite_kg, "kg")}
                               </p>
                             </div>
                             <span className="shrink-0 text-sm font-bold text-[#F07C00]">
@@ -1847,7 +1857,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
 
                       <div className="mt-4 grid gap-3 px-5 text-sm sm:grid-cols-2">
                         <div className="rounded-2xl bg-[#FBFDF9] p-3">
-                          <p className="text-[#7B8B7D]">Paiement</p>
+                          <p className="text-[#7B8B7D]">{t("Paiement")}</p>
                           <p className="mt-1 font-bold text-[#264129]">
                             {formatPaymentMode(order.mode_paiement)}
                           </p>
@@ -1856,7 +1866,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                           </p>
                         </div>
                         <div className="rounded-2xl bg-[#FFF7EE] p-3">
-                          <p className="text-[#9A5C11]">Total</p>
+                          <p className="text-[#9A5C11]">{t("Total")}</p>
                           <p className="mt-1 text-lg font-black text-[#F07C00]">
                             {(order.montant_total || 0).toFixed(2)} DH
                           </p>
@@ -1871,22 +1881,22 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                       <div className="mt-4 grid gap-2 px-5 text-xs font-semibold text-[#6F8070] sm:grid-cols-2">
                         {order.creneau_livraison && (
                           <p>
-                            Creneau: <span className="text-[#264129]">{order.creneau_livraison}</span>
+                            {t("Creneau:")} <span className="text-[#264129]">{order.creneau_livraison}</span>
                           </p>
                         )}
                         {order.enroute_at && (
                           <p>
-                            En route: <span className="text-[#264129]">{formatOrderDate(order.enroute_at)}</span>
+                            {t("En route:")} <span className="text-[#264129]">{formatOrderDate(order.enroute_at)}</span>
                           </p>
                         )}
                         {order.delivered_at && (
                           <p>
-                            Livrée : <span className="text-[#264129]">{formatOrderDate(order.delivered_at)}</span>
+                            {t("Livrée :")} <span className="text-[#264129]">{formatOrderDate(order.delivered_at)}</span>
                           </p>
                         )}
                         {order.absent_at && (
                           <p>
-                            Absent: <span className="text-[#264129]">{formatOrderDate(order.absent_at)}</span>
+                            {t("Absent:")} <span className="text-[#264129]">{formatOrderDate(order.absent_at)}</span>
                           </p>
                         )}
                       </div>
@@ -1903,7 +1913,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                           )}
                         >
                           <AlertCircle className="h-4 w-4" />
-                          Signaler un problème
+                          {t("Signaler un problème")}
                         </button>
                         <p className="text-center text-xs font-semibold text-[#7B8B7D]">
                           {getClaimWindowLabel(order)}
@@ -1963,11 +1973,11 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                             <span className="h-8 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-[#5BD174] to-[#1E8A3C] md:hidden" />
                             <div>
                               <h3 className="text-lg font-bold text-[#264129]">{section.nom}</h3>
-                              {subtitle && <p className="text-sm text-[#6F8070]">{subtitle}</p>}
+                              {subtitle && <p className="text-sm text-[#6F8070]">{t(subtitle)}</p>}
                             </div>
                           </div>
                           <span className="rounded-full bg-[#F0FAF1] px-3 py-1 text-xs font-bold text-[#1E8A3C]">
-                            {items.length} produit{items.length > 1 ? "s" : ""}
+                            {t(items.length > 1 ? "{n} produits" : "{n} produit", { n: items.length })}
                           </span>
                         </div>
                         <div className="grid grid-cols-2 gap-3 md:-mx-1 md:flex md:snap-x md:snap-mandatory md:gap-4 md:overflow-x-auto md:px-1 md:pb-3 md:scrollbar-none">
@@ -2007,7 +2017,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
 
                   {filteredProducts.length === 0 && (
                     <div className="rounded-[28px] border border-[#E6EFE7] bg-white p-12 text-center">
-                      <p className="text-[#6F8070]">Aucun produit disponible pour le moment.</p>
+                      <p className="text-[#6F8070]">{t("Aucun produit disponible pour le moment.")}</p>
                     </div>
                   )}
                 </div>
@@ -2036,12 +2046,12 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                             <div className="flex items-center gap-3">
                               <span className="h-8 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-[#5BD174] to-[#1E8A3C] md:hidden" />
                               <div>
-                                <h3 className="text-lg font-bold text-[#264129]">{section.label}</h3>
-                                <p className="text-sm text-[#6F8070]">{section.subtitle}</p>
+                                <h3 className="text-lg font-bold text-[#264129]">{t(section.label)}</h3>
+                                <p className="text-sm text-[#6F8070]">{t(section.subtitle)}</p>
                               </div>
                             </div>
                             <span className="rounded-full bg-[#F0FAF1] px-3 py-1 text-xs font-bold text-[#1E8A3C]">
-                              {items.length} produit{items.length > 1 ? "s" : ""}
+                              {t(items.length > 1 ? "{n} produits" : "{n} produit", { n: items.length })}
                             </span>
                           </div>
                           <div className="grid grid-cols-2 gap-3 md:-mx-1 md:flex md:snap-x md:snap-mandatory md:gap-4 md:overflow-x-auto md:px-1 md:pb-3 md:scrollbar-none">
@@ -2104,7 +2114,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
 
                   {filteredProducts.length === 0 && (
                     <div className="rounded-[28px] border border-[#E6EFE7] bg-white p-12 text-center">
-                      <p className="text-[#6F8070]">Aucun produit disponible pour le moment.</p>
+                      <p className="text-[#6F8070]">{t("Aucun produit disponible pour le moment.")}</p>
                     </div>
                   )}
                 </div>
@@ -2153,7 +2163,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
 
               {filteredProducts.length === 0 && !productsByLevel && (
                 <div className="rounded-[28px] border border-[#E6EFE7] bg-white p-12 text-center">
-                  <p className="text-[#6F8070]">Aucun produit ne correspond à votre recherche.</p>
+                  <p className="text-[#6F8070]">{t("Aucun produit ne correspond à votre recherche.")}</p>
                 </div>
               )}
             </>
@@ -2178,10 +2188,10 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
           <div className="border-b border-[#EEF2EE] p-4 xl:p-5">
             <div className="flex items-center gap-2 text-[#1E8A3C]">
               <ShoppingCart className="h-5 w-5" />
-              <h2 className="text-xl font-black">Votre panier</h2>
+              <h2 className="text-xl font-black">{t("Votre panier")}</h2>
             </div>
             <p className="mt-2 text-sm text-[#6F8070]">
-              Ajustez vos quantités puis validez votre commande.
+              {t("Ajustez vos quantités puis validez votre commande.")}
             </p>
           </div>
 
@@ -2198,30 +2208,30 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                   aria-hidden="true"
                   className="mx-auto mb-3 h-36 w-36 object-contain animate-gentle-float"
                 />
-                <p className="text-[#6F8070]">Votre panier est vide.</p>
+                <p className="text-[#6F8070]">{t("Votre panier est vide.")}</p>
               </div>
             ) : (
               <div className="space-y-4 pb-4">
                 {manqueMinimum > 0 && (
                   <p role="status" className="rounded-xl border border-[#F5D7B8] bg-[#FFF7EE] px-4 py-3 text-sm font-bold text-[#9A5C11]">
-                    Minimum {MIN_ORDER_TOTAL_DH} DH livraison comprise : ajoutez encore {manqueMinimum.toFixed(2)} DH de produits.
+                    {t("Minimum {min} DH livraison comprise : ajoutez encore {manque} DH de produits.", { min: MIN_ORDER_TOTAL_DH, manque: manqueMinimum.toFixed(2) })}
                   </p>
                 )}
                 <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 shadow-sm">
                   {reste > 0 ? (
                     <div className="flex items-start justify-between gap-3">
                       <p className="text-sm font-bold leading-snug text-[#264129]">
-                        Plus que {reste.toFixed(2)} DH pour la livraison gratuite 🎁
+                        {t("Plus que {montant} DH pour la livraison gratuite 🎁", { montant: reste.toFixed(2) })}
                       </p>
                       <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[#9A5C11]">
-                        Livraison {FRAIS.toFixed(0)} DH
+                        {t("Livraison {frais} DH", { frais: FRAIS.toFixed(0) })}
                       </span>
                     </div>
                   ) : (
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-bold text-[#1E8A3C]">Livraison offerte ✅</p>
+                      <p className="text-sm font-bold text-[#1E8A3C]">{t("Livraison offerte ✅")}</p>
                       <span className="shrink-0 rounded-full bg-[#F0FDF4] px-2.5 py-1 text-xs font-bold text-[#1E8A3C]">
-                        Gratuite
+                        {t("Gratuite")}
                       </span>
                     </div>
                   )}
@@ -2247,14 +2257,14 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                   >
                     <img
                       src={item.image}
-                      alt={item.name}
+                      alt={productName(item)}
                       onError={(event) => applyImageFallback(event, item.fallbackImage)}
                       className="h-14 w-14 shrink-0 rounded-xl object-cover 2xl:h-16 2xl:w-16 2xl:rounded-2xl"
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <h3 className="truncate text-sm font-bold text-[#264129]">{item.name}</h3>
+                          <h3 className="truncate text-sm font-bold text-[#264129]">{productName(item)}</h3>
                           <p className="text-xs text-[#6F8070]">
                             {item.price.toFixed(2)} DH / {item.displayUnit}
                           </p>
@@ -2276,7 +2286,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                             <Minus className="h-3 w-3" />
                           </button>
                           <span className="min-w-[72px] px-2 text-center text-xs font-semibold text-[#264129] 2xl:min-w-[90px] 2xl:px-3">
-                            {formatQuantity(item.quantity, item.unit)}
+                            {quantityLabel(item.quantity, item.unit)}
                           </span>
                           <button
                             onClick={() => updateCartQuantity(item.id, item.quantityStep)}
@@ -2299,7 +2309,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                     <div className="mb-3 flex items-center gap-3">
                       <span className="h-px flex-1 bg-gray-200" />
                       <span className="text-sm font-bold text-[#264129]">
-                        À ne pas manquer
+                        {t("À ne pas manquer")}
                       </span>
                       <span className="h-px flex-1 bg-gray-200" />
                     </div>
@@ -2344,11 +2354,11 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
             <div className="border-t border-[#EEF2EE] p-4 xl:p-5">
               <div className="space-y-2 text-sm">
                 <div className="flex items-center justify-between text-[#6F8070]">
-                  <span>Sous-total</span>
+                  <span>{t("Sous-total")}</span>
                   <span className="font-semibold text-[#264129]">{cartSubtotal.toFixed(2)} DH</span>
                 </div>
                 <div className="flex items-center justify-between text-[#6F8070]">
-                  <span>Livraison</span>
+                  <span>{t("Livraison")}</span>
                   <span className="font-semibold text-[#264129]">
                     {cartDeliveryFee > 0 ? `${cartDeliveryFee.toFixed(2)} DH` : "Offerte ✅"}
                   </span>
@@ -2356,7 +2366,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
               </div>
 
               <div className="mt-4 flex items-center justify-between border-t border-[#EEF2EE] pt-4">
-                <span className="text-lg font-black text-[#264129]">Total</span>
+                <span className="text-lg font-black text-[#264129]">{t("Total")}</span>
                 <span className="text-xl font-black text-[#F07C00] 2xl:text-2xl">{cartTotal.toFixed(2)} DH</span>
               </div>
 
@@ -2365,7 +2375,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                 disabled={isSubmittingCart || manqueMinimum > 0}
                 className="mt-5 w-full rounded-2xl bg-[#F07C00] px-4 py-3 font-semibold text-white transition-colors hover:bg-[#D66B00] disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {isSubmittingCart ? "Validation en cours..." : "Valider la commande"}
+                {isSubmittingCart ? t("Validation en cours...") : t("Valider la commande")}
               </button>
 
               <p className="mt-3 text-center text-xs text-[#6F8070]">
@@ -2404,7 +2414,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
               <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-white/20 px-1.5 text-[13px] font-black">
                 {cart.length}
               </span>
-              <span className="text-[15px] font-black">Voir le panier</span>
+              <span className="text-[15px] font-black">{t("Voir le panier")}</span>
             </span>
             <span className="flex items-center gap-1.5 text-[15px] font-black souki-tabular-nums">
               {cartTotal.toFixed(2)} DH
@@ -2449,7 +2459,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                 <Trash2 className="h-5 w-5" />
               </span>
               <div className="min-w-0 flex-1">
-                <h3 className="text-lg font-black text-[#264129]">Supprimer cette commande ?</h3>
+                <h3 className="text-lg font-black text-[#264129]">{t("Supprimer cette commande ?")}</h3>
                 <p className="mt-1 text-sm font-semibold leading-6 text-[#6F8070]">
                   La commande N-{pendingDeleteOrderId} sera retiree de votre historique local. Vos donnees de paiement et de livraison ne changent pas.
                 </p>
@@ -2463,7 +2473,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                 disabled={deletingOrderId === pendingDeleteOrderId}
                 className="rounded-2xl border border-[#DDE7DE] px-5 py-3 text-sm font-bold text-[#607061] transition-colors hover:bg-[#F7FCF7] disabled:opacity-60"
               >
-                Annuler
+                {t("Annuler")}
               </button>
               <button
                 type="button"
@@ -2484,10 +2494,10 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#F07C00]">
-                  SAV Wallet
+                  {t("SAV Wallet")}
                 </p>
                 <h3 className="mt-1 text-2xl font-black text-[#264129]">
-                  Signaler un problème
+                  {t("Signaler un problème")}
                 </h3>
                 <p className="mt-1 text-sm text-[#6F8070]">
                   Commande N-{claimOrder.id} · remboursement crédité sur votre wallet SOUKI.
@@ -2497,7 +2507,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                 onClick={closeClaimModal}
                 disabled={isSubmittingClaim}
                 className="rounded-2xl border border-[#E4ECE4] p-2 text-[#6F8070] transition-colors hover:bg-[#F7FCF7] disabled:opacity-60"
-                aria-label="Fermer"
+                aria-label={t("Fermer")}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -2505,7 +2515,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
 
             <div className="mt-5 space-y-4">
               <label className="block">
-                <span className="text-sm font-bold text-[#264129]">Produit concerné</span>
+                <span className="text-sm font-bold text-[#264129]">{t("Produit concerné")}</span>
                 <select
                   value={claimLineId ?? ""}
                   onChange={(event) => {
@@ -2518,7 +2528,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                 >
                   {claimableLines.map((line) => (
                     <option key={line.ligne_panier_id} value={line.ligne_panier_id ?? ""}>
-                      {line.nom_fr} · {formatQuantity(line.quantite_kg, "kg")}
+                      {productName({ name: line.nom_fr, nameAr: line.nom_ar ?? products.find((item) => item.id === line.product_id)?.nameAr })} · {quantityLabel(line.quantite_kg, "kg")}
                     </option>
                   ))}
                 </select>
@@ -2526,7 +2536,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
-                  <span className="text-sm font-bold text-[#264129]">Quantité à rembourser</span>
+                  <span className="text-sm font-bold text-[#264129]">{t("Quantité à rembourser")}</span>
                   <input
                     type="number"
                     min="0.001"
@@ -2538,13 +2548,13 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                   />
                   {selectedClaimLine && (
                     <p className="mt-1 text-xs font-semibold text-[#7B8B7D]">
-                      Maximum: {formatQuantity(selectedClaimLine.quantite_kg, "kg")}
+                      Maximum : {quantityLabel(selectedClaimLine.quantite_kg, "kg")}
                     </p>
                   )}
                 </label>
 
                 <label className="block">
-                  <span className="text-sm font-bold text-[#264129]">Raison</span>
+                  <span className="text-sm font-bold text-[#264129]">{t("Raison")}</span>
                   <select
                     value={claimReason}
                     onChange={(event) => setClaimReason(event.target.value as ClaimReason)}
@@ -2552,7 +2562,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                   >
                     {claimReasonOptions.map((reason) => (
                       <option key={reason.id} value={reason.id}>
-                        {reason.label}
+                        {t(reason.label)}
                       </option>
                     ))}
                   </select>
@@ -2560,8 +2570,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
               </div>
 
               <div className="rounded-2xl border border-[#F3D8B2] bg-[#FFF7EE] p-4 text-sm text-[#7A4C0E]">
-                Le remboursement est automatiquement crédité sur votre wallet SOUKI. Aucun remboursement CB ou cash
-                n'est propose pour ce parcours.
+                {t("Le remboursement est automatiquement crédité sur votre wallet SOUKI. Aucun remboursement CB ou cash n'est propose pour ce parcours.")}
               </div>
 
               {claimError && (
@@ -2576,7 +2585,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                   disabled={isSubmittingClaim}
                   className="rounded-2xl border border-[#DDE7DE] px-5 py-3 text-sm font-bold text-[#607061] transition-colors hover:bg-[#F7FCF7] disabled:opacity-60"
                 >
-                  Annuler
+                  {t("Annuler")}
                 </button>
                 <button
                   onClick={() => void handleSubmitClaim()}

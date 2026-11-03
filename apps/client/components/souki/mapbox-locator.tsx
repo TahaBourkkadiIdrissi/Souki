@@ -2,6 +2,7 @@
 
 import { useCallback, useState, useRef, useEffect } from "react"
 import { MapPin, Loader2, AlertCircle, X } from "lucide-react"
+import { useLocale } from "@/contexts/locale-context"
 import "mapbox-gl/dist/mapbox-gl.css"
 
 interface MapboxLocatorProps {
@@ -12,6 +13,7 @@ interface MapboxLocatorProps {
 }
 
 export function MapboxLocator({ onAddressDetected, isOpen, onClose, confirmSelection = false }: MapboxLocatorProps) {
+  const { t, zoneProps } = useLocale()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const mapContainer = useRef<HTMLDivElement>(null)
@@ -198,18 +200,18 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose, confirmSelec
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+    <div {...zoneProps} className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <div className="flex items-center gap-3">
             <MapPin className="w-5 h-5 text-[#1E8A3C]" />
-            <h2 className="font-bold text-lg text-[#3D3D3D]">Me localiser</h2>
+            <h2 className="font-bold text-lg text-[#3D3D3D]">{t("Me localiser")}</h2>
           </div>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            aria-label="Fermer"
+            aria-label={t("Fermer")}
           >
             <X className="w-5 h-5 text-[#8A8A8A]" />
           </button>
@@ -221,7 +223,7 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose, confirmSelec
             <div className="flex-1 flex items-center justify-center bg-gray-50">
               <div className="text-center">
                 <Loader2 className="w-8 h-8 text-[#1E8A3C] animate-spin mx-auto mb-4" />
-                <p className="text-[#3D3D3D] font-medium">Récupération de votre position...</p>
+                <p className="text-[#3D3D3D] font-medium">{t("Récupération de votre position...")}</p>
               </div>
             </div>
           )}
@@ -230,7 +232,7 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose, confirmSelec
             <div className="flex-1 flex items-center justify-center bg-red-50 p-6">
               <div className="text-center">
                 <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-4" />
-                <p className="text-red-700 font-medium">{error}</p>
+                <p className="text-red-700 font-medium">{t(error)}</p>
                 <button
                   onClick={() => {
                     // La carte a perdu son conteneur pendant l'affichage de l'erreur : on repart de zéro.
@@ -239,7 +241,7 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose, confirmSelec
                   }}
                   className="mt-4 px-4 py-2 bg-[#1E8A3C] text-white rounded-lg text-sm font-semibold hover:bg-[#176B2E] transition-colors"
                 >
-                  Réessayer
+                  {t("Réessayer")}
                 </button>
               </div>
             </div>
@@ -252,10 +254,10 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose, confirmSelec
 
                 {/* Instructions overlay */}
                 <div className="absolute bottom-4 left-4 right-4 bg-white rounded-lg shadow-lg p-4">
-                  <p className="text-sm text-[#3D3D3D] font-medium">Cliquez sur la carte pour sélectionner votre adresse</p>
+                  <p className="text-sm text-[#3D3D3D] font-medium">{t("Cliquez sur la carte pour sélectionner votre adresse")}</p>
                   {confirmSelection && (
                     <p className="mt-1 text-xs font-medium text-[#6F8070]">
-                      Vous pouvez aussi déplacer le marqueur pour ajuster la position.
+                      {t("Vous pouvez aussi déplacer le marqueur pour ajuster la position.")}
                     </p>
                   )}
                   {selectedAddress && (
@@ -264,7 +266,7 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose, confirmSelec
                   {loading && (
                     <div className="mt-3 flex items-center gap-2">
                       <Loader2 className="w-4 h-4 text-[#1E8A3C] animate-spin" />
-                      <span className="text-sm text-[#8A8A8A]">Détection de l'adresse...</span>
+                      <span className="text-sm text-[#8A8A8A]">{t("Détection de l'adresse...")}</span>
                     </div>
                   )}
                 </div>
@@ -279,7 +281,7 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose, confirmSelec
             onClick={onClose}
             className="px-6 py-2 border-2 border-gray-200 rounded-xl text-[#3D3D3D] font-semibold hover:bg-gray-50 transition-colors"
           >
-            Annuler
+            {t("Annuler")}
           </button>
           {confirmSelection && (
             <button
@@ -296,7 +298,7 @@ export function MapboxLocator({ onAddressDetected, isOpen, onClose, confirmSelec
               }}
               className="px-6 py-2 rounded-xl bg-[#1E8A3C] text-white font-semibold hover:bg-[#176B2E] disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
             >
-              Confirmer cette position
+              {t("Confirmer cette position")}
             </button>
           )}
         </div>

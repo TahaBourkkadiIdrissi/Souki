@@ -3,6 +3,8 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ElementType, type ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
+const ARABIC_SCRIPT = /[؀-ۿݐ-ݿࢠ-ࣿ]/
+
 /**
  * Segment de texte a reveler. Chaque segment peut avoir sa propre couleur/style
  * et occuper une ligne dediee (block).
@@ -86,18 +88,23 @@ export function LetterReveal({
   }, [trigger, repeat])
 
   const resolvedSegments: LetterRevealSegment[] = segments ?? [{ text: text ?? "" }]
+  // Texte arabe : les lettres se lient entre elles et la lecture va de droite a gauche. Separer
+  // les lettres (ou les chiffres d'une heure) en spans casse la liaison et inverse "08:00" en
+  // "00:80" : dans un texte arabe, chaque mot est donc revele d'un bloc.
+  const rtlText = resolvedSegments.some((seg) => ARABIC_SCRIPT.test(seg.text))
+  const unitsOf = (word: string) => (rtlText ? [word] : Array.from(word))
 
   // Index global des lettres visibles pour un stagger continu entre segments.
   let charIndex = 0
   const totalChars = resolvedSegments.reduce(
-    (sum, seg) => sum + Array.from(seg.text).filter((c) => c !== " ").length,
+    (sum, seg) => sum + seg.text.split(" ").reduce((count, word) => count + unitsOf(word).length, 0),
     0,
   )
   const totalMs = startDelay + totalChars * stagger + 420
 
   const renderWord = (word: string, key: string, segClassName?: string) => (
     <span key={key} aria-hidden="true" className={cn("lr-word", segClassName)}>
-      {Array.from(word).map((char, ci) => {
+      {unitsOf(word).map((char, ci) => {
         const delay = startDelay + charIndex * stagger
         charIndex += 1
         return (

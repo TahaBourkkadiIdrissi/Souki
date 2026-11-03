@@ -18,6 +18,7 @@ import {
   Phone
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useLocale } from "@/contexts/locale-context"
 
 const sections = [
   {
@@ -144,6 +145,7 @@ const sections = [
 ]
 
 export default function PolitiqueConfidentialitePage() {
+  const { t, zoneProps } = useLocale()
   const [activeSection, setActiveSection] = useState("introduction")
   const [scrolled, setScrolled] = useState(false)
 
@@ -176,7 +178,7 @@ export default function PolitiqueConfidentialitePage() {
   }
 
   return (
-    <div className="min-h-screen bg-white scroll-smooth">
+    <div {...zoneProps} className="min-h-screen bg-white scroll-smooth">
       {/* Top Nav */}
       <header
         className={cn(
@@ -193,11 +195,11 @@ export default function PolitiqueConfidentialitePage() {
                 href="/"
                 className="p-2 text-[#3D3D3D] hover:text-[#1E8A3C] hover:bg-[#F0FAF1] rounded-xl transition-colors"
               >
-                <ArrowLeft className="w-5 h-5" />
+                <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
               </Link>
               <SoukiLogoLink height={36} priority />
             </div>
-            <span className="text-sm text-[#8A8A8A] hidden sm:block">Politique de Confidentialité</span>
+            <span className="text-sm text-[#8A8A8A] hidden sm:block">{t("Politique de Confidentialité")}</span>
           </div>
         </div>
       </header>
@@ -209,14 +211,14 @@ export default function PolitiqueConfidentialitePage() {
             <Shield className="w-8 h-8 text-[#1E8A3C]" />
           </div>
           <h1 className="text-4xl lg:text-5xl font-bold text-[#1E8A3C] mb-4 tracking-tight">
-            Politique de Confidentialité
+            {t("Politique de Confidentialité")}
           </h1>
           <p className="text-lg text-[#8A8A8A] max-w-2xl mx-auto leading-relaxed">
-            Transparence totale sur la façon dont SOUKI Fresh Market collecte, utilise et protège vos données personnelles.
+            {t("Transparence totale sur la façon dont SOUKI Fresh Market collecte, utilise et protège vos données personnelles.")}
           </p>
           <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full border border-gray-200 shadow-sm text-sm text-[#8A8A8A]">
             <Clock className="w-4 h-4 text-[#1E8A3C]" />
-            Dernière mise à jour : <strong className="text-[#3D3D3D] ml-1">28 Mars 2026</strong>
+            {t("Dernière mise à jour :")} <strong className="text-[#3D3D3D] ms-1">{t("28 Mars 2026")}</strong>
           </div>
         </div>
       </div>
@@ -224,7 +226,7 @@ export default function PolitiqueConfidentialitePage() {
       {/* Two-column layout */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-[#F5F5F0] rounded-3xl border border-gray-100">
         <div className="lg:hidden mb-6">
-          <label className="block text-xs font-semibold text-[#8A8A8A] uppercase tracking-wider mb-2">Navigation</label>
+          <label className="block text-xs font-semibold text-[#8A8A8A] uppercase tracking-wider mb-2">{t("Navigation")}</label>
           <select
             value={activeSection}
             onChange={(e) => jumpToSection(e.target.value)}
@@ -232,7 +234,7 @@ export default function PolitiqueConfidentialitePage() {
           >
             {sections.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.label}
+                {t(s.label)}
               </option>
             ))}
           </select>
@@ -243,7 +245,7 @@ export default function PolitiqueConfidentialitePage() {
           <aside className="hidden lg:block w-64 flex-shrink-0">
             <div className="sticky top-24 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-100">
-                <p className="text-xs font-semibold text-[#8A8A8A] uppercase tracking-wider">Navigation</p>
+                <p className="text-xs font-semibold text-[#8A8A8A] uppercase tracking-wider">{t("Navigation")}</p>
               </div>
               <nav className="py-2">
                 {sections.map((s) => (
@@ -257,13 +259,13 @@ export default function PolitiqueConfidentialitePage() {
                     className={cn(
                       "flex items-center gap-3 px-5 py-3 text-sm transition-all",
                       activeSection === s.id
-                        ? "text-[#1E8A3C] font-semibold bg-[#F0FAF1] border-r-2 border-[#1E8A3C]"
+                        ? "text-[#1E8A3C] font-semibold bg-[#F0FAF1] border-e-2 border-[#1E8A3C]"
                         : "text-[#3D3D3D] hover:bg-gray-50 hover:text-[#1E8A3C]"
                     )}
                   >
                     <s.icon className="w-4 h-4 flex-shrink-0" />
-                    {s.label}
-                    {activeSection === s.id && <ChevronRight className="w-3 h-3 ml-auto" />}
+                    {t(s.label)}
+                    {activeSection === s.id && <ChevronRight className="w-3 h-3 ms-auto rtl:rotate-180" />}
                   </a>
                 ))}
               </nav>
@@ -278,12 +280,12 @@ export default function PolitiqueConfidentialitePage() {
                 <div className="w-10 h-10 rounded-xl bg-[#F0FAF1] flex items-center justify-center">
                   <Shield className="w-5 h-5 text-[#1E8A3C]" />
                 </div>
-                <h2 className="text-3xl font-bold text-[#3D3D3D]">{sections[0].title}</h2>
+                <h2 className="text-3xl font-bold text-[#3D3D3D]">{t(sections[0].title)}</h2>
               </div>
               <div className="space-y-4">
                 {sections[0].content?.map((p, i) => (
                   <p key={i} className="text-[#555] leading-7 text-[17px]">
-                    {p}
+                    {t(p)}
                   </p>
                 ))}
               </div>
@@ -297,19 +299,19 @@ export default function PolitiqueConfidentialitePage() {
                 <div className="w-10 h-10 rounded-xl bg-[#F0FAF1] flex items-center justify-center">
                   <Database className="w-5 h-5 text-[#1E8A3C]" />
                 </div>
-                <h2 className="text-3xl font-bold text-[#3D3D3D]">{sections[1].title}</h2>
+                <h2 className="text-3xl font-bold text-[#3D3D3D]">{t(sections[1].title)}</h2>
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 {sections[1].subsections?.map((sub, i) => (
                   <div key={i} className="bg-[#F5F5F0] rounded-2xl p-5">
-                    <h3 className="font-semibold text-[#3D3D3D] mb-3 text-sm">{sub.title}</h3>
+                    <h3 className="font-semibold text-[#3D3D3D] mb-3 text-sm">{t(sub.title)}</h3>
                     <ul className="space-y-1.5">
                       {sub.items.map((item, j) => (
                         <li key={j} className="flex items-start gap-2 text-sm text-[#555]">
                           <div className="w-4 h-4 rounded-full bg-[#1E8A3C]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
                             <div className="w-1.5 h-1.5 rounded-full bg-[#1E8A3C]" />
                           </div>
-                          {item}
+                          {t(item)}
                         </li>
                       ))}
                     </ul>
@@ -326,13 +328,13 @@ export default function PolitiqueConfidentialitePage() {
                 <div className="w-10 h-10 rounded-xl bg-[#F0FAF1] flex items-center justify-center">
                   <Eye className="w-5 h-5 text-[#1E8A3C]" />
                 </div>
-                <h2 className="text-3xl font-bold text-[#3D3D3D]">{sections[2].title}</h2>
+                <h2 className="text-3xl font-bold text-[#3D3D3D]">{t(sections[2].title)}</h2>
               </div>
               <div className="space-y-3">
                 {sections[2].items?.map((item, i) => (
                   <div key={i} className="flex items-center gap-3 p-4 rounded-xl bg-[#F5F5F0]">
                     <CheckCircle className="w-5 h-5 text-[#1E8A3C] flex-shrink-0" />
-                    <p className="text-[#555] text-sm">{item}</p>
+                    <p className="text-[#555] text-sm">{t(item)}</p>
                   </div>
                 ))}
               </div>
@@ -346,24 +348,24 @@ export default function PolitiqueConfidentialitePage() {
                 <div className="w-10 h-10 rounded-xl bg-[#F0FAF1] flex items-center justify-center">
                   <Cookie className="w-5 h-5 text-[#1E8A3C]" />
                 </div>
-                <h2 className="text-3xl font-bold text-[#3D3D3D]">{sections[3].title}</h2>
+                <h2 className="text-3xl font-bold text-[#3D3D3D]">{t(sections[3].title)}</h2>
               </div>
               <div className="space-y-3">
                 {sections[3].types?.map((type, i) => (
                   <div key={i} className="flex items-start justify-between p-5 rounded-2xl border-2 border-gray-100 hover:border-[#4CB84A]/30 transition-colors">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <p className="font-semibold text-[#3D3D3D] text-sm">{type.name}</p>
+                        <p className="font-semibold text-[#3D3D3D] text-sm">{t(type.name)}</p>
                         {type.required && (
                           <span className="px-2 py-0.5 bg-[#F0FAF1] text-[#1E8A3C] rounded-full text-[10px] font-semibold uppercase tracking-wide">
-                            Requis
+                            {t("Requis")}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-[#8A8A8A] leading-relaxed">{type.desc}</p>
+                      <p className="text-xs text-[#8A8A8A] leading-relaxed">{t(type.desc)}</p>
                     </div>
                     <div className={cn(
-                      "ml-6 w-10 h-6 rounded-full flex items-center transition-colors",
+                      "ms-6 w-10 h-6 rounded-full flex items-center transition-colors",
                       type.required ? "bg-[#1E8A3C] justify-end pr-1" : "bg-gray-200 justify-start pl-1"
                     )}>
                       <span className="w-4 h-4 rounded-full bg-white shadow-sm" />
@@ -381,11 +383,11 @@ export default function PolitiqueConfidentialitePage() {
                 <div className="w-10 h-10 rounded-xl bg-[#F0FAF1] flex items-center justify-center">
                   <Share2 className="w-5 h-5 text-[#1E8A3C]" />
                 </div>
-                <h2 className="text-3xl font-bold text-[#3D3D3D]">{sections[4].title}</h2>
+                <h2 className="text-3xl font-bold text-[#3D3D3D]">{t(sections[4].title)}</h2>
               </div>
               {sections[4].content?.map((p, i) => (
                 <p key={i} className={cn("text-[#555] leading-relaxed mb-4", i === 0 && "text-lg font-semibold text-[#3D3D3D]")}>
-                  {p}
+                  {t(p)}
                 </p>
               ))}
               <div className="space-y-3 mt-4">
@@ -393,8 +395,8 @@ export default function PolitiqueConfidentialitePage() {
                   <div key={i} className="flex items-start gap-4 p-4 bg-[#F5F5F0] rounded-xl">
                     <div className="w-2 h-2 rounded-full bg-[#1E8A3C] mt-2 flex-shrink-0" />
                     <div>
-                      <p className="font-semibold text-[#3D3D3D] text-sm">{p.name}</p>
-                      <p className="text-xs text-[#8A8A8A]">{p.scope}</p>
+                      <p className="font-semibold text-[#3D3D3D] text-sm">{t(p.name)}</p>
+                      <p className="text-xs text-[#8A8A8A]">{t(p.scope)}</p>
                     </div>
                   </div>
                 ))}
@@ -409,7 +411,7 @@ export default function PolitiqueConfidentialitePage() {
                 <div className="w-10 h-10 rounded-xl bg-[#F0FAF1] flex items-center justify-center">
                   <Shield className="w-5 h-5 text-[#1E8A3C]" />
                 </div>
-                <h2 className="text-3xl font-bold text-[#3D3D3D]">{sections[5].title}</h2>
+                <h2 className="text-3xl font-bold text-[#3D3D3D]">{t(sections[5].title)}</h2>
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                 {sections[5].rights?.map((r, i) => (
@@ -417,14 +419,14 @@ export default function PolitiqueConfidentialitePage() {
                     <div className="w-8 h-8 rounded-xl bg-[#F0FAF1] flex items-center justify-center mb-3">
                       <CheckCircle className="w-4 h-4 text-[#1E8A3C]" />
                     </div>
-                    <p className="font-semibold text-[#3D3D3D] text-sm mb-1">{r.name}</p>
-                    <p className="text-xs text-[#8A8A8A] leading-relaxed">{r.desc}</p>
+                    <p className="font-semibold text-[#3D3D3D] text-sm mb-1">{t(r.name)}</p>
+                    <p className="text-xs text-[#8A8A8A] leading-relaxed">{t(r.desc)}</p>
                   </div>
                 ))}
               </div>
               <div className="p-4 bg-[#FFF5EB] rounded-xl border border-[#F07C00]/20">
                 <p className="text-sm text-[#D66B00]">
-                  <strong>Base légale :</strong> {sections[5].note}
+                  <strong>{t("Base légale :")}</strong> {t(sections[5].note ?? "")}
                 </p>
               </div>
             </section>
@@ -437,10 +439,10 @@ export default function PolitiqueConfidentialitePage() {
                 <div className="w-10 h-10 rounded-xl bg-[#F0FAF1] flex items-center justify-center">
                   <Mail className="w-5 h-5 text-[#1E8A3C]" />
                 </div>
-                <h2 className="text-3xl font-bold text-[#3D3D3D]">{sections[6].title}</h2>
+                <h2 className="text-3xl font-bold text-[#3D3D3D]">{t(sections[6].title)}</h2>
               </div>
               {sections[6].content?.map((p, i) => (
-                <p key={i} className="text-[#555] leading-relaxed mb-6">{p}</p>
+                <p key={i} className="text-[#555] leading-relaxed mb-6">{t(p)}</p>
               ))}
               <div className="grid sm:grid-cols-3 gap-4">
                 {sections[6].contacts?.map((c, i) => (
@@ -448,13 +450,13 @@ export default function PolitiqueConfidentialitePage() {
                     <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center shadow-sm mb-3">
                       <c.icon className="w-4 h-4 text-[#1E8A3C]" />
                     </div>
-                    <p className="text-xs text-[#8A8A8A] mb-1">{c.label}</p>
+                    <p className="text-xs text-[#8A8A8A] mb-1">{t(c.label)}</p>
                     {c.href ? (
                       <a href={c.href} className="font-semibold text-[#1E8A3C] text-sm hover:underline">
-                        {c.value}
+                        <bdi dir="ltr">{c.value}</bdi>
                       </a>
                     ) : (
-                      <p className="font-semibold text-[#3D3D3D] text-sm">{c.value}</p>
+                      <p className="font-semibold text-[#3D3D3D] text-sm">{t(c.value)}</p>
                     )}
                   </div>
                 ))}
@@ -463,11 +465,11 @@ export default function PolitiqueConfidentialitePage() {
 
             {/* Footer within content */}
             <div className="pt-8 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-[#8A8A8A]">
-              <p>© 2026 SOUKI Fresh Market — Fès, Maroc</p>
+              <p>{t("© 2026 SOUKI Fresh Market — Fès, Maroc")}</p>
               <div className="flex items-center gap-4">
-                <Link href="/catalogue" className="hover:text-[#1E8A3C] transition-colors">Nos Légumes</Link>
-                <Link href="/" className="hover:text-[#1E8A3C] transition-colors">Accueil</Link>
-                <a href="mailto:privacy@souki.ma" className="hover:text-[#1E8A3C] transition-colors">Contact</a>
+                <Link href="/catalogue" className="hover:text-[#1E8A3C] transition-colors">{t("Nos Légumes")}</Link>
+                <Link href="/" className="hover:text-[#1E8A3C] transition-colors">{t("Accueil")}</Link>
+                <a href="mailto:privacy@souki.ma" className="hover:text-[#1E8A3C] transition-colors">{t("Contact")}</a>
               </div>
             </div>
           </main>

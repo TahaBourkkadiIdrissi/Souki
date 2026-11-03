@@ -119,6 +119,7 @@ class CommandeRecurrenteService(ICommandeRecurrenteService):
                 variation += ecart
             lignes.append(CommandeRecurrenteLigneDTO(
                 product_id=ligne.product_id, nom_produit=product.nom_fr if product else "Produit retiré",
+                nom_ar=getattr(product, "nom_ar", None) if product else None,
                 unite=product.unite if product else "", image_url=product.image_url if product else None,
                 quantite=float(ligne.quantite), prix_unitaire=prix, prix_reference=ligne.prix_reference,
                 sous_total=total_ligne, variation=ecart, disponible=disponible,

@@ -5,12 +5,15 @@ import Link from "next/link"
 import Image from "@/components/souki/optimized-image"
 import { Check, Heart, Minus, Plus, ShoppingCart } from "lucide-react"
 
-import { formatQuantity, isIllustrationImage } from "@/lib/catalogue"
+import { useLocale } from "@/contexts/locale-context"
+import { isIllustrationImage } from "@/lib/catalogue"
 import { cn } from "@/lib/utils"
 
 interface ProductCardProps {
   id: number | string
   name: string
+  /** Nom en darija ecrit en arabe, affiche quand le site est en arabe. */
+  nameAr?: string | null
   href?: string
   image: string
   fallbackImage?: string
@@ -51,7 +54,8 @@ interface ProductCardProps {
 
 export function ProductCard({
   id,
-  name,
+  name: frenchName,
+  nameAr,
   href,
   image,
   fallbackImage,
@@ -64,7 +68,7 @@ export function ProductCard({
   stock,
   availability,
   disabled = false,
-  disabledLabel = "Indisponible",
+  disabledLabel,
   featured = false,
   compactImage = false,
   variant = "default",
@@ -73,6 +77,8 @@ export function ProductCard({
   onView,
   onAddToCart,
 }: ProductCardProps) {
+  const { t, productName, unitLabel, quantityLabel, zoneProps } = useLocale()
+  const name = productName({ name: frenchName, nameAr })
   const isMinimal = variant === "minimal"
   const [quantity, setQuantity] = useState(quantityStep)
   const [isAdded, setIsAdded] = useState(false)
@@ -98,15 +104,15 @@ export function ProductCard({
 
   const getUnitHint = () => {
     if (resolvedDisplayUnit === "250g") {
-      return "Prix affiche par portion de 250g"
+      return t("Prix affiché par portion de 250 g")
     }
     if (resolvedDisplayUnit === "lot") {
-      return "Vente par lot"
+      return t("Vente par lot")
     }
     if (unit === "kg") {
-      return "Vente au kg"
+      return t("Vente au kg")
     }
-    return `Vente a l'unite ${resolvedDisplayUnit}`
+    return t("Vente à l'unité {unit}", { unit: unitLabel(resolvedDisplayUnit) })
   }
 
   const handleAdd = () => {
@@ -134,6 +140,7 @@ export function ProductCard({
 
   return (
     <article
+      {...zoneProps}
       onClick={href ? undefined : () => onView?.(id)}
       className={cn(
         "group flex h-full flex-col bg-white transition-all duration-300",
@@ -167,7 +174,7 @@ export function ProductCard({
       >
         <Image
           src={resolvedImage}
-          alt={`${name} frais disponible chez SOUKI`}
+          alt={t("{name} frais disponible chez SOUKI", { name })}
           fill
           sizes={isMinimal ? "(max-width: 768px) 50vw, 192px" : "(max-width: 768px) 50vw, 256px"}
           onError={() => {
@@ -184,7 +191,7 @@ export function ProductCard({
               : "object-cover",
           )}
         />
-        {href && <Link href={href} onNavigate={handleNavigate} className="absolute inset-0" aria-label={`Voir ${name}`} />}
+        {href && <Link href={href} onNavigate={handleNavigate} className="absolute inset-0" aria-label={t("Voir {name}", { name })} />}
         {isOutOfStock ? (
           <>
             <span
@@ -195,7 +202,7 @@ export function ProductCard({
                 isMinimal ? "right-3 md:left-3 md:right-auto" : "left-3",
               )}
             >
-              Rupture
+              {t("Rupture")}
             </span>
             <div className="absolute inset-0 bg-white/35" />
           </>
@@ -214,7 +221,7 @@ export function ProductCard({
         {onToggleFavorite && (
           <button
             type="button"
-            aria-label={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+            aria-label={isFavorite ? t("Retirer des favoris") : t("Ajouter aux favoris")}
             aria-pressed={isFavorite}
             onClick={(event) => {
               event.stopPropagation()
@@ -241,7 +248,7 @@ export function ProductCard({
         {isMinimal && (
           <button
             type="button"
-            aria-label={`Ajouter ${name}`}
+            aria-label={t("Ajouter {name}", { name })}
             disabled={isUnavailable}
             onClick={(event) => {
               event.stopPropagation()
@@ -284,14 +291,14 @@ export function ProductCard({
 
         <div className="mb-2 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 sm:mb-2.5">
           <span className="text-base font-black leading-none text-[#F07C00] sm:text-lg 2xl:text-xl">
-            {price.toFixed(2)} DH
+            <bdi dir="ltr">{price.toFixed(2)} DH</bdi>
           </span>
           <span className="shrink-0 whitespace-nowrap text-[11px] text-[#6C7E6E]">
-            / {resolvedDisplayUnit}
+            / {unitLabel(resolvedDisplayUnit)}
           </span>
           {oldPrice && (
             <span className="shrink-0 text-[11px] font-semibold text-[#9AA49B] line-through">
-              {oldPrice.toFixed(2)} DH
+              <bdi dir="ltr">{oldPrice.toFixed(2)} DH</bdi>
             </span>
           )}
         </div>
@@ -311,7 +318,7 @@ export function ProductCard({
               <Minus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </button>
             <span className="min-w-0 flex-1 px-1 text-center text-xs font-semibold text-[#264129] sm:px-2 sm:text-sm">
-              {formatQuantity(quantity, unit)}
+              {quantityLabel(quantity, unit)}
             </span>
           <button
               onClick={(event) => {
@@ -343,11 +350,11 @@ export function ProductCard({
         >
           <ShoppingCart className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           {disabled ? (
-            <span className="truncate">{disabledLabel}</span>
+            <span className="truncate">{disabledLabel ?? t("Indisponible")}</span>
           ) : (
             <>
-              <span className="sm:hidden">Ajouter</span>
-              <span className="hidden sm:inline">Ajouter au panier</span>
+              <span className="sm:hidden">{t("Ajouter")}</span>
+              <span className="hidden sm:inline">{t("Ajouter au panier")}</span>
             </>
           )}
         </button>

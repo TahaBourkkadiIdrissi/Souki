@@ -4,9 +4,10 @@ import { useEffect, useState } from "react"
 import { Heart, Minus, Plus, Share2, ShoppingBasket, X } from "lucide-react"
 
 import type { CatalogueProduct } from "@/lib/catalogue"
-import { formatQuantity, getProductDescription, isIllustrationImage } from "@/lib/catalogue"
+import { isIllustrationImage } from "@/lib/catalogue"
 import { cn } from "@/lib/utils"
 import { useHaptic } from "@/hooks/useHaptic"
+import { useLocale } from "@/contexts/locale-context"
 
 /**
  * Fiche produit en feuille plein écran (mobile) / modale centrée (desktop),
@@ -31,6 +32,7 @@ export function ProductDetailSheet({
   isFavorite: boolean
   onToggleFavorite: () => void
 }) {
+  const { t, productName, productDescription, unitLabel, quantityLabel, zoneProps } = useLocale()
   const haptic = useHaptic()
   const step = product?.quantityStep ?? (product?.unit === "kg" ? 0.5 : 1)
   const [quantity, setQuantity] = useState(step)
@@ -99,7 +101,7 @@ export function ProductDetailSheet({
   }
 
   return (
-    <div
+    <div {...zoneProps}
       className="fixed inset-0 z-[80] flex flex-col justify-end bg-[#122018]/55 backdrop-blur-sm sm:items-center sm:justify-center sm:p-6"
       onClick={onClose}
       role="dialog"
@@ -134,7 +136,7 @@ export function ProductDetailSheet({
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="Fermer"
+                aria-label={t("Fermer")}
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[#264129] shadow-md backdrop-blur active:scale-90"
               >
                 <X className="h-5 w-5" />
@@ -143,7 +145,7 @@ export function ProductDetailSheet({
                 <button
                   type="button"
                   onClick={handleShare}
-                  aria-label="Partager"
+                  aria-label={t("Partager")}
                   className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[#264129] shadow-md backdrop-blur active:scale-90"
                 >
                   <Share2 className="h-5 w-5" />
@@ -151,7 +153,7 @@ export function ProductDetailSheet({
                 <button
                   type="button"
                   onClick={handleFavorite}
-                  aria-label={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+                  aria-label={isFavorite ? t("Retirer des favoris") : t("Ajouter aux favoris")}
                   aria-pressed={isFavorite}
                   className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur active:scale-90"
                 >
@@ -163,7 +165,7 @@ export function ProductDetailSheet({
             </div>
             {isOutOfStock ? (
               <span className="absolute bottom-3 left-3 rounded-full bg-red-500 px-3 py-1 text-xs font-bold text-white shadow-sm">
-                Rupture de stock
+                {t("Rupture de stock")}
               </span>
             ) : (
               discountPct > 0 && (
@@ -176,31 +178,31 @@ export function ProductDetailSheet({
 
           <div className="px-5 py-4">
             <div className="flex items-start justify-between gap-3">
-              <h2 className="text-2xl font-black leading-tight text-[#233127]">{product.name}</h2>
+              <h2 className="text-2xl font-black leading-tight text-[#233127]">{productName(product)}</h2>
             </div>
             {product.alias && (
               <p className="mt-1 text-sm font-semibold text-[#6F8070]">« {product.alias} »</p>
             )}
 
             <div className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <span className="text-2xl font-black text-[#F07C00]">{product.price.toFixed(2)} DH</span>
-              <span className="text-sm font-semibold text-[#6C7E6E]">/ {displayUnit}</span>
+              <span className="text-2xl font-black text-[#F07C00]"><bdi dir="ltr">{product.price.toFixed(2)} DH</bdi></span>
+              <span className="text-sm font-semibold text-[#6C7E6E]">/ {unitLabel(displayUnit)}</span>
               {oldPrice && (
-                <span className="text-sm font-semibold text-[#9AA49B] line-through">{oldPrice.toFixed(2)} DH</span>
+                <span className="text-sm font-semibold text-[#9AA49B] line-through"><bdi dir="ltr">{oldPrice.toFixed(2)} DH</bdi></span>
               )}
             </div>
 
             <div className="mt-4">
-              <h3 className="text-sm font-black uppercase tracking-wide text-[#264129]">Description</h3>
+              <h3 className="text-sm font-black uppercase tracking-wide text-[#264129]">{t("Description")}</h3>
               <p className="mt-1.5 text-sm leading-relaxed text-[#5F735F]">
-                {product.description ?? getProductDescription(product.name)}
+                {productDescription(product)}
               </p>
             </div>
 
             <div className="mt-5 flex items-center justify-between">
               <div>
-                <p className="text-sm font-black uppercase tracking-wide text-[#264129]">Quantité</p>
-                <p className="mt-0.5 text-xs font-medium text-[#8A8A8A]">{formatQuantity(quantity, product.unit)}</p>
+                <p className="text-sm font-black uppercase tracking-wide text-[#264129]">{t("Quantité")}</p>
+                <p className="mt-0.5 text-xs font-medium text-[#8A8A8A]">{quantityLabel(quantity, product.unit)}</p>
               </div>
               <div className="flex items-center overflow-hidden rounded-full border border-[#CDE8D0] bg-[#F7FCF7]">
                 <button
@@ -208,19 +210,19 @@ export function ProductDetailSheet({
                   onClick={decrement}
                   disabled={isOutOfStock}
                   className="flex h-11 w-11 items-center justify-center text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] disabled:opacity-40"
-                  aria-label="Diminuer"
+                  aria-label={t("Diminuer")}
                 >
                   <Minus className="h-4 w-4" />
                 </button>
                 <span className="min-w-[3.5rem] px-1 text-center text-sm font-black text-[#264129]">
-                  {formatQuantity(quantity, product.unit)}
+                  {quantityLabel(quantity, product.unit)}
                 </span>
                 <button
                   type="button"
                   onClick={increment}
                   disabled={isOutOfStock}
                   className="flex h-11 w-11 items-center justify-center text-[#2E5A33] transition-colors hover:bg-[#E7F5E8] disabled:opacity-40"
-                  aria-label="Augmenter"
+                  aria-label={t("Augmenter")}
                 >
                   <Plus className="h-4 w-4" />
                 </button>
@@ -243,16 +245,16 @@ export function ProductDetailSheet({
             )}
           >
             <span className="flex flex-col items-start leading-tight">
-              <span className="text-[11px] font-semibold text-white/80">Total</span>
-              <span className="souki-tabular-nums text-[17px] font-black">{lineTotal.toFixed(2)} DH</span>
+              <span className="text-[11px] font-semibold text-white/80">{t("Total")}</span>
+              <span className="souki-tabular-nums text-[17px] font-black"><bdi dir="ltr">{lineTotal.toFixed(2)} DH</bdi></span>
             </span>
             <span className="flex items-center gap-2 text-[15px] font-black">
               {isOutOfStock ? (
-                "Indisponible"
+                t("Indisponible")
               ) : (
                 <>
                   <ShoppingBasket className="h-4 w-4" />
-                  Ajouter au panier
+                  {t("Ajouter au panier")}
                 </>
               )}
             </span>

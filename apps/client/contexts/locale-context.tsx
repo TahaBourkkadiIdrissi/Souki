@@ -2,7 +2,8 @@
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react"
 
-import { ARABIC, LOCALE_COOKIE, type Locale } from "@/lib/i18n"
+import { formatQuantity, productDescriptionFor } from "@/lib/catalogue"
+import { LOCALE_COOKIE, formatQuantityAr, translate, unitAr, type Locale } from "@/lib/i18n"
 
 type Vars = Record<string, string | number>
 
@@ -14,14 +15,18 @@ type LocaleContextValue = {
   zoneProps: { lang?: string; dir?: "rtl" | "ltr" }
   /** Traduit une phrase francaise ; sans traduction arabe, le francais reste affiche. */
   t: (french: string, vars?: Vars) => string
+  /** Nom d'un produit : en darija (ecrit en arabe) sur le site arabe, sinon le nom francais. */
+  productName: (product: { name: string; nameAr?: string | null }) => string
+  /** Description de la fiche produit dans la langue du site (texte admin, sinon description par defaut). */
+  productDescription: (product: { name: string; description?: string | null; descriptionAr?: string | null }) => string
+  /** Unite (kg, lot, 250g) et quantite affichees dans la langue du site. */
+  unitLabel: (unit: string) => string
+  quantityLabel: (quantity: number, unit: string) => string
+  /** Langue des dates (Intl) : "ar-MA" sur le site arabe, sinon "fr-MA". */
+  dateLocale: string
 }
 
 const LocaleContext = createContext<LocaleContextValue | null>(null)
-
-function interpolate(text: string, vars?: Vars) {
-  if (!vars) return text
-  return text.replace(/\{(\w+)\}/g, (match, key: string) => (key in vars ? String(vars[key]) : match))
-}
 
 /**
  * Langue du site client : francais ou arabe standard (de droite a gauche). La darija reste reservee aux noms des produits.
@@ -38,7 +43,23 @@ export function LocaleProvider({ initialLocale, children }: { initialLocale: Loc
   }, [])
 
   const t = useCallback(
-    (french: string, vars?: Vars) => interpolate(locale === "ar" ? ARABIC[french] ?? french : french, vars),
+    (french: string, vars?: Vars) => translate(locale, french, vars),
+    [locale],
+  )
+
+  const productName = useCallback(
+    (product: { name: string; nameAr?: string | null }) => (locale === "ar" && product.nameAr ? product.nameAr : product.name),
+    [locale],
+  )
+
+  const productDescription = useCallback(
+    (product: { name: string; description?: string | null; descriptionAr?: string | null }) => productDescriptionFor(locale, product),
+    [locale],
+  )
+
+  const unitLabel = useCallback((unit: string) => (locale === "ar" ? unitAr(unit) : unit), [locale])
+  const quantityLabel = useCallback(
+    (quantity: number, unit: string) => (locale === "ar" ? formatQuantityAr(quantity, unit) : formatQuantity(quantity, unit)),
     [locale],
   )
 
@@ -47,8 +68,13 @@ export function LocaleProvider({ initialLocale, children }: { initialLocale: Loc
     isRtl: locale === "ar",
     setLocale,
     t,
+    productName,
+    productDescription,
+    unitLabel,
+    quantityLabel,
+    dateLocale: locale === "ar" ? "ar-MA" : "fr-MA",
     zoneProps: locale === "ar" ? { lang: "ar-MA", dir: "rtl" as const } : {},
-  }), [locale, setLocale, t])
+  }), [locale, setLocale, t, productName, productDescription, unitLabel, quantityLabel])
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>
 }
 

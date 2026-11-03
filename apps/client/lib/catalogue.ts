@@ -1,6 +1,7 @@
 import { readClientCollection, writeClientCollection, type StorageOwner } from "@/lib/client-storage"
 import type { CatalogueProductDTO, CommandeHistoriqueDTO } from "@/lib/api"
 import { apiCall, fetchCatalogueCategories } from "@/lib/api"
+import { translate, type Locale } from "@/lib/i18n"
 
 // Les trois rayons historiques restent la valeur de repli ; l'admin peut en créer d'autres.
 export type CatalogueCategory = "legumes" | "fruits" | "herbes" | (string & {})
@@ -10,7 +11,10 @@ export type ApiCatalogueProduct = CatalogueProductDTO
 export interface CatalogueProduct {
   id: number
   name: string
+  /** Nom en darija ecrit en arabe ; le site en arabe l'affiche a la place de `name`. */
+  nameAr?: string | null
   description?: string | null
+  descriptionAr?: string | null
   alias: string
   price: number
   prix_khddar_estime?: number | null
@@ -394,6 +398,15 @@ export function getProductDescription(name: string): string {
   return GENERIC_PRODUCT_DESCRIPTION
 }
 
+/** Description de la fiche produit : texte saisi dans l'admin, sinon description par defaut (traduite sur le site arabe). */
+export function productDescriptionFor(
+  locale: Locale,
+  product: { name: string; description?: string | null; descriptionAr?: string | null },
+): string {
+  if (locale === "ar") return product.descriptionAr ?? translate(locale, getProductDescription(product.name))
+  return product.description ?? getProductDescription(product.name)
+}
+
 /**
  * Les visuels locaux (`/images/...`) sont des illustrations 512px sur fond
  * blanc : on les affiche en `object-contain` + `mix-blend-multiply` (le blanc
@@ -443,7 +456,9 @@ export async function fetchCatalogueProducts(): Promise<CatalogueProduct[]> {
     return {
       id: product.id,
       name: product.nom_fr,
+      nameAr: product.nom_ar ?? null,
       description: product.description,
+      descriptionAr: product.description_ar ?? null,
       alias: product.nom_darija,
       price: product.prix_affiche ?? product.prix_kg,
       prix_khddar_estime: product.prix_khddar_estime,
@@ -592,6 +607,7 @@ export interface PanierDetailsResponse {
   lignes: Array<{
     product_id: number
     nom_produit: string
+    nom_ar?: string | null
     quantite_kg: number
     prix_unitaire: number
     sous_total: number

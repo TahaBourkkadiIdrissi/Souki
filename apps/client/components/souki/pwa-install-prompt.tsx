@@ -7,6 +7,7 @@ import { Download, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { isPwaStandalone } from "@/lib/pwa"
 import { useAuth } from "@/hooks/useAuth"
+import { useLocale } from "@/contexts/locale-context"
 
 import { chromeIntent, installPlatform, type InstallPromptEvent } from "@/lib/pwa-install"
 import { IosInstallGuide } from "@/components/souki/pwa/ios-install-guide"
@@ -18,6 +19,7 @@ const EXCLUDED_ROLES = ["ADMIN"]
 export function PwaInstallPrompt() {
   const pathname = usePathname()
   const { user } = useAuth()
+  const { t, zoneProps } = useLocale()
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null)
   const [isStandalone, setIsStandalone] = useState(true)
   const [dismissed, setDismissed] = useState(false)
@@ -92,6 +94,7 @@ export function PwaInstallPrompt() {
 
   return (
     <div
+      {...zoneProps}
       className="fixed inset-x-3 bottom-24 z-[70] mx-auto max-w-md rounded-2xl border border-[#1E8A3C]/20 bg-white p-3 shadow-2xl shadow-black/15"
       role="status"
       aria-live="polite"
@@ -101,9 +104,9 @@ export function PwaInstallPrompt() {
           <Download className="size-5" aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-[#264129]">Télécharger SOUKI</p>
+          <p className="text-sm font-semibold text-[#264129]">{t("Télécharger SOUKI")}</p>
           <p className="text-xs leading-5 text-[#6F8070]">
-            Installez l&apos;application pour un accès rapide, en plein écran.
+            {t("Installez l'application pour un accès rapide, en plein écran.")}
           </p>
         </div>
         <Button
@@ -112,7 +115,7 @@ export function PwaInstallPrompt() {
           variant="ghost"
           className="shrink-0"
           onClick={() => setDismissed(true)}
-          aria-label="Masquer l'installation"
+          aria-label={t("Masquer l'installation")}
         >
           <X className="size-4" aria-hidden="true" />
         </Button>
@@ -124,12 +127,12 @@ export function PwaInstallPrompt() {
         onClick={handleDownload}
       >
         <Download className="size-4" aria-hidden="true" />
-        Télécharger l&apos;application
+        {t("Télécharger l'application")}
       </Button>
 
       {showHelp && (installPlatform().ios
         ? <IosInstallGuide onClose={() => setShowHelp(false)} />
-        : <p className="mt-3 rounded-xl bg-green-50 px-3 py-2 text-sm text-green-900">Ouvrez le menu <strong>⋮</strong> du navigateur, puis « Installer l’application ». Si cette option manque, ouvrez Souki dans Chrome ou Edge.</p>)}
+        : <p className="mt-3 rounded-xl bg-green-50 px-3 py-2 text-sm text-green-900">{t("Ouvrez le menu ⋮ du navigateur, puis « Installer l’application ». Si cette option manque, ouvrez Souki dans Chrome ou Edge.")}</p>)}
     </div>
   )
 }

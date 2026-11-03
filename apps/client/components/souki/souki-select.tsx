@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { Check, ChevronDown, Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { useLocale } from "@/contexts/locale-context"
 
 export interface SoukiSelectOption {
   value: string
@@ -44,6 +45,7 @@ export function SoukiSelect({
   leadingIcon,
   className,
 }: SoukiSelectProps) {
+  const { t } = useLocale()
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement | null>(null)
 
@@ -138,7 +140,7 @@ export function SoukiSelect({
           className="mt-2 max-h-64 overflow-y-auto overscroll-contain rounded-2xl border border-gray-200 bg-white p-1.5 shadow-xl shadow-black/5 animate-in fade-in slide-in-from-top-1 duration-150"
         >
           {options.length === 0 && (
-            <p className="px-3 py-2 text-sm text-[#6C7E6E]">Aucune option disponible.</p>
+            <p className="px-3 py-2 text-sm text-[#6C7E6E]">{t("Aucune option disponible.")}</p>
           )}
           {groups.map(([groupLabel, groupOptions]) => (
             <div key={groupLabel || "__default"}>

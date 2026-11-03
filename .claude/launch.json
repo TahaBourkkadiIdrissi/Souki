@@ -24,6 +24,20 @@
         "dev"
       ],
       "port": 3000
+    },
+    {
+      "name": "souki-client-prod-api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "apps/client",
+        "run",
+        "dev"
+      ],
+      "port": 3000,
+      "env": {
+        "BACKEND_INTERNAL_URL": "https://souki.io/backend"
+      }
     }
   ]
 }

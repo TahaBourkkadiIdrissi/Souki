@@ -18,6 +18,7 @@ import { isPwaStandalone } from "@/lib/pwa"
 import { useAuth } from "@/hooks/useAuth"
 import { useFavorites } from "@/hooks/useFavorites"
 import { useHaptic } from "@/hooks/useHaptic"
+import { useLocale } from "@/contexts/locale-context"
 
 /**
  * Ecran « Mes favoris » (PWA). Liste les produits marques en favori (coeur),
@@ -28,6 +29,7 @@ import { useHaptic } from "@/hooks/useHaptic"
  * l'accueil web (comme app/pwa-welcome).
  */
 export default function FavorisPage() {
+  const { t } = useLocale()
   const router = useRouter()
   const { isAuthenticated, isLoading } = useAuth()
   const { favorites: favoriteIds, isFavorite, toggleFavorite } = useFavorites()
@@ -118,7 +120,7 @@ export default function FavorisPage() {
   return (
     <PwaScreen>
       <PwaHeader
-        title="Mes favoris"
+        title={t("Mes favoris")}
         subtitle={
           favoriteProducts.length > 0
             ? `${favoriteProducts.length} produit${favoriteProducts.length > 1 ? "s" : ""}`
@@ -143,9 +145,9 @@ export default function FavorisPage() {
               <Heart className="h-5 w-5 text-[#E4405F]" />
             </span>
           </div>
-          <h2 className="text-lg font-black text-[#233127]">Aucun favori pour l&apos;instant</h2>
+          <h2 className="text-lg font-black text-[#233127]">{t("Aucun favori pour l'instant")}</h2>
           <p className="mt-1.5 max-w-[16rem] text-[13px] font-medium leading-relaxed text-[#6F8070]">
-            Touchez le cœur sur un produit pour le retrouver ici et recevoir de meilleures suggestions.
+            {t("Touchez le cœur sur un produit pour le retrouver ici et recevoir de meilleures suggestions.")}
           </p>
           <button
             type="button"
@@ -153,7 +155,7 @@ export default function FavorisPage() {
             className="mt-6 flex items-center gap-2 rounded-2xl bg-[#1E8A3C] px-5 py-3 text-sm font-black text-white shadow-[0_14px_30px_-16px_rgba(30,138,60,0.9)] active:scale-[0.98]"
           >
             <Sprout className="h-4 w-4" />
-            Découvrir le marché
+            {t("Découvrir le marché")}
           </button>
         </div>
       ) : (

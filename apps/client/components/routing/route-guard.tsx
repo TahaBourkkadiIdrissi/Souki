@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation"
 
 import { useAuth } from "@/hooks/useAuth"
 import { canAccessRoute, getAccessDeniedMessage, normalizePath } from "@/lib/routes"
+import { useLocale } from "@/contexts/locale-context"
 
 function buildRedirectUrl(targetPath: string, currentPath: string, reason: string) {
   const target = new URL(targetPath, window.location.origin)
@@ -19,6 +20,7 @@ function buildRedirectUrl(targetPath: string, currentPath: string, reason: strin
 }
 
 export function RouteGuard({ children }: { children: React.ReactNode }) {
+  const { t } = useLocale()
   const pathname = usePathname()
   const router = useRouter()
   const { isLoading, isAuthenticated, user } = useAuth()
@@ -81,8 +83,8 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center px-6">
       <div className="max-w-md rounded-3xl border border-[#DDE7DE] bg-white px-8 py-10 text-center shadow-sm">
         <SoukiLogo variant="secondary" height={104} className="mb-4" />
-        <h1 className="mt-3 text-2xl font-bold text-[#1E8A3C]">Verification des acces</h1>
-        <p className="mt-3 text-sm leading-6 text-[#677669]">Préparation de votre expérience marché</p>
+        <h1 className="mt-3 text-2xl font-bold text-[#1E8A3C]">{t("Verification des acces")}</h1>
+        <p className="mt-3 text-sm leading-6 text-[#677669]">{t("Préparation de votre expérience marché")}</p>
       </div>
     </div>
   )

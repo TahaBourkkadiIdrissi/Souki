@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react"
 import { cn } from "@/lib/utils"
+import { useLocale } from "@/contexts/locale-context"
 
 /**
  * Conteneur d'ecran mobile natif (PWA). Standardise le fond, la hauteur pleine
@@ -24,8 +25,11 @@ export function PwaScreen({
   /** Reserve l'espace bas pour `MobileBottomNav` + safe-area. */
   withNav?: boolean
 }) {
+  // Ecran traduit : en arabe, il passe de droite a gauche.
+  const { zoneProps } = useLocale()
   return (
     <main
+      {...zoneProps}
       className={cn(
         "min-h-dvh text-[#3D3D3D] font-sans",
         background,

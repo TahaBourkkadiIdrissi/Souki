@@ -4,7 +4,7 @@ from config import engine
 
 
 class ProductDescriptionSchemaSyncService:
-    """Add editable descriptions without changing existing catalogue data."""
+    """Add editable descriptions and Arabic-script names without changing existing catalogue data."""
 
     @staticmethod
     def sync() -> None:
@@ -14,4 +14,12 @@ class ProductDescriptionSchemaSyncService:
             connection.execute(text(
                 'ALTER TABLE IF EXISTS public."T_Product" '
                 'ADD COLUMN IF NOT EXISTS description TEXT'
+            ))
+            connection.execute(text(
+                'ALTER TABLE IF EXISTS public."T_Product" '
+                'ADD COLUMN IF NOT EXISTS nom_ar VARCHAR(100)'
+            ))
+            connection.execute(text(
+                'ALTER TABLE IF EXISTS public."T_Product" '
+                'ADD COLUMN IF NOT EXISTS description_ar TEXT'
             ))

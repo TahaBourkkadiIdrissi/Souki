@@ -2,6 +2,7 @@ import { BRAND_GREEN, BRAND_PATH, brandIcons } from "@/lib/branding"
 import type { Metadata, Viewport } from 'next'
 import { Suspense } from 'react'
 import localFont from 'next/font/local'
+import { Tajawal } from 'next/font/google'
 import Script from 'next/script'
 import { cookies } from 'next/headers'
 import { SITE_URL } from '@/lib/seo'
@@ -18,6 +19,7 @@ import { RouteGuard } from "@/components/routing/route-guard"
 import { PwaNavShell } from "@/components/souki/pwa-nav-shell"
 import { Toaster } from "@/components/ui/sonner"
 import { WebVitals } from "@/components/souki/web-vitals"
+import { localizedMetadata } from "@/lib/i18n-metadata"
 
 const analyticsEnabled = Boolean(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID) &&
   (process.env.NODE_ENV === "production" || process.env.NEXT_PUBLIC_GA_DEBUG === "true")
@@ -35,7 +37,17 @@ const poppins = localFont({
   ], variable: '--font-poppins', display: 'swap',
 })
 
-export const metadata: Metadata = {
+// Police arabe des zones traduites (Poppins n'a pas de glyphes arabes). Telechargee au build et
+// servie par le site, comme Poppins ; preload desactive car le francais reste la langue par defaut.
+const tajawal = Tajawal({
+  subsets: ['arabic'],
+  weight: ['400', '500', '700', '800'],
+  variable: '--font-arabic',
+  display: 'swap',
+  preload: false,
+})
+
+const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   applicationName: 'SOUKI',
   manifest: '/manifest.webmanifest',
@@ -60,6 +72,10 @@ export const metadata: Metadata = {
     images: ['/opengraph-image'],
   },
   twitter: { card: 'summary_large_image' },
+}
+
+export function generateMetadata() {
+  return localizedMetadata(metadata)
 }
 
 const organizationSchema = {
@@ -172,7 +188,7 @@ export default async function RootLayout({
           <link key={href} rel="apple-touch-startup-image" href={href} media={media} />
         ))}
       </head>
-      <body className={`${poppins.variable} font-sans antialiased overflow-x-hidden`}>
+      <body className={`${poppins.variable} ${tajawal.variable} font-sans antialiased overflow-x-hidden`}>
         {analyticsEnabled && (
           <Script src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}`} strategy="afterInteractive" />
         )}

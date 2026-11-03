@@ -32,6 +32,7 @@ import {
 } from "@/lib/catalogue"
 import { cn } from "@/lib/utils"
 import { trackEvent } from "@/lib/analytics"
+import { useLocale } from "@/contexts/locale-context"
 
 interface LigneCommandeDTO {
   product_id: number
@@ -103,6 +104,7 @@ export function AIModals({
   isOrderLocked = false,
   orderLockMessage = "Les commandes sont fermees pour preparer les livraisons. Reouverture a 08h00.",
 }: AIModalsProps) {
+  const { t, zoneProps } = useLocale()
   const router = useRouter()
   const { token } = useAuth()
 
@@ -150,9 +152,9 @@ export function AIModals({
   const platOptions: SoukiSelectOption[] = [
     {
       value: EQUILIBRE_VALUE,
-      label: "Équilibré",
-      subtitle: "Tous fruits & légumes variés",
-      group: "Panier automatique",
+      label: t("Équilibré"),
+      subtitle: t("Tous fruits & légumes variés"),
+      group: t("Panier automatique"),
     },
     ...Object.entries(dishCategoryLabels).flatMap(([category, label]) =>
       dishes
@@ -161,7 +163,7 @@ export function AIModals({
           value: dish.dish_id,
           label: dish.name_fr,
           subtitle: dish.name_darija,
-          group: label,
+          group: t(label),
         }))
     ),
   ]
@@ -520,7 +522,7 @@ export function AIModals({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div {...zoneProps} className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeModal} />
 
       <div
@@ -539,13 +541,13 @@ export function AIModals({
                   <Sparkles className="h-5 w-5 text-[#4CB84A]" />
                 </div>
                 <div>
-                  <span className="text-lg font-bold">IA-SOUKI Vocal</span>
+                  <span className="text-lg font-bold">{t("IA-SOUKI Vocal")}</span>
                   <p className="text-xs text-white/60">
                     {isSending
-                      ? "Analyse en cours..."
+                      ? t("Analyse en cours...")
                       : isListening
-                        ? "Je vous ecoute..."
-                        : "Pret a ecouter"}
+                        ? t("Je vous ecoute...")
+                        : t("Pret a ecouter")}
                   </p>
                 </div>
               </div>
@@ -564,7 +566,7 @@ export function AIModals({
                 type="button"
                 onClick={handleVoiceInteraction}
                 disabled={isSending || isOrderLocked}
-                aria-label={isListening ? "Arreter l'ecoute" : "Commencer a parler"}
+                aria-label={isListening ? t("Arreter l'ecoute") : t("Commencer a parler")}
                 className={cn(
                   "group relative rounded-full outline-none transition-transform duration-200 active:scale-95",
                   (isSending || isOrderLocked) ? "cursor-not-allowed" : "cursor-pointer hover:scale-[1.02]"
@@ -595,19 +597,19 @@ export function AIModals({
                   )}
                 />
                 {isSending
-                  ? "Composition du panier…"
+                  ? t("Composition du panier…")
                   : isListening
-                    ? "À l'écoute — touchez la sphère pour arrêter"
-                    : "Touchez la sphère pour parler"}
+                    ? t("À l'écoute — touchez la sphère pour arrêter")
+                    : t("Touchez la sphère pour parler")}
               </div>
 
               <p className="mt-2 text-[11px] text-white/40">
-                Darija et français pris en charge.
+                {t("Darija et français pris en charge.")}
               </p>
 
               {isOrderLocked && (
                 <div className="mx-auto mt-5 max-w-xs rounded-2xl border border-orange-400/30 bg-orange-400/10 p-3 text-xs font-semibold text-orange-200">
-                  {orderLockMessage}
+                  {t(orderLockMessage)}
                 </div>
               )}
             </div>
@@ -616,7 +618,7 @@ export function AIModals({
               <div className="mx-6 mb-5 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <p>{error}</p>
+                  <p>{t(error)}</p>
                 </div>
               </div>
             )}
@@ -639,7 +641,7 @@ export function AIModals({
 
                 {editedBasket.length === 0 ? (
                   <div className="rounded-2xl bg-red-500/10 p-4 text-center text-sm text-red-300">
-                    Aucun article dans le panier. Ajoutez des produits avant de continuer.
+                    {t("Aucun article dans le panier. Ajoutez des produits avant de continuer.")}
                   </div>
                 ) : (
                   <div className="space-y-2 mb-3">
@@ -664,7 +666,7 @@ export function AIModals({
                             <button
                               onClick={() => handleRemoveItem(line.product_id)}
                               className="shrink-0 rounded-full p-1.5 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
-                              title="Supprimer le produit"
+                              title={t("Supprimer le produit")}
                             >
                               <Minus className="h-4 w-4" />
                             </button>
@@ -730,7 +732,7 @@ export function AIModals({
                 )}
 
                 <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4">
-                  <span className="font-semibold text-white/75">Total</span>
+                  <span className="font-semibold text-white/75">{t("Total")}</span>
                   <span className="text-xl font-black text-[#4CB84A]">
                     {calculateEditedTotal().toFixed(2)} DH
                   </span>
@@ -741,7 +743,7 @@ export function AIModals({
                   disabled={editedBasket.length === 0 || isOrderLocked}
                   className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-[#1E8A3C] py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#176B2E] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isOrderLocked ? "Commandes fermees" : "Aller au checkout"}
+                  {isOrderLocked ? t("Commandes fermees") : t("Aller au checkout")}
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </div>
@@ -763,8 +765,8 @@ export function AIModals({
                   <Zap className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-[#264129]">Panier Intelligent IA-SOUKI</h3>
-                  <p className="text-xs text-[#6C7E6E]">Suggestion ML selon vos criteres</p>
+                  <h3 className="font-bold text-[#264129]">{t("Panier Intelligent IA-SOUKI")}</h3>
+                  <p className="text-xs text-[#6C7E6E]">{t("Suggestion ML selon vos criteres")}</p>
                 </div>
               </div>
               <button
@@ -783,7 +785,7 @@ export function AIModals({
                     isDishSelected ? "text-[#9AA79B]" : "text-[#264129]"
                   )}
                 >
-                  Quel est votre budget ?
+                  {t("Quel est votre budget ?")}
                 </label>
                 <div className="relative">
                   <input
@@ -795,15 +797,15 @@ export function AIModals({
                       "w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 pr-14 text-[#264129] outline-none transition-all focus:border-[#F07C00]",
                       isDishSelected && "cursor-not-allowed opacity-60"
                     )}
-                    placeholder="Ex: 150"
+                    placeholder={t("Ex: 150")}
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-[#6C7E6E]">
-                    DH
+                    {t("DH")}
                   </span>
                 </div>
                 {isDishSelected && (
                   <p className="mt-1 text-[11px] text-[#9AA79B]">
-                    Non applicable pour un plat — quantites selon le nombre de personnes
+                    {t("Non applicable pour un plat — quantites selon le nombre de personnes")}
                   </p>
                 )}
               </div>
@@ -811,13 +813,13 @@ export function AIModals({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-[#264129]">
-                    Personnes
+                    {t("Personnes")}
                   </label>
                   <SoukiSelect
                     value={people}
                     onChange={setPeople}
-                    options={personSelectOptions}
-                    ariaLabel="Nombre de personnes"
+                    options={personSelectOptions.map((option) => ({ ...option, label: t(Number(option.value) > 1 ? "{n} personnes" : "{n} personne", { n: option.value }) }))}
+                    ariaLabel={t("Nombre de personnes")}
                   />
                 </div>
 
@@ -828,17 +830,17 @@ export function AIModals({
                       isDishSelected ? "text-[#9AA79B]" : "text-[#264129]"
                     )}
                   >
-                    Duree
+                    {t("Duree")}
                   </label>
                   <SoukiSelect
                     value={duration}
                     onChange={setDuration}
-                    options={durationSelectOptions}
+                    options={durationSelectOptions.map((option) => ({ ...option, label: t("{n} jours", { n: option.value }) }))}
                     disabled={isDishSelected}
-                    ariaLabel="Duree du panier"
+                    ariaLabel={t("Duree du panier")}
                   />
                   {isDishSelected && (
-                    <p className="mt-1 text-[11px] text-[#9AA79B]">Non applicable pour un plat</p>
+                    <p className="mt-1 text-[11px] text-[#9AA79B]">{t("Non applicable pour un plat")}</p>
                   )}
                 </div>
               </div>
@@ -846,11 +848,11 @@ export function AIModals({
               <div>
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <label className="block text-sm font-semibold text-[#264129]">
-                    Que voulez-vous preparer ?
+                    {t("Que voulez-vous preparer ?")}
                   </label>
                   {dishes.length > 0 && (
                     <span className="rounded-full bg-[#FFF5EB] px-3 py-1 text-xs font-bold text-[#C96A00]">
-                      {dishes.length} plats
+                      {t("{n} plats", { n: dishes.length })}
                     </span>
                   )}
                 </div>
@@ -859,23 +861,23 @@ export function AIModals({
                   onChange={setSelectedPlat}
                   options={platOptions}
                   loading={dishes.length === 0}
-                  ariaLabel="Choix du panier ou du plat marocain"
+                  ariaLabel={t("Choix du panier ou du plat marocain")}
                   leadingIcon={<Sparkles className="h-4 w-4" />}
                 />
                 <p className="mt-2 text-xs text-[#6C7E6E]">
                   {selectedPlat === EQUILIBRE_VALUE
-                    ? "Panier equilibre : l'IA choisit des fruits & legumes varies selon vos criteres."
-                    : "L'IA compose le panier autour de ce plat, adapte aux personnes, a la duree et au budget."}
+                    ? t("Panier equilibre : l'IA choisit des fruits & legumes varies selon vos criteres.")
+                    : t("L'IA compose le panier autour de ce plat, adapte aux personnes, a la duree et au budget.")}
                 </p>
               </div>
 
               <div className="rounded-2xl bg-[#FFF5EB] p-4 text-sm text-[#C96A00]">
                 {isOrderLocked
-                  ? orderLockMessage
+                  ? t(orderLockMessage)
                   : isGeneratingSmart
                     ? (
                       <div className="space-y-3">
-                        <p className="font-semibold">Generation de votre panier en cours...</p>
+                        <p className="font-semibold">{t("Generation de votre panier en cours...")}</p>
                         <div className="h-4 w-full overflow-hidden rounded-full bg-[#FFE8CC]">
                           <div
                             className="h-full bg-[#F07C00] transition-all duration-300 ease-out flex items-center justify-end px-2"
@@ -886,18 +888,18 @@ export function AIModals({
                         <p className="text-right text-xs font-bold text-[#F07C00]">
                           {cartProgress >= 100 && smartEta !== null
                             ? smartEta > 0
-                              ? `Finalisation par l'IA… ~${smartEta}s`
-                              : "Encore quelques instants…"
+                              ? t("Finalisation par l'IA… ~{s}s", { s: smartEta })
+                              : t("Encore quelques instants…")
                             : `${Math.round(Math.min(cartProgress, 100))}%`}
                         </p>
                       </div>
                     )
-                    : "IA-SOUKI compose votre panier avec l'IA Groq selon vos criteres et votre choix."}
+                    : t("IA-SOUKI compose votre panier avec l'IA Groq selon vos criteres et votre choix.")}
               </div>
 
               {error && (
                 <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
-                  {error}
+                  {t(error)}
                 </div>
               )}
 
@@ -905,7 +907,7 @@ export function AIModals({
                 <div className="rounded-3xl border border-[#F3E2CE] bg-[#FFFBF7] p-4 animate-slide-in-up">
                   <div className="mb-3 flex items-center gap-2 text-[#C96A00]">
                     <Check className="h-4 w-4" />
-                    <h4 className="text-sm font-bold">Panier suggere</h4>
+                    <h4 className="text-sm font-bold">{t("Panier suggere")}</h4>
                   </div>
                   <div className="space-y-2">
                     {smartPreview.map((item, itemIndex) => (
@@ -942,7 +944,7 @@ export function AIModals({
                   ) : (
                     <Zap className="h-4 w-4" />
                   )}
-                  {isGeneratingSmart ? "Generation..." : "Generer"}
+                  {isGeneratingSmart ? t("Generation...") : t("Generer")}
                 </button>
                 <button
                   onClick={handleApplySmartBasket}
@@ -954,7 +956,7 @@ export function AIModals({
                       : "bg-[#F07C00] hover:bg-[#D66B00]"
                   )}
                 >
-                  {isOrderLocked ? "Commandes fermees" : "Aller au checkout"}
+                  {isOrderLocked ? t("Commandes fermees") : t("Aller au checkout")}
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </div>

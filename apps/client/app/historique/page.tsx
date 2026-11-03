@@ -32,6 +32,7 @@ import {
 } from "@/lib/catalogue"
 import { getOrderStatusClassName, getOrderStatusLabel } from "@/lib/order-status"
 import { cn } from "@/lib/utils"
+import { useLocale } from "@/contexts/locale-context"
 
 type RecentProduct = {
   id: number
@@ -45,7 +46,7 @@ type RecentProduct = {
 
 const formatDh = (value: number | string) => `${Number(value || 0).toFixed(2)} DH`
 
-const formatOrderDate = (value?: string | null) => {
+const formatOrderDate = (value?: string | null, dateLocale = "fr-MA") => {
   if (!value) {
     return "Date non disponible"
   }
@@ -55,7 +56,7 @@ const formatOrderDate = (value?: string | null) => {
     return "Date non disponible"
   }
 
-  return new Intl.DateTimeFormat("fr-MA", {
+  return new Intl.DateTimeFormat(dateLocale, {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -65,6 +66,7 @@ const formatOrderDate = (value?: string | null) => {
 }
 
 function HistoriqueContent() {
+  const { t, dateLocale, zoneProps, productName } = useLocale()
   const searchParams = useSearchParams()
   const { isAuthenticated, isLoading } = useAuth()
   const revealRef = useScrollReveal<HTMLDivElement>()
@@ -90,7 +92,7 @@ function HistoriqueContent() {
       setOrderHistory(history)
       setHistoryError("")
     } catch {
-      setHistoryError("Impossible de charger votre historique de commandes pour le moment.")
+      setHistoryError(t("Impossible de charger votre historique de commandes pour le moment."))
     } finally {
       setIsFetchingOrders(false)
     }
@@ -144,26 +146,26 @@ function HistoriqueContent() {
   }
 
   return (
-    <div ref={revealRef} className="min-h-screen bg-[#FBFDF9] pb-24 md:pb-0">
+    <div ref={revealRef} {...zoneProps} className="min-h-screen bg-[#FBFDF9] pb-24 md:pb-0">
       <header className="sticky top-0 z-40 hidden glass-ios26 border-b border-[#E7F0E8] md:block">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link href="/catalogue" className="inline-flex items-center gap-2 rounded-2xl bg-[#F0FAF1] px-4 py-3 text-sm font-bold text-[#1E8A3C]">
             <ArrowLeft className="h-4 w-4" />
-            Catalogue
+            {t("Catalogue")}
           </Link>
           <SoukiLogoLink height={36} priority />
         </div>
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 md:py-8 lg:px-8">
-        {cancelledOrderId && <div role="status" className="mb-5 rounded-2xl border border-[#BFE6C4] bg-[#EAF8EC] px-5 py-4 text-sm font-semibold text-[#1E8A3C]">Votre commande N-{cancelledOrderId} a été annulée. Si elle était payée par Wallet, le total a été recrédité.</div>}
-        {editedOrderId && <div role="status" className="mb-5 rounded-2xl border border-[#BFE6C4] bg-[#EAF8EC] px-5 py-4 text-sm font-semibold text-[#1E8A3C]">Votre commande N-{editedOrderId} a été modifiée avec succès.</div>}
+        {cancelledOrderId && <div role="status" className="mb-5 rounded-2xl border border-[#BFE6C4] bg-[#EAF8EC] px-5 py-4 text-sm font-semibold text-[#1E8A3C]">{t("Votre commande N-{id} a été annulée. Si elle était payée par Wallet, le total a été recrédité.", { id: cancelledOrderId })}</div>}
+        {editedOrderId && <div role="status" className="mb-5 rounded-2xl border border-[#BFE6C4] bg-[#EAF8EC] px-5 py-4 text-sm font-semibold text-[#1E8A3C]">{t("Votre commande N-{id} a été modifiée avec succès.", { id: editedOrderId })}</div>}
         {successOrderId && (
           <div className="mb-5 rounded-2xl border border-[#BFE6C4] bg-[#EAF8EC] px-5 py-4 text-sm font-semibold text-[#1E8A3C]">
-            Votre commande N-{successOrderId} a été enregistrée avec succès.
+            {t("Votre commande N-{id} a été enregistrée avec succès.", { id: successOrderId })}
             {Number(successOrderId) > 0 && (
               <div className="mt-3 flex flex-col gap-3 font-normal text-[#264129] sm:flex-row sm:items-center sm:justify-between">
-                <span>Recevez-la automatiquement chaque jour, tous les 3 jours ou chaque semaine.</span>
+                <span>{t("Recevez-la automatiquement chaque jour, tous les 3 jours ou chaque semaine.")}</span>
                 <div className="sm:w-64"><RepeatOrderButton orderId={Number(successOrderId)} variant="solid" /></div>
               </div>
             )}
@@ -175,13 +177,13 @@ function HistoriqueContent() {
             <div>
               <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-[#1E8A3C] ring-1 ring-[#D7EBD9]">
                 <History className="h-4 w-4" />
-                Historique
+                {t("Historique")}
               </span>
               <h1 className="mt-4 text-3xl font-black leading-tight text-[#1E8A3C] md:text-4xl">
-                Retrouvez vos produits consultés et vos commandes.
+                {t("Retrouvez vos produits consultés et vos commandes.")}
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-[#5F735F] md:text-base">
-                Le catalogue reste dédié aux produits disponibles. Ici, vous retrouvez le contexte utile pour recommander plus vite.
+                {t("Le catalogue reste dédié aux produits disponibles. Ici, vous retrouvez le contexte utile pour recommander plus vite.")}
               </p>
             </div>
             <button
@@ -192,7 +194,7 @@ function HistoriqueContent() {
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#CFE6D2] bg-white px-4 py-3 text-sm font-bold text-[#1E8A3C] transition-colors hover:bg-[#F0FAF1]"
             >
               <RefreshCw className="h-4 w-4" />
-              Actualiser
+              {t("Actualiser")}
             </button>
           </div>
         </section>
@@ -201,7 +203,7 @@ function HistoriqueContent() {
           <div className="mb-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-[#1E8A3C]">
               <Leaf className="h-5 w-5" />
-              <h2 className="text-xl font-black">Produits consultés récemment</h2>
+              <h2 className="text-xl font-black">{t("Produits consultés récemment")}</h2>
             </div>
             <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#F07C00] ring-1 ring-[#F5D7B8]">
               {recentProducts.length}
@@ -211,10 +213,10 @@ function HistoriqueContent() {
           {recentProducts.length === 0 ? (
             <SoukiEmptyState
               icon={ShoppingBasket}
-              title="Aucun produit consulté pour le moment."
+              title={t("Aucun produit consulté pour le moment.")}
               action={
                 <Link href="/catalogue" className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#1E8A3C] px-5 text-sm font-bold text-white">
-                  Explorer le catalogue
+                  {t("Explorer le catalogue")}
                 </Link>
               }
             />
@@ -229,20 +231,20 @@ function HistoriqueContent() {
                 >
                   <img
                     src={resolveCatalogueImage(product.name, product.image)}
-                    alt={product.name}
+                    alt={productName(product)}
                     loading="lazy"
                     decoding="async"
                     className="aspect-square w-full object-cover"
                   />
                   <div className="p-3">
-                    <h3 className="truncate text-sm font-black text-[#264129]">{product.name}</h3>
+                    <h3 className="truncate text-sm font-black text-[#264129]">{productName(product)}</h3>
                     <div className="mt-1 flex items-baseline justify-between gap-2">
                       <p className="text-sm font-black text-[#F07C00]">{formatDh(product.price)}</p>
                       <span className="truncate text-[11px] font-semibold text-[#6F8070]">/ {product.displayUnit || product.unit}</span>
                     </div>
                     <div className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-[#7B8B7D]">
                       <Clock className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{formatOrderDate(product.viewedAt)}</span>
+                      <span className="truncate">{t(formatOrderDate(product.viewedAt, dateLocale))}</span>
                     </div>
                   </div>
                 </article>
@@ -255,7 +257,7 @@ function HistoriqueContent() {
           <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div className="flex items-center gap-2 text-[#1E8A3C]">
               <ReceiptText className="h-5 w-5" />
-              <h2 className="text-xl font-black">Historique des commandes</h2>
+              <h2 className="text-xl font-black">{t("Historique des commandes")}</h2>
             </div>
             {isAuthenticated && (
               <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#F07C00] ring-1 ring-[#F5D7B8]">
@@ -267,10 +269,10 @@ function HistoriqueContent() {
           {!isAuthenticated && !isLoading ? (
             <div className="rounded-[24px] border border-[#F3D8B2] bg-[#FFF7EE] p-6">
               <p className="text-sm font-semibold text-[#9A5C11]">
-                Connectez-vous pour afficher vos commandes validées.
+                {t("Connectez-vous pour afficher vos commandes validées.")}
               </p>
               <Link href="/login?redirect=/historique" className="mt-4 inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#F07C00] px-5 text-sm font-bold text-white">
-                Se connecter
+                {t("Se connecter")}
               </Link>
             </div>
           ) : isFetchingOrders ? (
@@ -287,8 +289,8 @@ function HistoriqueContent() {
             <SoukiEmptyState
               icon={PackageCheck}
               illustrationSrc="/illustrations/empty-orders.webp"
-              title="Aucune commande validée pour le moment."
-              description="Votre première commande de produits frais apparaîtra ici."
+              title={t("Aucune commande validée pour le moment.")}
+              description={t("Votre première commande de produits frais apparaîtra ici.")}
             />
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
@@ -302,11 +304,11 @@ function HistoriqueContent() {
                   <div className="flex flex-wrap items-start justify-between gap-3 p-5">
                     <div>
                       <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#7B8B7D]">Commande N-{order.id}</p>
-                      <h3 className="mt-1 text-lg font-black text-[#264129]">{formatOrderDate(order.date_commande)}</h3>
-                      <p className="mt-1 text-sm text-[#264129]">Livraison : {formatDeliveryDate(order.date_livraison)} · {order.creneau_livraison}</p>
+                      <h3 className="mt-1 text-lg font-black text-[#264129]">{t(formatOrderDate(order.date_commande, dateLocale))}</h3>
+                      <p className="mt-1 text-sm text-[#264129]">{t("Livraison : {date}", { date: t(formatDeliveryDate(order.date_livraison, dateLocale)) })} · {order.creneau_livraison}</p>
                     </div>
                     <span className={cn("rounded-full border px-3 py-1 text-xs font-bold", getOrderStatusClassName(order.statut))}>
-                      {getOrderStatusLabel(order.statut)}
+                      {t(getOrderStatusLabel(order.statut))}
                     </span>
                   </div>
                   <div className="space-y-3 px-5 pb-5">
@@ -314,12 +316,12 @@ function HistoriqueContent() {
                       <div key={`${order.id}-${product.nom_fr}-${index}`} className="flex items-center gap-3 rounded-2xl bg-[#F7FCF7] p-3 text-sm">
                         <img
                           src={resolveOrderProductImage(product)}
-                          alt={product.nom_fr}
+                          alt={productName({ name: product.nom_fr, nameAr: product.nom_ar })}
                           className="h-12 w-12 shrink-0 rounded-xl object-cover"
                         />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate font-semibold text-[#264129]">{product.nom_fr}</p>
-                          <p className="text-xs font-semibold text-[#6F8070]">{product.quantite_kg} kg</p>
+                          <p className="truncate font-semibold text-[#264129]">{productName({ name: product.nom_fr, nameAr: product.nom_ar })}</p>
+                          <p className="text-xs font-semibold text-[#6F8070]">{t("{n} kg", { n: product.quantite_kg })}</p>
                         </div>
                         <span className="shrink-0 text-sm font-bold text-[#F07C00]">
                           {typeof product.sous_total === "number" ? formatDh(product.sous_total) : ""}
@@ -327,14 +329,14 @@ function HistoriqueContent() {
                       </div>
                     ))}
                     <div className="flex items-center justify-between border-t border-[#EEF2EE] pt-4">
-                      <span className="font-bold text-[#264129]">Total</span>
+                      <span className="font-bold text-[#264129]">{t("Total")}</span>
                       <span className="text-xl font-black text-[#F07C00]">{formatDh(order.montant_total || 0)}</span>
                     </div>
                     <Link
                       href={`/suivi-commande?commande=${order.id}`}
                       className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[#F0FAF1] px-4 text-sm font-bold text-[#176B2E] transition-colors hover:bg-[#E4F5E7] active:translate-y-px"
                     >
-                      Voir l’avancement
+                      {t("Voir l’avancement")}
                     </Link>
                     <OrderEditLink order={order} />
                     {!["ANNULEE", "REFUS"].includes((order.statut || "").toUpperCase()) && (

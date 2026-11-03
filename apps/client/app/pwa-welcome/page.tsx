@@ -52,6 +52,7 @@ import { useProfile } from "@/hooks/useProfile"
 import { useHaptic } from "@/hooks/useHaptic"
 import { useScrollReveal } from "@/hooks/useScrollReveal"
 import { shouldShowOnboarding } from "@/lib/onboarding"
+import { useLocale } from "@/contexts/locale-context"
 
 type SuggestionLevel = {
   id: 1 | 2 | 3
@@ -104,7 +105,9 @@ function mapDtoToCatalogueProduct(dto: CatalogueProductDTO): CatalogueProduct {
   return {
     id: dto.id,
     name: dto.nom_fr,
+    nameAr: dto.nom_ar ?? null,
     description: dto.description,
+    descriptionAr: dto.description_ar ?? null,
     alias: dto.nom_darija,
     price: dto.prix_affiche ?? dto.prix_kg,
     prix_khddar_estime: dto.prix_khddar_estime,
@@ -120,6 +123,7 @@ function mapDtoToCatalogueProduct(dto: CatalogueProductDTO): CatalogueProduct {
 }
 
 export default function PwaWelcomePage() {
+  const { t, zoneProps } = useLocale()
   const router = useRouter()
   const [chatOpen, setChatOpen] = useState(false)
   const [chatHint, setChatHint] = useState(false)
@@ -297,9 +301,9 @@ export default function PwaWelcomePage() {
         .slice(0, 10)
 
     return [
-      { id: 1 as const, title: "Essentiels du panier", subtitle: "Les indispensables de la semaine", products: byLevel(1) },
-      { id: 2 as const, title: "Les plus commandés", subtitle: "Ce que les familles de Fès adorent", products: byLevel(2) },
-      { id: 3 as const, title: "Frais à découvrir", subtitle: "Nouveautés et produits de saison", products: byLevel(3) },
+      { id: 1 as const, title: t("Essentiels du panier"), subtitle: t("Les indispensables de la semaine"), products: byLevel(1) },
+      { id: 2 as const, title: t("Les plus commandés"), subtitle: t("Ce que les familles de Fès adorent"), products: byLevel(2) },
+      { id: 3 as const, title: t("Frais à découvrir"), subtitle: t("Nouveautés et produits de saison"), products: byLevel(3) },
     ]
   }, [products])
 
@@ -365,7 +369,7 @@ export default function PwaWelcomePage() {
   // Wait for local storage ownership before allowing cart writes.
   if (!isReady || isLoading) {
     return (
-      <main className="min-h-dvh bg-[#F5F5F0]" aria-label="Chargement">
+      <main {...zoneProps} className="min-h-dvh bg-[#F5F5F0]" aria-label={t("Chargement")}>
         <div className="flex min-h-dvh items-center justify-center">
           <div className="h-10 w-10 animate-pulse rounded-2xl bg-[#1E8A3C]" />
         </div>
@@ -464,8 +468,8 @@ export default function PwaWelcomePage() {
               </div>
 
               {/* Médaillon de la mascotte — verre dépoli, halo étagé, accent feuille */}
-              <button type="button" onClick={() => { setChatOpen(true); setChatHint(false) }} aria-label="Discuter avec Souki" className="relative shrink-0 animate-bounce-in focus-visible:outline-2 focus-visible:outline-white">
-                {chatHint && <span className="absolute -top-9 right-0 whitespace-nowrap rounded-full bg-white px-3 py-2 text-xs font-bold text-[#14522A]">Une question ? 👋</span>}
+              <button type="button" onClick={() => { setChatOpen(true); setChatHint(false) }} aria-label={t("Discuter avec Souki")} className="relative shrink-0 animate-bounce-in focus-visible:outline-2 focus-visible:outline-white">
+                {chatHint && <span className="absolute -top-9 right-0 whitespace-nowrap rounded-full bg-white px-3 py-2 text-xs font-bold text-[#14522A]">{t("Une question ? 👋")}</span>}
                 <span className="pointer-events-none absolute inset-0 -m-2 rounded-full bg-[#7BE495]/25 blur-xl" />
                 {/* Anneau conique « comète » qui tourne lentement autour du médaillon */}
                 <span
@@ -503,7 +507,7 @@ export default function PwaWelcomePage() {
                     enterKeyHint="search"
                     value={searchValue}
                     onChange={(e) => setSearchValue(e.target.value)}
-                    aria-label="Rechercher un produit frais"
+                    aria-label={t("Rechercher un produit frais")}
                     className="peer w-full bg-transparent text-[15px] font-semibold text-[#264129] outline-none placeholder:text-transparent"
                   />
                   {searchValue.length === 0 && <SearchHint />}
@@ -513,7 +517,7 @@ export default function PwaWelcomePage() {
                     type="submit"
                     className="rounded-xl bg-[#1E8A3C] px-3 py-1.5 text-xs font-black text-white active:scale-95"
                   >
-                    OK
+                    {t("OK")}
                   </button>
                 )}
               </div>
@@ -547,7 +551,7 @@ export default function PwaWelcomePage() {
             <div className="relative z-10 flex flex-col gap-3.5 p-5">
               <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#F07C00] px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white shadow-sm">
                 <Clock className="h-3.5 w-3.5" />
-                Offre du jour
+                {t("Offre du jour")}
               </span>
 
               <MarketCountdown />
@@ -556,7 +560,7 @@ export default function PwaWelcomePage() {
                 onClick={() => router.push("/catalogue")}
                 className="mt-1 inline-flex w-fit items-center gap-2 rounded-full bg-white px-5 py-2.5 text-[14px] font-black text-[#1A4F2C] shadow-[0_12px_26px_-12px_rgba(0,0,0,0.5)] transition-transform active:scale-95"
               >
-                Composer mon panier
+                {t("Composer mon panier")}
                 <ArrowRight className="h-4 w-4" />
               </button>
             </div>
@@ -619,7 +623,7 @@ export default function PwaWelcomePage() {
           <div className="mt-3 flex items-center gap-3 rounded-2xl border border-[#1E8A3C]/10 bg-gradient-to-r from-[#F0FAF1] to-white px-4 py-3 shadow-[0_10px_28px_-22px_rgba(30,138,60,0.5)] animate-fade-in" style={{ animationDelay: "0.2s" }}>
             <FarmerAvatar size="sm" expression="explain" />
             <p className="flex-1 text-[13px] font-semibold leading-snug text-[#3D3D3D]">
-              Appuyez pour laisser notre IA composer votre marché du jour !
+              {t("Appuyez pour laisser notre IA composer votre marché du jour !")}
             </p>
           </div>
         </div>
@@ -641,8 +645,8 @@ export default function PwaWelcomePage() {
         {/* ===== VOS PRODUITS PREFERES (favoris explicites) ===== */}
         {favoriteProducts.length > 0 && (
           <CarouselSection
-            title="Vos produits préférés"
-            subtitle="Vos coups de cœur, prêts à ajouter"
+            title={t("Vos produits préférés")}
+            subtitle={t("Vos coups de cœur, prêts à ajouter")}
             onSeeAll={() => router.push("/favoris")}
           >
             {favoriteProducts.map((product) => (
@@ -662,8 +666,8 @@ export default function PwaWelcomePage() {
         {/* ===== RECOMMANDE POUR VOUS (personnalise : favoris + achats) ===== */}
         {personalized.length > 0 && (
           <CarouselSection
-            title="Recommandé pour vous"
-            subtitle="D'après vos favoris et vos achats"
+            title={t("Recommandé pour vous")}
+            subtitle={t("D'après vos favoris et vos achats")}
             onSeeAll={() => router.push("/catalogue")}
           >
             {personalized.map((product) => (
@@ -683,8 +687,8 @@ export default function PwaWelcomePage() {
         {/* ===== DECOUVERTE (repli quand aucun favori) ===== */}
         {favoriteProducts.length === 0 && !isFetching && products.length > 0 && (
           <CarouselSection
-            title="Découvrez nos produits"
-            subtitle="Les frais du jour, prêts à ajouter"
+            title={t("Découvrez nos produits")}
+            subtitle={t("Les frais du jour, prêts à ajouter")}
             onSeeAll={() => router.push("/catalogue")}
           >
             {products.slice(0, 8).map((product) => (
@@ -743,8 +747,8 @@ export default function PwaWelcomePage() {
         <div className="mt-8 px-4" data-reveal="up">
           <div className="flex items-center justify-between gap-3 rounded-3xl border border-[#1E8A3C]/10 bg-white px-4 py-3.5 shadow-[0_10px_28px_-22px_rgba(30,138,60,0.5)]">
             <div className="min-w-0">
-              <p className="text-[15px] font-black leading-tight text-[#3D3D3D]">Suivez Souki</p>
-              <p className="mt-0.5 text-[12px] font-medium leading-snug text-[#647366]">Arrivages, recettes et coulisses du marché</p>
+              <p className="text-[15px] font-black leading-tight text-[#3D3D3D]">{t("Suivez Souki")}</p>
+              <p className="mt-0.5 text-[12px] font-medium leading-snug text-[#647366]">{t("Arrivages, recettes et coulisses du marché")}</p>
             </div>
             <SocialLinks tone="light" className="shrink-0 gap-2" />
           </div>
@@ -769,12 +773,13 @@ function CarouselSection({
   onSeeAll?: () => void
   children: React.ReactNode
 }) {
+  const { t, zoneProps } = useLocale()
   return (
-    <section className="mt-7" data-reveal="up">
+    <section {...zoneProps} className="mt-7" data-reveal="up">
       <div className="flex items-start justify-between gap-3 px-5">
         <div>
-          <h2 className="text-[18px] font-black leading-tight text-[#3D3D3D]">{title}</h2>
-          {subtitle && <p className="mt-0.5 text-[13px] font-medium text-[#647366]">{subtitle}</p>}
+          <h2 className="text-[18px] font-black leading-tight text-[#3D3D3D]">{t(title)}</h2>
+          {subtitle && <p className="mt-0.5 text-[13px] font-medium text-[#647366]">{t(subtitle)}</p>}
         </div>
         {onSeeAll && (
           <button
@@ -782,7 +787,7 @@ function CarouselSection({
             onClick={onSeeAll}
             className="flex min-h-11 shrink-0 items-center gap-0.5 rounded-lg px-1 text-[13px] font-bold text-[#176B2E] focus-visible:outline-2 focus-visible:outline-[#1E8A3C] active:opacity-70"
           >
-            Voir tout
+            {t("Voir tout")}
             <ChevronRight className="h-4 w-4" />
           </button>
         )}

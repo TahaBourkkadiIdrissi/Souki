@@ -146,6 +146,7 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                             ligne_panier_id=int(ligne.id) if ligne.id is not None else None,
                             product_id=int(ligne.produit_id) if ligne.produit_id is not None else None,
                             nom_fr=str(produit.nom_fr) if produit else "Produit supprime",
+                            nom_ar=getattr(produit, "nom_ar", None) if produit else None,
                             quantite_kg=quantite_kg,
                             sous_total=float(ligne.sous_total) if ligne.sous_total is not None else None,
                         )
@@ -238,6 +239,7 @@ class CommandeVocaleDaoBD(ICommandeVocaleDao):
                             ligne_panier_id=int(ligne.id) if ligne.id is not None else None,
                             product_id=int(ligne.produit_id) if ligne.produit_id is not None else None,
                             nom_fr=str(produit.nom_fr) if produit else "Produit supprime",
+                            nom_ar=getattr(produit, "nom_ar", None) if produit else None,
                             quantite_kg=float(ligne.quantite_kg or 0.0),
                             sous_total=float(ligne.sous_total) if ligne.sous_total is not None else None,
                         )

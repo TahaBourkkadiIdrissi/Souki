@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { markOnboardingCompleted } from "@/lib/onboarding"
 import { isPwaStandalone } from "@/lib/pwa"
 import { safeInternalRedirect } from "@/lib/routes"
+import { useLocale } from "@/contexts/locale-context"
 
 type OnboardingStep = {
   expression: "welcome" | "explain" | "celebrate"
@@ -47,6 +48,7 @@ const steps: OnboardingStep[] = [
 ]
 
 export default function OnboardingPage() {
+  const { t, zoneProps } = useLocale()
   const router = useRouter()
   const { user } = useAuth()
   const [currentStep, setCurrentStep] = useState(0)
@@ -130,7 +132,7 @@ export default function OnboardingPage() {
   const step = steps[currentStep]
 
   return (
-    <div
+    <div {...zoneProps}
       className={`min-h-dvh flex flex-col items-center justify-between bg-gradient-to-b ${step.gradient} transition-all duration-500 ease-in-out`}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -143,7 +145,7 @@ export default function OnboardingPage() {
             onClick={handleSkip}
             className="text-white/70 text-sm font-medium hover:text-white transition-colors"
           >
-            Passer
+            {t("Passer")}
           </button>
         </div>
       )}
@@ -187,10 +189,10 @@ export default function OnboardingPage() {
           }`}
         >
           <h1 className="text-3xl font-bold text-white font-poppins mb-4">
-            {step.title}
+            {t(step.title)}
           </h1>
           <p className="text-white/80 text-base leading-relaxed max-w-xs mx-auto">
-            {step.description}
+            {t(step.description)}
           </p>
         </div>
       </div>

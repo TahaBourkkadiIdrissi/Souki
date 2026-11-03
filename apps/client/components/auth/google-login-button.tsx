@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 
 import { Loader2 } from "lucide-react"
+import { useLocale } from "@/contexts/locale-context"
 
 declare global {
   interface Window {
@@ -98,6 +99,7 @@ export function GoogleLoginButton({
   disabled = false,
   className = "",
 }: GoogleLoginButtonProps) {
+  const { t } = useLocale()
   const containerRef = useRef<HTMLDivElement | null>(null)
   const onCredentialRef = useRef(onCredential)
   const onErrorRef = useRef(onError)
@@ -199,7 +201,7 @@ export function GoogleLoginButton({
       {isLoading ? (
         <div className="flex h-[52px] items-center justify-center gap-3 rounded-xl bg-white text-[#3D3D3D]">
           <Loader2 className="w-5 h-5 animate-spin" />
-          <span className="text-sm font-medium">Chargement de Google...</span>
+          <span className="text-sm font-medium">{t("Chargement de Google...")}</span>
         </div>
       ) : null}
       <div

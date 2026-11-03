@@ -118,7 +118,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
   const router = useRouter()
   const [activeModal, setActiveModal] = useState<"voice" | "smart" | null>(null)
   const revealRef = useScrollReveal<HTMLDivElement>()
-  const { t, zoneProps } = useLocale()
+  const { t, zoneProps, productName, unitLabel } = useLocale()
 
   // Parité PWA : en standalone, l'accueil dédié reste /pwa-welcome.
   useEffect(() => {
@@ -281,7 +281,7 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
               <span>
                 <span className="block text-[13px] font-bold text-[#14301B]">{t("Tomates du jour")}</span>
                 <span className="block text-[15px] font-black text-[#F07C00]">
-                  7,00 DH <span className="text-[11px] font-semibold text-[#8A9A8C]">/ kg</span>
+                  <bdi dir="ltr">7,00 DH</bdi> <span className="text-[11px] font-semibold text-[#8A9A8C]">/ {unitLabel("kg")}</span>
                 </span>
               </span>
             </div>
@@ -331,9 +331,9 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
               products.map((p, i) => (
                 <span key={`${copy}-${i}`} aria-hidden={copy === 1} className="flex shrink-0 items-center gap-2.5 text-white">
                   <Leaf className="h-3.5 w-3.5 text-[#7BC96F]" aria-hidden="true" />
-                  <span className="text-[13px] font-semibold tracking-wide">{p.name}</span>
+                  <span className="text-[13px] font-semibold tracking-wide">{productName(p)}</span>
                   <span className="text-[13px] font-black text-[#F5C400]">
-                    {p.price.toFixed(2).replace(".", ",")} DH<span className="font-semibold text-white/50">/{p.unit}</span>
+                    <bdi dir="ltr">{p.price.toFixed(2).replace(".", ",")} DH</bdi><span className="font-semibold text-white/50">/{unitLabel(p.unit)}</span>
                   </span>
                 </span>
               )),

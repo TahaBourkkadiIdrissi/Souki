@@ -39,7 +39,8 @@ export function getOrderHours(now = new Date()) {
   return { closed, deliveryDate, nextTransition: target, hours: Math.floor(remaining / 3600), minutes: Math.floor(remaining % 3600 / 60), seconds: remaining % 60 }
 }
 
-export function formatDeliveryDate(value: string | null | undefined) {
+/** `dateLocale` : "ar-MA" sur le site arabe. Sans date, renvoie la phrase francaise (a traduire avec t()). */
+export function formatDeliveryDate(value: string | null | undefined, dateLocale = "fr-MA") {
   if (!value) return "Date de livraison à confirmer"
-  return new Intl.DateTimeFormat("fr-MA", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" }).format(new Date(`${value}T12:00:00Z`))
+  return new Intl.DateTimeFormat(dateLocale, { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" }).format(new Date(`${value}T12:00:00Z`))
 }

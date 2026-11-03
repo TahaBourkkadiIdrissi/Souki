@@ -118,7 +118,7 @@ export function ProfileDropdown({ user }: { user: User }) {
         <Menu size={18} className="text-[#6F8070] transition-colors group-hover:text-[#1E8A3C]" />
         <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#1E8A3C] to-[#4CB84A] text-sm font-black text-white shadow-inner ring-2 ring-white">
           {avatarUrl ? (
-            <img src={avatarUrl} alt={user.email || user.phone || "Profil"} className="h-full w-full object-cover" />
+            <img src={avatarUrl} alt={user.email || user.phone || t("Profil")} className="h-full w-full object-cover" />
           ) : (
             initials
           )}
@@ -139,7 +139,7 @@ export function ProfileDropdown({ user }: { user: User }) {
             <div className="flex items-center gap-3">
               <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-[#1E8A3C] to-[#4CB84A] text-lg font-black text-white shadow-inner ring-1 ring-white/80">
                 {avatarUrl ? (
-                  <img src={avatarUrl} alt={user.email || user.phone || "Profil"} className="h-full w-full object-cover" />
+                  <img src={avatarUrl} alt={user.email || user.phone || t("Profil")} className="h-full w-full object-cover" />
                 ) : (
                   initials
                 )}
@@ -167,7 +167,7 @@ export function ProfileDropdown({ user }: { user: User }) {
               <span className="min-w-0">
                 <span className="block text-sm font-black text-[#264129]">{t("Mon profil")}</span>
                 <span className="block text-xs font-medium text-[#7B8B7D]">
-                  Photo, adresse et informations personnelles
+                  {t("Photo, adresse et informations personnelles")}
                 </span>
               </span>
             </button>
@@ -182,7 +182,7 @@ export function ProfileDropdown({ user }: { user: User }) {
               <span className="min-w-0">
                 <span className="block text-sm font-black text-[#264129]">{t("Mon Wallet")}</span>
                 <span className="block text-xs font-medium text-[#7B8B7D]">
-                  Gérer votre solde et transactions
+                  {t("Gérer votre solde et transactions")}
                 </span>
               </span>
             </button>
@@ -223,7 +223,7 @@ export function ProfileDropdown({ user }: { user: User }) {
               <span className="min-w-0">
                 <span className="block text-sm font-black text-[#264129]">{t("Historique")}</span>
                 <span className="block text-xs font-medium text-[#7B8B7D]">
-                  Commandes validées et produits consultés
+                  {t("Commandes validées et produits consultés")}
                 </span>
               </span>
             </button>

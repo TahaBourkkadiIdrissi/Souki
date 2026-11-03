@@ -6,6 +6,7 @@ from dto.commande_recurrente_dto import CommandeRecurrenteLigneInDTO
 class PanierSoukiLigneDTO(BaseModel):
     product_id: int
     nom_produit: str
+    nom_ar: str | None = None
     nom_darija: str | None = None
     unite: str
     image_url: str | None = None

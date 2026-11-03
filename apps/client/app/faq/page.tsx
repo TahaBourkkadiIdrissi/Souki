@@ -1,8 +1,11 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { Navbar } from "@/components/souki/navbar"
+import { cookies } from "next/headers"
+import { LOCALE_COOKIE, parseLocale, translate } from "@/lib/i18n"
+import { localizedMetadata } from "@/lib/i18n-metadata"
 
-export const metadata: Metadata = {
+const metadata: Metadata = {
   title: "Questions fréquentes sur la livraison | SOUKI Fès",
   description: "Comment commander vos légumes frais avec SOUKI à Fès ? Retrouvez les réponses sur les horaires, les frais de livraison et les produits.",
   alternates: { canonical: "/faq" },
@@ -15,6 +18,10 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image" },
 }
 
+export function generateMetadata() {
+  return localizedMetadata(metadata)
+}
+
 const questions = [
   { question: "Puis-je modifier une commande déjà validée ?", answer: "Oui : ouvrez Mes commandes, puis Modifier ou annuler. Ajoutez ou retirez des produits, ajustez les quantités, vérifiez le nouveau total et enregistrez. La modification est possible jusqu’à 1h du matin le jour de la livraison, tant que la préparation n’a pas commencé. La réouverture à 8h ne débloque pas cette commande. Le paiement à la livraison est recalculé ; avec le Wallet, seule la différence est débitée ou recréditée. La commande doit garder au moins 50 DH, livraison comprise ; pour descendre en dessous, annulez-la." },
   { question: "Puis-je annuler une commande ?", answer: "Oui, avant 1h du matin le jour de sa livraison et avant sa mise en préparation. Dans Mes commandes ou Suivi de commande, ouvrez Modifier ou annuler, puis Annuler ma commande et confirmez. Si vous avez payé par Wallet, le total payé, livraison comprise, est recrédité automatiquement. Pour un paiement à la livraison non encaissé, vous n’avez rien à payer. La commande reste visible comme annulée. Après la clôture, elle ne peut plus être annulée en ligne, même après 8h. Les autres modes de paiement et les commandes déjà encaissées nécessitent de contacter SOUKI." },
@@ -24,7 +31,11 @@ const questions = [
   { question: "Quels sont les frais de livraison ?", answer: "La livraison coûte 15 DH. Elle est offerte à partir de 300 DH de produits." },
 ]
 
-export default function FaqPage() {
+export default async function FaqPage() {
+  // Langue choisie par le visiteur (cookie) : textes traduits et page de droite a gauche en arabe.
+  const locale = parseLocale((await cookies()).get(LOCALE_COOKIE)?.value)
+  const t = (french: string) => translate(locale, french)
+  const zone = locale === "ar" ? { lang: "ar-MA", dir: "rtl" as const } : {}
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -39,19 +50,19 @@ export default function FaqPage() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
       <Navbar />
-      <main className="min-h-screen bg-[#FBFDF9] px-5 py-16 sm:px-8">
+      <main {...zone} className="min-h-screen bg-[#FBFDF9] px-5 py-16 sm:px-8">
         <div className="mx-auto max-w-3xl">
-          <h1 className="text-4xl font-black text-[#14301B] sm:text-5xl">Questions fréquentes</h1>
-          <p className="mt-5 text-lg text-[#607361]">Tout savoir pour remplir votre panier frais à Fès.</p>
+          <h1 className="text-4xl font-black text-[#14301B] sm:text-5xl">{t("Questions fréquentes")}</h1>
+          <p className="mt-5 text-lg text-[#607361]">{t("Tout savoir pour remplir votre panier frais à Fès.")}</p>
           <div className="mt-12 space-y-5">
             {questions.map(({ question, answer }) => (
               <section key={question} className="rounded-3xl border border-[#DDEFE0] bg-white p-7">
-                <h2 className="text-xl font-bold text-[#14301B]">{question}</h2>
-                <p className="mt-3 leading-7 text-[#394C3C]">{answer}</p>
+                <h2 className="text-xl font-bold text-[#14301B]">{t(question)}</h2>
+                <p className="mt-3 leading-7 text-[#394C3C]">{t(answer)}</p>
               </section>
             ))}
           </div>
-          <Link href="/catalogue" className="mt-10 inline-block rounded-full bg-[#1E8A3C] px-7 py-4 font-bold text-white">Voir le catalogue</Link>
+          <Link href="/catalogue" className="mt-10 inline-block rounded-full bg-[#1E8A3C] px-7 py-4 font-bold text-white">{t("Voir le catalogue")}</Link>
         </div>
       </main>
     </>

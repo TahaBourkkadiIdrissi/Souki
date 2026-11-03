@@ -1,8 +1,11 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { Navbar } from "@/components/souki/navbar"
+import { cookies } from "next/headers"
+import { LOCALE_COOKIE, parseLocale, translate } from "@/lib/i18n"
+import { localizedMetadata } from "@/lib/i18n-metadata"
 
-export const metadata: Metadata = {
+const metadata: Metadata = {
   title: "À propos de SOUKI | Marché frais à Fès",
   description: "Découvrez SOUKI, le service de commande de légumes, fruits et herbes frais issus du marché de gros de Fès, livrés chez vous.",
   alternates: { canonical: "/a-propos" },
@@ -15,24 +18,32 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image" },
 }
 
-export default function AboutPage() {
+export function generateMetadata() {
+  return localizedMetadata(metadata)
+}
+
+export default async function AboutPage() {
+  // Langue choisie par le visiteur (cookie) : textes traduits et page de droite a gauche en arabe.
+  const locale = parseLocale((await cookies()).get(LOCALE_COOKIE)?.value)
+  const t = (french: string) => translate(locale, french)
+  const zone = locale === "ar" ? { lang: "ar-MA", dir: "rtl" as const } : {}
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-[#FBFDF9] px-5 py-16 sm:px-8">
+      <main {...zone} className="min-h-screen bg-[#FBFDF9] px-5 py-16 sm:px-8">
         <div className="mx-auto max-w-3xl">
           <p className="text-sm font-bold uppercase tracking-[0.14em] text-[#1E8A3C]">SOUKI Fresh Market</p>
-          <h1 className="mt-4 text-4xl font-black text-[#14301B] sm:text-5xl">Votre marché frais à Fès</h1>
+          <h1 className="mt-4 text-4xl font-black text-[#14301B] sm:text-5xl">{t("Votre marché frais à Fès")}</h1>
           <p className="mt-7 text-lg leading-8 text-[#394C3C]">
-            SOUKI vous permet de commander en ligne des légumes, fruits et herbes frais du marché de gros de Fès. Vous composez votre panier, puis choisissez votre livraison à domicile.
+            {t("SOUKI vous permet de commander en ligne des légumes, fruits et herbes frais du marché de gros de Fès. Vous composez votre panier, puis choisissez votre livraison à domicile.")}
           </p>
           <section className="mt-12 rounded-3xl border border-[#DDEFE0] bg-white p-7">
-            <h2 className="text-2xl font-bold text-[#14301B]">Comment fonctionne SOUKI ?</h2>
-            <p className="mt-4 leading-7 text-[#394C3C]">Parcourez le catalogue, ajoutez vos produits au panier et validez votre commande avant 1h du matin. Commandes et modifications fermées de 1h à 8h. Avant minuit, livraison le lendemain ; entre minuit et 1h, livraison le jour même, de 8h à 15h à Fès.</p>
+            <h2 className="text-2xl font-bold text-[#14301B]">{t("Comment fonctionne SOUKI ?")}</h2>
+            <p className="mt-4 leading-7 text-[#394C3C]">{t("Parcourez le catalogue, ajoutez vos produits au panier et validez votre commande avant 1h du matin. Commandes et modifications fermées de 1h à 8h. Avant minuit, livraison le lendemain ; entre minuit et 1h, livraison le jour même, de 8h à 15h à Fès.")}</p>
           </section>
           <div className="mt-9 flex flex-wrap gap-4">
-            <Link href="/catalogue" className="rounded-full bg-[#1E8A3C] px-7 py-4 font-bold text-white">Découvrir le catalogue</Link>
-            <Link href="/faq" className="rounded-full border border-[#1E8A3C] px-7 py-4 font-bold text-[#1E8A3C]">Questions fréquentes</Link>
+            <Link href="/catalogue" className="rounded-full bg-[#1E8A3C] px-7 py-4 font-bold text-white">{t("Découvrir le catalogue")}</Link>
+            <Link href="/faq" className="rounded-full border border-[#1E8A3C] px-7 py-4 font-bold text-[#1E8A3C]">{t("Questions fréquentes")}</Link>
           </div>
         </div>
       </main>

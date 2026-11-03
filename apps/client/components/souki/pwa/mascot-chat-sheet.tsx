@@ -6,6 +6,7 @@ import { Send, RotateCcw } from "lucide-react"
 import { Sheet } from "@/components/souki/pwa/sheet"
 import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
 import { API_BASE_URL } from "@/lib/api"
+import { useLocale } from "@/contexts/locale-context"
 
 type Message = { role: "user" | "assistant"; content: string }
 type Suggestion = { question: string; answer: string }
@@ -18,6 +19,7 @@ function formatted(text: string) {
 }
 
 export function MascotChatSheet({ open, onClose, userId }: { open: boolean; onClose: () => void; userId: number }) {
+  const { t, zoneProps } = useLocale()
   const [messages, setMessages] = useState<Message[]>([])
   const [restored, setRestored] = useState(false)
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
@@ -114,21 +116,21 @@ export function MascotChatSheet({ open, onClose, userId }: { open: boolean; onCl
   }
 
   if (!open) return null
-  return createPortal(<Sheet open={open} onClose={onClose} title={<div className="flex items-center gap-3"><FarmerAvatar size="sm" expression={busy ? "explain" : "welcome"} />Discuter avec Souki</div>} className="flex h-[85%] max-h-[850px] flex-col" keyboardAware>
-    <div role="log" aria-live="polite" aria-busy={busy} className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-1 pb-4">
-      <div className="rounded-2xl bg-[#EFF8EE] p-3 text-sm text-[#23482D]">Salam ! Je suis Souki 👋 Une question sur vos courses ou la livraison ?</div>
+  return createPortal(<Sheet open={open} onClose={onClose} title={<div className="flex items-center gap-3"><FarmerAvatar size="sm" expression={busy ? "explain" : "welcome"} />{t("Discuter avec Souki")}</div>} className="flex h-[85%] max-h-[850px] flex-col" keyboardAware>
+    <div {...zoneProps} role="log" aria-live="polite" aria-busy={busy} className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-1 pb-4">
+      <div className="rounded-2xl bg-[#EFF8EE] p-3 text-sm text-[#23482D]">{t("Salam ! Je suis Souki 👋 Une question sur vos courses ou la livraison ?")}</div>
       {messages.map((message, index) => <div key={index} dir="auto" className={`max-w-[92%] rounded-2xl p-3 text-sm leading-6 break-words ${message.role === "user" ? "ml-auto bg-[#1E8A3C] text-white" : "bg-[#EFF8EE] text-[#23482D]"}`}>{formatted(message.content)}</div>)}
-      {busy && <p className="text-sm text-[#57715B]">Souki écrit…</p>}
+      {busy && <p className="text-sm text-[#57715B]">{t("Souki écrit…")}</p>}
       <div ref={end} />
     </div>
     <div className="flex shrink-0 gap-2 overflow-x-auto py-2">
-      {suggestions.map(item => <button disabled={busy} key={item.question} onClick={() => void send(item.question, item.answer)} className="shrink-0 rounded-full border border-green-200 px-3 py-2 text-xs text-[#24552F] disabled:opacity-50">{item.question}</button>)}
+      {suggestions.map(item => <button disabled={busy} key={item.question} onClick={() => void send(t(item.question), t(item.answer))} className="shrink-0 rounded-full border border-green-200 px-3 py-2 text-xs text-[#24552F] disabled:opacity-50">{t(item.question)}</button>)}
     </div>
-    {error && <p role="alert" className="py-2 text-sm text-red-700">{error}</p>}
-    <form className="flex shrink-0 gap-2 pt-2" onSubmit={event => { event.preventDefault(); void send(draft.trim()) }}>
-      <input aria-label="Votre message à Souki" maxLength={500} value={draft} onChange={event => setDraft(event.target.value)} placeholder="Posez votre question…" className="min-w-0 flex-1 rounded-2xl border border-green-200 px-3 py-3 text-base outline-offset-2" />
-      <button type="submit" disabled={busy || !draft.trim()} aria-label="Envoyer" className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#1E8A3C] text-white disabled:opacity-40"><Send className="size-5" /></button>
+    {error && <p {...zoneProps} role="alert" className="py-2 text-sm text-red-700">{t(error)}</p>}
+    <form {...zoneProps} className="flex shrink-0 gap-2 pt-2" onSubmit={event => { event.preventDefault(); void send(draft.trim()) }}>
+      <input aria-label={t("Votre message à Souki")} maxLength={500} value={draft} onChange={event => setDraft(event.target.value)} placeholder={t("Posez votre question…")} className="min-w-0 flex-1 rounded-2xl border border-green-200 px-3 py-3 text-base outline-offset-2" />
+      <button type="submit" disabled={busy || !draft.trim()} aria-label={t("Envoyer")} className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#1E8A3C] text-white disabled:opacity-40"><Send className="size-5" /></button>
     </form>
-    <button disabled={busy} className="mt-3 flex shrink-0 items-center justify-center gap-2 text-xs text-[#57715B] disabled:opacity-50" onClick={() => { setMessages([]); setError(""); setDraft("") }}><RotateCcw className="size-3" />Nouvelle conversation</button>
+    <button disabled={busy} className="mt-3 flex shrink-0 items-center justify-center gap-2 text-xs text-[#57715B] disabled:opacity-50" onClick={() => { setMessages([]); setError(""); setDraft("") }}><RotateCcw className="size-3" />{t("Nouvelle conversation")}</button>
   </Sheet>, document.body)
 }

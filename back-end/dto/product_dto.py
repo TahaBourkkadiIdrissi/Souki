@@ -6,9 +6,11 @@ from pydantic import BaseModel, Field
 
 class ProductResponseDTO(BaseModel):
     description: Optional[str] = None
+    description_ar: Optional[str] = None
     id: int
     nom_fr: str
     nom_darija: str
+    nom_ar: Optional[str] = None
     prix_kg: float
     prix_affiche: Optional[float] = None
     prix_khddar_estime: Optional[float] = None

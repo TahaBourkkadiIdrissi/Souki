@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { LOCALE_COOKIE, parseLocale, translate } from "@/lib/i18n"
 
 export default function GlobalError({
   error,
@@ -9,12 +10,16 @@ export default function GlobalError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  // Hors LocaleProvider (ce fichier remplace le layout racine) : langue lue dans le cookie.
+  const locale = parseLocale(typeof document === "undefined" ? undefined : document.cookie.match(new RegExp(`(?:^|; )${LOCALE_COOKIE}=([^;]+)`))?.[1])
+  const t = (french: string) => translate(locale, french)
+
   useEffect(() => {
     console.error(error)
   }, [error])
 
   return (
-    <html lang="fr">
+    <html lang={locale === "ar" ? "ar-MA" : "fr"} dir={locale === "ar" ? "rtl" : "ltr"}>
       <body style={{ margin: 0 }}>
         <div
           style={{
@@ -43,10 +48,10 @@ export default function GlobalError({
               SOUKI
             </p>
             <h1 style={{ marginTop: "0.75rem", fontSize: "1.5rem", fontWeight: 700, color: "#1E8A3C" }}>
-              Une erreur critique est survenue
+              {t("Une erreur critique est survenue")}
             </h1>
             <p style={{ marginTop: "0.75rem", fontSize: "0.875rem", lineHeight: 1.6, color: "#677669" }}>
-              Veuillez recharger l&apos;application.
+              {t("Veuillez recharger l'application.")}
             </p>
             <button
               type="button"
@@ -64,7 +69,7 @@ export default function GlobalError({
                 cursor: "pointer",
               }}
             >
-              Recharger
+              {t("Recharger")}
             </button>
           </div>
         </div>

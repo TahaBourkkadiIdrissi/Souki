@@ -48,6 +48,7 @@ class PanierSoukiService(IPanierSoukiService):
                 sous_total += total
             lignes.append(PanierSoukiLigneDTO(
                 product_id=ligne.product_id, nom_produit=product.nom_fr if product else "Produit retiré",
+                nom_ar=getattr(product, "nom_ar", None) if product else None,
                 nom_darija=getattr(product, "nom_darija", None) if product else None,
                 unite=product.unite if product else "", image_url=product.image_url if product else None,
                 quantite=float(ligne.quantite), prix_unitaire=prix, sous_total=total, disponible=disponible,

@@ -21,6 +21,7 @@ import { safeInternalRedirect } from "@/lib/routes"
 import { adoptGuestCart } from "@/lib/client-storage"
 import { useAuth } from "@/hooks/useAuth"
 import { trackEvent } from "@/lib/analytics"
+import { useLocale } from "@/contexts/locale-context"
 
 const RESEND_DELAY_SECONDS = 60
 
@@ -35,6 +36,7 @@ function OTPVerificationForm({
   target?: string
   redirectTarget: string | null
 }) {
+  const { t, zoneProps } = useLocale()
   const router = useRouter()
   const { validateToken } = useAuth()
   const [otp, setOtp] = useState("")
@@ -151,16 +153,16 @@ function OTPVerificationForm({
   }
 
   return (
-    <div className="rounded-[28px] border border-[#E4EAE5] bg-white p-4 shadow-xl shadow-[#1E8A3C]/5 sm:p-8">
+    <div {...zoneProps} className="rounded-[28px] border border-[#E4EAE5] bg-white p-4 shadow-xl shadow-[#1E8A3C]/5 sm:p-8">
       <div className="mb-6 flex items-start gap-4">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F0FAF1] text-[#1E8A3C]">
           <ShieldCheck className="h-7 w-7" />
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#6E8B73]">
-            Vérification du compte
+            {t("Vérification du compte")}
           </p>
-          <h2 className="mt-1 text-2xl font-bold text-[#233127]">Code OTP à 6 chiffres</h2>
+          <h2 className="mt-1 text-2xl font-bold text-[#233127]">{t("Code OTP à 6 chiffres")}</h2>
           <p className="mt-2 text-sm leading-6 text-[#66756B]">
             Entrez le code envoyé {channelLabel}
             {target ? ` sur ${target}` : ""}.
@@ -177,7 +179,7 @@ function OTPVerificationForm({
             {channel === "phone" ? "Validation par SMS / WhatsApp" : "Validation par email"}
           </p>
           <p className="text-xs text-[#7B8B80]">
-            Le compte restera inactif tant que le code n&apos;est pas confirmé.
+            {t("Le compte restera inactif tant que le code n'est pas confirmé.")}
           </p>
         </div>
       </div>
@@ -258,7 +260,7 @@ function OTPVerificationForm({
           className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1E8A3C] py-3.5 text-base font-semibold text-white transition-colors hover:bg-[#176C2E] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShieldCheck className="h-5 w-5" />}
-          Vérifier le code
+          {t("Vérifier le code")}
         </button>
 
         <div className="flex flex-col items-center justify-between gap-3 rounded-2xl border border-dashed border-[#D9E6DB] px-4 py-4 text-sm text-[#617065] sm:flex-row">
@@ -275,7 +277,7 @@ function OTPVerificationForm({
             className="inline-flex items-center gap-2 font-semibold text-[#1E8A3C] transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
           >
             {resending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Renvoyer le code
+            {t("Renvoyer le code")}
           </button>
         </div>
       </div>
@@ -284,6 +286,7 @@ function OTPVerificationForm({
 }
 
 function VerifyContent() {
+  const { t, zoneProps } = useLocale()
   const searchParams = useSearchParams()
   const redirectTarget = safeInternalRedirect(searchParams.get("redirect"))
   const userId = Number(searchParams.get("userId") || "0")
@@ -293,7 +296,7 @@ function VerifyContent() {
   const isValidPayload = Number.isFinite(userId) && userId > 0
 
   return (
-    <div className="min-h-screen flex">
+    <div {...zoneProps} className="min-h-screen flex">
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#1E8A3C] to-[#4CB84A] p-12 flex-col justify-between relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-24 left-20 h-48 w-48 rounded-full bg-white/30 blur-3xl" />
@@ -309,15 +312,15 @@ function VerifyContent() {
             <ShieldCheck className="h-8 w-8 text-white" />
           </div>
           <h1 className="text-4xl xl:text-5xl font-bold text-white mb-6 leading-tight text-balance">
-            Dernière étape avant l&apos;activation.
+            {t("Dernière étape avant l'activation.")}
           </h1>
           <p className="text-xl text-white/85 max-w-md leading-8">
-            Vérifiez votre moyen de contact pour activer votre compte SOUKI et finaliser la création de votre accès.
+            {t("Vérifiez votre moyen de contact pour activer votre compte SOUKI et finaliser la création de votre accès.")}
           </p>
         </div>
 
         <div className="relative z-10 text-white/70 text-sm">
-          © 2026 SOUKI Fresh Market
+          {t("© 2026 SOUKI Fresh Market")}
         </div>
       </div>
 
@@ -331,15 +334,15 @@ function VerifyContent() {
             <OTPVerificationForm userId={userId} channel={channel} target={target} redirectTarget={redirectTarget} />
           ) : (
             <div className="rounded-[28px] border border-red-200 bg-white p-8 shadow-lg">
-              <h2 className="text-2xl font-bold text-[#2E3A31]">Lien de vérification invalide</h2>
+              <h2 className="text-2xl font-bold text-[#2E3A31]">{t("Lien de vérification invalide")}</h2>
               <p className="mt-3 text-sm leading-6 text-[#617065]">
-                Les informations de vérification sont incomplètes. Revenez à l&apos;écran d&apos;inscription pour demander un nouveau code OTP.
+                {t("Les informations de vérification sont incomplètes. Revenez à l'écran d'inscription pour demander un nouveau code OTP.")}
               </p>
               <Link
                 href="/login"
                 className="mt-6 inline-flex rounded-2xl bg-[#1E8A3C] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#176C2E]"
               >
-                Retour à la connexion
+                {t("Retour à la connexion")}
               </Link>
             </div>
           )}

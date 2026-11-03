@@ -2,6 +2,7 @@
 
 import React from "react"
 import styles from "./CartLoadingAnimation.module.css"
+import { useLocale } from "@/contexts/locale-context"
 
 interface CartLoadingAnimationProps {
   /** Progress percentage 0–100 */
@@ -39,15 +40,16 @@ export const CartLoadingAnimation: React.FC<CartLoadingAnimationProps> = ({
   progress,
   remainingSeconds = null,
 }) => {
+  const { t } = useLocale()
   const clamped = Math.min(100, Math.max(0, Math.round(progress)))
   const finalizing = clamped >= 100 && remainingSeconds !== null
   const secondsLeft = remainingSeconds ?? 0
 
   const ariaLabel = finalizing
     ? secondsLeft > 0
-      ? `Finalisation du panier par l'IA, environ ${secondsLeft} secondes restantes`
-      : "Finalisation du panier par l'IA, encore quelques instants"
-    : `Génération du panier : ${clamped}%`
+      ? t("Finalisation du panier par l'IA, environ {n} secondes restantes", { n: secondsLeft })
+      : t("Finalisation du panier par l'IA, encore quelques instants")
+    : t("Génération du panier : {n}%", { n: clamped })
 
   return (
     <div
@@ -97,7 +99,7 @@ export const CartLoadingAnimation: React.FC<CartLoadingAnimationProps> = ({
                 ~{secondsLeft}
                 <span className={styles.unit}>s</span>
               </span>
-              <span className={styles.label}>Finalisation par l&apos;IA…</span>
+              <span className={styles.label}>{t("Finalisation par l'IA…")}</span>
             </>
           ) : (
             <>
@@ -112,7 +114,7 @@ export const CartLoadingAnimation: React.FC<CartLoadingAnimationProps> = ({
         ) : (
           <>
             <span className={styles.percentage}>{clamped}%</span>
-            <span className={styles.label}>Génération du panier…</span>
+            <span className={styles.label}>{t("Génération du panier…")}</span>
           </>
         )}
       </div>

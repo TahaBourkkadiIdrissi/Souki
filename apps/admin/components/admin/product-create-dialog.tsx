@@ -21,8 +21,10 @@ import { cn } from "@/lib/utils"
 interface Values {
   nom_fr: string
   nom_darija: string
+  nom_ar: string
   unite: string
   description: string
+  description_ar: string
   prix_gros_saisi: string
   prix_vente_manuel: string
   niveau: ProduitNiveau
@@ -36,8 +38,10 @@ interface Values {
 const emptyValues: Values = {
   nom_fr: "",
   nom_darija: "",
+  nom_ar: "",
   unite: "kg",
   description: "",
+  description_ar: "",
   prix_gros_saisi: "",
   prix_vente_manuel: "",
   niveau: 2,
@@ -156,8 +160,10 @@ export function ProductCreateDialog({
     if (prixKg === "invalid" || prixKg === 0) return "Prix de référence invalide."
     return {
       description: values.description.trim() || null,
+      description_ar: values.description_ar.trim() || null,
       nom_fr: values.nom_fr.trim(),
       nom_darija: values.nom_darija.trim(),
+      nom_ar: values.nom_ar.trim() || null,
       unite: values.unite.trim(),
       // Prix de reference historique : par defaut le prix affiche aux clients.
       prix_kg: prixKg ?? price,
@@ -309,6 +315,19 @@ export function ProductCreateDialog({
                     className={cn(inputClass, fieldError(missing.nom_darija))}
                   />
                 </label>
+                <label className={labelClass}>
+                  Nom en arabe (darija) <span className="-mt-1 text-xs font-normal text-gray-400">affiché sur le site en arabe</span>
+                  <input
+                    value={values.nom_ar}
+                    onChange={(event) => set("nom_ar", event.target.value)}
+                    placeholder="مثال: ماطيشة"
+                    dir="rtl"
+                    lang="ar"
+                    maxLength={100}
+                    autoComplete="off"
+                    className={inputClass}
+                  />
+                </label>
               </div>
             </section>
 
@@ -390,6 +409,20 @@ export function ProductCreateDialog({
                 maxLength={5000}
                 rows={2}
                 placeholder="Vide = description par défaut du catalogue"
+                className={cn(inputClass, "min-h-[72px] py-2.5")}
+              />
+            </label>
+
+            <label className={labelClass}>
+              Description en arabe <span className="-mt-1 text-xs font-normal text-gray-400">facultatif</span>
+              <textarea
+                value={values.description_ar}
+                onChange={(event) => set("description_ar", event.target.value)}
+                maxLength={5000}
+                rows={2}
+                dir="rtl"
+                lang="ar"
+                placeholder="فارغ = الوصف العربي الافتراضي"
                 className={cn(inputClass, "min-h-[72px] py-2.5")}
               />
             </label>
