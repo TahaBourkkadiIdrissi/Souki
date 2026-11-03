@@ -86,7 +86,7 @@ export function ProductDetailSheet({
     haptic("light")
     try {
       if (typeof navigator !== "undefined" && navigator.share) {
-        await navigator.share({ title: product.name, text: `${product.name} sur SOUKI` })
+        await navigator.share({ title: productName(product), text: t("{name} sur SOUKI", { name: productName(product) }) })
       }
     } catch {
       // partage annulé : rien à faire
@@ -106,7 +106,7 @@ export function ProductDetailSheet({
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label={`Fiche produit ${product.name}`}
+      aria-label={t("Fiche produit {name}", { name: productName(product) })}
     >
       <div
         className="animate-slide-up flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[28px] bg-white shadow-[0_-8px_40px_rgba(0,0,0,0.18)] sm:max-w-md sm:rounded-[28px]"
@@ -119,7 +119,7 @@ export function ProductDetailSheet({
             <div className="pointer-events-none absolute left-1/2 top-[44%] h-[62%] w-[62%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/70 blur-2xl" />
             <img
               src={product.image}
-              alt={product.name}
+              alt={productName(product)}
               className={cn(
                 "relative h-full w-full",
                 isIllustrationImage(product.image)

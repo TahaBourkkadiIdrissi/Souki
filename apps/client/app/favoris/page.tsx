@@ -165,6 +165,7 @@ export default function FavorisPage() {
               key={product.id}
               id={product.id}
               name={product.name}
+              nameAr={product.nameAr}
               image={product.image}
               fallbackImage={product.fallbackImage}
               price={product.price}

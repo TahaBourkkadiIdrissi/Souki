@@ -155,7 +155,7 @@ function CarteAbonnement({ item, onChange }: { item: CommandeRecurrenteDTO; onCh
               <select value={ajout} onChange={(event) => setAjout(event.target.value)} aria-label={t("Ajouter un produit")}
                 className="min-h-11 flex-1 rounded-2xl border border-[#CFE6D2] bg-white px-3 text-sm text-[#264129]">
                 <option value="">{t("Ajouter un produit…")}</option>
-                {catalogue.map((product) => <option key={product.id} value={product.id}>{product.name} — {formatDh(product.price)} / {product.unit}</option>)}
+                {catalogue.map((product) => <option key={product.id} value={product.id}>{productName(product)} — {formatDh(product.price)} / {unitLabel(product.unit)}</option>)}
               </select>
               <button type="button" onClick={ajouterProduit} disabled={!ajout}
                 className="min-h-11 rounded-2xl bg-[#F0FAF1] px-4 text-sm font-bold text-[#176B2E] disabled:opacity-50">{t("Ajouter")}</button>

@@ -179,6 +179,8 @@ export const COMPOSANTS_AR: Record<string, string> = {
   "Oranges de saison…": "برتقال الموسم…",
   "Courgettes du jour…": "كوسة اليوم…",
   "Ajouté": "أُضيف",
+  "{name} sur SOUKI": "{name} على SOUKI",
+  "Fiche produit {name}": "بطاقة المنتج {name}",
   "Ajouter {quantity} de {name}": "إضافة {quantity} من {name}",
   "Retirer {name} des favoris": "إزالة {name} من المفضلة",
   "Ajouter {name} aux favoris": "إضافة {name} إلى المفضلة",

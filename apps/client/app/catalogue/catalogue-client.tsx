@@ -890,7 +890,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
       // La barre panier sticky basse suffit ; un toast discret confirme l'ajout.
       // Web/tablette/desktop : comportement inchange (ouverture du panier).
       if (isMobileViewport()) {
-        toast.success(`${product.name} ajouté au panier`)
+        toast.success(t("{name} ajouté au panier", { name: productName(product) }))
       } else {
         setShowCart(true)
       }
@@ -946,7 +946,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
       triggerAvatarCelebrate()
       haptic("medium")
       if (isMobileViewport()) {
-        toast.success(`${product.name} ajouté au panier`)
+        toast.success(t("{name} ajouté au panier", { name: productName(product) }))
       } else {
         setShowCart(true)
       }
@@ -1991,6 +1991,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                               <ProductCard
                                 id={product.id}
                                 name={product.name}
+                                nameAr={product.nameAr}
                                 href={productPath(product)}
                                 onView={openProductDetail}
                                 image={product.image}
@@ -2067,6 +2068,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                                   <ProductCard
                                     id={product.id}
                                     name={product.name}
+                                    nameAr={product.nameAr}
                                     href={productPath(product)}
                                     onView={openProductDetail}
                                     image={product.image}
@@ -2137,6 +2139,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                           <ProductCard
                             id={product.id}
                             name={product.name}
+                            nameAr={product.nameAr}
                             href={productPath(product)}
                             onView={openProductDetail}
                             image={product.image}

@@ -25,7 +25,6 @@ import {
   CatalogueProduct,
   DishSummary,
   fetchDishList,
-  formatQuantity,
   generateSmartPanier,
   SmartBasketLine,
   SmartBasketResponse,
@@ -104,7 +103,7 @@ export function AIModals({
   isOrderLocked = false,
   orderLockMessage = "Les commandes sont fermees pour preparer les livraisons. Reouverture a 08h00.",
 }: AIModalsProps) {
-  const { t, zoneProps } = useLocale()
+  const { t, zoneProps, productName, quantityLabel } = useLocale()
   const router = useRouter()
   const { token } = useAuth()
 
@@ -510,7 +509,7 @@ export function AIModals({
     return {
       line,
       product,
-      name: product?.name ?? line.nom_produit,
+      name: productName({ name: product?.name ?? line.nom_produit, nameAr: product?.nameAr }),
       unit: product?.unit ?? line.unite,
       quantity: line.quantite_kg,
       total: line.sous_total,
@@ -656,7 +655,7 @@ export function AIModals({
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-white truncate">
-                                {line.nom_produit}
+                                {productName({ name: line.nom_produit, nameAr: products.find((product) => product.id === line.product_id)?.nameAr })}
                               </p>
                               <p className="text-xs text-white/45 mt-1">
                                 {line.prix_unitaire.toFixed(2)} DH / {unit}
@@ -919,7 +918,7 @@ export function AIModals({
                         <div>
                           <p className="text-sm font-semibold text-[#264129]">{item.name}</p>
                           <p className="text-xs text-[#6C7E6E]">
-                            {formatQuantity(item.quantity, item.unit)}
+                            {quantityLabel(item.quantity, item.unit)}
                           </p>
                         </div>
                         <span className="text-sm font-bold text-[#F07C00]">

@@ -163,6 +163,9 @@ function CheckoutContent() {
   const [catalogueImages, setCatalogueImages] = useState<Record<number, string>>({})
   const [cataloguePrices, setCataloguePrices] = useState<Record<number, number>>({})
   const [catalogueProducts, setCatalogueProducts] = useState<CatalogueProduct[]>([])
+  // Les lignes recues par lien n'ont que le nom francais : le nom arabe vient du catalogue.
+  const cartItemName = (item: CartItem) =>
+    productName({ name: item.name, nameAr: item.nameAr ?? catalogueProducts.find((product) => product.id === Number(item.id))?.nameAr })
   const [mapboxModalOpen, setMapboxModalOpen] = useState(false)
   const [blacklistStatus, setBlacklistStatus] = useState<BlacklistStatusDTO | null>(null)
   const [showLiftModal, setShowLiftModal] = useState(false)
@@ -859,13 +862,13 @@ function CheckoutContent() {
                   <div key={item.id} className="flex gap-3 p-4 sm:gap-4">
                     <Image
                       src={item.image}
-                      alt={productName(item)}
+                      alt={cartItemName(item)}
                       width={80}
                       height={80}
                       className="h-20 w-20 shrink-0 rounded-xl object-cover"
                     />
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold text-[#3D3D3D]">{productName(item)}</h3>
+                      <h3 className="font-semibold text-[#3D3D3D]">{cartItemName(item)}</h3>
                       <p className="text-[#F07C00] font-bold">{item.price.toFixed(2)} DH/{item.unit}</p>
                       <div className="mt-3 flex items-center gap-2">
                         <div className="flex min-h-10 items-center overflow-hidden rounded-xl border border-gray-200">
@@ -873,7 +876,7 @@ function CheckoutContent() {
                           <span className="min-w-16 px-2 text-center text-sm font-medium">{quantityLabel(item.quantity, item.unit)}</span>
                           <button onClick={() => updateQuantity(item.id, 0.5)} className="flex h-10 w-10 items-center justify-center hover:bg-gray-100"><Plus className="w-4 h-4" /></button>
                         </div>
-                        <button onClick={() => removeItem(item.id)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-red-400 hover:bg-red-50 hover:text-red-600" aria-label={t("Retirer {name}", { name: productName(item) })}>
+                        <button onClick={() => removeItem(item.id)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-red-400 hover:bg-red-50 hover:text-red-600" aria-label={t("Retirer {name}", { name: cartItemName(item) })}>
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
