@@ -95,7 +95,9 @@ export interface PanierSoukiLigneDTO {
 export interface PanierSoukiDTO {
   id: number
   nom: string
+  nom_ar: string | null
   description: string | null
+  description_ar: string | null
   image_url: string | null
   actif: boolean
   ordre: number
@@ -107,7 +109,9 @@ export interface PanierSoukiDTO {
 }
 export interface PanierSoukiForm {
   nom: string
+  nom_ar: string | null
   description: string | null
+  description_ar: string | null
   image_url: string | null
   actif: boolean
   ordre: number
@@ -119,6 +123,8 @@ export const updatePanierSouki = (id: number, body: PanierSoukiForm) => apiCall<
 
 export interface CategoryForm {
   nom: string
+  /** Nom affiche sur le site en arabe ; vide = nom francais. */
+  nom_ar: string | null
   icone: string | null
   produit_vedette_id: number | null
   ordre: number

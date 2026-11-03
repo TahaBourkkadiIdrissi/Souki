@@ -72,7 +72,7 @@ const CATEGORY_TILES = [
   { label: "Herbes", href: "/catalogue?focus=herbes", icon: Leaf, from: "#1A4F2C", to: "#4CB84A" },
 ] as const
 
-type CategoryTile = { label: string; href: string; icon: LucideIcon; from: string; to: string; image?: string }
+type CategoryTile = { label: string; labelAr?: string | null; href: string; icon: LucideIcon; from: string; to: string; image?: string }
 // Degrades des tuiles historiques, reutilises en boucle pour les rayons crees dans l'admin.
 const TILE_GRADIENTS = CATEGORY_TILES.slice(1).map(({ from, to }) => ({ from, to }))
 
@@ -90,6 +90,7 @@ function buildCategoryTiles(sections: CatalogueSection[], products: CataloguePro
       return {
         ...(legacy ?? TILE_GRADIENTS[index % TILE_GRADIENTS.length]),
         label: section.nom,
+        labelAr: section.nomAr,
         href,
         icon: categoryIcon(section.icone) ?? legacy?.icon ?? Tag,
         image: featured?.image || undefined,
@@ -123,7 +124,7 @@ function mapDtoToCatalogueProduct(dto: CatalogueProductDTO): CatalogueProduct {
 }
 
 export default function PwaWelcomePage() {
-  const { t, zoneProps } = useLocale()
+  const { t, zoneProps, adminText, dateLocale } = useLocale()
   const router = useRouter()
   const [chatOpen, setChatOpen] = useState(false)
   const [chatHint, setChatHint] = useState(false)
@@ -359,8 +360,8 @@ export default function PwaWelcomePage() {
 
   // Date du jour formatée (« mardi 20 juillet ») pour ancrer l'en-tête dans le réel.
   const todayLabel = useMemo(
-    () => new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: MOROCCO_TIME_ZONE }),
-    [],
+    () => new Date().toLocaleDateString(dateLocale, { weekday: "long", day: "numeric", month: "long", timeZone: MOROCCO_TIME_ZONE }),
+    [dateLocale],
   )
 
   // Décalage de parallax : neutralisé si l'utilisateur préfère moins d'animations.
@@ -378,7 +379,7 @@ export default function PwaWelcomePage() {
   }
 
   return (
-    <main ref={revealRef} className="min-h-dvh bg-[#F2F6F3] text-[#3D3D3D] font-sans pwa-home-motion">
+    <main {...zoneProps} ref={revealRef} className="min-h-dvh bg-[#F2F6F3] text-[#3D3D3D] font-sans pwa-home-motion">
       <section className="mx-auto flex min-h-dvh w-full max-w-md flex-col pb-24 md:pb-0">
 
         {/* ===== HEADER — vitrine « app store » : dégradé profond, texture botanique,
@@ -446,7 +447,7 @@ export default function PwaWelcomePage() {
                 <MarketStatus todayLabel={todayLabel} />
 
                 <h1 className="mt-3 text-[30px] font-black leading-[1.05] tracking-tight text-white drop-shadow-md">
-                  {greeting} 👋
+                  {t(greeting)} 👋
                 </h1>
                 {userName && (
                   <p className="mt-0.5 text-[24px] font-black leading-tight tracking-tight [overflow-wrap:anywhere]">
@@ -606,7 +607,7 @@ export default function PwaWelcomePage() {
                     />
                   )}
                 </span>
-                <span className="text-center text-[12px] font-bold leading-tight text-[#3D3D3D]">{tile.label}</span>
+                <span className="text-center text-[12px] font-bold leading-tight text-[#3D3D3D]">{adminText(tile.label, tile.labelAr)}</span>
               </button>
             ))}
           </div>
@@ -636,7 +637,7 @@ export default function PwaWelcomePage() {
               <Truck className="h-6 w-6 text-[#F07C00]" />
             </div>
             <div className="relative flex-1">
-              <p className="text-[15px] font-black leading-tight text-[#3D3D3D]">Livraison gratuite dès {FREE_DELIVERY_THRESHOLD} DH</p>
+              <p className="text-[15px] font-black leading-tight text-[#3D3D3D]">{t("Livraison gratuite dès {seuil} DH", { seuil: FREE_DELIVERY_THRESHOLD })}</p>
               <p className="mt-0.5 text-[13px] font-medium text-[#3D3D3D]/70"><DeliveryPromise /></p>
             </div>
           </div>

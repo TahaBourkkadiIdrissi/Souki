@@ -19,6 +19,8 @@ type LocaleContextValue = {
   productName: (product: { name: string; nameAr?: string | null }) => string
   /** Description de la fiche produit dans la langue du site (texte admin, sinon description par defaut). */
   productDescription: (product: { name: string; description?: string | null; descriptionAr?: string | null }) => string
+  /** Texte saisi dans l'admin (rayon, panier) : version arabe si renseignee, sinon le francais traduit si possible. */
+  adminText: (french: string, arabic?: string | null) => string
   /** Unite (kg, lot, 250g) et quantite affichees dans la langue du site. */
   unitLabel: (unit: string) => string
   quantityLabel: (quantity: number, unit: string) => string
@@ -57,6 +59,11 @@ export function LocaleProvider({ initialLocale, children }: { initialLocale: Loc
     [locale],
   )
 
+  const adminText = useCallback(
+    (french: string, arabic?: string | null) => (locale === "ar" && arabic?.trim() ? arabic : translate(locale, french)),
+    [locale],
+  )
+
   const unitLabel = useCallback((unit: string) => (locale === "ar" ? unitAr(unit) : unit), [locale])
   const quantityLabel = useCallback(
     (quantity: number, unit: string) => (locale === "ar" ? formatQuantityAr(quantity, unit) : formatQuantity(quantity, unit)),
@@ -70,11 +77,12 @@ export function LocaleProvider({ initialLocale, children }: { initialLocale: Loc
     t,
     productName,
     productDescription,
+    adminText,
     unitLabel,
     quantityLabel,
     dateLocale: locale === "ar" ? "ar-MA" : "fr-MA",
     zoneProps: locale === "ar" ? { lang: "ar-MA", dir: "rtl" as const } : {},
-  }), [locale, setLocale, t, productName, productDescription, unitLabel, quantityLabel])
+  }), [locale, setLocale, t, productName, productDescription, adminText, unitLabel, quantityLabel])
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>
 }
 

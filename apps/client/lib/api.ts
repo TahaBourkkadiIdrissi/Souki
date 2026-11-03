@@ -189,7 +189,9 @@ export interface PanierSoukiLigneDTO {
 export interface PanierSoukiDTO {
   id: number
   nom: string
+  nom_ar?: string | null
   description: string | null
+  description_ar?: string | null
   image_url: string | null
   lignes: PanierSoukiLigneDTO[]
   sous_total_estime: number
@@ -297,6 +299,8 @@ export interface CatalogueCategoryDTO {
   id: number
   slug: string
   nom: string
+  /** Nom saisi en arabe dans l'admin (facultatif). */
+  nom_ar?: string | null
   icone: string | null
   /** Produit actif dont la photo sert de tuile ; null sinon. */
   produit_vedette_id: number | null

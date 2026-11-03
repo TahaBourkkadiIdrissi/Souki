@@ -27,7 +27,7 @@ class CategoryService(ICategoryService):
         return values
 
     def _dto(self, row, product_ids):
-        return CategoryDTO(**{key: getattr(row, key) for key in ("id", "slug", "nom", "icone", "produit_vedette_id", "ordre", "actif", "created_at")},
+        return CategoryDTO(**{key: getattr(row, key) for key in ("id", "slug", "nom", "nom_ar", "icone", "produit_vedette_id", "ordre", "actif", "created_at")},
                            product_ids=product_ids.get(row.id, []))
 
     def list_admin(self):
@@ -37,7 +37,7 @@ class CategoryService(ICategoryService):
     def list_public(self):
         product_ids = self.dao.product_ids_by_category(self.session, active_products_only=True)
         # The featured photo is only exposed while that product is active in the section.
-        return [CatalogueCategoryDTO(id=row.id, slug=row.slug, nom=row.nom, icone=row.icone, ordre=row.ordre,
+        return [CatalogueCategoryDTO(id=row.id, slug=row.slug, nom=row.nom, nom_ar=row.nom_ar, icone=row.icone, ordre=row.ordre,
                                      produit_vedette_id=row.produit_vedette_id
                                      if row.produit_vedette_id in product_ids.get(row.id, []) else None,
                                      product_ids=product_ids.get(row.id, []))

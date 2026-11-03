@@ -20,7 +20,9 @@ class PanierSoukiDTO(BaseModel):
     """Panier propose par SOUKI. Les prix sont ceux du site aujourd'hui : rien n'est fige ni remise."""
     id: int
     nom: str
+    nom_ar: str | None = None
     description: str | None = None
+    description_ar: str | None = None
     image_url: str | None = None
     actif: bool = True
     ordre: int = 0
@@ -33,13 +35,16 @@ class PanierSoukiDTO(BaseModel):
 
 class PanierSoukiInDTO(BaseModel):
     nom: str = Field(min_length=1, max_length=120)
+    # Versions arabes facultatives ; vides = textes francais affiches.
+    nom_ar: str | None = Field(default=None, max_length=120)
     description: str | None = Field(default=None, max_length=1000)
+    description_ar: str | None = Field(default=None, max_length=1000)
     image_url: str | None = Field(default=None, max_length=500)
     actif: bool = True
     ordre: int = Field(default=0, ge=0, le=1000)
     lignes: list[CommandeRecurrenteLigneInDTO] = Field(min_length=1, max_length=80)
 
-    @field_validator("nom", "description", "image_url", mode="before")
+    @field_validator("nom", "nom_ar", "description", "description_ar", "image_url", mode="before")
     @classmethod
     def strip_text(cls, value):
         if isinstance(value, str):

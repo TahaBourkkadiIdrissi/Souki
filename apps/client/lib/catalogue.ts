@@ -35,6 +35,7 @@ export interface CatalogueProduct {
 export interface CatalogueSection {
   slug: CatalogueCategory
   nom: string
+  nomAr?: string | null
   icone: string | null
   produitVedetteId: number | null
   productIds: number[]
@@ -60,6 +61,7 @@ export function fetchCatalogueSections(): Promise<CatalogueSection[]> {
           : rows.map((row) => ({
               slug: row.slug,
               nom: row.nom,
+              nomAr: row.nom_ar ?? null,
               icone: row.icone,
               produitVedetteId: row.produit_vedette_id,
               productIds: row.product_ids,

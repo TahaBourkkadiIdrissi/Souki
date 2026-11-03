@@ -19,7 +19,7 @@ const APERCU_PRODUITS = 5
 
 /** Fenetre de souscription : rythme et paiement. Le contenu reste modifiable ensuite. */
 function SubscribeSheet({ panier, onClose, onDone }: { panier: PanierSoukiDTO; onClose: () => void; onDone: () => void }) {
-  const { t } = useLocale()
+  const { t, adminText } = useLocale()
   const [frequence, setFrequence] = useState<FrequenceRecurrente>("HEBDOMADAIRE")
   const [paiement, setPaiement] = useState<"cod" | "wallet">("cod")
   const [saving, setSaving] = useState(false)
@@ -37,7 +37,7 @@ function SubscribeSheet({ panier, onClose, onDone }: { panier: PanierSoukiDTO; o
     setSaving(true); setError("")
     try {
       await creerAbonnementPanier(panier.id, { frequence, mode_paiement: paiement })
-      toast.success(t("Abonnement à « {nom} » activé.", { nom: panier.nom }))
+      toast.success(t("Abonnement à « {nom} » activé.", { nom: adminText(panier.nom, panier.nom_ar) }))
       onDone()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("Une erreur est survenue. Réessayez."))
@@ -58,7 +58,7 @@ function SubscribeSheet({ panier, onClose, onDone }: { panier: PanierSoukiDTO; o
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[13px] font-bold text-[#1E8A3C]">{t("S'abonner")}</p>
-            <h2 id="abonnement-titre" className="mt-1 text-xl font-bold text-[#14301B]">{panier.nom}</h2>
+            <h2 id="abonnement-titre" className="mt-1 text-xl font-bold text-[#14301B]">{adminText(panier.nom, panier.nom_ar)}</h2>
           </div>
           <button ref={closeRef} type="button" onClick={onClose} aria-label={t("Fermer")} className="rounded-xl p-2 text-[#5F6F61] hover:bg-[#F3F7F3]"><X className="h-5 w-5" /></button>
         </div>
@@ -120,7 +120,7 @@ function SubscribeSheet({ panier, onClose, onDone }: { panier: PanierSoukiDTO; o
 }
 
 function PanierCard({ panier, onChoose }: { panier: PanierSoukiDTO; onChoose: () => void }) {
-  const { t, productName, unitLabel } = useLocale()
+  const { t, productName, unitLabel, adminText } = useLocale()
   const disponibles = panier.lignes.filter((ligne) => ligne.disponible)
   const reste = disponibles.length - APERCU_PRODUITS
   return (
@@ -136,8 +136,8 @@ function PanierCard({ panier, onChoose }: { panier: PanierSoukiDTO; onChoose: ()
         </span>
       </div>
       <div className="flex flex-1 flex-col p-6">
-        <h3 className="text-xl font-bold text-[#14301B]">{panier.nom}</h3>
-        {panier.description && <p className="mt-1.5 text-sm leading-relaxed text-[#5F6F61]">{panier.description}</p>}
+        <h3 className="text-xl font-bold text-[#14301B]">{adminText(panier.nom, panier.nom_ar)}</h3>
+        {panier.description && <p className="mt-1.5 text-sm leading-relaxed text-[#5F6F61]">{adminText(panier.description, panier.description_ar)}</p>}
         <ul className="mt-4 space-y-1.5 text-sm text-[#3D3D3D]">
           {disponibles.slice(0, APERCU_PRODUITS).map((ligne) => (
             <li key={ligne.product_id} className="flex justify-between gap-3">

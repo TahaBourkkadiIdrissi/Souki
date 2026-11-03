@@ -33,7 +33,8 @@ class PanierSoukiService(IPanierSoukiService):
 
     @staticmethod
     def _values(payload):
-        return dict(nom=payload.nom, description=payload.description, image_url=payload.image_url,
+        return dict(nom=payload.nom, nom_ar=payload.nom_ar, description=payload.description,
+                    description_ar=payload.description_ar, image_url=payload.image_url,
                     actif=payload.actif, ordre=payload.ordre)
 
     @staticmethod
@@ -56,7 +57,8 @@ class PanierSoukiService(IPanierSoukiService):
         sous_total = round(sous_total, 2)
         frais = _frais(sous_total)
         return PanierSoukiDTO(
-            id=row.id, nom=row.nom, description=row.description, image_url=row.image_url, actif=row.actif,
+            id=row.id, nom=row.nom, nom_ar=getattr(row, "nom_ar", None), description=row.description,
+            description_ar=getattr(row, "description_ar", None), image_url=row.image_url, actif=row.actif,
             ordre=row.ordre, lignes=lignes, sous_total_estime=sous_total, frais_livraison_estimes=frais,
             total_estime=round(sous_total + frais, 2), created_at=row.created_at,
         )

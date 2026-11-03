@@ -52,6 +52,7 @@ from controllers.settings_controller import settings_router
 from controllers.zone_controller import router_admin_zones
 from services.catalogue_bootstrap_service import CatalogueBootstrapService
 from services.category_schema_sync_service import CategorySchemaSyncService
+from services.arabic_labels_schema_sync_service import ArabicLabelsSchemaSyncService
 from services.delivery_schema_sync_service import DeliverySchemaSyncService
 from services.dispatch_schema_sync_service import DispatchSchemaSyncService
 from services.jit_schema_sync_service import JITSchemaSyncService
@@ -140,6 +141,7 @@ def sync_database_schema() -> None:
             AppTask("jit schema sync", JITSchemaSyncService.sync),
             AppTask("order delivery date sync", OrderScheduleSchemaSyncService.sync),
             AppTask("product categories sync", CategorySchemaSyncService.sync),
+            AppTask("arabic labels sync", ArabicLabelsSchemaSyncService.sync),
             AppTask("notification schema sync", NotificationSchemaSyncService.sync),
             AppTask("perf index sync", PerfIndexSyncService.sync),
             AppTask("avatar column sync", avatar_storage_service.ensure_avatar_column),

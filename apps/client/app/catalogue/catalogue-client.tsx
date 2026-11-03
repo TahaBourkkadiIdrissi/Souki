@@ -508,7 +508,7 @@ function CatalogueStatInterlude({
 }
 
 function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProduct[] }) {
-  const { t, productName, quantityLabel, zoneProps } = useLocale()
+  const { t, productName, quantityLabel, zoneProps, adminText } = useLocale()
   const router = useRouter()
   const searchParams = useSearchParams()
   const { isAuthenticated, isLoading } = useAuth()
@@ -521,8 +521,8 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
   // Rayons de l'admin (repli : Légumes / Fruits / Herbes).
   const [sections, setSections] = useState<CatalogueSection[]>(LEGACY_CATALOGUE_SECTIONS)
   const categoryChips = useMemo(
-    () => [categories[0], ...sections.map((section) => ({ id: section.slug, label: section.nom }))],
-    [sections]
+    () => [categories[0], ...sections.map((section) => ({ id: section.slug, label: adminText(section.nom, section.nomAr) }))],
+    [sections, adminText]
   )
   const [sortBy, setSortBy] = useState<(typeof sortOptions)[number]["id"]>("popular")
   const [searchQuery, setSearchQuery] = useState("")
@@ -1972,7 +1972,7 @@ function CatalogueContent({ initialProducts }: { initialProducts: CatalogueProdu
                           <div className="flex items-center gap-3">
                             <span className="h-8 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-[#5BD174] to-[#1E8A3C] md:hidden" />
                             <div>
-                              <h3 className="text-lg font-bold text-[#264129]">{section.nom}</h3>
+                              <h3 className="text-lg font-bold text-[#264129]">{adminText(section.nom, section.nomAr)}</h3>
                               {subtitle && <p className="text-sm text-[#6F8070]">{t(subtitle)}</p>}
                             </div>
                           </div>
