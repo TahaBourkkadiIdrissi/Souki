@@ -294,7 +294,7 @@ export default function AbonnementScreen() {
                 <Pressable
                   key={delivery.date_livraison}
                   disabled={!delivery.commande_id}
-                  onPress={() => delivery.commande_id && router.navigate(`/suivi/${delivery.commande_id}`)}
+                  onPress={() => delivery.commande_id && router.navigate(`/suivi/${delivery.commande_id}`, { withAnchor: true })}
                   style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10, borderTopWidth: index === 0 ? 0 : 1, borderTopColor: palette.line }}
                 >
                   <Icon size={16} color={palette.ink500} strokeWidth={2.4} />

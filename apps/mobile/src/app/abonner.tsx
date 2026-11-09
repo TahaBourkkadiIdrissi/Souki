@@ -74,7 +74,7 @@ export default function AbonnerSheet() {
           label={t("Gérer mes abonnements")}
           onPress={() => {
             router.back()
-            router.navigate("/abonnements")
+            router.navigate("/abonnements", { withAnchor: true })
           }}
         />
         <BrandButton tone="ghost" label={t("Fermer")} onPress={() => router.back()} />

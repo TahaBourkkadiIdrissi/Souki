@@ -1,7 +1,8 @@
 import { Stack } from "expo-router"
 
 import { useLocale } from "@/contexts/locale-context"
-import { productScreenOptions, tabStackOptions } from "@/navigation/stack-options"
+import { tabStackScreenOptions } from "@/navigation/header-fallback"
+import { productScreenOptions } from "@/navigation/stack-options"
 
 export const unstable_settings = { anchor: "compte" }
 
@@ -9,7 +10,7 @@ export const unstable_settings = { anchor: "compte" }
 export default function CompteStack() {
   const { t } = useLocale()
   return (
-    <Stack screenOptions={tabStackOptions}>
+    <Stack screenOptions={tabStackScreenOptions("compte", "/compte")}>
       <Stack.Screen name="compte" options={{ title: t("Compte") }} />
       <Stack.Screen name="favoris" options={{ title: t("Favoris") }} />
       <Stack.Screen name="profil" options={{ title: t("Profil"), headerLargeTitleEnabled: false }} />

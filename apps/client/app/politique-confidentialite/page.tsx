@@ -133,7 +133,7 @@ const sections = [
     content: ["Pour toute question relative à cette politique ou pour exercer vos droits, notre équipe dédiée à la protection des données est à votre disposition."],
     contacts: [
       { icon: Mail, label: "Email DPO", value: "privacy@souki.ma", href: "mailto:privacy@souki.ma" },
-      { icon: Phone, label: "Téléphone", value: "+212 5 35 XX XX XX", href: "tel:+21253500000" },
+      { icon: Phone, label: "Téléphone et WhatsApp", value: "+212 7 03 43 39 54", href: "tel:+212703433954" },
       {
         icon: Clock,
         label: "Délai de réponse",

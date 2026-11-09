@@ -98,7 +98,7 @@ export default function MarcheScreen() {
       >
         {/* Vert sous l'en-tete quand on tire vers le bas (pas de bande claire). */}
         <View style={{ position: "absolute", top: -1000, left: 0, right: 0, height: 1000, backgroundColor: palette.night950 }} />
-        <HomeHero scrollY={scrollY} onSearch={() => openProducts({ focus: "1" })} onFavorites={() => router.navigate("/favoris")} />
+        <HomeHero scrollY={scrollY} onSearch={() => openProducts({ focus: "1" })} onFavorites={() => router.navigate("/favoris", { withAnchor: true })} />
 
         {/* Espacements du prototype : 18 / 16 / 18 / 14 pt en haut, 28 pt entre les sections. */}
         <View style={{ paddingTop: 18 }}>
@@ -137,7 +137,7 @@ export default function MarcheScreen() {
 
               {favorites.length > 0 ? (
                 <Reveal index={next()} style={{ marginTop: 28, gap: 12 }}>
-                  <SectionHeader title={t("Vos produits préférés")} actionLabel={t("Tout voir")} onAction={() => router.navigate("/favoris")} />
+                  <SectionHeader title={t("Vos produits préférés")} actionLabel={t("Tout voir")} onAction={() => router.navigate("/favoris", { withAnchor: true })} />
                   <ProductRail products={favorites} />
                 </Reveal>
               ) : null}

@@ -1,8 +1,8 @@
 import { useCallback, useState } from "react"
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, View } from "react-native"
+import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, View } from "react-native"
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { RefreshCw, ShieldCheck, ShoppingBasket, SlidersHorizontal, TriangleAlert } from "lucide-react-native"
+import { MessageCircle, Phone, RefreshCw, ShieldCheck, ShoppingBasket, SlidersHorizontal, TriangleAlert } from "lucide-react-native"
 import {
   canClaimOrder,
   canManageOrder,
@@ -15,6 +15,9 @@ import {
   isOrderFinished,
   normalizeOrderStatus,
   productName,
+  SOUKI_PHONE_DISPLAY,
+  soukiCallUrl,
+  soukiWhatsAppUrl,
 } from "@souki/shared"
 
 import { BrandButton } from "@/components/brand-button"
@@ -113,6 +116,8 @@ export default function SuiviScreen() {
   const times = [formatOrderMoment(order.date_commande, dateLocale), null, formatOrderMoment(order.enroute_at, dateLocale), formatOrderMoment(order.delivered_at, dateLocale)]
   const payment = (order.mode_paiement || "").toLowerCase() === "wallet" ? t("Wallet SOUKI") : isCodPayment(order.mode_paiement) ? t("À la livraison") : t(order.mode_paiement || "—")
   const commandedOn = formatOrderDay(order.date_commande, dateLocale)
+  // Incident de livraison : le message du site invite a contacter l'equipe (E14).
+  const needsContact = ["ABSENT", "REFUS", "RETOUR_DEPOT"].includes(status)
 
   const actions: React.ReactNode[] = []
   if (!finished && manageable) actions.push(<BrandButton key="g" tone="soft" icon={SlidersHorizontal} label={t("Gérer ma commande")} onPress={() => router.push(`/gerer/${order.id}`)} />)
@@ -128,6 +133,38 @@ export default function SuiviScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor={palette.market600} />}
       >
         <OrderTrack status={order.statut} title={t("Commande N-{id}", { id: order.id })} date={date} times={times} />
+        {needsContact ? (
+          <CheckoutCard title={t("Contacter SOUKI")}>
+            <View style={{ gap: 10 }}>
+              <Text variant="footnote" color={palette.ink500} style={{ fontSize: 13 }}>
+                {`${t("Notre équipe répond par téléphone et sur WhatsApp.")} ${SOUKI_PHONE_DISPLAY}`}
+              </Text>
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <BrandButton
+                    tone="soft"
+                    icon={Phone}
+                    label={t("Appeler")}
+                    onPress={() => {
+                      haptics.selection()
+                      void Linking.openURL(soukiCallUrl()).catch(() => undefined)
+                    }}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <BrandButton
+                    icon={MessageCircle}
+                    label="WhatsApp"
+                    onPress={() => {
+                      haptics.selection()
+                      void Linking.openURL(soukiWhatsAppUrl(t("Bonjour SOUKI, j'ai une question sur ma commande N-{id}.", { id: order.id }))).catch(() => undefined)
+                    }}
+                  />
+                </View>
+              </View>
+            </View>
+          </CheckoutCard>
+        ) : null}
         {delivered && claimable ? (
           <Note icon={ShieldCheck}>{t("Un produit abîmé ? Signalez-le dans les 24 h après la livraison : le montant est recrédité sur votre Wallet SOUKI.")}</Note>
         ) : null}

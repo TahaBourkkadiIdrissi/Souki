@@ -1,7 +1,8 @@
 import { Stack } from "expo-router"
 
 import { useLocale } from "@/contexts/locale-context"
-import { productScreenOptions, tabStackOptions } from "@/navigation/stack-options"
+import { tabStackScreenOptions } from "@/navigation/header-fallback"
+import { productScreenOptions } from "@/navigation/stack-options"
 
 export const unstable_settings = { anchor: "marche" }
 
@@ -9,7 +10,7 @@ export const unstable_settings = { anchor: "marche" }
 export default function MarcheStack() {
   const { t } = useLocale()
   return (
-    <Stack screenOptions={tabStackOptions}>
+    <Stack screenOptions={tabStackScreenOptions("marche", "/marche")}>
       <Stack.Screen name="marche" options={{ title: t("Accueil"), headerShown: false }} />
       <Stack.Screen name="catalogue" options={{ headerShown: false }} />
       <Stack.Screen name="produit/[slug]" options={productScreenOptions} />

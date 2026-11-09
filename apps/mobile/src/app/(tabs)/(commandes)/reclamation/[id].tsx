@@ -90,7 +90,7 @@ export default function ReclamationScreen() {
           </View>
         </ScrollView>
         <View style={{ gap: 8, paddingHorizontal: 16, paddingTop: 8, paddingBottom: Math.max(insets.bottom, 12) }}>
-          <BrandButton icon={Wallet} label={t("Voir mon Wallet")} onPress={() => router.navigate("/wallet")} />
+          <BrandButton icon={Wallet} label={t("Voir mon Wallet")} onPress={() => router.navigate("/wallet", { withAnchor: true })} />
           <BrandButton tone="soft" label={t("Retour à la commande")} onPress={() => router.back()} />
         </View>
       </View>

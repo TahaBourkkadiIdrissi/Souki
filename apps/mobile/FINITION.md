@@ -22,6 +22,7 @@ après le passage sur les écarts (E).
 | E23 | Abonnements | Feuille « Mettre en pause » avec les dates de reprise en boutons (dans 1 à 4 semaines). |
 | E25 | Parrainage | Couronne de légumes du design system dans l'en-tête (`assets/illustrations/couronne-legumes.webp`). |
 | E28 | Commande vocale | Le brouillon vocal est lié à la commande (`brouillon_vocal_id`), comme sur le site. |
+| E14 | Suivi, incident | Carte « Contacter SOUKI » (Appeler, WhatsApp avec le numéro de commande) quand le client est absent, la livraison refusée ou la commande retournée au dépôt. Numéro +212 7 03 43 39 54 dans `packages/shared/src/contact.ts`, aussi sur la politique de confidentialité du site. |
 | E29 | Panier intelligent | Fermé : le back-end n'utilise pas `panier_id` au checkout, il n'y a rien à lier. |
 
 ## 2. Écarts gardés volontairement
@@ -40,7 +41,6 @@ après le passage sur les écarts (E).
 |---|---|---|---|
 | E11 | Checkout, adresse | Hors de Fès : avertissement, pas de blocage | B4 : contrôle de la zone de livraison |
 | E13 | Checkout, paiement | Carte CMI « Bientôt » | Paiement CMI |
-| E14 | Suivi, incident | Pas de « Contacter SOUKI » | B6 : canal (téléphone ou WhatsApp) |
 | E15 | Réclamation | Pas de photo par ligne | B5 : photo de réclamation (l'app a déjà `expo-image-picker`) |
 | E20 | Recommander | Calculé dans l'app | B9 : route « Recommander » |
 | E24 | Wallet, historique | Pas de « Commande N-… » sous les mouvements | `commande_id` dans la transaction |
@@ -72,9 +72,10 @@ dessiné restant sur iOS 18. Il n'y a pas d'iOS 19 à 25 : Apple est passé d'iO
 
 ## 7. Bugs connus
 
-- Favoris : ils ne se resynchronisent pas juste après une connexion (l'effet ne lit le jeton qu'au montage). Il faut modifier un `useEffect` existant, ce que la règle 14 interdit sans accord.
+- **Réglé (9 novembre 2026, avec l'accord de Salah eddine, règle 14)** : favoris rechargés à chaque connexion, déconnexion ou changement de compte, avec une liste par compte et une pour l'invité, comme `useFavorites.ts` du site (`src/contexts/favorites-context.tsx`).
 - **Réglé (9 novembre 2026)** : commande vocale et photo de profil. Le `fetch` global du SDK 58 (celui d'Expo) refuse les fichiers `{ uri }` ; l'envoi passe par `postLocalFile` (XMLHttpRequest de React Native) dans `src/lib/api.ts`.
 - **Réglé (9 novembre 2026)** : écran « Commande validée » qui plantait (Reanimated refuse la chaîne `cubic-bezier(...)`, remplacée par `cubicBezier()`).
+- **Réglé (9 novembre 2026)** : « Suivre ma commande » ouvrait le suivi sans retour quand l'onglet Commandes n'avait jamais été ouvert (pile créée sans la liste). Navigations d'un onglet à l'autre avec `withAnchor` (suivi, Wallet, Abonnements, Favoris) et retour de secours dans toutes les piles d'onglets (`src/navigation/header-fallback.tsx`).
 - Option : le back-end pose encore son cookie de session lors d'une connexion depuis l'app (inutile, l'app l'ignore avec `credentials: "omit"`).
 
 ## 8. Back-end

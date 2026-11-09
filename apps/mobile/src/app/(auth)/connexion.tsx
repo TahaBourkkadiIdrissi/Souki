@@ -1,11 +1,12 @@
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import { KeyboardAvoidingView, Pressable, ScrollView, Switch, View } from "react-native"
 import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated"
 import { Image } from "expo-image"
 import { LinearGradient } from "expo-linear-gradient"
-import { useRouter } from "expo-router"
+import { useFocusEffect, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Leaf, Lock, User, X } from "lucide-react-native"
+import { setStatusBarStyle } from "expo-status-bar"
 import { isValidEmail } from "@souki/shared"
 
 import { TextLink } from "@/components/auth-screen"
@@ -68,6 +69,15 @@ export default function ConnexionScreen() {
       setLoading(false)
     }
   }
+
+  // Heure et batterie en blanc sur l'en-tete vert, tant que l'ecran est au premier plan
+  // (Mot de passe oublie et Inscription, ouverts par-dessus, ont un en-tete clair).
+  useFocusEffect(
+    useCallback(() => {
+      setStatusBarStyle("light")
+      return () => setStatusBarStyle("dark")
+    }, []),
+  )
 
   return (
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background, direction }}>
@@ -139,8 +149,11 @@ export default function ConnexionScreen() {
             onSubmitEditing={() => void submit()}
             error={error?.field === "password" ? error.message : null}
           />
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          {/* Une seule ligne comme le prototype : interrupteur et « Se souvenir de moi » a gauche,
+              « Mot de passe oublié ? » a droite. Le lien garde sa place ; si la ligne manque de
+              largeur (texte agrandi, arabe, petit iPhone), « Se souvenir de moi » passe sur deux lignes. */}
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 }}>
               <Switch
                 value={remember}
                 onValueChange={(next) => {
@@ -150,11 +163,13 @@ export default function ConnexionScreen() {
                 trackColor={{ true: palette.market600, false: palette.line }}
                 accessibilityLabel={t("Se souvenir de moi")}
               />
-              <Text variant="footnote" weight="semibold" color={palette.ink900} style={{ fontSize: 14 }}>
+              <Text variant="footnote" weight="semibold" color={palette.ink900} style={{ flexShrink: 1, fontSize: 14 }}>
                 {t("Se souvenir de moi")}
               </Text>
             </View>
-            <TextLink label={t("Mot de passe oublié ?")} onPress={() => router.push("/mot-de-passe-oublie")} />
+            <View style={{ flexShrink: 0 }}>
+              <TextLink label={t("Mot de passe oublié ?")} onPress={() => router.push("/mot-de-passe-oublie")} />
+            </View>
           </View>
           <BrandButton label={loading ? t("Connexion…") : t("Se connecter")} disabled={loading} onPress={() => void submit()} />
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 }}>

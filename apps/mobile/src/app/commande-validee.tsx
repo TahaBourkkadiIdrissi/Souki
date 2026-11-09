@@ -123,8 +123,10 @@ export default function CommandeValideeScreen() {
 
       <View style={{ paddingHorizontal: 16, paddingBottom: Math.max(insets.bottom, 16) + 8, gap: 6, zIndex: 3 }}>
         <BrandButton tone="light" icon={Truck} label={t("Suivre ma commande")} onPress={() => {
-            router.dismissTo("/commandes")
-            if (params.id) router.push(`/suivi/${params.id}`)
+            // Une seule navigation, avec la liste Commandes sous le suivi (withAnchor) : sinon,
+            // si l'onglet Commandes n'a jamais ete ouvert, le suivi s'ouvrait seul, sans retour.
+            if (params.id) router.dismissTo(`/suivi/${params.id}`, { withAnchor: true })
+            else router.dismissTo("/commandes")
           }}
         />
         <BrandButton tone="ghostLight" label={t("Continuer mes courses")} onPress={() => router.dismissTo("/marche")} />

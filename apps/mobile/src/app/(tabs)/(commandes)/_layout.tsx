@@ -1,7 +1,7 @@
 import { Stack } from "expo-router"
 
 import { useLocale } from "@/contexts/locale-context"
-import { tabStackOptions } from "@/navigation/stack-options"
+import { tabStackScreenOptions } from "@/navigation/header-fallback"
 
 export const unstable_settings = { anchor: "commandes" }
 
@@ -9,7 +9,7 @@ export const unstable_settings = { anchor: "commandes" }
 export default function CommandesStack() {
   const { t } = useLocale()
   return (
-    <Stack screenOptions={tabStackOptions}>
+    <Stack screenOptions={tabStackScreenOptions("commandes", "/commandes")}>
       <Stack.Screen name="commandes" options={{ title: t("Commandes") }} />
       <Stack.Screen name="suivi/[id]" options={{ title: t("Suivi de commande") }} />
       <Stack.Screen name="gerer/[id]" options={{ title: t("Gérer ma commande") }} />

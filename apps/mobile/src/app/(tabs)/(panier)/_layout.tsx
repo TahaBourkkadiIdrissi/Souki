@@ -1,7 +1,8 @@
 import { Stack } from "expo-router"
 
 import { useLocale } from "@/contexts/locale-context"
-import { productScreenOptions, tabStackOptions } from "@/navigation/stack-options"
+import { tabStackScreenOptions } from "@/navigation/header-fallback"
+import { productScreenOptions } from "@/navigation/stack-options"
 
 export const unstable_settings = { anchor: "panier" }
 
@@ -9,7 +10,7 @@ export const unstable_settings = { anchor: "panier" }
 export default function PanierStack() {
   const { t } = useLocale()
   return (
-    <Stack screenOptions={tabStackOptions}>
+    <Stack screenOptions={tabStackScreenOptions("panier", "/panier")}>
       <Stack.Screen name="panier" options={{ title: t("Panier") }} />
       <Stack.Screen name="produit/[slug]" options={productScreenOptions} />
     </Stack>
