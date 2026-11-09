@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 from fastapi import HTTPException
 
-from services.settings_service import SettingsService
+from services.settings_service import SettingsService, deleted_account_email
 
 
 class AccountDeletionTests(unittest.TestCase):
@@ -37,7 +37,9 @@ class AccountDeletionTests(unittest.TestCase):
             result = self.service.delete_account(self.user.id)
 
         self.assertEqual(result, {"success": True})
-        self.assertIsNone(self.user.email)
+        # E-mail libere mais jamais NULL : t_users exige un e-mail ou un telephone.
+        self.assertEqual(self.user.email, "supprime-7@supprime.invalid")
+        self.assertEqual(self.user.email, deleted_account_email(7))
         self.assertIsNone(self.user.phone)
         self.assertEqual((self.user.prenom, self.user.nom, self.user.password, self.user.avatar_url), (None, None, None, None))
         self.assertFalse(self.user.is_active)
@@ -74,7 +76,7 @@ class AccountDeletionTests(unittest.TestCase):
 
         self.assertEqual(result, {"success": True})
         self.session.commit.assert_called_once()
-        self.assertIsNone(self.user.email)
+        self.assertEqual(self.user.email, "supprime-7@supprime.invalid")
 
 
 if __name__ == "__main__":

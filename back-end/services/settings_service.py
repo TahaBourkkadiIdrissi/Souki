@@ -25,6 +25,15 @@ from services.supabase_storage_service import avatar_storage_service
 
 logger = logging.getLogger("souki.settings")
 
+# Adresse technique d'un compte supprime. La base exige un e-mail OU un telephone
+# (contrainte ck_t_users_identity_present) : on garde une adresse unique par compte,
+# sur le domaine reserve « .invalid » (RFC 2606), ou aucun e-mail ne peut partir.
+DELETED_EMAIL_DOMAIN = "supprime.invalid"
+
+
+def deleted_account_email(user_id: int) -> str:
+    return f"supprime-{int(user_id)}@{DELETED_EMAIL_DOMAIN}"
+
 
 class SettingsService(ISettingsService):
     """Parametres du compte. La session vient du controller (get_settings_service) ;
@@ -295,7 +304,8 @@ class SettingsService(ISettingsService):
         Le compte est anonymise, pas efface : les commandes, le Wallet et les reclamations
         y restent rattaches pour la comptabilite, sans plus rien qui identifie la personne.
         - Bloquee tant qu'une commande est en cours : le livreur a besoin de l'adresse.
-        - E-mail et telephone liberes (NULL) : la personne peut recreer un compte.
+        - E-mail et telephone liberes : la personne peut recreer un compte. L'e-mail est
+          remplace par une adresse technique (contrainte « e-mail ou telephone » de t_users).
         - Nom, mot de passe, photo, adresses, sessions (IP, appareil), abonnements,
           favoris, notifications push et codes OTP effaces ou arretes.
         - Conserve pour la lutte contre la fraude (interet legitime) : les copies du
@@ -318,7 +328,7 @@ class SettingsService(ISettingsService):
                 )
 
             had_photo = bool(user.avatar_url)
-            user.email = None
+            user.email = deleted_account_email(user_id)
             user.phone = None
             user.prenom = None
             user.nom = None
