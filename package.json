@@ -13,6 +13,7 @@
     "dev:client": "pnpm --filter @souki/client dev",
     "dev:livreur": "pnpm --filter @souki/livreur dev",
     "dev:admin": "pnpm --filter @souki/admin dev",
+    "dev:mobile": "pnpm --filter @souki/mobile dev",
     "check:boundaries": "node tools/check-frontend-boundaries.mjs"
   }
 }

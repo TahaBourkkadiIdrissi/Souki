@@ -1,0 +1,18 @@
+{
+  "name": "@souki/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Code TypeScript pur partage entre les interfaces SOUKI (types des DTO de l'API, regles de commande, dictionnaire FR/AR). Aucune dependance React, DOM ou React Native.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "sideEffects": false,
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "5.7.3"
+  }
+}
