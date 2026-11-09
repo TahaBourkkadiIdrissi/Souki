@@ -23,6 +23,8 @@ après le passage sur les écarts (E).
 | E25 | Parrainage | Couronne de légumes du design system dans l'en-tête (`assets/illustrations/couronne-legumes.webp`). |
 | E28 | Commande vocale | Le brouillon vocal est lié à la commande (`brouillon_vocal_id`), comme sur le site. |
 | E14 | Suivi, incident | Carte « Contacter SOUKI » (Appeler, WhatsApp avec le numéro de commande) quand le client est absent, la livraison refusée ou la commande retournée au dépôt. Numéro +212 7 03 43 39 54 dans `packages/shared/src/contact.ts`, aussi sur la politique de confidentialité du site. |
+| E15 | Réclamation | Photo facultative par produit (`PhotoSlot`), envoyée après la réclamation. Le serveur vérifie le vrai format, refuse les images géantes, réencode en JPEG sans métadonnées (ni EXIF ni GPS), réduit à 1600 px, range dans un bucket Supabase privé `reclamations` sans écrasement ; l'admin la lit par URL signée de 5 min. Aucune table modifiée. |
+| E20 | Recommander | Route `GET /api/commandes/{id}/recommander` (prix et disponibilité du jour, propriétaire vérifié) ; l'app retombe sur le catalogue si la route ne répond pas. |
 | E29 | Panier intelligent | Fermé : le back-end n'utilise pas `panier_id` au checkout, il n'y a rien à lier. |
 
 ## 2. Écarts gardés volontairement
@@ -33,6 +35,7 @@ après le passage sur les écarts (E).
 | E21 | Wallet | Pas d'activation du Wallet avec mot de passe | Aucune fonction de l'app n'en a besoin : le Wallet se crée seul au premier crédit. |
 | E26 | Abonnements | Contenu modifié dans l'écran de l'abonnement | Même logique que le site. |
 | E30 | Discussion avec Souki | Pas de bouton micro dans le champ | La dictée du clavier iOS fait ce travail. |
+| E24 | Wallet, historique | Pas de « Commande N-… » sous les mouvements | Décision de Salah eddine (9 novembre 2026) : pas nécessaire, et il faudrait une colonne dans `t_transactions_wallet`. |
 | E31 | Discussion avec Souki | Conversation gardée pendant la session de l'app | Comme le site. |
 
 ## 3. Écarts qui attendent le back-end
@@ -41,9 +44,6 @@ après le passage sur les écarts (E).
 |---|---|---|---|
 | E11 | Checkout, adresse | Hors de Fès : avertissement, pas de blocage | B4 : contrôle de la zone de livraison |
 | E13 | Checkout, paiement | Carte CMI « Bientôt » | Paiement CMI |
-| E15 | Réclamation | Pas de photo par ligne | B5 : photo de réclamation (l'app a déjà `expo-image-picker`) |
-| E20 | Recommander | Calculé dans l'app | B9 : route « Recommander » |
-| E24 | Wallet, historique | Pas de « Commande N-… » sous les mouvements | `commande_id` dans la transaction |
 | E27 | Commande vocale | Pas de transcription en direct | Transcription en continu |
 
 ## 4. Écarts qui attendent la build native (EAS + compte Apple Developer)
@@ -90,4 +90,5 @@ dessiné restant sur iOS 18. Il n'y a pas d'iOS 19 à 25 : Apple est passé d'iO
 
 - Icône App Store 1024 × 1024 px sans transparence : `assets/brand/app-icon-1024.png` (sac de l'écran de lancement sur `souki-900`), branchée dans `app.config.ts`. Visible à partir de la build EAS (Expo Go garde sa propre icône).
 - Politique de confidentialité du site : section « Supprimer votre compte » (ce qui est effacé, ce qui est gardé et pourquoi) et prestataires techniques dans « Partage » (Google Gemini, Groq, Resend, Supabase).
-- À faire : numéro de déclaration ou d'autorisation CNDP dans la politique, une fois obtenu ; accord explicite avant d'envoyer des données à une IA externe (règle Apple 5.1.2(i)).
+- Accord pour les assistants IA (règle Apple 5.1.2(i)) : feuille `accord-ia` avant le premier usage de la commande vocale, du panier intelligent ou de la discussion (une fois par compte, retirable dans Compte > Assistants IA et données).
+- À faire : numéro de déclaration ou d'autorisation CNDP dans la politique, une fois obtenu ; bucket `reclamations` à créer (`back-end/sql/2026-11-09_reclamations_private_bucket.sql`) ; écran admin des réclamations (la route de la photo existe : `GET /api/v1/admin/claims/{id}/photo`).

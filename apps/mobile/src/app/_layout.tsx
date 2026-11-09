@@ -92,6 +92,8 @@ export default function RootLayout() {
                     <Stack.Screen name="commande-vocale" options={{ presentation: "fullScreenModal" }} />
                     <Stack.Screen name="souki-chat" options={{ presentation: "modal" }} />
                     <Stack.Screen name="levee-restriction" options={{ presentation: "formSheet", sheetAllowedDetents: [0.6, 1], sheetGrabberVisible: true, sheetCornerRadius: 28 }} />
+                    {/* Accord pour les assistants IA (regle Apple 5.1.2(i)) : feuille native. */}
+                    <Stack.Screen name="accord-ia" options={{ presentation: "formSheet", sheetAllowedDetents: [0.85, 1], sheetGrabberVisible: true, sheetCornerRadius: 28 }} />
                     <Stack.Screen name="abonner" options={{ presentation: "formSheet", sheetAllowedDetents: [0.85, 1], sheetGrabberVisible: true, sheetCornerRadius: 28 }} />
                   </Stack>
                   {introVisible ? <LaunchIntro onDone={() => setIntroVisible(false)} /> : null}

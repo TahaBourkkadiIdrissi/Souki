@@ -33,8 +33,10 @@ from controllers.commande_recurrente_controller import commande_recurrente_route
 from controllers.category_controller import category_router
 from controllers.panier_souki_controller import panier_souki_router
 from controllers.claim_controller import claim_router
+from controllers.claim_photo_controller import router_claim_photo
 from controllers.checkout_controller import router_checkout
 from controllers.order_edit_controller import router_order_edit
+from controllers.reorder_controller import router_reorder
 from controllers.client_blacklist_controller import client_blacklist_router
 from controllers.commande_controller import router_voice
 from controllers.dispatch_controller import anomalies_router, dispatch_router
@@ -86,10 +88,12 @@ API_ROUTERS: tuple[APIRouter, ...] = (
     router_assistant,
     router_checkout,
     router_order_edit,
+    router_reorder,
     commande_recurrente_router,
     client_blacklist_router,
     pricing_router,
     claim_router,
+    router_claim_photo,
     dispatch_router,
     anomalies_router,
     router_jit,

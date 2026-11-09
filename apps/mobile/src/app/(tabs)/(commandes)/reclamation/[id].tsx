@@ -22,24 +22,26 @@ import { AnimatedDigits } from "@/components/animated-digits"
 import { BrandButton } from "@/components/brand-button"
 import { BrandEmptyState } from "@/components/brand-empty-state"
 import { Note } from "@/components/form-fields"
+import { PhotoSlot, type PickedPhoto } from "@/components/photo-slot"
 import { ProductImage } from "@/components/product-image"
 import { QuantityStepper } from "@/components/quantity-stepper"
 import { Text } from "@/components/text"
 import { useLocale } from "@/contexts/locale-context"
 import { useCatalogue } from "@/hooks/use-catalogue"
 import { orderLineImage, useInvalidateOrders, useOrder } from "@/hooks/use-orders"
-import { ApiError, submitClaim } from "@/lib/api"
+import { ApiError, submitClaim, uploadClaimPhoto } from "@/lib/api"
 import { haptics } from "@/lib/haptics"
 import { DUR_BASE, EASE_OUT_2027 } from "@/lib/motion"
 import { colors, palette, radius, shadows } from "@/theme"
 
-type Selection = { reason: ClaimReason | null; quantity: number }
+type Selection = { reason: ClaimReason | null; quantity: number; photo?: PickedPhoto | null }
 
 /**
  * Signaler un probleme (EcranReclamation, regles de claim_service.py) : commande livree,
  * dans les 24 h, ligne par ligne, quantite au plus egale a la quantite commandee, un des 6
- * motifs. Le montant est recredite aussitot sur le Wallet. La photo n'est pas proposee :
- * l'API ne la recoit pas encore (B5).
+ * motifs. Le montant est recredite aussitot sur le Wallet. Photo optionnelle par ligne (B5) :
+ * envoyee juste apres la reclamation (POST /api/v1/claims/photo) ; si elle echoue, le
+ * remboursement reste acquis et l'ecran le dit.
  */
 export default function ReclamationScreen() {
   const router = useRouter()
@@ -52,7 +54,7 @@ export default function ReclamationScreen() {
   const [selected, setSelected] = useState<Record<number, Selection>>({})
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [done, setDone] = useState<{ refunded: number; balance: number } | null>(null)
+  const [done, setDone] = useState<{ refunded: number; balance: number; photosFailed: number } | null>(null)
 
   if (!order) {
     return (
@@ -88,6 +90,11 @@ export default function ReclamationScreen() {
               </Text>
             </View>
           </View>
+          {done.photosFailed > 0 ? (
+            <View style={{ marginHorizontal: 16, marginTop: 12 }}>
+              <Note tone="orange">{t("La photo n'a pas pu être envoyée. Votre remboursement est bien enregistré.")}</Note>
+            </View>
+          ) : null}
         </ScrollView>
         <View style={{ gap: 8, paddingHorizontal: 16, paddingTop: 8, paddingBottom: Math.max(insets.bottom, 12) }}>
           <BrandButton icon={Wallet} label={t("Voir mon Wallet")} onPress={() => router.navigate("/wallet", { withAnchor: true })} />
@@ -127,9 +134,20 @@ export default function ReclamationScreen() {
           return { ligne_panier_id: line.ligne_panier_id as number, quantity_claimed: selection.quantity, reason: selection.reason as ClaimReason }
         }),
       })
+      // Photos facultatives, une par ligne : un echec n'annule pas le remboursement deja fait.
+      let photosFailed = 0
+      for (const line of chosen) {
+        const photo = selected[line.ligne_panier_id as number].photo
+        if (!photo) continue
+        try {
+          await uploadClaimPhoto(order.id, line.ligne_panier_id as number, photo.uri, photo.mimeType)
+        } catch {
+          photosFailed += 1
+        }
+      }
       haptics.success()
       void invalidateOrders()
-      setDone({ refunded: Number(result.amount_refunded) || 0, balance: Number(result.new_wallet_balance) || 0 })
+      setDone({ refunded: Number(result.amount_refunded) || 0, balance: Number(result.new_wallet_balance) || 0, photosFailed })
     } catch (caught) {
       haptics.error()
       setError(caught instanceof ApiError ? t(caught.message) : t("Impossible d'envoyer la réclamation."))
@@ -269,6 +287,12 @@ function ClaimLine({ line, image, selection, onChange }: { line: OrderProductDTO
               max={line.quantite_kg}
               onChange={(next) => onChange({ ...selection, quantity: Math.min(line.quantite_kg, Math.max(step, roundToStep(next, step))) })}
             />
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <PhotoSlot title={t("Photo du produit")} photo={selection.photo ?? null} onChange={(photo) => onChange({ ...selection, photo })} />
+            <Text variant="footnote" color={palette.ink500} style={{ flex: 1, fontSize: 12, lineHeight: 17 }}>
+              {t("Photo facultative : elle aide SOUKI à améliorer la qualité.")}
+            </Text>
           </View>
           {selection.reason ? (
             <View style={{ paddingVertical: 10, paddingHorizontal: 12, borderRadius: 14, backgroundColor: palette.pale50 }}>

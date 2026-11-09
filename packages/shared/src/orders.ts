@@ -250,3 +250,27 @@ export function formatOrderDay(value: string | null | undefined, dateLocale: str
     return null
   }
 }
+
+/* ---------- Recommander (GET /api/commandes/{id}/recommander, tache B9) ---------- */
+
+export interface ReorderLineDTO {
+  product_id: number
+  nom_fr: string
+  nom_ar: string | null
+  unite: string
+  image_url: string | null
+  /** Quantite de la commande d'origine. */
+  quantite: number
+  /** Prix du jour ; null si le produit ne peut pas etre repris. */
+  prix_unitaire: number | null
+  sous_total: number | null
+  disponible: boolean
+  raison: string | null
+}
+
+export interface ReorderResponseDTO {
+  commande_id: number
+  lignes: ReorderLineDTO[]
+  total_dh: number
+  nombre_disponibles: number
+}

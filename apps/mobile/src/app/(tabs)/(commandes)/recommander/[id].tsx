@@ -1,5 +1,6 @@
 import { ScrollView, View } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
+import { useQuery } from "@tanstack/react-query"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Repeat, ShoppingBasket } from "lucide-react-native"
 import { formatDirhams, formatQuantity, productName, roundToStep } from "@souki/shared"
@@ -11,6 +12,7 @@ import { useCart } from "@/contexts/cart-context"
 import { useLocale } from "@/contexts/locale-context"
 import { useCatalogue } from "@/hooks/use-catalogue"
 import { orderLineImage, useOrder } from "@/hooks/use-orders"
+import { fetchReorder } from "@/lib/api"
 import { haptics } from "@/lib/haptics"
 import { colors, palette, radius } from "@/theme"
 
@@ -19,6 +21,8 @@ import { colors, palette, radius } from "@/theme"
  * produits aux prix d'aujourd'hui ; les produits absents du catalogue du jour ou en rupture
  * sont grises et exclus. Ils s'ajoutent au panier, ou l'on peut encore ajuster.
  * « Répéter automatiquement » ouvre l'abonnement depuis cette commande.
+ * Prix et disponibilite viennent du serveur (GET /api/commandes/{id}/recommander) ; si la route ne
+ * repond pas, l'app retombe sur le catalogue du jour qu'elle a deja.
  */
 export default function RecommanderSheet() {
   const router = useRouter()
@@ -28,12 +32,22 @@ export default function RecommanderSheet() {
   const { productsById } = useCatalogue()
   const { id } = useLocalSearchParams<{ id: string }>()
   const { order } = useOrder(Number(id))
+  const reorderQuery = useQuery({
+    queryKey: ["reorder", Number(id)],
+    queryFn: ({ signal }) => fetchReorder(Number(id), signal),
+    staleTime: 0,
+    retry: false,
+  })
+  const fromServer = reorderQuery.data ? new Map(reorderQuery.data.lignes.map((entry) => [entry.product_id, entry])) : null
 
   const rows = (order?.produits ?? []).map((line, index) => {
     const live = line.product_id ? productsById.get(line.product_id) : undefined
-    const available = Boolean(live && live.availability !== "out_of_stock")
+    const server = fromServer && line.product_id ? fromServer.get(line.product_id) : undefined
+    // Le serveur fait foi ; le produit doit aussi etre dans le catalogue de l'app pour entrer au panier.
+    const available = fromServer ? Boolean(server?.disponible && live) : Boolean(live && live.availability !== "out_of_stock")
+    const unitPrice = fromServer ? server?.prix_unitaire ?? null : live?.price ?? null
     const quantity = live ? Math.max(live.quantityStep, roundToStep(line.quantite_kg, live.quantityStep)) : line.quantite_kg
-    return { key: `${line.ligne_panier_id ?? index}`, line, live, available, quantity, price: live ? live.price * quantity : null }
+    return { key: `${line.ligne_panier_id ?? index}`, line, live, available, quantity, price: available && unitPrice !== null ? unitPrice * quantity : null }
   })
   const addable = rows.filter((row) => row.available)
   const total = addable.reduce((sum, row) => sum + (row.price ?? 0), 0)

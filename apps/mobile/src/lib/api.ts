@@ -34,6 +34,7 @@ import type {
   SoukiBasketDTO,
   VoiceBasketResponseDTO,
   WalletDTO,
+  ReorderResponseDTO,
 } from "@souki/shared"
 
 import { fetch as expoFetch } from "expo/fetch"
@@ -230,6 +231,26 @@ export function fetchOrderHistory(signal?: AbortSignal) {
   return apiCall<OrderHistoryDTO[]>("/api/commandes/historique", { signal })
 }
 
+/**
+ * Photo d'une ligne reclamee (POST /api/v1/claims/photo), envoyee juste apres la reclamation.
+ * Le serveur la verifie, la reencode en JPEG sans metadonnees et la range dans un stockage prive.
+ */
+export function uploadClaimPhoto(commandeId: number, lignePanierId: number, fileUri: string, mimeType: string): Promise<{ status: string }> {
+  const extension = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg"
+  return postLocalFile<{ status: string }>(
+    "/api/v1/claims/photo",
+    "file",
+    { uri: fileUri, name: `photo.${extension}`, type: mimeType },
+    "Envoi de la photo impossible.",
+    { commande_id: String(commandeId), ligne_panier_id: String(lignePanierId) },
+  )
+}
+
+/** Recommander : produits de la commande aux prix et a la disponibilite du jour (GET /api/commandes/{id}/recommander). */
+export function fetchReorder(id: number, signal?: AbortSignal) {
+  return apiCall<ReorderResponseDTO>(`/api/commandes/${id}/recommander`, { signal })
+}
+
 /** Commande modifiable : lignes, version, echeance (GET /api/commandes/{id}/modification). */
 export function fetchOrderForEdit(id: number, signal?: AbortSignal) {
   return apiCall<OrderEditResponseDTO>(`/api/commandes/${id}/modification`, { signal })
@@ -339,9 +360,16 @@ export function sendTextBasket(texte: string) {
  * (« Unsupported FormDataPart implementation ») : l'XMLHttpRequest de React Native, lui, lit
  * le fichier sur l'iPhone et l'envoie tel quel. Pas de cookie (equivalent de `credentials: "omit"`).
  */
-async function postLocalFile<T>(endpoint: string, field: string, file: { uri: string; name: string; type: string }, fallback: string): Promise<T> {
+async function postLocalFile<T>(
+  endpoint: string,
+  field: string,
+  file: { uri: string; name: string; type: string },
+  fallback: string,
+  fields: Record<string, string> = {},
+): Promise<T> {
   const token = await getAccessToken()
   const form = new FormData()
+  for (const [name, value] of Object.entries(fields)) form.append(name, value)
   form.append(field, file as unknown as Blob)
   const { status, data } = await new Promise<{ status: number; data: { detail?: unknown } | null }>((resolve, reject) => {
     const request = new XMLHttpRequest()

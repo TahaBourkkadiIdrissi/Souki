@@ -135,6 +135,9 @@ export default function CompteScreen() {
 
       <SettingsGroup title="SOUKI">
         <SettingsRow icon={MessageCircle} label={t("Discuter avec Souki")} sub={t("Horaires, livraison, paiement, réclamation")} onPress={() => openAssistant("chat")} />
+        {status === "signedIn" ? (
+          <SettingsRow icon={ShieldCheck} label={t("Assistants IA et données")} sub={t("Votre accord pour les assistants IA")} onPress={() => router.push("/accord-ia")} />
+        ) : null}
         {SITE_PAGES.map((page) => (
           <SettingsRow key={page.path} icon={page.Icon} label={t(page.label)} external onPress={() => void Linking.openURL(`${SITE_URL}${page.path}`)} />
         ))}
