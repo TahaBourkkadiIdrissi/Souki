@@ -66,6 +66,8 @@ dessiné restant sur iOS 18. Il n'y a pas d'iOS 19 à 25 : Apple est passé d'iO
 
 ## 6. À vérifier sur l'iPhone
 
+**Vérification du code (9 novembre 2026)** : aucun bouton sans libellé VoiceOver ; les positions gauche/droite sont symétriques ou dans des blocs forcés de gauche à droite (coupon de parrainage, curseur d'heure, tracés) ; aucune largeur fixe plus grande que l'iPhone SE. Reste à regarder sur l'appareil ou le simulateur :
+
 - Photos produit sur fond blanc : `mixBlendMode: multiply` (`ProductImage variant="inset"`).
 - Écrans sur iPhone SE (375 × 667) et iPhone 16 Pro (393 × 852), VoiceOver sur les boutons à icône seule (F9).
 - Arabe (RTL) sur les nouveaux écrans : compte, checkout, confirmation, fidélité, IA.
@@ -83,3 +85,9 @@ dessiné restant sur iOS 18. Il n'y a pas d'iOS 19 à 25 : Apple est passé d'iO
 - **Réglé (9 novembre 2026, avec l'accord de Salah eddine)** : `settings_service.py` ne crée plus de `LocalSession()` ni de requête. Session ouverte par `get_settings_service()` dans `settings_controller.py`, requêtes dans `dao/settings_dao.py` (flush seulement), commit/rollback dans le service, interfaces `ISettingsDao` et `ISettingsService`. Routes et réponses inchangées. Test `tests/test_settings_profile_names.py` adapté, à lancer dans le conteneur du back-end.
 - **Suppression du compte (9 novembre 2026)** : la suppression ne faisait que désactiver le compte (e-mail et téléphone bloqués, données gardées). Elle anonymise maintenant le compte (App Store 5.1.1(v), loi 09-08) : e-mail et téléphone libérés, identité, adresses, photo, sessions, abonnements, favoris, push et codes OTP effacés ou arrêtés ; commandes, Wallet, réclamations, liste noire et parrainage gardés. Bloquée tant qu'une commande est en cours. Script `back-end/sql/2026-11-09_anonymisation_comptes_supprimes.sql` pour les comptes supprimés avant (à lancer à la main), test `tests/test_settings_account_deletion.py`. À faire avec B1 : révoquer le jeton Apple à la suppression. À ajouter dans la politique de confidentialité : ce qui est gardé après suppression et pourquoi.
 - Tâches B1 à B10 de `DESIGN-HANDOFF.md` (voir sections 3 et 4).
+
+## 9. Publication (9 novembre 2026)
+
+- Icône App Store 1024 × 1024 px sans transparence : `assets/brand/app-icon-1024.png` (sac de l'écran de lancement sur `souki-900`), branchée dans `app.config.ts`. Visible à partir de la build EAS (Expo Go garde sa propre icône).
+- Politique de confidentialité du site : section « Supprimer votre compte » (ce qui est effacé, ce qui est gardé et pourquoi) et prestataires techniques dans « Partage » (Google Gemini, Groq, Resend, Supabase).
+- À faire : numéro de déclaration ou d'autorisation CNDP dans la politique, une fois obtenu ; accord explicite avant d'envoyer des données à une IA externe (règle Apple 5.1.2(i)).

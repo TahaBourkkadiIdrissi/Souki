@@ -4,6 +4,7 @@ export const POLITIQUE_AR: Record<string, string> = {
   "Transparence totale sur la façon dont SOUKI Fresh Market collecte, utilise et protège vos données personnelles.": "شفافية كاملة حول كيفية جمع SOUKI Fresh Market لبياناتك الشخصية واستعمالها وحمايتها.",
   "Dernière mise à jour :": "آخر تحديث:",
   "28 Mars 2026": "28 مارس 2026",
+  "9 Novembre 2026": "9 نونبر 2026",
   "Navigation": "التنقل",
   "Requis": "ضروري",
   "Base légale :": "الأساس القانوني:",
@@ -96,4 +97,29 @@ export const POLITIQUE_AR: Record<string, string> = {
   "Téléphone": "الهاتف",
   "Délai de réponse": "مدة الرد",
   "Sous 30 jours ouvrés": "خلال 30 يوم عمل",
+  "Téléphone et WhatsApp": "الهاتف وواتساب",
+
+  // Prestataires techniques (9 novembre 2026)
+  "Enregistrement ou texte de la commande vocale — uniquement pour reconnaître les produits demandés": "تسجيل أو نص الطلب الصوتي — فقط للتعرّف على المنتجات المطلوبة",
+  "Critères du panier intelligent et messages de la discussion avec Souki — uniquement pour composer la réponse": "معايير السلة الذكية ورسائل المحادثة مع سوكي — فقط لتكوين الرد",
+  "Adresse e-mail — uniquement pour envoyer les codes de vérification et les liens de réinitialisation": "البريد الإلكتروني — فقط لإرسال رموز التحقق وروابط إعادة التعيين",
+  "Hébergement de la base de données et des photos de profil": "استضافة قاعدة البيانات وصور الملف الشخصي",
+
+  // Suppression du compte (9 novembre 2026)
+  "Suppression du compte": "حذف الحساب",
+  "Supprimer votre compte": "حذف حسابك",
+  "Vous pouvez supprimer votre compte à tout moment : dans l'app iPhone (Compte > Sécurité > Supprimer le compte) ou sur le site (Paramètres). La suppression est définitive. Elle n'est pas possible tant qu'une commande est en cours de livraison : annulez-la ou attendez sa livraison.":
+    "يمكنك حذف حسابك في أي وقت: في تطبيق آيفون (الحساب > الأمان > حذف الحساب) أو على الموقع (الإعدادات). الحذف نهائي. ولا يمكن إجراؤه ما دام هناك طلب قيد التوصيل: ألغِه أو انتظر توصيله.",
+  "Ce qui est effacé": "ما يتم محوه",
+  "Nom, prénom, adresse e-mail, numéro de téléphone, mot de passe et photo de profil": "الاسم العائلي والشخصي والبريد الإلكتروني ورقم الهاتف وكلمة المرور وصورة الملف الشخصي",
+  "Adresses de livraison et favoris": "عناوين التوصيل والمفضلة",
+  "Appareils connectés (nom de l'appareil, navigateur, lieu, adresse IP) et notifications": "الأجهزة المتصلة (اسم الجهاز، المتصفح، الموقع، عنوان IP) والإشعارات",
+  "Codes de vérification et code de parrainage": "رموز التحقق ورمز الإحالة",
+  "Vos abonnements sont arrêtés": "يتم إيقاف اشتراكاتك",
+  "Ce qui est gardé, sans votre nom ni vos coordonnées": "ما يتم الاحتفاظ به، دون اسمك ولا بيانات الاتصال بك",
+  "L'historique des commandes et des paiements (produits, montants, dates), pour nos obligations comptables et fiscales": "سجل الطلبات والمدفوعات (المنتجات، المبالغ، التواريخ)، لالتزاماتنا المحاسبية والضريبية",
+  "Les mouvements du Wallet SOUKI, les réclamations et les parrainages, pour la même raison": "حركات محفظة SOUKI والشكايات والإحالات، للسبب نفسه",
+  "Une éventuelle restriction après un refus de livraison, pour prévenir la fraude": "أي تقييد محتمل بعد رفض التوصيل، للوقاية من الاحتيال",
+  "Votre e-mail et votre numéro de téléphone redeviennent libres : vous pouvez recréer un compte avec. Le solde de votre Wallet SOUKI n'est pas remboursé : utilisez-le avant de supprimer votre compte.":
+    "يصبح بريدك الإلكتروني ورقم هاتفك متاحين من جديد: يمكنك إنشاء حساب جديد بهما. لا يُسترجع رصيد محفظة SOUKI: استعمله قبل حذف حسابك.",
 }

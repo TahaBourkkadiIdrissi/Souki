@@ -14,8 +14,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   scheme: "souki",
   version: "0.1.0",
   orientation: "portrait",
-  // Icone SOUKI 512 px (apps/client/public/brand/souki-2026/pwa-512.png) : fournir une version 1024 px avant la soumission.
-  icon: "./assets/icon.png",
+  // Icone 1024 x 1024 px exigee par l'App Store, sans transparence : le sac de l'ecran de lancement
+  // (brand/splash-symbol.png) sur souki-900 #005B43, marge = hauteur de la feuille (design system).
+  // L'ancienne icone 512 px (assets/icon.png) est gardee.
+  icon: "./assets/brand/app-icon-1024.png",
   // Identite SOUKI en clair, comme la PWA (fond creme, verts de la marque).
   userInterfaceStyle: "light",
   ios: {

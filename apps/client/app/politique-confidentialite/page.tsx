@@ -15,7 +15,8 @@ import {
   ChevronRight,
   ArrowLeft,
   CheckCircle,
-  Phone
+  Phone,
+  Trash2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useLocale } from "@/contexts/locale-context"
@@ -109,6 +110,11 @@ const sections = [
       { name: "Livreurs partenaires", scope: "Nom, adresse et créneau — uniquement pour la livraison" },
       { name: "CMI (Centre Monétique Interbancaire)", scope: "Données de paiement sécurisées" },
       { name: "Autorités compétentes", scope: "Si requis par la loi marocaine" },
+      // Ajout du 9 novembre 2026 : prestataires techniques reellement appeles par le back-end.
+      { name: "Google (Gemini)", scope: "Enregistrement ou texte de la commande vocale — uniquement pour reconnaître les produits demandés" },
+      { name: "Groq", scope: "Critères du panier intelligent et messages de la discussion avec Souki — uniquement pour composer la réponse" },
+      { name: "Resend", scope: "Adresse e-mail — uniquement pour envoyer les codes de vérification et les liens de réinitialisation" },
+      { name: "Supabase", scope: "Hébergement de la base de données et des photos de profil" },
     ],
   },
   {
@@ -141,6 +147,38 @@ const sections = [
         href: null,
       },
     ],
+  },
+  // Ajout du 9 novembre 2026 : ce que fait reellement la suppression du compte
+  // (SettingsService.delete_account), exige par Apple (regle 5.1.1(v)) et la loi 09-08.
+  {
+    id: "suppression",
+    icon: Trash2,
+    label: "Suppression du compte",
+    title: "Supprimer votre compte",
+    content: [
+      "Vous pouvez supprimer votre compte à tout moment : dans l'app iPhone (Compte > Sécurité > Supprimer le compte) ou sur le site (Paramètres). La suppression est définitive. Elle n'est pas possible tant qu'une commande est en cours de livraison : annulez-la ou attendez sa livraison.",
+    ],
+    subsections: [
+      {
+        title: "Ce qui est effacé",
+        items: [
+          "Nom, prénom, adresse e-mail, numéro de téléphone, mot de passe et photo de profil",
+          "Adresses de livraison et favoris",
+          "Appareils connectés (nom de l'appareil, navigateur, lieu, adresse IP) et notifications",
+          "Codes de vérification et code de parrainage",
+          "Vos abonnements sont arrêtés",
+        ],
+      },
+      {
+        title: "Ce qui est gardé, sans votre nom ni vos coordonnées",
+        items: [
+          "L'historique des commandes et des paiements (produits, montants, dates), pour nos obligations comptables et fiscales",
+          "Les mouvements du Wallet SOUKI, les réclamations et les parrainages, pour la même raison",
+          "Une éventuelle restriction après un refus de livraison, pour prévenir la fraude",
+        ],
+      },
+    ],
+    note: "Votre e-mail et votre numéro de téléphone redeviennent libres : vous pouvez recréer un compte avec. Le solde de votre Wallet SOUKI n'est pas remboursé : utilisez-le avant de supprimer votre compte.",
   },
 ]
 
@@ -218,7 +256,7 @@ export default function PolitiqueConfidentialitePage() {
           </p>
           <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full border border-gray-200 shadow-sm text-sm text-[#8A8A8A]">
             <Clock className="w-4 h-4 text-[#1E8A3C]" />
-            {t("Dernière mise à jour :")} <strong className="text-[#3D3D3D] ms-1">{t("28 Mars 2026")}</strong>
+            {t("Dernière mise à jour :")} <strong className="text-[#3D3D3D] ms-1">{t("9 Novembre 2026")}</strong>
           </div>
         </div>
       </div>
@@ -460,6 +498,39 @@ export default function PolitiqueConfidentialitePage() {
                     )}
                   </div>
                 ))}
+              </div>
+            </section>
+
+            <hr className="border-gray-100" />
+
+            {/* Suppression du compte */}
+            <section id="suppression" className="scroll-mt-24">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-[#F0FAF1] flex items-center justify-center">
+                  <Trash2 className="w-5 h-5 text-[#1E8A3C]" />
+                </div>
+                <h2 className="text-3xl font-bold text-[#3D3D3D]">{t(sections[7].title)}</h2>
+              </div>
+              {sections[7].content?.map((p, i) => (
+                <p key={i} className="text-[#555] leading-relaxed mb-6">{t(p)}</p>
+              ))}
+              <div className="grid sm:grid-cols-2 gap-4 mb-6">
+                {sections[7].subsections?.map((sub, i) => (
+                  <div key={i} className="bg-white border-2 border-gray-100 rounded-2xl p-5">
+                    <p className="font-semibold text-[#3D3D3D] mb-3">{t(sub.title)}</p>
+                    <ul className="space-y-2">
+                      {sub.items.map((item, j) => (
+                        <li key={j} className="flex items-start gap-2 text-sm text-[#555] leading-relaxed">
+                          <CheckCircle className="w-4 h-4 text-[#1E8A3C] flex-shrink-0 mt-0.5" />
+                          {t(item)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+              <div className="p-4 bg-[#FFF5EB] rounded-xl border border-[#F07C00]/20">
+                <p className="text-sm text-[#D66B00]">{t(sections[7].note ?? "")}</p>
               </div>
             </section>
 
