@@ -73,6 +73,11 @@ export default function PanierIntelligentScreen() {
       haptics.error()
       return setError(t("Entrez un budget valide pour generer le panier."))
     }
+    // Meme plafond que PanierRequestDTO (budget <= 5000) : sinon Pydantic repond en anglais.
+    if (!isDish && parsedBudget > DISH_NEUTRAL_BUDGET) {
+      haptics.error()
+      return setError(t("Le budget ne peut pas dépasser {max} DH.", { max: DISH_NEUTRAL_BUDGET }))
+    }
     setError(null)
     setPhase("generating")
     scrollRef.current?.scrollTo({ y: 0, animated: false })

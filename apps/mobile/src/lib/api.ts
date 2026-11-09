@@ -334,26 +334,48 @@ export function sendTextBasket(texte: string) {
 }
 
 /**
+ * Envoi d'un fichier local (enregistrement, photo) en multipart. Depuis le SDK 58, le `fetch`
+ * global est celui d'Expo, qui refuse les fichiers `{ uri, name, type }` de React Native
+ * (« Unsupported FormDataPart implementation ») : l'XMLHttpRequest de React Native, lui, lit
+ * le fichier sur l'iPhone et l'envoie tel quel. Pas de cookie (equivalent de `credentials: "omit"`).
+ */
+async function postLocalFile<T>(endpoint: string, field: string, file: { uri: string; name: string; type: string }, fallback: string): Promise<T> {
+  const token = await getAccessToken()
+  const form = new FormData()
+  form.append(field, file as unknown as Blob)
+  const { status, data } = await new Promise<{ status: number; data: { detail?: unknown } | null }>((resolve, reject) => {
+    const request = new XMLHttpRequest()
+    request.open("POST", `${API_BASE_URL}${endpoint}`)
+    request.withCredentials = false
+    request.timeout = 90_000
+    request.setRequestHeader("Accept", "application/json")
+    if (token) request.setRequestHeader("Authorization", `Bearer ${token}`)
+    request.onload = () => {
+      let parsed: { detail?: unknown } | null = null
+      try {
+        parsed = request.responseText ? JSON.parse(request.responseText) : null
+      } catch {
+        parsed = null
+      }
+      resolve({ status: request.status, data: parsed })
+    }
+    request.onerror = () => reject(new Error("network"))
+    request.ontimeout = () => reject(new Error("timeout"))
+    request.send(form)
+  })
+  if (status < 200 || status >= 300) {
+    if (status === 401 && token) await clearAccessToken()
+    throw new ApiError(status, typeof data?.detail === "string" ? data.detail : fallback)
+  }
+  return data as T
+}
+
+/**
  * Liste dite a voix haute (POST /api/voice-basket) : fichier WAV enregistre sur l'iPhone,
  * envoye en multipart (le serveur accepte WAV, MP3 et WebM, 60 s au plus).
  */
-export async function sendVoiceBasket(fileUri: string): Promise<VoiceBasketResponseDTO> {
-  const token = await getAccessToken()
-  const form = new FormData()
-  // React Native envoie le fichier a partir de son chemin local.
-  form.append("audio", { uri: fileUri, name: "enregistrement.wav", type: "audio/wav" } as unknown as Blob)
-  const response = await fetch(`${API_BASE_URL}/api/voice-basket`, {
-    method: "POST",
-    headers: { Accept: "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    body: form,
-    credentials: "omit",
-  })
-  const data = await response.json().catch(() => null)
-  if (!response.ok) {
-    if (response.status === 401 && token) await clearAccessToken()
-    throw new ApiError(response.status, typeof data?.detail === "string" ? data.detail : "Erreur lors du traitement vocal.")
-  }
-  return data as VoiceBasketResponseDTO
+export function sendVoiceBasket(fileUri: string): Promise<VoiceBasketResponseDTO> {
+  return postLocalFile<VoiceBasketResponseDTO>("/api/voice-basket", "audio", { uri: fileUri, name: "enregistrement.wav", type: "audio/wav" }, "Erreur lors du traitement vocal.")
 }
 
 /** Questions rapides de Souki et leurs reponses (GET /api/assistant/suggestions). */
@@ -408,21 +430,7 @@ export async function streamChat(message: string, history: ChatMessage[], onDelt
  * Photo de profil (POST /api/user/profile/photo, champ `file`) : JPG, PNG ou WEBP, 2 Mo au
  * plus ; le serveur reencode l'image et renvoie une URL signee.
  */
-export async function uploadProfilePhoto(fileUri: string, mimeType: string): Promise<{ photo_url: string }> {
-  const token = await getAccessToken()
+export function uploadProfilePhoto(fileUri: string, mimeType: string): Promise<{ photo_url: string }> {
   const extension = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg"
-  const form = new FormData()
-  form.append("file", { uri: fileUri, name: `photo.${extension}`, type: mimeType } as unknown as Blob)
-  const response = await fetch(`${API_BASE_URL}/api/user/profile/photo`, {
-    method: "POST",
-    headers: { Accept: "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    body: form,
-    credentials: "omit",
-  })
-  const data = await response.json().catch(() => null)
-  if (!response.ok) {
-    if (response.status === 401 && token) await clearAccessToken()
-    throw new ApiError(response.status, typeof data?.detail === "string" ? data.detail : "Envoi de la photo impossible.")
-  }
-  return data as { photo_url: string }
+  return postLocalFile<{ photo_url: string }>("/api/user/profile/photo", "file", { uri: fileUri, name: `photo.${extension}`, type: mimeType }, "Envoi de la photo impossible.")
 }

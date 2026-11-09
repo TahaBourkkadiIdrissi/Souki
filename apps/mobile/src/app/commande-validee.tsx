@@ -1,5 +1,5 @@
 import { View } from "react-native"
-import Animated, { useReducedMotion } from "react-native-reanimated"
+import Animated, { cubicBezier, useReducedMotion } from "react-native-reanimated"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { Image } from "expo-image"
 import { LinearGradient } from "expo-linear-gradient"
@@ -21,6 +21,8 @@ const POP = {
   from: { opacity: 0, transform: [{ scale: 0.85 }] },
   to: { opacity: 1, transform: [{ scale: 1 }] },
 } as const
+/** Ressort du design system : cubic-bezier(0.34, 1.56, 0.64, 1). Reanimated refuse la chaine CSS. */
+const POP_EASING = cubicBezier(0.34, 1.56, 0.64, 1)
 const FLOAT = {
   "0%": { transform: [{ translateY: 0 }] },
   "50%": { transform: [{ translateY: -5 }] },
@@ -78,7 +80,7 @@ export default function CommandeValideeScreen() {
             justifyContent: "center",
             backgroundColor: "rgba(255, 255, 255, 0.1)",
             boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.25)",
-            ...(reducedMotion ? null : { animationName: POP, animationDuration: "500ms", animationTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)", animationFillMode: "both" }),
+            ...(reducedMotion ? null : { animationName: POP, animationDuration: "500ms", animationTimingFunction: POP_EASING, animationFillMode: "both" }),
           }}
         >
           <Animated.View style={reducedMotion ? undefined : { animationName: FLOAT, animationDuration: "3200ms", animationIterationCount: "infinite", animationTimingFunction: "ease-in-out" }}>

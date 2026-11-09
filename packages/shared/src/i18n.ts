@@ -799,6 +799,7 @@ export const ARABIC: Record<string, string> = {
   "Durée": "المدة",
   "Durée du panier": "مدة السلة",
   "Entrez un budget valide pour generer le panier.": "أدخل ميزانية صحيحة لتكوين السلة.",
+  "Le budget ne peut pas dépasser {max} DH.": "لا يمكن أن تتجاوز الميزانية {max} درهم.",
   "Ex : 150": "مثال: 150",
   "Ex : 2 kilos de tomates, 1 kilo d'oignons": "مثال: 2 كيلو طماطم، 1 كيلو بصل",
   "Grillades": "المشويات",

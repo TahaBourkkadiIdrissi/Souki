@@ -38,6 +38,9 @@ ALLOWED_AUDIO_FORMATS = {
     "audio/wav",
     "audio/wave",
     "audio/x-wav",
+    # iPhone (app iOS) : React Native remplace le type de la piece jointe par celui
+    # qu'iOS associe a l'extension .wav. Le contenu reste verifie (signature RIFF).
+    "audio/vnd.wave",
     "audio/mpeg",
     "audio/mp3",
     "audio/webm",
@@ -48,7 +51,7 @@ ALLOWED_AUDIO_FORMATS = {
 
 def _normalize_audio_content_type(content_type: str | None) -> str:
     normalized = (content_type or "").split(";", 1)[0].strip().lower()
-    if normalized == "audio/wave" or normalized == "audio/x-wav":
+    if normalized == "audio/wave" or normalized == "audio/x-wav" or normalized == "audio/vnd.wave":
         return "audio/wav"
     if normalized == "audio/mpeg":
         return "audio/mp3"

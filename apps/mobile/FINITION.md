@@ -73,6 +73,8 @@ dessiné restant sur iOS 18. Il n'y a pas d'iOS 19 à 25 : Apple est passé d'iO
 ## 7. Bugs connus
 
 - Favoris : ils ne se resynchronisent pas juste après une connexion (l'effet ne lit le jeton qu'au montage). Il faut modifier un `useEffect` existant, ce que la règle 14 interdit sans accord.
+- **Réglé (9 novembre 2026)** : commande vocale et photo de profil. Le `fetch` global du SDK 58 (celui d'Expo) refuse les fichiers `{ uri }` ; l'envoi passe par `postLocalFile` (XMLHttpRequest de React Native) dans `src/lib/api.ts`.
+- **Réglé (9 novembre 2026)** : écran « Commande validée » qui plantait (Reanimated refuse la chaîne `cubic-bezier(...)`, remplacée par `cubicBezier()`).
 - Option : le back-end pose encore son cookie de session lors d'une connexion depuis l'app (inutile, l'app l'ignore avec `credentials: "omit"`).
 
 ## 8. Back-end
