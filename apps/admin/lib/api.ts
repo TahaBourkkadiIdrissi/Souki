@@ -1274,3 +1274,44 @@ export async function getBlacklistMonthlyReport(
     { token }
   )
 }
+
+
+/* ---------- Reclamations (photos de reclamation, tache B5) ---------- */
+
+export type ClaimReasonCode = "abime" | "poids_incorrect" | "erreur_produit" | "produit_manquant" | "qualite" | "autre"
+
+export interface AdminClaimDTO {
+  id: number
+  created_at: string
+  commande_id: number
+  date_livraison: string | null
+  client_id: number
+  client_nom: string | null
+  produit: string
+  unite: string
+  reason: ClaimReasonCode | string
+  quantity_claimed: number
+  amount_refunded: number
+  status: string
+  is_suspect: boolean
+  /** null : le stockage n'a pas pu etre lu, la photo reste consultable a la demande. */
+  has_photo: boolean | null
+}
+
+export interface AdminClaimsOverviewDTO {
+  total_30j: number
+  montant_30j: number
+  suspects_30j: number
+  avec_photo_30j: number | null
+  items: AdminClaimDTO[]
+}
+
+/** 100 dernieres reclamations et chiffres des 30 derniers jours (GET /api/v1/admin/claims). */
+export async function getAdminClaims(token: string, signal?: AbortSignal) {
+  return apiCall<AdminClaimsOverviewDTO>("/api/v1/admin/claims?limit=100", { token, signal, cache: "no-store" })
+}
+
+/** Lien signe de 5 minutes vers la photo d'une reclamation (bucket prive). */
+export async function getAdminClaimPhoto(token: string, claimId: number) {
+  return apiCall<{ url: string; expires_in: number }>(`/api/v1/admin/claims/${claimId}/photo`, { token, cache: "no-store" })
+}

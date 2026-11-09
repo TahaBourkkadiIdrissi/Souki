@@ -34,6 +34,7 @@ from controllers.category_controller import category_router
 from controllers.panier_souki_controller import panier_souki_router
 from controllers.claim_controller import claim_router
 from controllers.claim_photo_controller import router_claim_photo
+from controllers.claim_admin_controller import router_claim_admin
 from controllers.checkout_controller import router_checkout
 from controllers.order_edit_controller import router_order_edit
 from controllers.reorder_controller import router_reorder
@@ -94,6 +95,7 @@ API_ROUTERS: tuple[APIRouter, ...] = (
     pricing_router,
     claim_router,
     router_claim_photo,
+    router_claim_admin,
     dispatch_router,
     anomalies_router,
     router_jit,
