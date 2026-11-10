@@ -6,17 +6,20 @@ import { Image } from "expo-image"
 import { LinearGradient } from "expo-linear-gradient"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Gesture, GestureDetector } from "react-native-gesture-handler"
-import { ArrowLeft, ArrowRight, Check, Languages, Leaf, MapPin, Mic, ShoppingBasket, Sparkles, Truck, User, type LucideIcon } from "lucide-react-native"
-import { formatDirhams, formatPriceUnit, formatQuantity, normalizeMoroccanPhone, type Locale } from "@souki/shared"
+import { ArrowLeft, ArrowRight, Check, Gift, Languages, Leaf, Lock, MapPin, Mic, ShoppingBasket, Sparkles, Truck, User, type LucideIcon } from "lucide-react-native"
+import { formatDirhams, formatPriceUnit, formatQuantity, normalizeMoroccanPhone, passwordIsValid, type Locale } from "@souki/shared"
 
+import { EmailChip } from "@/components/auth-screen"
 import { BrandButton } from "@/components/brand-button"
-import { Note, TextField } from "@/components/form-fields"
+import { Note, OtpInput, PasswordRules, TextField } from "@/components/form-fields"
 import { MapPicker, type PickedPlace } from "@/components/map-picker"
 import { OnboardingRoad } from "@/components/onboarding-road"
 import {
   AssistantsScene,
+  CodeScene,
   MarketScene,
   NameScene,
+  PasswordScene,
   PhoneScene,
   SceneCanvas,
   TrustScene,
@@ -28,7 +31,7 @@ import { Text } from "@/components/text"
 import { useAuth } from "@/contexts/auth-context"
 import { useLocale } from "@/contexts/locale-context"
 import { useCatalogue } from "@/hooks/use-catalogue"
-import { ApiError, updateAddress, updateProfile } from "@/lib/api"
+import { ApiError, register, resendOtp, updateAddress, updateProfile, verifyOtp } from "@/lib/api"
 import { haptics } from "@/lib/haptics"
 import { MARKET_KEYS, pickProducts } from "@/lib/scene-products"
 import { formatPhoneDigits, isPhoneComplete, markOnboardingSeen, missingInfo, phoneDigits, type OnboardingInfo } from "@/lib/onboarding"
@@ -37,8 +40,14 @@ import { fonts, palette, radius, shadows } from "@/theme"
 const SPLASH = require("../../assets/brand/splash-symbol.png")
 const INTRO: SceneKey[] = ["marche", "voix", "confiance"]
 const INFO: OnboardingInfo[] = ["prenom", "adresse", "telephone"]
+/** Etapes d'un nouveau compte par e-mail : tout est demande ici, puis le compte est cree. */
+const SIGNUP_STEPS: SceneKey[] = ["bienvenue", "prenom", "adresse", "telephone", "motdepasse", "code", ...INTRO]
+/** Etapes a remplir (arrets en pointilles sur le chemin du « S ») : les champs de la scene se reduisent avec le clavier. */
+const FORM_STEPS = new Set<SceneKey>(["prenom", "adresse", "telephone", "motdepasse", "code"])
 /** iPhone SE (667 pt de haut) : scene plus basse et textes plus petits (page EcranPetit). */
 const COMPACT_HEIGHT = 700
+/** « Renvoyer le code » attend 60 s (comme le site). */
+const RESEND_SECONDS = 60
 
 /** Fond de chaque etape (sk-ob-bg-*), en fondu de 420 ms d'une etape a l'autre. */
 const BACKGROUNDS: Record<SceneKey, { colors: [string, string, ...string[]]; locations?: [number, number, ...number[]] }> = {
@@ -46,12 +55,14 @@ const BACKGROUNDS: Record<SceneKey, { colors: [string, string, ...string[]]; loc
   prenom: { colors: [palette.green100, palette.green100] },
   adresse: { colors: ["#EEF1EA", "#EEF1EA"] },
   telephone: { colors: [palette.souki900, palette.souki900] },
+  motdepasse: { colors: [palette.pale50, palette.green100] },
+  code: { colors: [palette.green100, palette.mint300] },
   marche: { colors: [palette.night950, palette.forest800, palette.market600], locations: [0, 0.55, 1] },
   voix: { colors: [palette.forest700, palette.forest900], locations: [0.1, 0.8] },
   confiance: { colors: [palette.mint300, palette.mint300] },
 }
 /** Fonds clairs : le logo passe en vert SOUKI. */
-const LIGHT_BACKGROUNDS = new Set<SceneKey>(["bienvenue", "prenom", "adresse", "confiance"])
+const LIGHT_BACKGROUNDS = new Set<SceneKey>(["bienvenue", "prenom", "adresse", "motdepasse", "code", "confiance"])
 
 type Fact = { icon: LucideIcon; label: string }
 
@@ -64,12 +75,16 @@ function slideIn(fromEnd: boolean) {
 }
 
 /**
- * Onboarding « Bienvenue chez SOUKI » (Onboarding, design system 2027) : une seule fois, juste apres
- * la creation du compte, avant l'accueil. Bienvenue + langue ; puis SEULEMENT ce qui manque pour
- * livrer (prenom, adresse, telephone), chacun avec « Plus tard » ; puis trois ecrans sur le service
- * (« Passer » mene a l'accueil). Pas de demande de notifications ici. La progression est le chemin
- * du « S » avec le camion. Glisser la scene change d'etape (sauf sur la carte de l'adresse).
- * Les reponses sont enregistrees a la fin avec les routes existantes du profil et de l'adresse.
+ * Onboarding « Bienvenue chez SOUKI » (Onboarding, design system 2027), sur le chemin du « S ».
+ *
+ * Nouveau compte par e-mail (`?email=` depuis l'entree) : bienvenue + langue, prenom et nom, adresse
+ * (carte, zone de Fes : obligatoire, le serveur l'exige pour creer le compte), telephone (« Plus tard »),
+ * mot de passe -> le compte est cree (POST /auth/register avec tout) -> code recu par e-mail
+ * (valide au 6e chiffre) -> trois ecrans sur le service -> accueil.
+ *
+ * Compte deja cree ailleurs (Google / Apple, plus tard) : bienvenue, SEULEMENT ce qui manque (chacun
+ * avec « Plus tard », enregistre a la fin), puis les trois ecrans.
+ * Pas de demande de notifications ici. Glisser la scene change d'etape (sauf sur la carte).
  */
 export default function BienvenueScreen() {
   const router = useRouter()
@@ -78,14 +93,17 @@ export default function BienvenueScreen() {
   const compact = height < COMPACT_HEIGHT
   const reducedMotion = useReducedMotion()
   const { t, locale, setLocale, isRtl, direction } = useLocale()
-  const { profile, refresh } = useAuth()
+  const { profile, refresh, acceptToken } = useAuth()
   const { products } = useCatalogue()
+  const params = useLocalSearchParams<{ demo?: string; email?: string }>()
   // Developpement seulement : toutes les etapes, et rien n'est enregistre sur le vrai compte.
-  const { demo } = useLocalSearchParams<{ demo?: string }>()
-  const isDemo = __DEV__ && demo === "1"
+  const isDemo = __DEV__ && params.demo === "1"
+  // Mode fige a l'ouverture : la session s'ouvre en cours de route (apres le code).
+  const [signupEmail] = useState(() => (params.email ?? "").trim().toLowerCase())
+  const signup = signupEmail.length > 0
 
-  // Ce qui manque, fige au premier profil connu : les etapes ne changent plus ensuite.
-  const [missing, setMissing] = useState<OnboardingInfo[] | null>(isDemo ? [...INFO] : profile ? missingInfo(profile) : null)
+  // Compte existant : ce qui manque, fige au premier profil connu.
+  const [missing, setMissing] = useState<OnboardingInfo[] | null>(signup ? [] : isDemo ? [...INFO] : profile ? missingInfo(profile) : null)
   useEffect(() => {
     if (missing === null && profile) setMissing(missingInfo(profile))
   }, [missing, profile])
@@ -95,22 +113,52 @@ export default function BienvenueScreen() {
     return () => clearTimeout(fallback)
   }, [])
 
-  const steps: SceneKey[] = ["bienvenue", ...(missing ?? []), ...INTRO]
+  const steps: SceneKey[] = signup ? SIGNUP_STEPS : ["bienvenue", ...(missing ?? []), ...INTRO]
   const [page, setPage] = useState(0)
   const [forward, setForward] = useState(true)
-  const [values, setValues] = useState(isDemo ? { prenom: "", adresse: "", telephone: "" } : { prenom: profile?.prenom ?? "", adresse: profile?.address.adresse ?? "", telephone: "" })
+  const [values, setValues] = useState({
+    prenom: signup || isDemo ? "" : (profile?.prenom ?? ""),
+    nom: "",
+    adresse: signup || isDemo ? "" : (profile?.address.adresse ?? ""),
+    telephone: "",
+    password: "",
+    referral: "",
+    code: "",
+  })
   const [later, setLater] = useState<OnboardingInfo[]>([])
   const [place, setPlace] = useState<PickedPlace | null>(null)
   const [keyboard, setKeyboard] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [referralOpen, setReferralOpen] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  // Compte cree (apres « Créer mon compte ») : identifiant pour le code, et plus de retour en arriere.
+  const [account, setAccount] = useState<{ userId: number; channel: string; target: string } | null>(null)
+  const [verified, setVerified] = useState(false)
+  const [wait, setWait] = useState(RESEND_SECONDS)
 
   const key = steps[Math.min(page, steps.length - 1)]
   const isInfo = (INFO as string[]).includes(key)
+  const isForm = FORM_STEPS.has(key)
   const isIntro = (INTRO as string[]).includes(key)
   const last = page === steps.length - 1
   const name = values.prenom.trim()
+  const outside = place !== null && !place.inZone
   const ok =
-    key === "telephone" ? isPhoneComplete(values.telephone) : key === "prenom" ? name.length > 1 : key === "adresse" ? values.adresse.trim().length > 1 : key === "bienvenue" ? missing !== null : true
+    key === "telephone"
+      ? isPhoneComplete(values.telephone)
+      : key === "prenom"
+        ? name.length > 1
+        : key === "adresse"
+          ? values.adresse.trim().length > 1 && (!signup || (place !== null && place.inZone))
+          : key === "motdepasse"
+            ? passwordIsValid(values.password)
+            : key === "code"
+              ? values.code.length === 6
+              : key === "bienvenue"
+                ? missing !== null
+                : true
+  // « Plus tard » : prenom et telephone ; l'adresse aussi pour un compte existant (le serveur l'exige a la creation).
+  const canLater = isInfo && !(signup && key === "adresse")
 
   useEffect(() => {
     const show = Keyboard.addListener("keyboardWillShow", () => setKeyboard(true))
@@ -121,10 +169,17 @@ export default function BienvenueScreen() {
     }
   }, [])
 
+  // Compte a rebours de « Renvoyer le code ».
+  useEffect(() => {
+    if (key !== "code" || verified || wait <= 0) return
+    const timer = setTimeout(() => setWait((seconds) => seconds - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [key, verified, wait])
+
   /* ---------- Hauteur de la scene : 414 / 300 pt sur iPhone 16 Pro, plus basse sur SE et avec le clavier ---------- */
   const designHeight = isIntro ? 414 : 300
   const stageHeight =
-    isInfo && keyboard ? (compact ? 110 : 150) : Math.round(height * (compact ? (isIntro ? 0.435 : 0.294) : isIntro ? 0.486 : 0.352))
+    isForm && keyboard ? (compact ? 110 : 150) : Math.round(height * (compact ? (isIntro ? 0.435 : 0.294) : isIntro ? 0.486 : 0.352))
   const stage = useSharedValue(stageHeight)
   useEffect(() => {
     stage.set(reducedMotion ? stageHeight : withTiming(stageHeight, { duration: 420, easing: Easing.out(Easing.cubic) }))
@@ -155,10 +210,15 @@ export default function BienvenueScreen() {
 
   /* ---------- Navigation ---------- */
 
+  const codeIndex = steps.indexOf("code")
   const go = (next: number) => {
     if (next < 0 || next >= steps.length || next === page) return
+    // Compte cree : on ne revient plus sur le mot de passe ; code valide : plus sur le code.
+    if (signup && account && next < codeIndex) return
+    if (signup && verified && next <= codeIndex) return
     Keyboard.dismiss()
     haptics.selection()
+    setFormError(null)
     setForward(next > page)
     setPage(next)
   }
@@ -170,21 +230,92 @@ export default function BienvenueScreen() {
     go(page + 1)
   }
 
+  /** Nouveau compte : tout ce qui a ete donne part avec la creation (le serveur exige la position). */
+  const createAccount = async () => {
+    if (saving || !place) return
+    setSaving(true)
+    setFormError(null)
+    Keyboard.dismiss()
+    try {
+      const result = await register({
+        email: signupEmail,
+        password: values.password,
+        role: "CLIENT",
+        prenom: later.includes("prenom") ? undefined : name || undefined,
+        nom: values.nom.trim() || undefined,
+        phone: !later.includes("telephone") && isPhoneComplete(values.telephone) ? normalizeMoroccanPhone(phoneDigits(values.telephone)) : undefined,
+        code_parrainage: values.referral.trim().toUpperCase() || undefined,
+        latitude: place.coordinates.latitude,
+        longitude: place.coordinates.longitude,
+        adresse: values.adresse.trim().slice(0, 200) || undefined,
+        ville: (place.city || "Fès").slice(0, 100),
+      })
+      setAccount({ userId: result.id, channel: result.verification_channel ?? "email", target: result.verification_target ?? signupEmail })
+      setWait(RESEND_SECONDS)
+      haptics.success()
+      setForward(true)
+      setPage(codeIndex)
+    } catch (caught) {
+      haptics.error()
+      if (caught instanceof ApiError) setFormError(t(caught.message))
+      else Alert.alert(t("Pas de connexion internet"), t("Vérifiez votre connexion internet."))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  /** Code recu par e-mail : valide au 6e chiffre, ouvre la session, puis les trois ecrans. */
+  const checkCode = async (code: string) => {
+    if (!account || saving || verified) return
+    setSaving(true)
+    setFormError(null)
+    try {
+      const result = await verifyOtp(account.userId, code, account.channel)
+      if (result.access_token) await acceptToken(result.access_token)
+      setVerified(true)
+      haptics.success()
+      setTimeout(() => {
+        setForward(true)
+        setPage(codeIndex + 1)
+      }, 600)
+    } catch (caught) {
+      haptics.error()
+      setFormError(caught instanceof ApiError && caught.status !== 400 ? t(caught.message) : t("Code incorrect. Vérifiez-le ou demandez-en un nouveau."))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const resend = async () => {
+    if (!account) return
+    try {
+      const result = await resendOtp(account.userId, account.channel)
+      setWait(result.resend_available_in_seconds ?? RESEND_SECONDS)
+      setValues((current) => ({ ...current, code: "" }))
+      setFormError(null)
+    } catch (caught) {
+      setFormError(caught instanceof ApiError ? t(caught.message) : t("Impossible d'envoyer un nouveau code pour le moment."))
+    }
+  }
+
   const finish = async () => {
     if (saving) return
+    // Nouveau compte : rien a enregistrer, tout est parti avec la creation. Pas encore valide : pas d'accueil.
+    if (signup && !verified) return
     setSaving(true)
     Keyboard.dismiss()
-    const asked = missing ?? []
-    const prenom = asked.includes("prenom") && !later.includes("prenom") ? name : ""
-    const telephone = asked.includes("telephone") && !later.includes("telephone") && isPhoneComplete(values.telephone) ? normalizeMoroccanPhone(phoneDigits(values.telephone)) : ""
-    const adresse = asked.includes("adresse") && !later.includes("adresse") ? values.adresse.trim() : ""
     let failed = false
-    if (isDemo) {
+    if (isDemo || signup) {
+      await markOnboardingSeen()
       setSaving(false)
       haptics.success()
       router.dismissTo("/marche")
       return
     }
+    const asked = missing ?? []
+    const prenom = asked.includes("prenom") && !later.includes("prenom") ? name : ""
+    const telephone = asked.includes("telephone") && !later.includes("telephone") && isPhoneComplete(values.telephone) ? normalizeMoroccanPhone(phoneDigits(values.telephone)) : ""
+    const adresse = asked.includes("adresse") && !later.includes("adresse") ? values.adresse.trim() : ""
     try {
       if ((prenom || telephone) && profile) {
         await updateProfile({ prenom: prenom || profile.prenom, nom: profile.nom ?? "", email: profile.email, telephone: telephone || profile.telephone })
@@ -206,7 +337,12 @@ export default function BienvenueScreen() {
     router.dismissTo("/marche")
   }
 
-  const next = () => (last ? void finish() : go(page + 1))
+  const next = () => {
+    if (key === "motdepasse") return void createAccount()
+    if (key === "code") return void checkCode(values.code)
+    if (last) return void finish()
+    go(page + 1)
+  }
 
   /* ---------- Glisser la scene : etape suivante ou precedente ---------- */
   const swipe = Gesture.Pan()
@@ -217,7 +353,8 @@ export default function BienvenueScreen() {
     .onEnd((event) => {
       if (Math.abs(event.translationX) < 40) return
       const toNext = event.translationX < 0 !== isRtl
-      if (toNext && (!ok || last)) return
+      // Creer le compte et valider le code se font seulement avec le bouton.
+      if (toNext && (!ok || last || key === "motdepasse" || key === "code")) return
       go(page + (toNext ? 1 : -1))
     })
 
@@ -264,32 +401,42 @@ export default function BienvenueScreen() {
   const arabic = locale === "ar"
   const titleStyle = arabic
     ? { fontSize: compact ? 26 : 30, lineHeight: compact ? 36 : 42, letterSpacing: 0 }
-    : isInfo
+    : isForm
       ? { fontSize: compact ? 24 : 27, lineHeight: compact ? 29 : 32, letterSpacing: -0.5 }
       : { fontSize: compact ? 26 : 30, lineHeight: compact ? 31 : 35, letterSpacing: -0.6 }
-  const bodyStyle = arabic ? { fontSize: 17, lineHeight: 28 } : isInfo || compact ? { fontSize: 15, lineHeight: 22 } : { fontSize: 16, lineHeight: 24 }
+  const bodyStyle = arabic ? { fontSize: 17, lineHeight: 28 } : isForm || compact ? { fontSize: 15, lineHeight: 22 } : { fontSize: 16, lineHeight: 24 }
 
   const eyebrow = (label: string) =>
-    compact && isInfo ? null : (
+    compact && isForm ? null : (
       <Text weight="heavy" color={palette.orange700} style={{ fontSize: arabic ? 13 : 11, lineHeight: arabic ? 18 : 14, letterSpacing: arabic ? 0 : 0.9, textTransform: arabic ? "none" : "uppercase" }}>
         {label}
       </Text>
     )
+  const heading = (title: string, text: React.ReactNode) => (
+    <>
+      <Text accessibilityRole="header" weight="black" color={palette.ink900} style={titleStyle}>
+        {title}
+      </Text>
+      <Text color={palette.ink700} style={bodyStyle}>
+        {text}
+      </Text>
+    </>
+  )
 
   let body: React.ReactNode
   if (key === "bienvenue") {
     body = (
       <>
-        <Text accessibilityRole="header" weight="black" color={palette.ink900} style={titleStyle}>
-          {name ? t("Bienvenue, {name} 👋", { name }) : t("Bienvenue chez SOUKI 👋")}
-        </Text>
-        <Text color={palette.ink700} style={bodyStyle}>
-          {missingCount === 0
-            ? t("Votre compte est prêt. Trois écrans pour découvrir SOUKI, puis le marché.")
-            : missingCount === 1
-              ? t("Votre compte est prêt. Pour vous livrer, il nous manque une information : donnez-la maintenant ou plus tard.")
-              : t("Votre compte est prêt. Pour vous livrer, il nous manque {n} informations : donnez-les maintenant ou plus tard.", { n: missingCount })}
-        </Text>
+        {heading(
+          name ? t("Bienvenue, {name} 👋", { name }) : t("Bienvenue chez SOUKI 👋"),
+          signup
+            ? t("Créons votre compte : votre nom, votre adresse de livraison, puis un mot de passe.")
+            : missingCount === 0
+              ? t("Votre compte est prêt. Trois écrans pour découvrir SOUKI, puis le marché.")
+              : missingCount === 1
+                ? t("Votre compte est prêt. Pour vous livrer, il nous manque une information : donnez-la maintenant ou plus tard.")
+                : t("Votre compte est prêt. Pour vous livrer, il nous manque {n} informations : donnez-les maintenant ou plus tard.", { n: missingCount }),
+        )}
         <View style={{ gap: 10, marginTop: 6 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Languages size={15} color={palette.ink500} strokeWidth={2.2} />
@@ -343,29 +490,35 @@ export default function BienvenueScreen() {
     )
   } else if (isInfo) {
     const info = infos[key as OnboardingInfo]
-    const outside = key === "adresse" && place !== null && !place.inZone
     body = (
       <>
         {eyebrow(info.eyebrow)}
-        <Text accessibilityRole="header" weight="black" color={palette.ink900} style={titleStyle}>
-          {info.title}
-        </Text>
-        <Text color={palette.ink700} style={bodyStyle}>
-          {info.body}
-        </Text>
-        <View style={{ marginTop: 6 }}>
+        {heading(info.title, info.body)}
+        <View style={{ marginTop: 6, gap: 10 }}>
           {key === "prenom" ? (
-            <TextField
-              label={info.label}
-              icon={User}
-              value={values.prenom}
-              onChangeText={(text) => setValues((current) => ({ ...current, prenom: text }))}
-              autoFocus
-              autoComplete="given-name"
-              textContentType="givenName"
-              returnKeyType="next"
-              onSubmitEditing={() => ok && go(page + 1)}
-            />
+            <>
+              <TextField
+                label={info.label}
+                icon={User}
+                value={values.prenom}
+                onChangeText={(text) => setValues((current) => ({ ...current, prenom: text }))}
+                autoComplete="given-name"
+                textContentType="givenName"
+                returnKeyType="next"
+              />
+              {signup ? (
+                <TextField
+                  label={t("Nom")}
+                  optional={t("(optionnel)")}
+                  value={values.nom}
+                  onChangeText={(text) => setValues((current) => ({ ...current, nom: text }))}
+                  autoComplete="family-name"
+                  textContentType="familyName"
+                  returnKeyType="done"
+                  onSubmitEditing={() => ok && go(page + 1)}
+                />
+              ) : null}
+            </>
           ) : key === "adresse" ? (
             <TextField
               label={info.label}
@@ -385,20 +538,110 @@ export default function BienvenueScreen() {
               onChangeText={(text) => setValues((current) => ({ ...current, telephone: phoneDigits(text) }))}
               placeholder="6 12 34 56 78"
               keyboardType="phone-pad"
-              autoFocus
               autoComplete="tel-national"
               textContentType="telephoneNumber"
               maxLength={13}
             />
           )}
         </View>
-        {key === "adresse" && ok ? (
+        {key === "adresse" ? (
           outside ? (
             <Note tone="orange">{t("SOUKI livre uniquement à Fès pour l'instant. Choisissez une adresse à Fès.")}</Note>
-          ) : (
+          ) : ok ? (
             <Note icon={Check}>{t("Bonne nouvelle, nous livrons chez vous !")}</Note>
-          )
+          ) : null
         ) : null}
+      </>
+    )
+  } else if (key === "motdepasse") {
+    body = (
+      <>
+        {eyebrow(t("Votre compte"))}
+        {heading(t("Choisissez un mot de passe"), t("Il protège votre compte SOUKI."))}
+        <View style={{ marginTop: 6, gap: 10 }}>
+          <EmailChip value={signupEmail} onEdit={() => router.back()} />
+          <TextField
+            label={t("Mot de passe")}
+            icon={Lock}
+            secure
+            value={values.password}
+            onChangeText={(text) => {
+              setValues((current) => ({ ...current, password: text }))
+              setFormError(null)
+            }}
+            textContentType="newPassword"
+            autoComplete="new-password"
+            passwordRules="minlength: 8; required: upper; required: digit;"
+            returnKeyType="done"
+          />
+          <PasswordRules value={values.password} />
+          {referralOpen ? (
+            <TextField
+              label={t("Code de parrainage")}
+              optional={t("(optionnel)")}
+              icon={Gift}
+              value={values.referral}
+              onChangeText={(text) => setValues((current) => ({ ...current, referral: text }))}
+              placeholder={t("Ex : K7M2P9")}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              help={t("Vous recevrez 15 DH sur votre Wallet SOUKI à votre 1re commande livrée.")}
+            />
+          ) : (
+            <Pressable onPress={() => setReferralOpen(true)} accessibilityRole="button" hitSlop={4} style={({ pressed }) => ({ alignSelf: "flex-start", minHeight: 44, justifyContent: "center", opacity: pressed ? 0.6 : 1 })}>
+              <Text weight="heavy" color={palette.market700} style={{ fontSize: 14 }}>
+                {t("J'ai un code de parrainage")}
+              </Text>
+            </Pressable>
+          )}
+          {formError ? <Note tone="red">{formError}</Note> : null}
+        </View>
+      </>
+    )
+  } else if (key === "code") {
+    const minutes = Math.floor(wait / 60)
+    const seconds = String(wait % 60).padStart(2, "0")
+    body = (
+      <>
+        {eyebrow(t("Votre compte"))}
+        {heading(
+          t("Vérifiez votre e-mail"),
+          <>
+            {t("Saisissez le code à 6 chiffres envoyé à ")}
+            <Text weight="bold" color={palette.ink900} style={bodyStyle}>
+              {account?.target ?? signupEmail}
+            </Text>
+            .
+          </>,
+        )}
+        <View style={{ marginTop: 6, gap: 10 }}>
+          <OtpInput
+            value={values.code}
+            onChange={(code) => {
+              setValues((current) => ({ ...current, code }))
+              setFormError(null)
+            }}
+            onComplete={(code) => void checkCode(code)}
+            error={Boolean(formError)}
+            done={verified}
+          />
+          {verified ? (
+            <Note icon={Check}>{t("Compte créé. Quelques réglages et c'est parti.")}</Note>
+          ) : formError ? (
+            <Note tone="red">{formError}</Note>
+          ) : null}
+          {verified ? null : wait > 0 ? (
+            <Text weight="heavy" numeric color={palette.ink500} align="center" style={{ fontSize: 14, minHeight: 44, lineHeight: 44 }}>
+              {t("Renvoyer le code dans {temps}", { temps: `${minutes}:${seconds}` })}
+            </Text>
+          ) : (
+            <Pressable onPress={() => void resend()} accessibilityRole="button" style={({ pressed }) => ({ alignSelf: "center", minHeight: 44, justifyContent: "center", opacity: pressed ? 0.6 : 1 })}>
+              <Text weight="heavy" color={palette.market700} style={{ fontSize: 14 }}>
+                {t("Renvoyer le code")}
+              </Text>
+            </Pressable>
+          )}
+        </View>
       </>
     )
   } else {
@@ -406,12 +649,7 @@ export default function BienvenueScreen() {
     body = (
       <>
         {eyebrow(intro.eyebrow)}
-        <Text accessibilityRole="header" weight="black" color={palette.ink900} style={titleStyle}>
-          {intro.title}
-        </Text>
-        <Text color={palette.ink700} style={bodyStyle}>
-          {intro.body}
-        </Text>
+        {heading(intro.title, intro.body)}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
           {intro.facts.map((fact) => (
             <View key={fact.label} style={{ maxWidth: "100%", minHeight: 32, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: palette.section }}>
@@ -426,7 +664,24 @@ export default function BienvenueScreen() {
     )
   }
 
-  const primary = key === "bienvenue" ? t("Commencer") : last ? t("Faire mes courses") : key === "adresse" ? t("Confirmer l'adresse") : t("Continuer")
+  const primary =
+    key === "bienvenue"
+      ? t("Commencer")
+      : key === "motdepasse"
+        ? saving
+          ? t("Création…")
+          : t("Créer mon compte")
+        : key === "code"
+          ? saving
+            ? t("Vérification…")
+            : t("Valider")
+          : last
+            ? saving
+              ? t("Enregistrement…")
+              : t("Faire mes courses")
+            : key === "adresse"
+              ? t("Confirmer l'adresse")
+              : t("Continuer")
   const enter = reducedMotion ? FadeIn.duration(200) : slideIn(forward !== isRtl)
 
   /* ---------- Scene ---------- */
@@ -450,6 +705,10 @@ export default function BienvenueScreen() {
         <NameScene name={name} greeting={`${greeting} 👋`} />
       ) : key === "telephone" ? (
         <PhoneScene phone={formatPhoneDigits(values.telephone)} />
+      ) : key === "motdepasse" ? (
+        <PasswordScene email={signupEmail} length={values.password.length} />
+      ) : key === "code" ? (
+        <CodeScene code={values.code} />
       ) : key === "marche" ? (
         <MarketScene products={marketProducts} />
       ) : key === "voix" ? (
@@ -516,21 +775,21 @@ export default function BienvenueScreen() {
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 24, paddingTop: compact ? 16 : 24, paddingBottom: 8 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <Animated.View key={`body-${page}-${locale}`} entering={enter} accessibilityLiveRegion="polite" style={{ gap: isInfo ? 8 : compact ? 7 : 10 }}>
+        <Animated.View key={`body-${page}-${locale}`} entering={enter} accessibilityLiveRegion="polite" style={{ gap: isForm ? 8 : compact ? 7 : 10 }}>
           {body}
         </Animated.View>
       </ScrollView>
 
-      <View style={{ alignItems: "center", gap: compact || isInfo ? 8 : 12, paddingHorizontal: 20, paddingTop: 12, paddingBottom: keyboard ? 10 : Math.max(insets.bottom, compact ? 10 : 16) + (isInfo ? 0 : 8) }}>
-        <OnboardingRoad count={steps.length} page={page} infoStops={steps.map((step) => (INFO as string[]).includes(step))} rtl={isRtl} label={t("Étape {i} sur {n}", { i: page + 1, n: steps.length })} />
+      <View style={{ alignItems: "center", gap: compact || isForm ? 8 : 12, paddingHorizontal: 20, paddingTop: 12, paddingBottom: keyboard ? 10 : Math.max(insets.bottom, compact ? 10 : 16) + (isForm ? 0 : 8) }}>
+        <OnboardingRoad count={steps.length} page={page} infoStops={steps.map((step) => FORM_STEPS.has(step))} rtl={isRtl} label={t("Étape {i} sur {n}", { i: page + 1, n: steps.length })} />
         <BrandButton
-          label={saving ? t("Enregistrement…") : primary}
-          icon={last ? ShoppingBasket : isRtl ? ArrowLeft : ArrowRight}
-          iconPosition={last ? "start" : "end"}
-          disabled={!ok || saving}
+          label={primary}
+          icon={last ? ShoppingBasket : key === "motdepasse" ? Check : isRtl ? ArrowLeft : ArrowRight}
+          iconPosition={last || key === "motdepasse" ? "start" : "end"}
+          disabled={!ok || saving || (key === "code" && verified)}
           onPress={next}
         />
-        {isInfo ? (
+        {canLater ? (
           <Pressable onPress={later_} accessibilityRole="button" hitSlop={4} style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: 18, justifyContent: "center", opacity: pressed ? 0.6 : 1 })}>
             <Text weight="heavy" color={palette.souki900} style={{ fontSize: 15 }}>
               {t("Plus tard")}

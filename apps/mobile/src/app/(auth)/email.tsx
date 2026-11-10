@@ -19,8 +19,8 @@ function looksLikePhone(value: string) {
 
 /**
  * Entree, etape « Votre e-mail » (AuthFlow) : un seul champ, puis SOUKI regarde si le compte existe
- * (POST /auth/check-email, B12). Existant -> mot de passe -> accueil ; nouveau -> creation -> code ->
- * onboarding. Un numero de telephone (compte cree sur le site) va directement au mot de passe.
+ * (POST /auth/check-email, B12). Existant -> mot de passe -> accueil ; nouveau -> onboarding, ou
+ * l'on donne nom, adresse, telephone et mot de passe, puis le code. Un numero de telephone (compte cree sur le site) va directement au mot de passe.
  */
 export default function EmailScreen() {
   const router = useRouter()
@@ -42,7 +42,8 @@ export default function EmailScreen() {
     try {
       const result = await checkEmail(login)
       haptics.selection()
-      if (!result.exists) router.push({ pathname: "/inscription", params: { email: login.toLowerCase() } })
+      // Nouveau compte : tout se fait dans l'onboarding (nom, adresse, telephone, mot de passe, code).
+      if (!result.exists) router.push({ pathname: "/bienvenue", params: { email: login.toLowerCase() } })
       else router.push({ pathname: "/mot-de-passe", params: { login: login.toLowerCase(), google: result.has_password ? "" : "1" } })
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 404) {

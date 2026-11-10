@@ -2,8 +2,9 @@ import type { ReactNode } from "react"
 import { View, type ViewStyle } from "react-native"
 import Animated, { Easing, Keyframe, useReducedMotion, FadeIn } from "react-native-reanimated"
 import { Image } from "expo-image"
+import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg"
 import { LinearGradient } from "expo-linear-gradient"
-import { Banknote, Clock, Leaf, Phone, Receipt, ShoppingBasket, Sparkles, Truck, Wallet } from "lucide-react-native"
+import { Banknote, Clock, Leaf, Lock, Mail, Phone, Receipt, ShieldCheck, ShoppingBasket, Sparkles, Truck, Wallet } from "lucide-react-native"
 
 import { VoiceOrb } from "@/components/assistant-cards"
 import { LiveDot } from "@/components/home-hero"
@@ -59,7 +60,7 @@ function Floating({ delay = 0, children }: { delay?: number; children: ReactNode
 
 export type SceneProduct = { name: string; image: string; price: string; quantity: string }
 
-export type SceneKey = "bienvenue" | "prenom" | "adresse" | "telephone" | "marche" | "voix" | "confiance"
+export type SceneKey = "bienvenue" | "prenom" | "adresse" | "telephone" | "motdepasse" | "code" | "marche" | "voix" | "confiance"
 
 /**
  * Canevas de 393 pt de large, mis a l'echelle de la scene (iPhone SE compris) : les positions
@@ -197,29 +198,55 @@ export function PhoneScene({ phone }: { phone: string }) {
 
 /* ---------- 5. Le marche : soleil, prix du jour, etal ---------- */
 
+/*
+ * Canevas 393 x 414. La pastille « Prix du jour » en haut, sous le logo ; au centre, le soleil du
+ * matin (lumiere douce, sans bord) et le panier du marche ; les quatre assiettes autour, chacune
+ * a sa place : rien ne se chevauche et tout tient dans la scene (etiquettes comprises).
+ */
+const SUN = { size: 260, centerY: 246 }
+const BASKET = { width: 150, height: 118, centerY: 238 }
 const PLATES: { left?: number; right?: number; top: number; size: number }[] = [
-  { left: 28, top: 178, size: 104 },
-  { right: 28, top: 160, size: 104 },
-  { left: 104, top: 276, size: 86 },
-  { right: 104, top: 268, size: 86 },
+  { left: 18, top: 168, size: 96 },
+  { right: 18, top: 154, size: 96 },
+  { left: 90, top: 298, size: 78 },
+  { right: 90, top: 298, size: 78 },
 ]
+const BASKET_IMAGE = require("../../assets/illustrations/basket.webp")
 
 export function MarketScene({ products }: { products: SceneProduct[] }) {
   const { t } = useLocale()
   const reducedMotion = useReducedMotion()
   return (
     <>
+      {/* Soleil du matin : lumiere creme qui s'efface vers les bords (pas un disque vide). */}
       <Animated.View
-        entering={reducedMotion ? FadeIn.duration(200) : new Keyframe({ 0: { opacity: 0, transform: [{ translateY: 60 }, { scale: 0.8 }] }, 100: { opacity: 0.55, transform: [{ translateY: 0 }, { scale: 1 }], easing: Easing.out(Easing.cubic) } }).duration(900)}
-        style={{ position: "absolute", left: SCENE_WIDTH / 2 - 105, top: 140, width: 210, height: 210, borderRadius: 105, opacity: 0.55, backgroundColor: "rgba(251, 251, 247, 0.55)", boxShadow: "0 0 70px 30px rgba(251, 251, 247, 0.35)" }}
-      />
+        entering={reducedMotion ? FadeIn.duration(200) : new Keyframe({ 0: { opacity: 0, transform: [{ translateY: 60 }, { scale: 0.8 }] }, 100: { opacity: 1, transform: [{ translateY: 0 }, { scale: 1 }], easing: Easing.out(Easing.cubic) } }).duration(900)}
+        style={{ position: "absolute", left: SCENE_WIDTH / 2 - SUN.size / 2, top: SUN.centerY - SUN.size / 2, width: SUN.size, height: SUN.size }}
+      >
+        <Svg width={SUN.size} height={SUN.size}>
+          <Defs>
+            <RadialGradient id="market-sun" cx="50%" cy="50%" r="50%">
+              <Stop offset="0" stopColor="#FBFBF7" stopOpacity={0.55} />
+              <Stop offset="0.45" stopColor="#FBFBF7" stopOpacity={0.28} />
+              <Stop offset="1" stopColor="#FBFBF7" stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Circle cx={SUN.size / 2} cy={SUN.size / 2} r={SUN.size / 2} fill="url(#market-sun)" />
+        </Svg>
+      </Animated.View>
       <View style={{ position: "absolute", right: -70, top: 70 }}>
         <SMotif size={170} opacity={0.08} />
       </View>
-      <Piece index={0} style={{ left: 24, right: 24, top: 116, alignItems: "center" }}>
-        <View style={{ maxWidth: 345, minHeight: 30, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, borderRadius: 999, backgroundColor: "rgba(255, 255, 255, 0.12)" }}>
+      {/* Le panier du marche, au centre de la lumiere. */}
+      <Piece index={1} style={{ left: SCENE_WIDTH / 2 - BASKET.width / 2, top: BASKET.centerY - BASKET.height / 2 }}>
+        <Floating delay={800}>
+          <Image source={BASKET_IMAGE} style={{ width: BASKET.width, height: BASKET.height }} contentFit="contain" />
+        </Floating>
+      </Piece>
+      <Piece index={0} style={{ left: 24, right: 24, top: 108, alignItems: "center" }}>
+        <View style={{ maxWidth: 345, minHeight: 30, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingVertical: 4, borderRadius: 999, backgroundColor: "rgba(10, 40, 20, 0.35)" }}>
           <LiveDot color={palette.mint300} />
-          <Text weight="heavy" color={palette.white} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={{ flexShrink: 1, fontSize: 12 }}>
+          <Text weight="heavy" color={palette.white} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ flexShrink: 1, fontSize: 12 }}>
             {t("Prix du jour, chaque matin")}
           </Text>
         </View>
@@ -227,14 +254,14 @@ export function MarketScene({ products }: { products: SceneProduct[] }) {
       {products.slice(0, 4).map((product, index) => {
         const plate = PLATES[index]
         return (
-          <Piece key={product.name} index={index + 1} style={{ left: plate.left, right: plate.right, top: plate.top, alignItems: "center", gap: 6 }}>
+          <Piece key={product.name} index={index + 2} style={{ left: plate.left, right: plate.right, top: plate.top, width: plate.size + 8, marginHorizontal: -4, alignItems: "center", gap: 6 }}>
             <Floating delay={index % 2 ? 1600 : 0}>
               <View style={{ width: plate.size, height: plate.size, borderRadius: plate.size / 2, overflow: "hidden", alignItems: "center", justifyContent: "center", backgroundColor: palette.cream, boxShadow: "0 16px 30px -14px rgba(0, 0, 0, 0.6)" }}>
                 <ProductImage uri={product.image} variant="inset" style={{ width: plate.size, height: plate.size }} />
               </View>
             </Floating>
-            <View style={{ maxWidth: 130, minHeight: 24, paddingHorizontal: 10, justifyContent: "center", borderRadius: 999, backgroundColor: palette.yellow400 }}>
-              <Text weight="black" numeric color={palette.ink900} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ fontSize: 12, direction: "ltr" }}>
+            <View style={{ maxWidth: plate.size + 8, minHeight: 24, paddingHorizontal: 8, justifyContent: "center", borderRadius: 999, backgroundColor: palette.yellow400 }}>
+              <Text weight="black" numeric color={palette.ink900} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.65} style={{ fontSize: 12, direction: "ltr" }}>
                 {product.price}
               </Text>
             </View>
@@ -369,5 +396,72 @@ export function TrustScene() {
         </View>
       </Piece>
     </>
+  )
+}
+
+/* ---------- Nouveau compte : mot de passe (la carte du compte se remplit) ---------- */
+
+export function PasswordScene({ email, length }: { email: string; length: number }) {
+  const { t } = useLocale()
+  return (
+    <>
+      <Piece index={0} style={{ left: SCENE_WIDTH / 2 - 150, top: 104 }}>
+        <View style={{ width: 300, gap: 12, padding: 16, borderRadius: 24, borderCurve: "continuous", backgroundColor: palette.white, boxShadow: "0 22px 36px -20px rgba(10, 40, 20, 0.45)" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <View style={{ width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: palette.souki900 }}>
+              <Lock size={18} color={palette.white} strokeWidth={2.4} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text weight="black" color={palette.ink900} numberOfLines={1} style={{ fontSize: 16 }}>
+                {t("Compte SOUKI")}
+              </Text>
+              <Text color={palette.ink500} numberOfLines={1} ellipsizeMode="middle" style={{ fontSize: 12, direction: "ltr" }}>
+                {email}
+              </Text>
+            </View>
+          </View>
+          <View style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 14, borderRadius: 14, backgroundColor: palette.section }}>
+            <Text weight="black" color={length ? palette.ink900 : palette.ink300} numberOfLines={1} style={{ fontSize: 20, letterSpacing: 4, direction: "ltr" }}>
+              {length ? "•".repeat(Math.min(length, 16)) : "••••••••"}
+            </Text>
+          </View>
+        </View>
+      </Piece>
+      <Piece index={2} style={{ left: 24, right: 24, top: 240, alignItems: "center" }}>
+        <View style={{ maxWidth: 345, minHeight: 36, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, borderRadius: 999, backgroundColor: palette.white, boxShadow: shadows.card }}>
+          <ShieldCheck size={16} color={palette.market600} strokeWidth={2.2} />
+          <Text color={palette.ink700} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={{ flexShrink: 1, fontSize: 13 }}>
+            {t("Mot de passe protégé, jamais partagé")}
+          </Text>
+        </View>
+      </Piece>
+    </>
+  )
+}
+
+/* ---------- Nouveau compte : le code recu par e-mail ---------- */
+
+export function CodeScene({ code }: { code: string }) {
+  const { t } = useLocale()
+  return (
+    <Piece index={0} style={{ left: SCENE_WIDTH / 2 - 150, top: 100 }}>
+      <View style={{ width: 300, alignItems: "center", gap: 14, padding: 18, borderRadius: 24, borderCurve: "continuous", backgroundColor: palette.white, boxShadow: "0 22px 36px -20px rgba(10, 40, 20, 0.45)" }}>
+        <View style={{ width: 52, height: 52, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: palette.pale50 }}>
+          <Mail size={24} color={palette.market600} strokeWidth={2.2} />
+        </View>
+        <Text weight="black" color={palette.ink900} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ fontSize: 16 }}>
+          {t("Code envoyé par e-mail")}
+        </Text>
+        <View style={{ flexDirection: "row", gap: 6, direction: "ltr" }}>
+          {Array.from({ length: 6 }, (_, index) => (
+            <View key={index} style={{ width: 34, height: 42, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: code[index] ? palette.pale50 : palette.section, borderWidth: code[index] ? 2 : 0, borderColor: palette.market600 }}>
+              <Text weight="black" numeric color={palette.ink900} style={{ fontSize: 18 }}>
+                {code[index] ?? ""}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    </Piece>
   )
 }

@@ -16,11 +16,10 @@ import { setStatusBarStyle } from "expo-status-bar"
 import Svg, { Path } from "react-native-svg"
 import { getOrderHours } from "@souki/shared"
 
-import { Text } from "@/components/text"
 import { useLocale } from "@/contexts/locale-context"
 import { haptics } from "@/lib/haptics"
 import { EASE_OUT_2027 } from "@/lib/motion"
-import { palette, radius } from "@/theme"
+import { palette } from "@/theme"
 
 /* Memes images que l'ecran de lancement d'iOS (app.config.ts) : la 1re image de l'intro est identique. */
 const SPLASH_MARK = require("../../assets/brand/splash-symbol.png")
@@ -83,13 +82,16 @@ const MARK_DAY = {
   "75%": { transform: [{ scale: 1 }], opacity: 1 },
   "100%": { transform: [{ scale: 0.72 }], opacity: 0 },
 } as const
-/** La nuit, le sac blanc reste et monte de 92 pt. */
+/**
+ * La nuit, le sac blanc reste au centre de l'ecran (il ne monte plus : les textes qu'il laissait
+ * passer dessous ont ete retires) et se pose un peu plus petit.
+ */
 const MARK_NIGHT = {
   "0%": { transform: [{ translateY: 0 }, { scale: 1 }] },
   "22%": { transform: [{ translateY: 0 }, { scale: 0.92 }] },
   "40%": { transform: [{ translateY: 0 }, { scale: 1.05 }] },
   "60%": { transform: [{ translateY: 0 }, { scale: 1 }] },
-  "100%": { transform: [{ translateY: -92 }, { scale: 0.8 }] },
+  "100%": { transform: [{ translateY: 0 }, { scale: 0.9 }] },
 } as const
 const REVEAL = { from: { transform: [{ scale: 0 }] }, to: { transform: [{ scale: 1 }] } } as const
 const LOGO_IN = {
@@ -117,7 +119,7 @@ const LEAF_KEYFRAMES = LEAVES.map(([dx, dy, rotation]) => ({
  * « Le marché se réveille » (LaunchIntro, design system 2027) : jouee une fois au demarrage a
  * froid, juste apres l'ecran de lancement fixe d'iOS, dont elle reprend l'image exacte. Environ
  * 2,2 s : le sac respire, le « S » se trace, le jour se leve (la nuit, 01h-08h heure du Maroc :
- * vert nuit et lune), le logo complet, six feuilles, la promesse et l'etat du marche, puis
+ * vert nuit et lune), le logo complet et six feuilles, sans aucun texte (demande de Salah eddine), puis
  * fondu vers l'accueil. Toucher l'ecran passe directement a l'accueil. « Réduire les
  * animations » : fondu de 200 ms de l'image fixe. Reanimated et react-native-svg seulement (iOS 18+).
  */
@@ -259,7 +261,8 @@ export function LaunchIntro({ onDone }: { onDone: () => void }) {
                 style={{
                   position: "absolute",
                   left: centerX - LOGO_W / 2,
-                  top: height * 0.45 - LOGO_H / 2,
+                  // Centre de l'ecran : plus de textes sous le logo.
+                  top: centerY - LOGO_H / 2,
                   width: LOGO_W,
                   height: LOGO_H,
                   opacity: 0,
@@ -275,7 +278,8 @@ export function LaunchIntro({ onDone }: { onDone: () => void }) {
             )}
 
             {/* Six feuilles s'envolent du logo */}
-            <View style={{ position: "absolute", left: centerX, top: height * (night ? 0.37 : 0.41), width: 0, height: 0 }}>
+            {/* Juste au-dessus du centre : du logo (jour) ou du sac (nuit). */}
+            <View style={{ position: "absolute", left: centerX, top: centerY - (night ? 40 : 34), width: 0, height: 0 }}>
               {LEAF_KEYFRAMES.map((keyframes, index) => {
                 const size = index % 2 === 1 ? 10 : 14
                 return (
@@ -302,39 +306,6 @@ export function LaunchIntro({ onDone }: { onDone: () => void }) {
               })}
             </View>
 
-            {/* La promesse et l'etat du marche */}
-            <View style={{ position: "absolute", left: 0, right: 0, top: height * (night ? 0.52 : 0.57), alignItems: "center", gap: 14, paddingHorizontal: 40 }}>
-              <Animated.View
-                style={{ opacity: 0, animationName: FADE_UP, animationDuration: "360ms", animationDelay: "1200ms", animationTimingFunction: EASE_OUT, animationFillMode: "both" }}
-              >
-                <Text variant="body" weight="semibold" color={night ? palette.mint300 : palette.ink700} align="center" style={{ maxWidth: 270, fontSize: 16, lineHeight: 23 }}>
-                  {night ? t("Le marché dort. Préparez votre panier, validation dès 8h.") : t("Le marché du matin à Fès, livré le lendemain.")}
-                </Text>
-              </Animated.View>
-              <Animated.View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 8,
-                  height: 30,
-                  paddingStart: 12,
-                  paddingEnd: 14,
-                  borderRadius: radius.pill,
-                  backgroundColor: night ? "rgba(255, 255, 255, 0.1)" : palette.pale50,
-                  opacity: 0,
-                  animationName: FADE_UP,
-                  animationDuration: "360ms",
-                  animationDelay: "1350ms",
-                  animationTimingFunction: EASE_OUT,
-                  animationFillMode: "both",
-                }}
-              >
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: night ? palette.yellow400 : palette.fresh500 }} />
-                <Text variant="footnote" weight="heavy" color={night ? palette.white : palette.souki900} style={{ fontSize: 12 }}>
-                  {night ? t("Fermé · réouverture à 8h") : t("Marché ouvert · jusqu'à 1h")}
-                </Text>
-              </Animated.View>
-            </View>
           </>
         )}
       </Pressable>

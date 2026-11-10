@@ -94,7 +94,7 @@ export default function MotDePasseScreen() {
           <Text variant="callout" weight="medium" color={palette.ink500} style={{ fontSize: 14 }}>
             {t("Pas encore de compte ?")}
           </Text>
-          <TextLink label={t("Créer mon compte")} onPress={() => router.replace({ pathname: "/inscription", params: { email: login } })} />
+          <TextLink label={t("Créer mon compte")} onPress={() => router.push({ pathname: "/bienvenue", params: { email: login } })} />
         </View>
       ) : null}
     </AuthScreen>
