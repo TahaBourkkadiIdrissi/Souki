@@ -2,13 +2,13 @@ import type { ReactNode } from "react"
 import { KeyboardAvoidingView, Pressable, ScrollView, View } from "react-native"
 import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { ChevronLeft, ChevronRight, X } from "lucide-react-native"
+import { ChevronLeft, ChevronRight, Mail, X } from "lucide-react-native"
 
 import { StepProgress } from "@/components/form-fields"
 import { Text } from "@/components/text"
 import { useLocale } from "@/contexts/locale-context"
 import { DUR_SLOW, EASE_OUT_2027 } from "@/lib/motion"
-import { colors, palette } from "@/theme"
+import { colors, palette, shadows } from "@/theme"
 
 type AuthScreenProps = {
   /** Libelle du retour (« Connexion », « Adresse »…) ; absent = bouton fermer. */
@@ -20,6 +20,19 @@ type AuthScreenProps = {
   children: ReactNode
   /** Bouton(s) colles en bas, au-dessus du clavier. */
   dock?: ReactNode
+  /**
+   * Entree de l'app (AuthFlow) : retour rond a gauche et croix ronde a droite (sk-au-nav),
+   * au lieu du retour « ‹ Libelle ».
+   */
+  onClose?: () => void
+}
+
+function RoundButton({ label, onPress, children }: { label: string; onPress: () => void; children: ReactNode }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} hitSlop={4} style={({ pressed }) => ({ width: 44, height: 44, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}>
+      <View style={{ width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: palette.white, boxShadow: "0 2px 10px rgba(10, 40, 20, 0.08)" }}>{children}</View>
+    </Pressable>
+  )
 }
 
 /**
@@ -27,14 +40,24 @@ type AuthScreenProps = {
  * souki-900, barre d'etapes, titre 28 pt Black, formulaire en cascade, bouton principal colle
  * en bas au-dessus du clavier.
  */
-export function AuthScreen({ backLabel, onBack, step, title, subtitle, children, dock }: AuthScreenProps) {
-  const { isRtl, direction } = useLocale()
+export function AuthScreen({ backLabel, onBack, step, title, subtitle, children, dock, onClose }: AuthScreenProps) {
+  const { t, isRtl, direction } = useLocale()
   const insets = useSafeAreaInsets()
   const reducedMotion = useReducedMotion()
   const Back = isRtl ? ChevronRight : ChevronLeft
 
   return (
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background, direction }}>
+      {onClose ? (
+        <View style={{ paddingTop: insets.top + 4, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <RoundButton label={backLabel ?? t("Retour")} onPress={onBack}>
+            <Back size={22} color={palette.ink900} strokeWidth={2.6} />
+          </RoundButton>
+          <RoundButton label={t("Fermer")} onPress={onClose}>
+            <X size={18} color={palette.ink900} strokeWidth={2.6} />
+          </RoundButton>
+        </View>
+      ) : (
       <View style={{ paddingTop: insets.top + 4, paddingHorizontal: 8 }}>
         <Pressable
           onPress={onBack}
@@ -56,6 +79,7 @@ export function AuthScreen({ backLabel, onBack, step, title, subtitle, children,
           )}
         </Pressable>
       </View>
+      )}
       <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" contentContainerStyle={{ paddingBottom: 24 }}>
         {step ? (
           <View style={{ paddingHorizontal: 20, paddingBottom: 6 }}>
@@ -91,5 +115,19 @@ export function TextLink({ label, onPress }: { label: string; onPress: () => voi
         {label}
       </Text>
     </Pressable>
+  )
+}
+
+/** Rappel de l'e-mail saisi a l'entree, avec « Modifier » (sk-au-chip). */
+export function EmailChip({ value, onEdit }: { value: string; onEdit: () => void }) {
+  const { t } = useLocale()
+  return (
+    <View style={{ minHeight: 48, flexDirection: "row", alignItems: "center", gap: 10, paddingStart: 14, paddingEnd: 6, borderRadius: 16, borderCurve: "continuous", backgroundColor: palette.white, boxShadow: shadows.card }}>
+      <Mail size={16} color={palette.market600} strokeWidth={2.2} />
+      <Text variant="callout" weight="bold" color={palette.ink900} numberOfLines={1} ellipsizeMode="middle" style={{ flex: 1, fontSize: 15, direction: "ltr" }}>
+        {value}
+      </Text>
+      <TextLink label={t("Modifier")} onPress={onEdit} />
+    </View>
   )
 }

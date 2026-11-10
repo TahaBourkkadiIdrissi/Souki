@@ -75,7 +75,8 @@ export default function CompteScreen() {
         style: "destructive",
         onPress: () => {
           haptics.remove()
-          void signOut()
+          // Deconnexion choisie : l'ecran d'entree (on peut le fermer et parcourir le marche).
+          void signOut().then(() => router.push("/connexion"))
         },
       },
     ])
@@ -114,7 +115,7 @@ export default function CompteScreen() {
           </SettingsGroup>
         </>
       ) : (
-        <GuestCard onSignIn={() => router.push("/connexion")} onSignUp={() => router.push("/inscription")} />
+        <GuestCard onSignIn={() => router.push("/connexion")} onSignUp={() => router.push("/connexion")} />
       )}
 
       {status === "signedIn" ? (
@@ -137,6 +138,10 @@ export default function CompteScreen() {
         <SettingsRow icon={MessageCircle} label={t("Discuter avec Souki")} sub={t("Horaires, livraison, paiement, réclamation")} onPress={() => openAssistant("chat")} />
         {status === "signedIn" ? (
           <SettingsRow icon={ShieldCheck} label={t("Assistants IA et données")} sub={t("Votre accord pour les assistants IA")} onPress={() => router.push("/accord-ia")} />
+        ) : null}
+        {/* Developpement seulement (jamais dans l'app publiee) : revoir l'onboarding sans recreer de compte. */}
+        {__DEV__ && status === "signedIn" ? (
+          <SettingsRow icon={ShieldCheck} label="Revoir l'onboarding (dev)" onPress={() => router.push("/bienvenue?demo=1")} />
         ) : null}
         {SITE_PAGES.map((page) => (
           <SettingsRow key={page.path} icon={page.Icon} label={t(page.label)} external onPress={() => void Linking.openURL(`${SITE_URL}${page.path}`)} />

@@ -1,12 +1,9 @@
 import { useEffect, useState } from "react"
 import { View } from "react-native"
-import Animated, { FadeIn, useReducedMotion } from "react-native-reanimated"
-import { Image } from "expo-image"
-import { useLocalSearchParams } from "expo-router"
-import { CircleAlert } from "lucide-react-native"
+import { useLocalSearchParams, useRouter } from "expo-router"
+import { Check, CircleAlert } from "lucide-react-native"
 
 import { AuthScreen, TextLink } from "@/components/auth-screen"
-import { BrandButton } from "@/components/brand-button"
 import { Note, OtpInput } from "@/components/form-fields"
 import { Text } from "@/components/text"
 import { useAuth } from "@/contexts/auth-context"
@@ -14,23 +11,21 @@ import { useLocale } from "@/contexts/locale-context"
 import { useCloseAuth } from "@/hooks/use-close-auth"
 import { ApiError, resendOtp, verifyOtp } from "@/lib/api"
 import { haptics } from "@/lib/haptics"
-import { DUR_SLOW } from "@/lib/motion"
 import { palette } from "@/theme"
 
-const CELEBRATION = require("../../../assets/illustrations/checkout-celebration.webp")
 /** « Renvoyer le code » attend 60 s (comme le site). */
 const RESEND_SECONDS = 60
 
 /**
- * Verification du compte (code OTP, design system 2027) : 6 cases, le code recu par SMS se
- * propose au-dessus du clavier, la verification part seule au 6e chiffre. Compte active :
- * illustration de fete et haptique de succes ; le jeton est garde, la session est ouverte.
+ * Entree, « Vérifiez votre e-mail » (AuthFlow « code ») : 6 cases, iOS propose le code recu par
+ * Mail au-dessus du clavier, la verification part seule au 6e chiffre. Compte cree : le jeton est
+ * garde (session ouverte) et l'onboarding s'ouvre aussitot, pour chaque nouveau compte.
  */
 export default function VerificationScreen() {
   const params = useLocalSearchParams<{ userId: string; channel?: string; target?: string }>()
   const { t } = useLocale()
-  const reducedMotion = useReducedMotion()
   const closeAuth = useCloseAuth()
+  const router = useRouter()
   const { acceptToken } = useAuth()
   const userId = Number(params.userId)
   const [code, setCode] = useState("")
@@ -54,6 +49,8 @@ export default function VerificationScreen() {
       if (result.access_token) await acceptToken(result.access_token)
       haptics.success()
       setDone(true)
+      // « Compte créé » un instant, puis l'onboarding (nouveau compte : toujours).
+      setTimeout(() => router.replace("/bienvenue"), 700)
     } catch (caught) {
       setError(caught instanceof ApiError && caught.status !== 400 ? t(caught.message) : t("Code incorrect. Vérifiez-le ou demandez-en un nouveau."))
     } finally {
@@ -77,24 +74,18 @@ export default function VerificationScreen() {
 
   return (
     <AuthScreen
-      backLabel={t("Inscription")}
-      onBack={closeAuth}
-      step={done ? undefined : { current: 3, total: 3, label: t("Vérification") }}
-      title={done ? t("Compte activé") : t("Vérification du compte")}
+      onBack={() => router.back()}
+      onClose={closeAuth}
+      title={t("Vérifiez votre e-mail")}
       subtitle={
-        done ? (
-          t("Votre compte SOUKI est prêt. Bienvenue !")
-        ) : (
-          <>
-            {t("Saisissez le code OTP à 6 chiffres envoyé au ")}
-            <Text variant="body" weight="bold" numeric color={palette.ink900} style={{ fontSize: 15 }}>
-              {params.target || t("contact indiqué")}
-            </Text>
-            .
-          </>
-        )
+        <>
+          {t("Saisissez le code à 6 chiffres envoyé à ")}
+          <Text variant="body" weight="bold" color={palette.ink900} style={{ fontSize: 15 }}>
+            {params.target || t("votre adresse")}
+          </Text>
+          .
+        </>
       }
-      dock={done ? <BrandButton label={t("Continuer mes courses")} onPress={closeAuth} /> : null}
     >
       <OtpInput value={code} onChange={setCode} onComplete={(value) => void check(value)} error={Boolean(error)} done={done} />
       {error ? (
@@ -106,12 +97,9 @@ export default function VerificationScreen() {
         </View>
       ) : null}
       {done ? (
-        <Animated.View entering={reducedMotion ? undefined : FadeIn.duration(DUR_SLOW)} style={{ alignItems: "center", marginTop: 10 }}>
-          <Image source={CELEBRATION} style={{ width: 200, height: 200 }} contentFit="contain" accessibilityIgnoresInvertColors />
-        </Animated.View>
+        <Note icon={Check}>{t("Compte créé. Quelques réglages et c'est parti.")}</Note>
       ) : (
         <>
-          <Note>{t("Le compte restera inactif tant que le code n'est pas confirmé.")}</Note>
           <View style={{ alignItems: "center" }}>
             {wait > 0 ? (
               <Text variant="callout" weight="heavy" numeric color={palette.ink500} style={{ fontSize: 14, minHeight: 44, lineHeight: 44 }}>

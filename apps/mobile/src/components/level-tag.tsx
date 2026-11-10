@@ -35,17 +35,20 @@ export function LevelDisc({ level, size = 26 }: { level: ProductLevel; size?: nu
   )
 }
 
-/** Pastille de niveau complete (« ① Les essentiels ») : fiche produit, etageres. */
+/**
+ * Pastille de la fiche produit (« Les essentiels ») : le titre neutre seulement. Le niveau
+ * (1, 2, 3) n'est jamais montre au client (demande de Salah eddine, 9 novembre 2026).
+ */
 export function LevelTag({ level }: { level: ProductLevel }) {
   const { t } = useLocale()
   const spec = LEVELS[level]
   return (
     <View
       accessible
-      accessibilityLabel={`${t("Niveau {n}", { n: level })} : ${t(spec.title)}`}
-      style={{ alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, minHeight: 26, paddingStart: 4, paddingEnd: 10, borderRadius: 999, backgroundColor: spec.background }}
+      accessibilityLabel={t(spec.title)}
+      style={{ alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, minHeight: 26, paddingStart: 9, paddingEnd: 10, borderRadius: 999, backgroundColor: spec.background }}
     >
-      <LevelDisc level={level} size={18} />
+      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: spec.color }} />
       <Text variant="footnote" weight="heavy" color={palette.ink900} style={{ fontSize: 12, lineHeight: 16 }}>
         {t(spec.title)}
       </Text>

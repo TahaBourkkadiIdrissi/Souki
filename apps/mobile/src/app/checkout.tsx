@@ -58,6 +58,7 @@ import {
 } from "@/lib/api"
 import { SITE_URL } from "@/lib/config"
 import { haptics } from "@/lib/haptics"
+import { forgetVoiceDraft, peekVoiceDraft } from "@/lib/voice-draft"
 import { DUR_BASE, EASE_OUT_2027 } from "@/lib/motion"
 import { colors, palette, radius, shadows } from "@/theme"
 
@@ -81,7 +82,8 @@ export default function CheckoutScreen() {
   const router = useRouter()
   // Brouillon de la commande vocale (?vocal=ID) : garde le lien voix -> commande, comme le site.
   const { vocal } = useLocalSearchParams<{ vocal?: string }>()
-  const voiceDraftId = vocal && /^\d+$/.test(vocal) ? Number(vocal) : null
+  // Liste vocale passee par le panier : le numero du brouillon est garde en memoire (lib/voice-draft).
+  const voiceDraftId = vocal && /^\d+$/.test(vocal) ? Number(vocal) : peekVoiceDraft()
   const { t, isRtl } = useLocale()
   const reducedMotion = useReducedMotion()
   const { status, profile } = useAuth()
@@ -202,6 +204,7 @@ export default function CheckoutScreen() {
         panier_id: null,
       })
       submitted.current = true
+      forgetVoiceDraft()
       haptics.success()
       router.replace({
         pathname: "/commande-validee",

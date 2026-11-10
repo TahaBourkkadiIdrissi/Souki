@@ -35,6 +35,7 @@ import type {
   VoiceBasketResponseDTO,
   WalletDTO,
   ReorderResponseDTO,
+  CheckEmailDTO,
 } from "@souki/shared"
 
 import { fetch as expoFetch } from "expo/fetch"
@@ -136,6 +137,19 @@ export function login(loginId: string, password: string) {
 }
 
 /** Inscription (POST /auth/register) ; un code a 6 chiffres est ensuite envoye. */
+/** Compte existant ou nouveau pour cette adresse (POST /auth/check-email, B12). */
+export function checkEmail(email: string) {
+  return apiCall<CheckEmailDTO>("/auth/check-email", { method: "POST", body: { email: email.trim().toLowerCase() }, auth: false })
+}
+
+/**
+ * Renouvelle le jeton de l'app (POST /auth/refresh) tant que la session n'a pas ete fermee :
+ * le client reste connecte jusqu'a ce qu'il choisisse « Se déconnecter ».
+ */
+export function renewSession() {
+  return apiCall<{ access_token: string }>("/auth/refresh", { method: "POST" })
+}
+
 export function register(payload: RegisterPayload) {
   return apiCall<RegisterResponseDTO>("/auth/register", { method: "POST", body: payload, auth: false })
 }

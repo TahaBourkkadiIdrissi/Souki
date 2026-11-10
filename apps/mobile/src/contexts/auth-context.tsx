@@ -1,7 +1,8 @@
-import { createContext, use, useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
+import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { AppState } from "react-native"
 import type { CurrentUserDTO, ProfileDTO } from "@souki/shared"
 
-import { ApiError, fetchMe, fetchProfile, login, logout } from "@/lib/api"
+import { ApiError, fetchMe, fetchProfile, login, logout, renewSession } from "@/lib/api"
 import { clearAccessToken, getAccessToken, setAccessToken } from "@/lib/auth-token"
 
 export type AuthStatus = "loading" | "guest" | "signedIn"
@@ -33,6 +34,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>("loading")
   const [user, setUser] = useState<CurrentUserDTO | null>(null)
   const [profile, setProfile] = useState<ProfileDTO | null>(null)
+  const lastRenewal = useRef(0)
+
+  /**
+   * Garde le client connecte : le jeton (24 h) est renouvele tant que la session n'a pas ete
+   * fermee (« Se déconnecter », « Déconnecter tous les appareils », suppression du compte).
+   * Renvoie false seulement si le serveur dit que la session est fermee.
+   */
+  const renew = useCallback(async () => {
+    try {
+      const result = await renewSession()
+      if (result?.access_token) await setAccessToken(result.access_token)
+      lastRenewal.current = Date.now()
+      return true
+    } catch (error) {
+      // 401 : session fermee. Hors connexion, ou back-end pas encore a jour (404) : on garde le jeton.
+      return !(error instanceof ApiError && error.status === 401)
+    }
+  }, [])
 
   const forget = useCallback(async () => {
     await clearAccessToken()
@@ -47,6 +66,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus("guest")
       return
     }
+    // Au lancement (et au plus une fois par heure ensuite) : renouvellement du jeton.
+    if (Date.now() - lastRenewal.current > 60 * 60 * 1000 && !(await renew())) {
+      await forget()
+      return
+    }
     try {
       const [me, nextProfile] = await Promise.all([fetchMe(), fetchProfile().catch(() => null)])
       setUser(me)
@@ -57,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Hors connexion : on garde l'etat precedent (le jeton reste valable).
       else setStatus((current) => (current === "loading" ? "signedIn" : current))
     }
-  }, [forget])
+  }, [forget, renew])
 
   useEffect(() => {
     void refresh()
@@ -66,6 +90,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const acceptToken = useCallback(
     async (token: string, persist = true) => {
       await setAccessToken(token, persist)
+      // Jeton tout neuf (connexion, code) : pas besoin de le renouveler tout de suite.
+      lastRenewal.current = Date.now()
       await refresh()
     },
     [refresh],
@@ -78,6 +104,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     [acceptToken],
   )
+
+  // Retour au premier plan : nouveau renouvellement s'il date de plus de 6 h.
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state !== "active" || status !== "signedIn" || Date.now() - lastRenewal.current < 6 * 60 * 60 * 1000) return
+      void renew().then((alive) => {
+        if (!alive) void forget()
+      })
+    })
+    return () => subscription.remove()
+  }, [forget, renew, status])
 
   const signOut = useCallback(async () => {
     await logout().catch(() => undefined)

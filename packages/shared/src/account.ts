@@ -104,8 +104,9 @@ export interface RegisterPayload {
   password: string
   role: "CLIENT"
   code_parrainage?: string
-  latitude: number
-  longitude: number
+  /** Absents pour l'entree de l'app (e-mail + mot de passe) : l'adresse vient de l'onboarding. */
+  latitude?: number
+  longitude?: number
   adresse?: string
   ville?: string
 }
@@ -169,4 +170,12 @@ export function distanceKm(a: Coordinates, b: Coordinates): number {
 
 export function isInServiceArea(point: Coordinates): boolean {
   return distanceKm(point, SERVICE_CENTER) <= SERVICE_RADIUS_KM
+}
+
+/** POST /auth/check-email (B12) : l'ecran « Votre e-mail » de l'entree. */
+export interface CheckEmailDTO {
+  exists: boolean
+  /** false : compte cree avec Google, sans mot de passe. */
+  has_password: boolean
+  providers: string[]
 }

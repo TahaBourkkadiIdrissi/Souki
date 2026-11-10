@@ -27,6 +27,7 @@ from config import ACCESS_TOKEN_COOKIE_NAME, Base, engine
 from controllers.admin_controller import admin_router, api_admin_router
 from controllers.admin_exception_controller import router_admin_exceptions
 from controllers.auth_controller import auth_router
+from controllers.auth_mobile_controller import router_auth_mobile
 from controllers.catalogue_controller import router_catalogue
 from controllers.campaign_controller import campaign_router
 from controllers.commande_recurrente_controller import commande_recurrente_router
@@ -76,6 +77,7 @@ from services.wallet_schema_sync_service import WalletSchemaSyncService
 
 API_ROUTERS: tuple[APIRouter, ...] = (
     auth_router,
+    router_auth_mobile,
     profile_router,
     settings_router,
     push_router,

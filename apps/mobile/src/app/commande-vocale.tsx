@@ -1,8 +1,6 @@
-import { useEffect, useRef, useState } from "react"
-import { Pressable, ScrollView, TextInput, View } from "react-native"
-import Animated, { useReducedMotion } from "react-native-reanimated"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { Alert, KeyboardAvoidingView, Linking, Pressable, ScrollView, TextInput, useWindowDimensions, View } from "react-native"
 import { useRouter } from "expo-router"
-import { LinearGradient } from "expo-linear-gradient"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import {
   AudioQuality,
@@ -10,34 +8,49 @@ import {
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
   useAudioRecorder,
-  useAudioRecorderState,
   type RecordingOptions,
 } from "expo-audio"
-import { ArrowRight, ChevronLeft, Keyboard, Mic, Send, TriangleAlert, X } from "lucide-react-native"
+import { Check, Keyboard, Mic, Send, Settings, ShoppingBasket } from "lucide-react-native"
 import {
-  deliveryFeeFor,
+  buildVoiceSpans,
   formatDirhams,
+  formatQuantity,
   productName,
+  roundToStep,
   VOICE_MAX_MS,
-  type VoiceBasketLineDTO,
+  type CatalogueProduct,
   type VoiceBasketResponseDTO,
+  type VoiceSpan,
 } from "@souki/shared"
 
-import { AnimatedDigits } from "@/components/animated-digits"
-import { AssistantFrame, RoundIcon, SuggestedLine } from "@/components/ai-parts"
-import { VoiceOrb } from "@/components/assistant-cards"
 import { BrandButton } from "@/components/brand-button"
-import { CheckoutCard } from "@/components/checkout-parts"
-import { Note } from "@/components/form-fields"
-import { LiveDot } from "@/components/home-hero"
 import { Text } from "@/components/text"
+import {
+  AnalysisSpot,
+  ListeningSpot,
+  MissingRow,
+  VoiceBackdrop,
+  VoiceHeader,
+  VoiceHelp,
+  VoiceRow,
+  VoiceSaid,
+  VoiceSheet,
+  VoiceSteps,
+  VoiceTopBar,
+  VoiceTray,
+  type SaidWord,
+  type SpotItem,
+  type StepState,
+  type TrayChip,
+} from "@/components/voice-scene"
 import { useCart } from "@/contexts/cart-context"
 import { useLocale } from "@/contexts/locale-context"
 import { useCatalogue } from "@/hooks/use-catalogue"
 import { useOrderWindow } from "@/hooks/use-orders"
 import { ApiError, sendTextBasket, sendVoiceBasket } from "@/lib/api"
 import { haptics } from "@/lib/haptics"
-import { palette, radius, shadows } from "@/theme"
+import { rememberVoiceDraft } from "@/lib/voice-draft"
+import { palette } from "@/theme"
 
 /**
  * WAV PCM 16 bits mono a 16 kHz : le format que /api/voice-basket accepte sans conversion
@@ -56,80 +69,132 @@ const RECORDING: RecordingOptions = {
 
 /** Sous une seconde, aucune liste n'a pu etre dite. */
 const MIN_RECORDING_MS = 1000
+/** Un groupe de mots toutes les 620 ms : le temps de lire chaque produit en vedette. */
+const REVEAL_MS = 620
+/** iPhone SE (667 pt de haut) : tailles reduites, comme la page EcranPetit. */
+const COMPACT_HEIGHT = 700
 
-type Phase = "idle" | "listening" | "processing" | "result"
+type Phase = "idle" | "listening" | "analysis" | "ready" | "error"
+type ErrorKind = "unclear" | "failed" | "permission" | "closed"
+
+/** Produit reconnu, avec les prix du jour du catalogue (repli sur le prix renvoye par le serveur). */
+type VoiceLine = {
+  productId: number
+  live: CatalogueProduct | null
+  name: string
+  image: string
+  unit: string
+  step: number
+  quantity: number
+  unitPrice: number
+}
 
 /**
- * Commande vocale (EcranAssistants > Commande vocale, design system 2027 ; regles de
- * ai-modals.tsx du site) : plein ecran vert foret, orbe au centre. Repos « Touchez la sphère
- * pour parler », ecoute (anneaux, ondes, 15 s au plus), analyse « Composition du panier… ».
- * Darija et francais. La liste reconnue rappelle la phrase dite, previent des ajustements de
- * disponibilite, puis « Aller au checkout ». On peut aussi ecrire sa liste.
+ * Commande vocale (VoiceListening + VoiceAnalysis « Du mot au panier », design system 2027) :
+ * une seule scene pour l'ecoute, l'analyse, la liste prete et « pas compris », sans transition de
+ * navigation. A l'ouverture, rien n'est enregistre : toucher la sphere lance l'ecoute ;
+ * « J'ai terminé » (ou la sphere) envoie
+ * l'enregistrement. L'analyse revele la phrase groupe par groupe (620 ms) : produit en vedette,
+ * vignette dans le plateau, total qui roule. La liste prete se corrige (quantite, retirer) puis
+ * « Ajouter au panier ». « Pas compris » propose deux exemples, « Réessayer » et « Écrire ma liste »
+ * (/api/text-basket). Le lien mot -> produit est retrouve dans la phrase (packages/shared/src/voice.ts).
  */
 export default function CommandeVocaleScreen() {
   const router = useRouter()
-  const { t, locale, isRtl } = useLocale()
+  const { t, locale, direction } = useLocale()
   const insets = useSafeAreaInsets()
-  const reducedMotion = useReducedMotion()
+  const { height } = useWindowDimensions()
+  const compact = height < COMPACT_HEIGHT
   const { add } = useCart()
   const { productsById } = useCatalogue()
   const { closed } = useOrderWindow()
   const recorder = useAudioRecorder(RECORDING)
-  const recorderState = useAudioRecorderState(recorder, 200)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const startedAt = useRef(0)
 
   const [phase, setPhase] = useState<Phase>("idle")
-  const [error, setError] = useState<string | null>(null)
+  const [errorKind, setErrorKind] = useState<ErrorKind>("unclear")
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [typing, setTyping] = useState(false)
   const [draft, setDraft] = useState("")
-  const [result, setResult] = useState<VoiceBasketResponseDTO | null>(null)
+  /** Groupes de la derniere phrase ; vide tant que le serveur n'a pas repondu. */
+  const [spans, setSpans] = useState<VoiceSpan<VoiceLine>[]>([])
+  const [revealed, setRevealed] = useState(0)
+  /** Lignes deja validees avant « Corriger en parlant ». */
+  const [kept, setKept] = useState<VoiceLine[]>([])
+  const [keptMissing, setKeptMissing] = useState<string[]>([])
+  const [keptWords, setKeptWords] = useState<Record<number, string>>({})
   const [quantities, setQuantities] = useState<Record<number, number>>({})
+  const [open, setOpen] = useState<number | null>(null)
+  const [draftId, setDraftId] = useState<number | null>(null)
 
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current)
-      void setAudioModeAsync({ allowsRecording: false }).catch(() => undefined)
+  /* ---------- Ecoute ---------- */
+
+  const fail = useCallback((kind: ErrorKind, message: string | null) => {
+    if (kind === "unclear") haptics.warning()
+    else haptics.error()
+    setErrorKind(kind)
+    setErrorMessage(message)
+    setPhase("error")
+  }, [])
+
+  const start = useCallback(async () => {
+    setTyping(false)
+    setErrorMessage(null)
+    if (closed) return fail("closed", t("Les commandes et leurs modifications sont fermées de 01h00 à 08h00. Réouverture à 08h00."))
+    const permission = await requestRecordingPermissionsAsync()
+    if (!permission.granted) return fail("permission", t("Autorisez l'accès au micro dans Réglages > SOUKI."))
+    try {
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true })
+      await recorder.prepareToRecordAsync()
+      recorder.record()
+      startedAt.current = Date.now()
+      haptics.add()
+      setSpans([])
+      setRevealed(0)
+      setPhase("listening")
+      timer.current = setTimeout(() => void stopRef.current(), VOICE_MAX_MS)
+    } catch {
+      fail("failed", t("Impossible de démarrer le micro. Réessayez."))
+    }
+  }, [closed, fail, recorder, t])
+
+  /** Reponse du serveur -> groupes de mots relies aux produits, puis revelation un par un. */
+  const analyse = useCallback(
+    (data: VoiceBasketResponseDTO) => {
+      const lines = data.lignes_panier
+        .filter((line) => line.quantite_effective > 0)
+        .map((line) => {
+          const live = productsById.get(line.product_id) ?? null
+          const step = live?.quantityStep ?? 1
+          const entry: VoiceLine = {
+            productId: line.product_id,
+            live,
+            name: live ? productName(live, locale) : line.nom_produit,
+            image: live?.image ?? "",
+            unit: live?.unit ?? "kg",
+            step,
+            quantity: Math.max(step, roundToStep(line.quantite_effective, step)),
+            unitPrice: live?.price ?? line.prix_unitaire,
+          }
+          const names = [live?.name, live?.alias, live?.nameAr, line.nom_produit].filter((name): name is string => Boolean(name))
+          return { names, payload: entry }
+        })
+      const missing = data.produits_non_disponibles.filter(Boolean)
+      if (lines.length === 0 && missing.length === 0) return fail("unclear", null)
+      if (data.commande_id) setDraftId(data.commande_id)
+      setSpans(buildVoiceSpans(data.transcription ?? "", lines, missing))
+      setRevealed(0)
+      setPhase("analysis")
     },
-    [],
+    [fail, locale, productsById],
   )
 
-  /** Une nouvelle liste s'ajoute a la precedente (« Ajouter en parlant »). */
-  const merge = (data: VoiceBasketResponseDTO) => {
-    setResult((current) => {
-      if (!current) return data
-      const lines = [...current.lignes_panier]
-      for (const line of data.lignes_panier) {
-        const index = lines.findIndex((entry) => entry.product_id === line.product_id)
-        if (index >= 0) lines[index] = { ...lines[index], quantite_effective: lines[index].quantite_effective + line.quantite_effective }
-        else lines.push(line)
-      }
-      return {
-        ...data,
-        transcription: [current.transcription, data.transcription].filter(Boolean).join(" · "),
-        produits_non_disponibles: [...current.produits_non_disponibles, ...data.produits_non_disponibles],
-        lignes_panier: lines,
-      }
-    })
-    setQuantities((current) => {
-      const next = { ...current }
-      for (const line of data.lignes_panier) next[line.product_id] = (next[line.product_id] ?? 0) + line.quantite_effective
-      return next
-    })
-    haptics.success()
-    setPhase("result")
-  }
-
-  const fail = (caught: unknown, fallback: string) => {
-    haptics.error()
-    setError(caught instanceof ApiError ? t(caught.message) : t(fallback))
-    setPhase(result ? "result" : "idle")
-  }
-
-  const stop = async () => {
+  const stop = useCallback(async () => {
     if (timer.current) clearTimeout(timer.current)
     timer.current = null
-    const duration = recorder.currentTime * 1000
-    haptics.medium()
+    const duration = Date.now() - startedAt.current
+    haptics.add()
     try {
       await recorder.stop()
     } catch {
@@ -137,259 +202,356 @@ export default function CommandeVocaleScreen() {
     }
     await setAudioModeAsync({ allowsRecording: false }).catch(() => undefined)
     const uri = recorder.uri
-    if (!uri || duration < MIN_RECORDING_MS) {
-      setError(t("Aucune voix detectee. Appuyez et parlez."))
-      setPhase(result ? "result" : "idle")
-      return
-    }
-    setPhase("processing")
+    if (!uri || duration < MIN_RECORDING_MS) return fail("unclear", null)
+    setSpans([])
+    setRevealed(0)
+    setPhase("analysis")
     try {
-      merge(await sendVoiceBasket(uri))
+      analyse(await sendVoiceBasket(uri))
     } catch (caught) {
-      fail(caught, "Impossible de contacter l'assistant vocal.")
+      if (caught instanceof ApiError && caught.message.toLowerCase().includes("aucune voix")) return fail("unclear", null)
+      fail("failed", caught instanceof ApiError ? t(caught.message) : t("Impossible de contacter l'assistant vocal."))
     }
-  }
+  }, [analyse, fail, recorder, t])
 
-  const start = async () => {
-    setError(null)
-    if (closed) return setError(t("Les commandes et leurs modifications sont fermées de 01h00 à 08h00. Réouverture à 08h00."))
-    const permission = await requestRecordingPermissionsAsync()
-    if (!permission.granted) return setError(t("Micro non autorisé. Autorisez l'accès au micro dans Réglages > SOUKI."))
-    try {
-      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true })
-      await recorder.prepareToRecordAsync()
-      recorder.record()
-      haptics.medium()
-      setPhase("listening")
-      timer.current = setTimeout(() => void stop(), VOICE_MAX_MS)
-    } catch {
-      setError(t("Impossible de démarrer le micro. Réessayez."))
+  // La minuterie des 15 s appelle toujours la version a jour de stop.
+  const stopRef = useRef(stop)
+  stopRef.current = stop
+
+  // Rien n'est enregistre a l'ouverture : l'ecoute demarre au toucher de la sphere.
+  useEffect(() => {
+    return () => {
+      if (timer.current) clearTimeout(timer.current)
+      void recorder.stop().catch(() => undefined)
+      void setAudioModeAsync({ allowsRecording: false }).catch(() => undefined)
     }
-  }
+    // Nettoyage a la fermeture de l'ecran seulement.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const sendText = async () => {
     const text = draft.trim()
     if (!text) return
-    if (closed) return setError(t("Les commandes et leurs modifications sont fermées de 01h00 à 08h00. Réouverture à 08h00."))
-    setError(null)
+    if (closed) return fail("closed", t("Les commandes et leurs modifications sont fermées de 01h00 à 08h00. Réouverture à 08h00."))
     setTyping(false)
     setDraft("")
-    setPhase("processing")
+    setSpans([])
+    setRevealed(0)
+    setPhase("analysis")
     try {
-      merge(await sendTextBasket(text))
+      analyse(await sendTextBasket(text))
     } catch (caught) {
-      fail(caught, "Impossible de contacter l'assistant vocal.")
+      fail("failed", caught instanceof ApiError ? t(caught.message) : t("Impossible de contacter l'assistant vocal."))
     }
   }
 
-  const lines: VoiceBasketLineDTO[] = (result?.lignes_panier ?? []).filter((line) => (quantities[line.product_id] ?? 0) > 0)
-  const subtotal = lines.reduce((sum, line) => sum + line.prix_unitaire * (quantities[line.product_id] ?? 0), 0)
-  const fee = subtotal > 0 ? deliveryFeeFor(subtotal) : 0
+  /* ---------- Analyse : un groupe toutes les 620 ms ---------- */
 
-  const checkout = () => {
+  useEffect(() => {
+    if (phase !== "analysis" || spans.length === 0) return
+    if (revealed >= spans.length) {
+      const done = setTimeout(() => {
+        haptics.success()
+        setPhase("ready")
+      }, 700)
+      return () => clearTimeout(done)
+    }
+    const next = setTimeout(() => {
+      if (spans[revealed]?.item || spans[revealed]?.missing) haptics.selection()
+      setRevealed((count) => count + 1)
+    }, REVEAL_MS)
+    return () => clearTimeout(next)
+  }, [phase, revealed, spans])
+
+  /* ---------- Donnees affichees ---------- */
+
+  const seen = spans.slice(0, revealed)
+  const newLines = seen.filter((span) => span.item).map((span) => span.item as VoiceLine)
+  const newMissing = seen.filter((span) => span.missing).map((span) => span.missing as string)
+
+  /** Lignes du panier vocal : anciennes (avant « Corriger en parlant ») + nouvelles, fusionnees par produit. */
+  const merged = (() => {
+    const byId = new Map<number, VoiceLine & { words: string }>()
+    for (const line of kept) byId.set(line.productId, { ...line, words: keptWords[line.productId] ?? "" })
+    for (const span of seen) {
+      if (!span.item) continue
+      const line = span.item
+      const existing = byId.get(line.productId)
+      if (existing) byId.set(line.productId, { ...existing, quantity: existing.quantity + line.quantity, words: [existing.words, span.text].filter(Boolean).join(" · ") })
+      else byId.set(line.productId, { ...line, words: span.text })
+    }
+    return [...byId.values()]
+  })()
+
+  const quantityOf = (line: VoiceLine) => quantities[line.productId] ?? line.quantity
+  const visibleLines = merged.filter((line) => quantityOf(line) > 0)
+  const total = visibleLines.reduce((sum, line) => sum + line.unitPrice * quantityOf(line), 0)
+  // Sans doublon : un mot hors marche dit deux fois n'apparait qu'une fois.
+  const missingAll = Array.from(new Set([...keptMissing, ...newMissing]))
+
+  const currentIndex = (() => {
+    for (let index = seen.length - 1; index >= 0; index -= 1) if (seen[index].item || seen[index].missing) return index
+    return -1
+  })()
+  const currentSpan = currentIndex >= 0 ? spans[currentIndex] : null
+  const spot: SpotItem = currentSpan?.item
+    ? {
+        kind: "item",
+        key: `${currentIndex}`,
+        name: currentSpan.item.name,
+        image: currentSpan.item.image,
+        detail: `${formatQuantity(currentSpan.item.quantity, currentSpan.item.unit, locale)} · ${formatDirhams(currentSpan.item.unitPrice * currentSpan.item.quantity)} DH`,
+      }
+    : currentSpan?.missing
+      ? { kind: "missing", key: `${currentIndex}`, name: currentSpan.missing }
+      : null
+
+  const words: SaidWord[] = spans.map((span, index) => ({
+    text: span.text,
+    tone: phase === "error" ? "seen" : index >= revealed ? "dim" : index === currentIndex && phase === "analysis" ? "cur" : span.missing ? "miss" : "seen",
+  }))
+
+  /* ---------- Actions ---------- */
+
+  const close = () => {
+    if (timer.current) clearTimeout(timer.current)
+    void recorder.stop().catch(() => undefined)
+    router.back()
+  }
+
+  /** « Corriger en parlant » : on garde la liste (et ses corrections), on ecoute a nouveau. */
+  const correct = () => {
+    setKept(merged.map((line) => ({ ...line, quantity: quantityOf(line) })).filter((line) => line.quantity > 0))
+    setKeptWords(Object.fromEntries(merged.map((line) => [line.productId, line.words])))
+    setKeptMissing(missingAll)
+    setQuantities({})
+    setOpen(null)
+    // Retour a la sphere au repos : l'ecoute repart au toucher.
+    setSpans([])
+    setRevealed(0)
+    setPhase("idle")
+  }
+
+  const addToCart = () => {
     let added = 0
-    for (const line of lines) {
-      const live = productsById.get(line.product_id)
-      if (!live || live.availability === "out_of_stock") continue
-      add(live, quantities[line.product_id])
+    for (const line of visibleLines) {
+      if (!line.live || line.live.availability === "out_of_stock") continue
+      add(line.live, quantityOf(line))
       added += 1
     }
-    if (added === 0) return setError(t("Ces produits ne sont plus disponibles aujourd'hui."))
+    if (added === 0) {
+      haptics.error()
+      Alert.alert(t("Produits indisponibles"), t("Ces produits ne sont plus disponibles aujourd'hui."))
+      return
+    }
+    rememberVoiceDraft(draftId)
     haptics.success()
-    router.replace(result?.commande_id ? `/checkout?vocal=${result.commande_id}` : "/checkout")
+    router.back()
+    router.navigate("/panier")
   }
 
-  /* ---------- Liste reconnue ---------- */
-  if (phase === "result" && result) {
-    const adjusted = result.lignes_panier.some((line) => line.message_ajustement) || result.produits_non_disponibles.length > 0
-    return (
-      <AssistantFrame
-        title={t("Votre liste")}
-        onClose={() => router.back()}
-        dock={
-          <>
-            <BrandButton
-              label={closed ? t("Commandes fermées") : t("Aller au checkout")}
-              icon={isRtl ? ChevronLeft : ArrowRight}
-              iconPosition="end"
-              trailing={`${formatDirhams(subtotal + fee)} DH`}
-              disabled={closed || lines.length === 0}
-              onPress={checkout}
-            />
-            <BrandButton tone="soft" icon={Mic} label={t("Ajouter en parlant")} onPress={() => void start()} />
-          </>
-        }
+  /* ---------- Rendu ---------- */
+
+  const bottom = Math.max(insets.bottom, compact ? 16 : 20)
+
+  /** Liste ecrite (/api/text-basket) : au repos et dans « pas compris ». */
+  const typingBar = (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, padding: 8, marginBottom: bottom, borderRadius: 30, backgroundColor: "rgba(255, 255, 255, 0.12)" }}>
+      <TextInput
+        value={draft}
+        onChangeText={setDraft}
+        placeholder={t("Ex : 2 kilos de tomates, 1 kilo d'oignons")}
+        placeholderTextColor="rgba(255, 255, 255, 0.55)"
+        autoFocus
+        maxLength={500}
+        returnKeyType="send"
+        onSubmitEditing={() => void sendText()}
+        style={{ flex: 1, height: 44, paddingHorizontal: 14, borderRadius: 22, backgroundColor: "rgba(255, 255, 255, 0.1)", color: palette.white, fontSize: 16 }}
+      />
+      <Pressable
+        onPress={() => void sendText()}
+        disabled={!draft.trim()}
+        accessibilityRole="button"
+        accessibilityLabel={t("Envoyer")}
+        style={{ width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: draft.trim() ? palette.white : "rgba(255, 255, 255, 0.2)" }}
       >
-        {result.transcription ? (
-          <CheckoutCard title={t("Vous avez dit")}>
-            <Text variant="body" color={palette.ink700} style={{ fontSize: 15, lineHeight: 22, fontStyle: "italic" }}>
-              {`« ${result.transcription} »`}
-            </Text>
-          </CheckoutCard>
-        ) : null}
-        {adjusted ? <Note tone="orange" icon={TriangleAlert}>{t("Certains produits ont été ajustés selon leur disponibilité.")}</Note> : null}
-        {result.produits_non_disponibles.length > 0 ? (
-          <Note tone="orange">{t("Non disponibles aujourd'hui : {liste}.", { liste: result.produits_non_disponibles.join(", ") })}</Note>
-        ) : null}
-        {error ? <Note tone="red">{error}</Note> : null}
-        <View style={{ gap: 8 }}>
-          {result.lignes_panier.map((line, index) => {
-            const live = productsById.get(line.product_id) ?? null
-            const quantity = quantities[line.product_id] ?? 0
-            if (quantity <= 0) return null
-            return (
-              <SuggestedLine
-                key={line.product_id}
-                index={index}
-                product={live}
-                name={live ? productName(live, locale) : line.nom_produit}
-                unit={live?.unit ?? "kg"}
-                unitPrice={line.prix_unitaire}
-                image={live?.image ?? ""}
-                quantity={quantity}
-                note={line.message_ajustement ? t(line.message_ajustement) : null}
-                onChange={(next) => setQuantities((current) => ({ ...current, [line.product_id]: next }))}
-              />
-            )
-          })}
-        </View>
-        <View style={{ padding: 18, gap: 10, borderRadius: radius.card, borderCurve: "continuous", backgroundColor: palette.white, boxShadow: shadows.card }}>
-          <Row label={t("Produits")} value={`${formatDirhams(subtotal)} DH`} />
-          <Row label={t("Livraison")} value={fee > 0 ? `${formatDirhams(fee)} DH` : t("Offerte")} />
-          <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", paddingTop: 10, borderTopWidth: 1, borderTopColor: palette.line }}>
-            <Text variant="headline" weight="black" color={palette.ink900} style={{ fontSize: 17 }}>
-              {t("Total")}
-            </Text>
-            <AnimatedDigits value={`${formatDirhams(subtotal + fee)} DH`} weight="black" color={palette.souki900} style={{ fontSize: 24, lineHeight: 30 }} />
-          </View>
-        </View>
-        <Text variant="footnote" color={palette.ink500} align="center" style={{ fontSize: 12 }}>
-          {t("Montant indicatif : le total est recalculé au prix du jour à la validation.")}
-        </Text>
-      </AssistantFrame>
-    )
-  }
-
-  /* ---------- Ecoute ---------- */
-  const listening = phase === "listening"
-  const processing = phase === "processing"
-  const seconds = Math.floor((recorderState.durationMillis ?? 0) / 1000)
-  const orbState = processing ? t("Composition du panier…") : listening ? t("À l'écoute — touchez la sphère pour arrêter") : t("Touchez la sphère pour parler")
-
-  return (
-    <View style={{ flex: 1, paddingTop: insets.top + 6, paddingHorizontal: 20, paddingBottom: Math.max(insets.bottom, 20) }}>
-      <LinearGradient colors={[palette.forest700, palette.forest900]} locations={[0, 0.7]} start={{ x: 0.5, y: 0.2 }} end={{ x: 0.5, y: 1 }} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <RoundIcon
-          dark
-          icon={X}
-          label={t("Fermer")}
-          onPress={() => {
-            if (listening) void recorder.stop().catch(() => undefined)
-            router.back()
-          }}
-        />
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <LiveDot color={palette.mint300} />
-          <Text variant="callout" weight="heavy" color={palette.white} style={{ fontSize: 16 }}>
-            {t("IA-SOUKI Vocal")}
-          </Text>
-        </View>
-        <View style={{ width: 44 }} />
-      </View>
-
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, alignItems: "center", justifyContent: "center", gap: 26 }}>
-        <Text accessibilityLiveRegion="polite" variant="title2" weight="heavy" color={palette.white} align="center" style={{ maxWidth: 320, fontSize: 22, lineHeight: 30 }}>
-          {processing ? t("Analyse en cours…") : listening ? t("Je vous écoute… {s} s", { s: seconds }) : t("Dites votre liste de courses")}
-        </Text>
-        <Pressable
-          onPress={() => (listening ? void stop() : processing ? undefined : void start())}
-          disabled={processing}
-          accessibilityRole="button"
-          accessibilityLabel={orbState}
-          accessibilityState={{ busy: processing }}
-        >
-          <Animated.View
-            style={
-              processing && !reducedMotion
-                ? { animationName: SPIN, animationDuration: "1600ms", animationIterationCount: "infinite", animationTimingFunction: "linear" }
-                : undefined
-            }
-          >
-            <VoiceOrb size={176} animated={!reducedMotion && (listening || processing)} rings={!reducedMotion && listening} />
-          </Animated.View>
-        </Pressable>
-        <Text variant="footnote" weight="semibold" color={palette.mint300} align="center" style={{ fontSize: 13 }}>
-          {orbState}
-        </Text>
-        {error ? (
-          <View style={{ alignSelf: "stretch" }}>
-            <Note tone="red">{error}</Note>
-          </View>
-        ) : null}
-      </ScrollView>
-
-      {typing ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, padding: 8, borderRadius: 30, backgroundColor: "rgba(255, 255, 255, 0.12)" }}>
-          <TextInput
-            value={draft}
-            onChangeText={setDraft}
-            placeholder={t("Ex : 2 kilos de tomates, 1 kilo d'oignons")}
-            placeholderTextColor="rgba(255, 255, 255, 0.55)"
-            autoFocus
-            maxLength={500}
-            returnKeyType="send"
-            onSubmitEditing={() => void sendText()}
-            style={{ flex: 1, height: 44, paddingHorizontal: 14, borderRadius: 22, backgroundColor: "rgba(255, 255, 255, 0.1)", color: palette.white, fontSize: 16 }}
-          />
-          <Pressable
-            onPress={() => void sendText()}
-            disabled={!draft.trim()}
-            accessibilityRole="button"
-            accessibilityLabel={t("Envoyer")}
-            style={{ width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: draft.trim() ? palette.white : "rgba(255, 255, 255, 0.2)" }}
-          >
-            <Send size={18} color={draft.trim() ? palette.souki900 : palette.white} strokeWidth={2.4} />
-          </Pressable>
-        </View>
-      ) : (
-        <View style={{ alignItems: "center", gap: 8 }}>
-          <Text variant="footnote" weight="semibold" color={palette.mint300} style={{ fontSize: 12 }}>
-            {t("Darija et français pris en charge.")}
-          </Text>
-          <View style={{ paddingVertical: 8, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: "rgba(255, 255, 255, 0.1)" }}>
-            <Text variant="footnote" weight="semibold" color={palette.white} style={{ fontSize: 13 }}>
-              « 2 kilo maticha w kilo batata »
-            </Text>
-          </View>
-          {listening || processing ? null : (
-            <Pressable onPress={() => setTyping(true)} accessibilityRole="button" hitSlop={8} style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44, opacity: pressed ? 0.6 : 1 })}>
-              <Keyboard size={16} color={palette.white} strokeWidth={2.2} />
-              <Text variant="footnote" weight="heavy" color={palette.white} style={{ fontSize: 13 }}>
-                {t("Écrire ma liste")}
-              </Text>
-            </Pressable>
-          )}
-        </View>
-      )}
+        <Send size={18} color={draft.trim() ? palette.souki900 : palette.white} strokeWidth={2.4} />
+      </Pressable>
     </View>
   )
-}
+  const steps: [StepState, StepState, StepState] =
+    phase === "idle" ? ["ready", "next", "next"] : phase === "listening" ? ["live", "next", "next"] : phase === "analysis" ? ["done", "now", "next"] : phase === "ready" ? ["done", "done", "done"] : ["done", "err", "next"]
 
-const SPIN = {
-  from: { transform: [{ rotate: "0deg" }] },
-  to: { transform: [{ rotate: "360deg" }] },
-} as const
+  const errorTitle =
+    errorKind === "unclear" ? t("Je n'ai pas bien compris") : errorKind === "permission" ? t("Micro non autorisé") : errorKind === "closed" ? t("Commandes fermées") : t("Analyse impossible")
+  const errorDetail = errorMessage ?? t("Parlez un peu plus près, produit par produit.")
 
-function Row({ label, value }: { label: string; value: string }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}>
-      <Text variant="callout" color={palette.ink700} style={{ fontSize: 15 }}>
-        {label}
-      </Text>
-      <Text variant="callout" weight="heavy" numeric color={palette.ink900} style={{ fontSize: 15 }}>
-        {value}
-      </Text>
-    </View>
+    <KeyboardAvoidingView behavior="padding" style={{ flex: 1, direction }}>
+      <VoiceBackdrop />
+      <View style={{ flex: 1, paddingTop: insets.top + (compact ? 4 : 8), paddingHorizontal: 20 }}>
+        <VoiceTopBar onClose={close} />
+        <VoiceSteps states={steps} />
+
+        {phase === "ready" ? (
+          <VoiceHeader
+            tone="done"
+            compact={compact}
+            title={t("Votre liste est prête")}
+            detail={
+              visibleLines.length === 1
+                ? t("1 produit reconnu")
+                : t("{n} produits reconnus", { n: visibleLines.length }) + (missingAll.length ? ` · ${t("{n} hors marché", { n: missingAll.length })}` : "")
+            }
+          />
+        ) : phase === "error" ? (
+          <VoiceHeader tone="error" compact={compact} title={errorTitle} detail={errorDetail} />
+        ) : null}
+
+        {/* La phrase : pendant l'ecoute, l'analyse et « pas compris », pas sur la liste prete. */}
+        {phase === "ready" ? null : phase === "idle" || phase === "listening" ? (
+          <VoiceSaid compact={compact} words={[]} placeholder={t("Vos mots s'affichent ici")} caret={phase === "listening"} minHeight={92} />
+        ) : (
+          <VoiceSaid compact={compact} words={words} placeholder={phase === "analysis" ? t("Transcription en cours…") : t("Rien n'a été entendu.")} />
+        )}
+
+        {phase === "idle" || phase === "listening" ? (
+          <>
+            <ListeningSpot compact={compact} listening={phase === "listening"} onPress={() => void (phase === "listening" ? stop() : start())} />
+            {typing && phase === "idle" ? (
+              typingBar
+            ) : (
+              <View style={{ alignItems: "center", gap: 12, paddingBottom: bottom }}>
+                {phase === "listening" ? (
+                  <BrandButton tone="light" icon={Check} label={t("J'ai terminé")} onPress={() => void stop()} />
+                ) : (
+                  <Pressable
+                    onPress={() => setTyping(true)}
+                    accessibilityRole="button"
+                    hitSlop={8}
+                    style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44, paddingHorizontal: 14, opacity: pressed ? 0.6 : 1 })}
+                  >
+                    <Keyboard size={16} color={palette.white} strokeWidth={2.2} />
+                    <Text weight="heavy" color={palette.white} style={{ fontSize: 14 }}>
+                      {t("Écrire ma liste")}
+                    </Text>
+                  </Pressable>
+                )}
+                <Text weight="semibold" color={palette.mint300} align="center" style={{ fontSize: 12, lineHeight: 16 }}>
+                  {`${t("Darija et français")} · « 2 kilo maticha w kilo batata »`}
+                </Text>
+              </View>
+            )}
+          </>
+        ) : null}
+
+        {phase === "analysis" ? (
+          <>
+            <AnalysisSpot compact={compact} current={spot} />
+            <VoiceSheet
+              title={t("Votre panier")}
+              caption={t(newLines.length + kept.length > 1 ? "{n} produits" : "{n} produit", { n: newLines.length + kept.length })}
+              total={total}
+              fill={false}
+              maxHeight={height * 0.6}
+              bottomInset={bottom}
+            >
+              <VoiceTray
+                chips={[
+                  // Une vignette par groupe de mots : cle par position dans la phrase (un meme produit
+                  // peut etre dit deux fois, « tomates … et encore des tomates »).
+                  ...seen.flatMap<TrayChip>((span, index) =>
+                    span.item
+                      ? [{ key: `i-${index}`, image: span.item.image, label: formatQuantity(span.item.quantity, span.item.unit, locale) }]
+                      : span.missing
+                        ? [{ key: `m-${index}`, image: null, label: t("Absent"), missing: true }]
+                        : [],
+                  ),
+                ]}
+              />
+            </VoiceSheet>
+          </>
+        ) : null}
+
+        {phase === "ready" ? (
+          <VoiceSheet title={t("Votre panier")} caption={t("Touchez pour modifier")} total={total} fill bottomInset={bottom}>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 6, paddingBottom: 4 }} showsVerticalScrollIndicator={false}>
+              {visibleLines.map((line, index) => (
+                <VoiceRow
+                  key={line.productId}
+                  index={index}
+                  open={open === line.productId}
+                  onToggle={() => {
+                    haptics.selection()
+                    setOpen((current) => (current === line.productId ? null : line.productId))
+                  }}
+                  onChange={(next) => {
+                    setQuantities((current) => ({ ...current, [line.productId]: next }))
+                    if (next === 0) {
+                      haptics.remove()
+                      setOpen(null)
+                    }
+                  }}
+                  row={{
+                    key: String(line.productId),
+                    name: line.name,
+                    words: line.words,
+                    image: line.image,
+                    quantity: quantityOf(line),
+                    quantityLabel: formatQuantity(quantityOf(line), line.unit, locale),
+                    price: `${formatDirhams(line.unitPrice * quantityOf(line))} DH`,
+                    unit: line.unit,
+                    step: line.step,
+                  }}
+                />
+              ))}
+              {visibleLines.length === 0 ? (
+                <Text weight="semibold" color={palette.ink500} align="center" style={{ fontSize: 14, marginVertical: 18 }}>
+                  {t("Votre liste est vide. Dites-la à nouveau.")}
+                </Text>
+              ) : null}
+              {missingAll.map((name, index) => (
+                <MissingRow key={name} name={name} index={visibleLines.length + index} />
+              ))}
+            </ScrollView>
+            <View style={{ gap: 8, marginTop: 4 }}>
+              <BrandButton icon={ShoppingBasket} label={t("Ajouter au panier")} trailing={`${formatDirhams(total)} DH`} disabled={visibleLines.length === 0} onPress={addToCart} />
+              <BrandButton tone="soft" icon={Mic} label={t("Corriger en parlant")} onPress={correct} />
+            </View>
+          </VoiceSheet>
+        ) : null}
+
+        {phase === "error" ? (
+          <>
+            {errorKind === "unclear" ? <VoiceHelp /> : null}
+            <View style={{ flex: 1 }} />
+            {typing ? (
+              typingBar
+            ) : (
+              <View style={{ gap: 8, paddingTop: 16, paddingBottom: bottom }}>
+                {errorKind === "closed" ? (
+                  <BrandButton tone="light" label={t("Fermer")} onPress={close} />
+                ) : errorKind === "permission" ? (
+                  <BrandButton tone="light" icon={Settings} label={t("Ouvrir Réglages")} onPress={() => void Linking.openSettings()} />
+                ) : (
+                  <BrandButton
+                    tone="light"
+                    icon={Mic}
+                    label={t("Réessayer")}
+                    onPress={() => {
+                      // Retour a la sphere au repos : l'ecoute repart au toucher.
+                      setSpans([])
+                      setRevealed(0)
+                      setPhase("idle")
+                    }}
+                  />
+                )}
+                {errorKind === "closed" ? null : <BrandButton tone="soft" icon={Keyboard} label={t("Écrire ma liste")} onPress={() => setTyping(true)} />}
+              </View>
+            )}
+          </>
+        ) : null}
+      </View>
+    </KeyboardAvoidingView>
   )
 }

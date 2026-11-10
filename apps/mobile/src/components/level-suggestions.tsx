@@ -97,9 +97,6 @@ function Shelf({ group, remaining }: { group: LevelGroup; remaining: number }) {
             {t(spec.subtitle)}
           </Text>
         </View>
-        <Text variant="eyebrow" numeric color={palette.ink500} style={{ fontSize: 10 }}>
-          {t("Niveau {n}", { n: group.level })}
-        </Text>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ direction }} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 2, paddingBottom: 6 }}>
         {group.products.map((product) => (

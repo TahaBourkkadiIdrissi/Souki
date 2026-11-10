@@ -25,6 +25,10 @@ après le passage sur les écarts (E).
 | E14 | Suivi, incident | Carte « Contacter SOUKI » (Appeler, WhatsApp avec le numéro de commande) quand le client est absent, la livraison refusée ou la commande retournée au dépôt. Numéro +212 7 03 43 39 54 dans `packages/shared/src/contact.ts`, aussi sur la politique de confidentialité du site. |
 | E15 | Réclamation | Photo facultative par produit (`PhotoSlot`), envoyée après la réclamation. Le serveur vérifie le vrai format, refuse les images géantes, réencode en JPEG sans métadonnées (ni EXIF ni GPS), réduit à 1600 px, range dans un bucket Supabase privé `reclamations` sans écrasement ; l'admin la lit par URL signée de 5 min. Aucune table modifiée. |
 | E20 | Recommander | Route `GET /api/commandes/{id}/recommander` (prix et disponibilité du jour, propriétaire vérifié) ; l'app retombe sur le catalogue si la route ne répond pas. |
+| Voix | Commande vocale | Refaite selon `VoiceListening` + `VoiceAnalysis` (design du 9 novembre 2026) : une seule scène (étapes, « Vous avez dit », sphère, plateau), écoute dès l'ouverture, analyse « Du mot au panier » groupe par groupe (620 ms), produit en vedette, plateau qui se remplit, liste prête modifiable (quantité, « Retirer ») sans l'encart de la phrase, « pas compris » avec exemples et « Écrire ma liste ». Tailles réduites sur iPhone SE. Lien mot → produit retrouvé dans la phrase (`packages/shared/src/voice.ts`). « Ajouter au panier » remplace « Aller au checkout » : le brouillon vocal reste lié à la commande (`lib/voice-draft.ts`). |
+| Onboarding | Après l'inscription | Codé selon `Onboarding` (design du 10 novembre 2026) : route `/bienvenue`, une seule fois après la création du compte (fin du code d'inscription), « vu » gardé avec `souki.onboarding.v1`. Bienvenue + langue, seulement les informations manquantes (prénom, adresse, téléphone, chacune avec « Plus tard »), trois écrans sur le service, chemin du « S » avec le camion, glisser pour changer d'étape. Scènes dessinées sur un canevas mis à l'échelle (iPhone SE compris) : aucun texte ne déborde, même en arabe. Réponses enregistrées à la fin (`updateProfile`, `updateAddress`). En développement : Compte > « Revoir l'onboarding (dev) » montre toutes les étapes sans rien enregistrer. |
+| Entrée | Connexion / inscription | Codée selon `AuthFlow` / `EcranEntree` (design du 10 novembre 2026) : un seul écran (scène du marché, « Continuer avec Apple » noir en premier, Google, e-mail, politique de confidentialité). E-mail : l'adresse d'abord (`POST /auth/check-email`, B12) → compte existant : mot de passe → accueil ; nouveau : mot de passe (règles) + parrainage replié → code reçu par e-mail → onboarding (toujours, pour chaque nouveau compte). Un numéro de téléphone (compte créé sur le site) va directement au mot de passe. Apple et Google : boutons faits, « Bientôt disponible » tant que B1 / B2 ne sont pas branchés. La déconnexion ramène à l'entrée. Fichiers gardés et modifiés : `connexion.tsx` (entrée), `inscription.tsx` (« Créons votre compte »), `verification.tsx` (code) ; nouveaux : `email.tsx`, `mot-de-passe.tsx`. |
+| Session | Toute l'app | Le client reste connecté jusqu'à « Se déconnecter » : le jeton (24 h) est renouvelé au lancement et au retour dans l'app (`POST /auth/refresh`) tant que la session est active (déconnexion, « Déconnecter tous les appareils » ou suppression du compte la ferment) et moins de 30 jours après son expiration. « Se souvenir de moi » supprimé (toujours mémorisé dans le Trousseau). |
 | E29 | Panier intelligent | Fermé : le back-end n'utilise pas `panier_id` au checkout, il n'y a rien à lier. |
 
 ## 2. Écarts gardés volontairement
@@ -36,6 +40,7 @@ après le passage sur les écarts (E).
 | E26 | Abonnements | Contenu modifié dans l'écran de l'abonnement | Même logique que le site. |
 | E30 | Discussion avec Souki | Pas de bouton micro dans le champ | La dictée du clavier iOS fait ce travail. |
 | E24 | Wallet, historique | Pas de « Commande N-… » sous les mouvements | Décision de Salah eddine (9 novembre 2026) : pas nécessaire, et il faudrait une colonne dans `t_transactions_wallet`. |
+| Niveaux | Panier (« Complétez votre panier »), fiche produit | Pas de « Niveau 1/2/3 » ni de pastille numérotée : seulement les titres neutres (Les essentiels, Pour varier, Les petits plus) | Demande de Salah eddine (9 novembre 2026) : le niveau ne se montre pas au client. |
 | E31 | Discussion avec Souki | Conversation gardée pendant la session de l'app | Comme le site. |
 
 ## 3. Écarts qui attendent le back-end
@@ -44,7 +49,7 @@ après le passage sur les écarts (E).
 |---|---|---|---|
 | E11 | Checkout, adresse | Hors de Fès : avertissement, pas de blocage | B4 : contrôle de la zone de livraison |
 | E13 | Checkout, paiement | Carte CMI « Bientôt » | Paiement CMI |
-| E27 | Commande vocale | Pas de transcription en direct | Transcription en continu |
+| E27 | Commande vocale | Pendant l'écoute, l'encart « Vous avez dit » attend la fin (« Vos mots s'affichent ici ») ; la phrase apparaît à l'analyse | Transcription en continu |
 
 ## 4. Écarts qui attendent la build native (EAS + compte Apple Developer)
 
@@ -93,3 +98,14 @@ dessiné restant sur iOS 18. Il n'y a pas d'iOS 19 à 25 : Apple est passé d'iO
 - Accord pour les assistants IA (règle Apple 5.1.2(i)) : feuille `accord-ia` avant le premier usage de la commande vocale, du panier intelligent ou de la discussion (une fois par compte, retirable dans Compte > Assistants IA et données).
 - À faire : numéro de déclaration ou d'autorisation CNDP dans la politique, une fois obtenu ; bucket `reclamations` à créer (`back-end/sql/2026-11-09_reclamations_private_bucket.sql`).
 - Admin : page « Réclamations » (`apps/admin/app/admin/reclamations/page.tsx`, menu Clients, permission `orders.read`) : chiffres des 30 jours, 100 dernières réclamations, filtres « À vérifier » et « Avec photo », photo en lien signé de 5 min, fiche client. Route `GET /api/v1/admin/claims`.
+
+## 10. Onboarding : à faire plus tard
+
+- Bandeau « Ajoutez votre adresse pour commander » sur l'accueil quand l'adresse a été remise à plus tard (utile seulement pour les comptes Google / Apple, qui n'existent pas encore dans l'app : l'inscription par e-mail donne déjà prénom, adresse et téléphone). Le checkout redemande déjà adresse et téléphone.
+- B11 : garder le prénom donné par Google / Apple pour sauter l'étape « Prénom ».
+- Demande de notifications après la 1re commande validée (pas dans l'onboarding), avec B3 et `expo-notifications`.
+
+## 11. Entrée : à faire
+
+- B1 Sign in with Apple (`expo-apple-authentication`, avec accord) et B2 Google sur iOS : remplacer « Bientôt disponible » par les vrais boutons et renvoyer `is_new` (B12) pour choisir accueil ou onboarding.
+- Pas de page « Conditions d'utilisation » sur le site : les mentions citent seulement la politique de confidentialité.
