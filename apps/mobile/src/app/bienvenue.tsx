@@ -95,15 +95,13 @@ export default function BienvenueScreen() {
   const { t, locale, setLocale, isRtl, direction } = useLocale()
   const { profile, refresh, acceptToken } = useAuth()
   const { products } = useCatalogue()
-  const params = useLocalSearchParams<{ demo?: string; email?: string }>()
-  // Developpement seulement : toutes les etapes, et rien n'est enregistre sur le vrai compte.
-  const isDemo = __DEV__ && params.demo === "1"
+  const params = useLocalSearchParams<{ email?: string }>()
   // Mode fige a l'ouverture : la session s'ouvre en cours de route (apres le code).
   const [signupEmail] = useState(() => (params.email ?? "").trim().toLowerCase())
   const signup = signupEmail.length > 0
 
   // Compte existant : ce qui manque, fige au premier profil connu.
-  const [missing, setMissing] = useState<OnboardingInfo[] | null>(signup ? [] : isDemo ? [...INFO] : profile ? missingInfo(profile) : null)
+  const [missing, setMissing] = useState<OnboardingInfo[] | null>(signup ? [] : profile ? missingInfo(profile) : null)
   useEffect(() => {
     if (missing === null && profile) setMissing(missingInfo(profile))
   }, [missing, profile])
@@ -117,9 +115,9 @@ export default function BienvenueScreen() {
   const [page, setPage] = useState(0)
   const [forward, setForward] = useState(true)
   const [values, setValues] = useState({
-    prenom: signup || isDemo ? "" : (profile?.prenom ?? ""),
+    prenom: signup ? "" : (profile?.prenom ?? ""),
     nom: "",
-    adresse: signup || isDemo ? "" : (profile?.address.adresse ?? ""),
+    adresse: signup ? "" : (profile?.address.adresse ?? ""),
     telephone: "",
     password: "",
     referral: "",
@@ -305,7 +303,7 @@ export default function BienvenueScreen() {
     setSaving(true)
     Keyboard.dismiss()
     let failed = false
-    if (isDemo || signup) {
+    if (signup) {
       await markOnboardingSeen()
       setSaving(false)
       haptics.success()

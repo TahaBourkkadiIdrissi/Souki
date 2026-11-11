@@ -639,6 +639,7 @@ export const ARABIC: Record<string, string> = {
   "Ce compte a été créé avec Google.": "تم إنشاء هذا الحساب عبر Google.",
   "Entrez votre mot de passe pour continuer.": "أدخل كلمة المرور للمتابعة.",
   "Ce compte n'a pas de mot de passe. Continuez avec Google, ou créez un mot de passe avec « Mot de passe oublié ? ».": "هذا الحساب بدون كلمة مرور. تابع عبر Google، أو أنشئ كلمة مرور عبر « نسيت كلمة المرور؟ ».",
+  "Ce compte n'a pas encore de mot de passe. Créez-en un avec « Mot de passe oublié ? » : vous recevrez un lien par e-mail.": "هذا الحساب بدون كلمة مرور بعد. أنشئ واحدة عبر « نسيت كلمة المرور؟ »: سيصلك رابط عبر البريد الإلكتروني.",
   "Mot de passe incorrect.": "كلمة المرور غير صحيحة.",
   "Créons votre compte": "لننشئ حسابك",
   "Aucun compte SOUKI avec cette adresse. Choisissez un mot de passe.": "لا يوجد حساب في سوقي بهذا العنوان. اختر كلمة مرور.",

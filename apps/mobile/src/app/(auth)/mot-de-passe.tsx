@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { useLocale } from "@/contexts/locale-context"
 import { useCloseAuth } from "@/hooks/use-close-auth"
 import { ApiError } from "@/lib/api"
+import { SOCIAL_LOGIN_ENABLED } from "@/lib/features"
 import { haptics } from "@/lib/haptics"
 import { palette } from "@/theme"
 
@@ -62,8 +63,14 @@ export default function MotDePasseScreen() {
       <EmailChip value={login} onEdit={() => router.back()} />
       {googleOnly ? (
         <>
-          <Note icon={Info}>{t("Ce compte n'a pas de mot de passe. Continuez avec Google, ou créez un mot de passe avec « Mot de passe oublié ? ».")}</Note>
-          <SocialButton provider="google" label={t("Continuer avec Google")} onPress={comingSoon} />
+          {SOCIAL_LOGIN_ENABLED ? (
+            <>
+              <Note icon={Info}>{t("Ce compte n'a pas de mot de passe. Continuez avec Google, ou créez un mot de passe avec « Mot de passe oublié ? ».")}</Note>
+              <SocialButton provider="google" label={t("Continuer avec Google")} onPress={comingSoon} />
+            </>
+          ) : (
+            <Note icon={Info}>{t("Ce compte n'a pas encore de mot de passe. Créez-en un avec « Mot de passe oublié ? » : vous recevrez un lien par e-mail.")}</Note>
+          )}
         </>
       ) : (
         <>

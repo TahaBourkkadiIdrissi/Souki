@@ -58,6 +58,7 @@ import {
 } from "@/lib/api"
 import { SITE_URL } from "@/lib/config"
 import { haptics } from "@/lib/haptics"
+import { CARD_PAYMENT_ENABLED } from "@/lib/features"
 import { forgetVoiceDraft, peekVoiceDraft } from "@/lib/voice-draft"
 import { DUR_BASE, EASE_OUT_2027 } from "@/lib/motion"
 import { colors, palette, radius, shadows } from "@/theme"
@@ -391,7 +392,9 @@ export default function CheckoutScreen() {
                 disabled={amounts.walletInsufficient}
                 onSelect={() => setPayment("wallet")}
               />
-              <PaymentOption icon={CreditCard} title={t("Carte bancaire CMI")} badge={t("Bientôt")} desc={t("Visa / Mastercard marocain — bientôt disponible")} selected={false} disabled />
+              {CARD_PAYMENT_ENABLED ? (
+                <PaymentOption icon={CreditCard} title={t("Carte bancaire CMI")} badge={t("Bientôt")} desc={t("Visa / Mastercard marocain — bientôt disponible")} selected={false} disabled />
+              ) : null}
             </View>
           </>
         ) : null}

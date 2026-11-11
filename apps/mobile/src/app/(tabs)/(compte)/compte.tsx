@@ -139,10 +139,6 @@ export default function CompteScreen() {
         {status === "signedIn" ? (
           <SettingsRow icon={ShieldCheck} label={t("Assistants IA et données")} sub={t("Votre accord pour les assistants IA")} onPress={() => router.push("/accord-ia")} />
         ) : null}
-        {/* Developpement seulement (jamais dans l'app publiee) : revoir l'onboarding sans recreer de compte. */}
-        {__DEV__ && status === "signedIn" ? (
-          <SettingsRow icon={ShieldCheck} label="Revoir l'onboarding (dev)" onPress={() => router.push("/bienvenue?demo=1")} />
-        ) : null}
         {SITE_PAGES.map((page) => (
           <SettingsRow key={page.path} icon={page.Icon} label={t(page.label)} external onPress={() => void Linking.openURL(`${SITE_URL}${page.path}`)} />
         ))}

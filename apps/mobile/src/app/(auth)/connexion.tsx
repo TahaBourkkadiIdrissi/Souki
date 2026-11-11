@@ -17,6 +17,7 @@ import { useLocale } from "@/contexts/locale-context"
 import { useCatalogue } from "@/hooks/use-catalogue"
 import { useCloseAuth } from "@/hooks/use-close-auth"
 import { SITE_URL } from "@/lib/config"
+import { SOCIAL_LOGIN_ENABLED } from "@/lib/features"
 import { MARKET_KEYS, pickProducts } from "@/lib/scene-products"
 import { palette, radius } from "@/theme"
 
@@ -154,9 +155,14 @@ export default function EntreeScreen() {
         <Text weight="black" color={palette.ink900} align="center" style={{ fontSize: arabic ? 22 : 19, lineHeight: arabic ? 32 : 24, letterSpacing: arabic ? 0 : -0.2, marginBottom: 4 }}>
           {t("Connectez-vous ou créez un compte")}
         </Text>
-        <SocialButton provider="apple" compact={compact} label={t("Continuer avec Apple")} onPress={() => comingSoon("Apple")} />
-        <SocialButton provider="google" compact={compact} label={t("Continuer avec Google")} onPress={() => comingSoon("Google")} />
-        <BrandButton tone="soft" icon={Mail} label={t("Continuer avec l'e-mail")} onPress={() => router.push("/email")} />
+        {SOCIAL_LOGIN_ENABLED ? (
+          <>
+            <SocialButton provider="apple" compact={compact} label={t("Continuer avec Apple")} onPress={() => comingSoon("Apple")} />
+            <SocialButton provider="google" compact={compact} label={t("Continuer avec Google")} onPress={() => comingSoon("Google")} />
+          </>
+        ) : null}
+        {/* Seule facon d'entrer tant qu'Apple et Google ne sont pas branches : bouton principal. */}
+        <BrandButton tone={SOCIAL_LOGIN_ENABLED ? "soft" : "primary"} icon={Mail} label={t("Continuer avec l'e-mail")} onPress={() => router.push("/email")} />
         <Text color={palette.ink500} align="center" style={{ marginTop: 2, fontSize: 12, lineHeight: 17 }}>
           {t("En continuant, vous acceptez la ")}
           <Text
