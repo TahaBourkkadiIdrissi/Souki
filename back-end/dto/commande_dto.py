@@ -51,6 +51,7 @@ class ProduitCommandeJourDTO(BaseModel):
     ligne_panier_id: Optional[int] = None
     product_id: Optional[int] = None
     nom_fr: str
+    nom_ar: Optional[str] = None
     quantite_kg: float
     sous_total: Optional[float] = None
 

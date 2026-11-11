@@ -27,14 +27,18 @@ from config import ACCESS_TOKEN_COOKIE_NAME, Base, engine
 from controllers.admin_controller import admin_router, api_admin_router
 from controllers.admin_exception_controller import router_admin_exceptions
 from controllers.auth_controller import auth_router
+from controllers.auth_mobile_controller import router_auth_mobile
 from controllers.catalogue_controller import router_catalogue
 from controllers.campaign_controller import campaign_router
 from controllers.commande_recurrente_controller import commande_recurrente_router
 from controllers.category_controller import category_router
 from controllers.panier_souki_controller import panier_souki_router
 from controllers.claim_controller import claim_router
+from controllers.claim_photo_controller import router_claim_photo
+from controllers.claim_admin_controller import router_claim_admin
 from controllers.checkout_controller import router_checkout
 from controllers.order_edit_controller import router_order_edit
+from controllers.reorder_controller import router_reorder
 from controllers.client_blacklist_controller import client_blacklist_router
 from controllers.commande_controller import router_voice
 from controllers.dispatch_controller import anomalies_router, dispatch_router
@@ -52,6 +56,7 @@ from controllers.settings_controller import settings_router
 from controllers.zone_controller import router_admin_zones
 from services.catalogue_bootstrap_service import CatalogueBootstrapService
 from services.category_schema_sync_service import CategorySchemaSyncService
+from services.arabic_labels_schema_sync_service import ArabicLabelsSchemaSyncService
 from services.delivery_schema_sync_service import DeliverySchemaSyncService
 from services.dispatch_schema_sync_service import DispatchSchemaSyncService
 from services.jit_schema_sync_service import JITSchemaSyncService
@@ -72,6 +77,7 @@ from services.wallet_schema_sync_service import WalletSchemaSyncService
 
 API_ROUTERS: tuple[APIRouter, ...] = (
     auth_router,
+    router_auth_mobile,
     profile_router,
     settings_router,
     push_router,
@@ -85,10 +91,13 @@ API_ROUTERS: tuple[APIRouter, ...] = (
     router_assistant,
     router_checkout,
     router_order_edit,
+    router_reorder,
     commande_recurrente_router,
     client_blacklist_router,
     pricing_router,
     claim_router,
+    router_claim_photo,
+    router_claim_admin,
     dispatch_router,
     anomalies_router,
     router_jit,
@@ -140,6 +149,7 @@ def sync_database_schema() -> None:
             AppTask("jit schema sync", JITSchemaSyncService.sync),
             AppTask("order delivery date sync", OrderScheduleSchemaSyncService.sync),
             AppTask("product categories sync", CategorySchemaSyncService.sync),
+            AppTask("arabic labels sync", ArabicLabelsSchemaSyncService.sync),
             AppTask("notification schema sync", NotificationSchemaSyncService.sync),
             AppTask("perf index sync", PerfIndexSyncService.sync),
             AppTask("avatar column sync", avatar_storage_service.ensure_avatar_column),

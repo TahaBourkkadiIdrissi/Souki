@@ -5,8 +5,10 @@ import { toast } from "sonner"
 import { type CatalogueProduct, type CartItem, upsertCartItem } from "@/lib/catalogue"
 import { useClientCollection, useClientStorageOwner } from "@/hooks/useClientCollection"
 import { trackEvent } from "@/lib/analytics"
+import { useLocale } from "@/contexts/locale-context"
 
 export default function ProductPurchase({ product }: { product: CatalogueProduct }) {
+  const { t, productName } = useLocale()
   const [, setCart] = useClientCollection<CartItem>("cart")
   const owner = useClientStorageOwner()
   useEffect(() => {
@@ -25,12 +27,12 @@ export default function ProductPurchase({ product }: { product: CatalogueProduct
       value: product.price * product.quantityStep,
       items: [{ item_id: String(product.id), item_name: product.name, price: product.price, quantity: product.quantityStep }],
     })
-    toast.success(`${product.name} ajouté au panier`)
+    toast.success(t("{name} ajouté au panier", { name: productName(product) }))
   }
 
   return (
     <button type="button" disabled={owner === undefined || product.availability === "out_of_stock"} onClick={addToCart} className="mt-6 w-full rounded-2xl bg-[#1E8A3C] px-6 py-4 text-base font-bold text-white hover:bg-[#176B2E] disabled:opacity-50">
-      {product.availability === "out_of_stock" ? "Indisponible" : "Ajouter au panier"}
+      {product.availability === "out_of_stock" ? t("Indisponible") : t("Ajouter au panier")}
     </button>
   )
 }

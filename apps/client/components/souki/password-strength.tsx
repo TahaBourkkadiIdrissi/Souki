@@ -1,6 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils"
+import { useLocale } from "@/contexts/locale-context"
 
 interface PasswordStrengthProps {
   password: string
@@ -44,6 +45,7 @@ export function PasswordStrength({
   password,
   className,
 }: PasswordStrengthProps) {
+  const { t } = useLocale()
   const score = evaluatePasswordStrength(password)
   const width = `${(score / 5) * 100}%`
   const strength = getPasswordStrengthMeta(score)
@@ -51,9 +53,9 @@ export function PasswordStrength({
   return (
     <div className={cn("mt-3", className)}>
       <div className="mb-2 flex items-center justify-between text-xs font-medium">
-        <span className="text-[#8A8A8A]">Force du mot de passe</span>
+        <span className="text-[#8A8A8A]">{t("Force du mot de passe")}</span>
         <span className={password ? "text-[#3D3D3D]" : "text-[#8A8A8A]"}>
-          {password ? strength.label : "En attente"}
+          {password ? t(strength.label) : t("En attente")}
         </span>
       </div>
 

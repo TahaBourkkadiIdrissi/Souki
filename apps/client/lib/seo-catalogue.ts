@@ -31,7 +31,9 @@ export const getSeoCatalogue = cache(async function getSeoCatalogue(): Promise<C
     return {
       id: product.id,
       name: product.nom_fr,
+      nameAr: product.nom_ar ?? null,
       description: product.description,
+      descriptionAr: product.description_ar ?? null,
       alias: product.nom_darija,
       price: product.prix_affiche ?? product.prix_kg,
       prix_khddar_estime: product.prix_khddar_estime,

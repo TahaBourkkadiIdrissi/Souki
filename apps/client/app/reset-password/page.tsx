@@ -7,8 +7,10 @@ import { ArrowLeft, CheckCircle2, Eye, EyeOff, Loader2, Lock } from "lucide-reac
 
 import { PasswordStrength } from "@/components/souki/password-strength"
 import { API_BASE_URL } from "@/lib/api"
+import { useLocale } from "@/contexts/locale-context"
 
 function ResetPasswordForm() {
+  const { t, zoneProps } = useLocale()
   const searchParams = useSearchParams()
   const token = searchParams.get("token") || ""
   const [password, setPassword] = useState("")
@@ -66,30 +68,30 @@ function ResetPasswordForm() {
   }
 
   return (
-    <section className="w-full max-w-md rounded-3xl border border-gray-100 bg-white p-8 shadow-xl shadow-black/5">
+    <section {...zoneProps} className="w-full max-w-md rounded-3xl border border-gray-100 bg-white p-8 shadow-xl shadow-black/5">
       <Link href="/login/client" className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-[#1A4F8A] hover:underline">
         <ArrowLeft className="h-4 w-4" />
-        Retour à la connexion
+        {t("Retour à la connexion")}
       </Link>
 
-      <h1 className="text-2xl font-bold text-[#3D3D3D]">Nouveau mot de passe</h1>
+      <h1 className="text-2xl font-bold text-[#3D3D3D]">{t("Nouveau mot de passe")}</h1>
       <p className="mt-3 text-sm leading-6 text-[#6F6F6F]">
-        Choisissez un nouveau mot de passe pour votre compte SOUKI.
+        {t("Choisissez un nouveau mot de passe pour votre compte SOUKI.")}
       </p>
 
       {success ? (
         <div className="mt-7 rounded-2xl border border-green-200 bg-green-50 p-5 text-green-800">
           <CheckCircle2 className="mb-3 h-7 w-7" />
-          <p className="font-semibold">Mot de passe réinitialisé</p>
-          <p className="mt-2 text-sm leading-6">Toutes vos anciennes sessions ont été déconnectées.</p>
+          <p className="font-semibold">{t("Mot de passe réinitialisé")}</p>
+          <p className="mt-2 text-sm leading-6">{t("Toutes vos anciennes sessions ont été déconnectées.")}</p>
           <Link href="/login/client" className="mt-5 inline-flex rounded-xl bg-[#1E8A3C] px-5 py-3 text-sm font-semibold text-white">
-            Se connecter
+            {t("Se connecter")}
           </Link>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="mt-7 space-y-5">
           <div>
-            <label htmlFor="new-password" className="mb-2 block text-sm font-medium text-[#3D3D3D]">Nouveau mot de passe</label>
+            <label htmlFor="new-password" className="mb-2 block text-sm font-medium text-[#3D3D3D]">{t("Nouveau mot de passe")}</label>
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8A8A8A]" />
               <input
@@ -109,7 +111,7 @@ function ResetPasswordForm() {
           </div>
 
           <div>
-            <label htmlFor="confirm-password" className="mb-2 block text-sm font-medium text-[#3D3D3D]">Confirmer le mot de passe</label>
+            <label htmlFor="confirm-password" className="mb-2 block text-sm font-medium text-[#3D3D3D]">{t("Confirmer le mot de passe")}</label>
             <input
               id="confirm-password"
               type={showPassword ? "text" : "password"}

@@ -2,6 +2,7 @@
 
 import io
 import unittest
+import wave
 from types import SimpleNamespace
 
 from fastapi import HTTPException
@@ -51,6 +52,20 @@ class AudioUploadTests(unittest.TestCase):
         # Un faux WebM declare comme tel mais sans signature valide est refuse.
         with self.assertRaises(HTTPException):
             _validate_audio_upload(b"PAS-UN-AUDIO" + b"\x00" * 32, "audio/webm")
+
+    def test_wav_de_l_iphone_est_accepte(self):
+        # iOS envoie le WAV de l'app avec le type « audio/vnd.wave ».
+        buffer = io.BytesIO()
+        with wave.open(buffer, "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(16000)
+            wav_file.writeframes(b"\x00\x00" * 16000)
+        self.assertEqual(_validate_audio_upload(buffer.getvalue(), "audio/vnd.wave"), "audio/wav")
+
+    def test_faux_wav_de_l_iphone_rejete(self):
+        with self.assertRaises(HTTPException):
+            _validate_audio_upload(b"PAS-UN-AUDIO" + b"\x00" * 32, "audio/vnd.wave")
 
     def test_taille_au_dela_de_la_limite_renvoie_413(self):
         with self.assertRaises(HTTPException) as ctx:

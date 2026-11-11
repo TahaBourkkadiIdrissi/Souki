@@ -7,6 +7,7 @@ class Category(Base):
     id = Column(Integer, primary_key=True)
     slug = Column(String(48), nullable=False, unique=True)
     nom = Column(String(80), nullable=False)
+    nom_ar = Column(String(80), nullable=True)
     icone = Column(String(32), nullable=True)
     produit_vedette_id = Column(Integer, ForeignKey("T_Product.id", ondelete="SET NULL"), nullable=True)
     ordre = Column(Integer, nullable=False, default=0)

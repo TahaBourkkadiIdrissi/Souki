@@ -19,6 +19,7 @@ class LignePanierResponseDTO(BaseModel):
     """Ligne du panier pour réponse"""
     product_id: int
     nom_produit: str
+    nom_ar: Optional[str] = None
     quantite_kg: float
     prix_unitaire: float
     sous_total: float

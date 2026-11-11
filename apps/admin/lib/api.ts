@@ -95,7 +95,9 @@ export interface PanierSoukiLigneDTO {
 export interface PanierSoukiDTO {
   id: number
   nom: string
+  nom_ar: string | null
   description: string | null
+  description_ar: string | null
   image_url: string | null
   actif: boolean
   ordre: number
@@ -107,7 +109,9 @@ export interface PanierSoukiDTO {
 }
 export interface PanierSoukiForm {
   nom: string
+  nom_ar: string | null
   description: string | null
+  description_ar: string | null
   image_url: string | null
   actif: boolean
   ordre: number
@@ -119,6 +123,8 @@ export const updatePanierSouki = (id: number, body: PanierSoukiForm) => apiCall<
 
 export interface CategoryForm {
   nom: string
+  /** Nom affiche sur le site en arabe ; vide = nom francais. */
+  nom_ar: string | null
   icone: string | null
   produit_vedette_id: number | null
   ordre: number
@@ -558,9 +564,11 @@ export type ProduitAlerte = "PRIX_DEPASSE_KHDDAR" | "PRIX_GROS_MANQUANT" | null
 
 export interface ProduitPricingDTO {
   description?: string | null
+  description_ar?: string | null
   id: number
   nom_fr: string
   nom_darija: string
+  nom_ar?: string | null
   prix_kg: number
   unite: string
   is_active: boolean
@@ -587,6 +595,8 @@ export interface ProduitPricingListDTO {
 
 export interface ProduitPricingUpdateDTO {
   description?: string | null
+  description_ar?: string | null
+  nom_ar?: string | null
   marge_cible?: number
   coussin_securite?: number
   niveau?: ProduitNiveau
@@ -599,8 +609,10 @@ export interface ProduitPricingUpdateDTO {
 
 export interface ProductCreateDTO {
   description?: string | null
+  description_ar?: string | null
   nom_fr: string
   nom_darija: string
+  nom_ar?: string | null
   prix_kg: number
   unite: string
   niveau: ProduitNiveau
@@ -1261,4 +1273,45 @@ export async function getBlacklistMonthlyReport(
     `/admin/blacklist/report/monthly?year=${year}&month=${month}`,
     { token }
   )
+}
+
+
+/* ---------- Reclamations (photos de reclamation, tache B5) ---------- */
+
+export type ClaimReasonCode = "abime" | "poids_incorrect" | "erreur_produit" | "produit_manquant" | "qualite" | "autre"
+
+export interface AdminClaimDTO {
+  id: number
+  created_at: string
+  commande_id: number
+  date_livraison: string | null
+  client_id: number
+  client_nom: string | null
+  produit: string
+  unite: string
+  reason: ClaimReasonCode | string
+  quantity_claimed: number
+  amount_refunded: number
+  status: string
+  is_suspect: boolean
+  /** null : le stockage n'a pas pu etre lu, la photo reste consultable a la demande. */
+  has_photo: boolean | null
+}
+
+export interface AdminClaimsOverviewDTO {
+  total_30j: number
+  montant_30j: number
+  suspects_30j: number
+  avec_photo_30j: number | null
+  items: AdminClaimDTO[]
+}
+
+/** 100 dernieres reclamations et chiffres des 30 derniers jours (GET /api/v1/admin/claims). */
+export async function getAdminClaims(token: string, signal?: AbortSignal) {
+  return apiCall<AdminClaimsOverviewDTO>("/api/v1/admin/claims?limit=100", { token, signal, cache: "no-store" })
+}
+
+/** Lien signe de 5 minutes vers la photo d'une reclamation (bucket prive). */
+export async function getAdminClaimPhoto(token: string, claimId: number) {
+  return apiCall<{ url: string; expires_in: number }>(`/api/v1/admin/claims/${claimId}/photo`, { token, cache: "no-store" })
 }

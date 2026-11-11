@@ -25,11 +25,11 @@ export const formatDh = (value: number | null | undefined) => `${Number(value ||
 export const formatVariation = (value: number) =>
   `${value > 0 ? "+" : value < 0 ? "−" : ""}${Math.abs(value).toFixed(2)} DH`
 
-export function formatDateCourte(value: string | null | undefined) {
+export function formatDateCourte(value: string | null | undefined, dateLocale = "fr-MA") {
   if (!value) return "—"
   const date = new Date(`${value}T12:00:00`)
   if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat("fr-MA", { weekday: "long", day: "numeric", month: "long" }).format(date)
+  return new Intl.DateTimeFormat(dateLocale, { weekday: "long", day: "numeric", month: "long" }).format(date)
 }
 
 export function dateIsoPlusJours(jours: number, from = new Date()) {

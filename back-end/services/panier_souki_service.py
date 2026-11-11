@@ -27,13 +27,14 @@ class PanierSoukiService(IPanierSoukiService):
         if len(products) != len(quantites):
             raise HTTPException(400, "Un ou plusieurs produits sont introuvables.")
         sous_total = sum(_prix(products[product_id]) * quantite for product_id, quantite in quantites.items())
-        if round(sous_total, 2) < PANIER_MINIMUM_DH:
-            raise HTTPException(400, f"Un panier doit valoir au moins {PANIER_MINIMUM_DH:.0f} DH au prix du jour.")
+        if round(sous_total + _frais(sous_total), 2) < PANIER_MINIMUM_DH:
+            raise HTTPException(400, f"Un panier doit valoir au moins {PANIER_MINIMUM_DH:.0f} DH au prix du jour, livraison comprise.")
         return [dict(product_id=product_id, quantite=quantite) for product_id, quantite in quantites.items()]
 
     @staticmethod
     def _values(payload):
-        return dict(nom=payload.nom, description=payload.description, image_url=payload.image_url,
+        return dict(nom=payload.nom, nom_ar=payload.nom_ar, description=payload.description,
+                    description_ar=payload.description_ar, image_url=payload.image_url,
                     actif=payload.actif, ordre=payload.ordre)
 
     @staticmethod
@@ -48,6 +49,7 @@ class PanierSoukiService(IPanierSoukiService):
                 sous_total += total
             lignes.append(PanierSoukiLigneDTO(
                 product_id=ligne.product_id, nom_produit=product.nom_fr if product else "Produit retiré",
+                nom_ar=getattr(product, "nom_ar", None) if product else None,
                 nom_darija=getattr(product, "nom_darija", None) if product else None,
                 unite=product.unite if product else "", image_url=product.image_url if product else None,
                 quantite=float(ligne.quantite), prix_unitaire=prix, sous_total=total, disponible=disponible,
@@ -55,7 +57,8 @@ class PanierSoukiService(IPanierSoukiService):
         sous_total = round(sous_total, 2)
         frais = _frais(sous_total)
         return PanierSoukiDTO(
-            id=row.id, nom=row.nom, description=row.description, image_url=row.image_url, actif=row.actif,
+            id=row.id, nom=row.nom, nom_ar=getattr(row, "nom_ar", None), description=row.description,
+            description_ar=getattr(row, "description_ar", None), image_url=row.image_url, actif=row.actif,
             ordre=row.ordre, lignes=lignes, sous_total_estime=sous_total, frais_livraison_estimes=frais,
             total_estime=round(sous_total + frais, 2), created_at=row.created_at,
         )

@@ -29,12 +29,14 @@ import {
   AlertCircle,
   Gift
 } from "lucide-react"
+import { useLocale } from "@/contexts/locale-context"
 
 type AuthMode = "login" | "signup"
 type UserRole = "client"
 type SignupLocation = { address: string; city: string; latitude: number; longitude: number }
 
 function ClientLoginContent() {
+  const { t, zoneProps } = useLocale()
   const router = useRouter()
   const searchParams = useSearchParams()
   const { login, googleLogin } = useAuth()
@@ -106,7 +108,7 @@ function ClientLoginContent() {
         else if (value.length > 0 && !/[0-9]/.test(value)) currentError = "Doit contenir au moins un chiffre.";
 
         if (confirmPassword && value !== confirmPassword) {
-          setFormErrors(prev => ({ ...prev, confirmPassword: "Les mots de passe ne correspondent pas." }));
+          setFormErrors(prev => ({ ...prev, confirmPassword: t("Les mots de passe ne correspondent pas.") }));
         } else if (confirmPassword && value === confirmPassword) {
           setFormErrors(prev => { const n = {...prev}; delete n.confirmPassword; return n; });
         }
@@ -149,7 +151,7 @@ function ClientLoginContent() {
     try {
       if (mode === "signup") {
         if (password !== confirmPassword) {
-          setFormErrors(prev => ({ ...prev, confirmPassword: "Les mots de passe ne correspondent pas." }));
+          setFormErrors(prev => ({ ...prev, confirmPassword: t("Les mots de passe ne correspondent pas.") }));
           setLoading(false);
           return;
         }
@@ -238,7 +240,7 @@ function ClientLoginContent() {
   const ErrorMessage = ({ message }: { message?: string }) => {
     if (!message) return null;
     return (
-      <div className="flex items-center gap-1.5 mt-1.5 ml-1">
+      <div {...zoneProps} className="flex items-center gap-1.5 mt-1.5 ml-1">
         <AlertCircle className="w-4 h-4 text-red-500" />
         <span className="text-red-500 text-xs font-medium">{message}</span>
       </div>
@@ -246,7 +248,7 @@ function ClientLoginContent() {
   };
 
   return (
-    <div className="min-h-dvh flex">
+    <div {...zoneProps} className="min-h-dvh flex">
       {/* Left Side - Brand Visual */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#1E8A3C] to-[#4CB84A] p-12 flex-col justify-between relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
@@ -262,10 +264,10 @@ function ClientLoginContent() {
 
         <div className="relative z-10 flex-1 flex flex-col justify-center">
           <h1 className="text-4xl xl:text-5xl font-bold text-white mb-6 leading-tight text-balance">
-            Du champ au panier, le matin même.
+            {t("Du champ au panier, le matin même.")}
           </h1>
           <p className="text-xl text-white/80 mb-8 max-w-md">
-            Légumes frais du marché de gros de Fès, livrés chez vous entre 8h et 15h.
+            {t("Légumes frais du marché de gros de Fès, livrés chez vous entre 8h et 15h.")}
           </p>
 
           <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-2xl p-4 max-w-sm">
@@ -273,14 +275,14 @@ function ClientLoginContent() {
               <Clock className="w-6 h-6 text-white" />
             </div>
             <div>
-              <p className="text-white font-semibold">Livraison dès 8h00</p>
-              <p className="text-white/70 text-sm">Fès, Maroc</p>
+              <p className="text-white font-semibold">{t("Livraison dès 8h00")}</p>
+              <p className="text-white/70 text-sm">{t("Fès, Maroc")}</p>
             </div>
           </div>
         </div>
 
         <div className="relative z-10 text-white/60 text-sm">
-          © 2026 SOUKI Fresh Market
+          {t("© 2026 SOUKI Fresh Market")}
         </div>
       </div>
 
@@ -300,7 +302,7 @@ function ClientLoginContent() {
                 mode === "login" ? "text-[#1E8A3C]" : "text-[#8A8A8A] hover:text-[#3D3D3D]"
               }`}
             >
-              Se connecter
+              {t("Se connecter")}
               {mode === "login" && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1E8A3C]" />
               )}
@@ -311,7 +313,7 @@ function ClientLoginContent() {
                 mode === "signup" ? "text-[#1E8A3C]" : "text-[#8A8A8A] hover:text-[#3D3D3D]"
               }`}
             >
-              S'inscrire
+              {t("S'inscrire")}
               {mode === "signup" && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1E8A3C]" />
               )}
@@ -331,7 +333,7 @@ function ClientLoginContent() {
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-[#3D3D3D] mb-2">
-                  Email ou Téléphone
+                  {t("Email ou Téléphone")}
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
@@ -348,7 +350,7 @@ function ClientLoginContent() {
 
               <div>
                 <label className="block text-sm font-medium text-[#3D3D3D] mb-2">
-                  Mot de passe
+                  {t("Mot de passe")}
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
@@ -380,10 +382,10 @@ function ClientLoginContent() {
                   >
                     {rememberMe && <Check className="w-3 h-3 text-white" />}
                   </div>
-                  <span className="text-xs sm:text-sm text-[#3D3D3D]">Se souvenir de moi</span>
+                  <span className="text-xs sm:text-sm text-[#3D3D3D]">{t("Se souvenir de moi")}</span>
                 </label>
                 <Link href="/forgot-password" className="text-xs sm:text-sm text-[#1A4F8A] hover:underline">
-                  Mot de passe oublié ?
+                  {t("Mot de passe oublié ?")}
                 </Link>
               </div>
 
@@ -392,7 +394,7 @@ function ClientLoginContent() {
                 disabled={loading}
                 className="w-full flex items-center justify-center py-3.5 bg-[#1E8A3C] text-white rounded-xl font-semibold text-lg hover:bg-[#166E2B] transition-colors shadow-lg shadow-[#1E8A3C]/30 disabled:opacity-70"
               >
-                {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Se connecter"}
+                {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : t("Se connecter")}
               </button>
 
               <div className="relative my-6">
@@ -400,7 +402,7 @@ function ClientLoginContent() {
                   <div className="w-full border-t border-gray-200" />
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-white text-[#8A8A8A]">ou continuer avec</span>
+                  <span className="px-4 bg-white text-[#8A8A8A]">{t("ou continuer avec")}</span>
                 </div>
               </div>
 
@@ -415,20 +417,20 @@ function ClientLoginContent() {
           {/* Signup : localisation d'abord, formulaire seulement si l'adresse est à Fès */}
           {mode === "signup" && (
             <div className="space-y-4 pb-12">
-              {/* Même démarche qu'au checkout : "Me localiser", puis clic sur la carte à l'endroit exact */}
+              {/* Même démarche qu'au checkout : t("Me localiser"), puis clic sur la carte à l'endroit exact */}
               {(!signupLocation || locationCovered) && (
                 <div className="rounded-2xl border-2 border-gray-100 p-5">
                   <h3 className="mb-2 flex items-center gap-2 font-bold text-[#3D3D3D]">
                     <MapPin className="h-5 w-5 text-[#1E8A3C]" />
-                    Adresse de livraison
+                    {t("Adresse de livraison")}
                   </h3>
                   {signupLocation ? (
                     <div className="space-y-2">
                       <p className="flex items-center gap-2 text-sm font-semibold text-[#1E8A3C]">
                         <Check className="h-4 w-4 flex-shrink-0" />
-                        Bonne nouvelle, nous livrons chez vous !
+                        {t("Bonne nouvelle, nous livrons chez vous !")}
                       </p>
-                      <label htmlFor="signup-address" className="block text-sm font-medium text-[#3D3D3D]">Adresse</label>
+                      <label htmlFor="signup-address" className="block text-sm font-medium text-[#3D3D3D]">{t("Adresse")}</label>
                       <input
                         id="signup-address"
                         type="text"
@@ -438,10 +440,10 @@ function ClientLoginContent() {
                           const address = e.target.value
                           setSignupLocation((current) => current && { ...current, address })
                         }}
-                        placeholder="Entrez votre adresse de livraison"
+                        placeholder={t("Entrez votre adresse de livraison")}
                         className="min-h-12 w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:border-[#4CB84A] focus:outline-none"
                       />
-                      <p className="text-xs text-[#8A8A8A]">Complétez si besoin : immeuble, étage, point de repère.</p>
+                      <p className="text-xs text-[#8A8A8A]">{t("Complétez si besoin : immeuble, étage, point de repère.")}</p>
                     </div>
                   ) : (
                     <p className="text-sm text-[#6F8070]">
@@ -454,7 +456,7 @@ function ClientLoginContent() {
                     className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border-2 border-[#1E8A3C] px-4 py-3 font-semibold text-[#1E8A3C] transition-colors hover:bg-[#F0FAF1]"
                   >
                     <Navigation className="h-4 w-4" />
-                    Me localiser
+                    {t("Me localiser")}
                   </button>
                 </div>
               )}
@@ -478,7 +480,7 @@ function ClientLoginContent() {
                     onClick={() => setLocatorOpen(true)}
                     className="mt-4 w-full rounded-xl border-2 border-[#1E8A3C] py-3 font-semibold text-[#1E8A3C] transition-colors hover:bg-[#F0FAF1]"
                   >
-                    Choisir une autre adresse
+                    {t("Choisir une autre adresse")}
                   </button>
                 </div>
               )}
@@ -488,12 +490,12 @@ function ClientLoginContent() {
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Prénom</label>
+                        <label className="block text-sm font-medium text-[#3D3D3D] mb-2">{t("Prénom")}</label>
                         <div className="relative">
                           <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
                           <input
                             type="text"
-                            placeholder="Prénom"
+                            placeholder={t("Prénom")}
                             value={firstName}
                             onChange={(e) => handleFieldChange("firstName", e.target.value)}
                             className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors"
@@ -501,10 +503,10 @@ function ClientLoginContent() {
                         </div>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Nom</label>
+                        <label className="block text-sm font-medium text-[#3D3D3D] mb-2">{t("Nom")}</label>
                         <input
                           type="text"
-                          placeholder="Nom"
+                          placeholder={t("Nom")}
                           value={lastName}
                           onChange={(e) => handleFieldChange("lastName", e.target.value)}
                           className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#4CB84A] focus:outline-none transition-colors"
@@ -513,7 +515,7 @@ function ClientLoginContent() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Email</label>
+                      <label className="block text-sm font-medium text-[#3D3D3D] mb-2">{t("Email")}</label>
                       <div className="relative">
                         <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
                         <input
@@ -531,7 +533,7 @@ function ClientLoginContent() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Téléphone</label>
+                      <label className="block text-sm font-medium text-[#3D3D3D] mb-2">{t("Téléphone")}</label>
                       <div className="flex gap-2">
                         <div className={`flex items-center gap-1 px-3 py-3 border-2 rounded-xl text-[#3D3D3D] ${
                           formErrors.phone ? "border-red-500 bg-red-50" : "border-gray-200 bg-gray-50"
@@ -556,7 +558,7 @@ function ClientLoginContent() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Mot de passe</label>
+                      <label className="block text-sm font-medium text-[#3D3D3D] mb-2">{t("Mot de passe")}</label>
                       <div className="relative">
                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
                         <input
@@ -582,7 +584,7 @@ function ClientLoginContent() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Confirmer le mot de passe</label>
+                      <label className="block text-sm font-medium text-[#3D3D3D] mb-2">{t("Confirmer le mot de passe")}</label>
                       <div className="relative">
                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
                         <input
@@ -608,10 +610,10 @@ function ClientLoginContent() {
 
                     {/* Role Selector */}
                     <div>
-                      <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Type de compte</label>
+                      <label className="block text-sm font-medium text-[#3D3D3D] mb-2">{t("Type de compte")}</label>
                       <div className="flex gap-2">
                         {[
-                          { value: "client", label: "Client" },
+                          { value: "client", label: t("Client") },
                         ].map(role => (
                           <button
                             key={role.value}
@@ -632,13 +634,13 @@ function ClientLoginContent() {
                     {/* Code de parrainage (optionnel) */}
                     <div>
                       <label className="block text-sm font-medium text-[#3D3D3D] mb-2">
-                        Code de parrainage <span className="text-[#8A8A8A] font-normal">(optionnel)</span>
+                        {t("Code de parrainage")} <span className="text-[#8A8A8A] font-normal">{t("(optionnel)")}</span>
                       </label>
                       <div className="relative">
                         <Gift className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8A8A8A]" />
                         <input
                           type="text"
-                          placeholder="Ex : K7M2P9"
+                          placeholder={t("Ex : K7M2P9")}
                           value={referralCode}
                           onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
                           maxLength={10}
@@ -647,7 +649,7 @@ function ClientLoginContent() {
                       </div>
                       {referralCode && (
                         <p className="flex items-center gap-1.5 mt-1.5 ml-1 text-xs font-medium text-[#1E8A3C]">
-                          <Gift className="w-3.5 h-3.5" /> Tu recevras un produit offert sur ta 1ère commande livrée.
+                          <Gift className="w-3.5 h-3.5" /> {t("Vous recevrez 15 DH sur votre Wallet SOUKI à votre 1re commande livrée.")}
                         </p>
                       )}
                     </div>

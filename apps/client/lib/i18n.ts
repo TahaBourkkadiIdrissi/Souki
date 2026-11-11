@@ -5,6 +5,16 @@
  * L'interface est en arabe standard ; la darija reste reservee aux noms des produits (nom_darija).
  * Les {variables} sont remplacees a l'affichage.
  */
+import { CATALOGUE_AR } from "@/lib/i18n-pages/catalogue"
+import { CHECKOUT_AR } from "@/lib/i18n-pages/checkout"
+import { COMMANDES_AR } from "@/lib/i18n-pages/commandes"
+import { COMPTE_AR } from "@/lib/i18n-pages/compte"
+import { PAGES_AR } from "@/lib/i18n-pages/pages"
+import { COMPOSANTS_AR } from "@/lib/i18n-pages/composants"
+import { POLITIQUE_AR } from "@/lib/i18n-pages/politique"
+import { SEO_AR } from "@/lib/i18n-pages/seo"
+import { PRODUITS_AR } from "@/lib/i18n-pages/produits"
+
 export type Locale = "fr" | "ar"
 
 export const LOCALE_COOKIE = "souki_lang"
@@ -13,12 +23,39 @@ export function parseLocale(value: string | undefined | null): Locale {
   return value === "ar" ? "ar" : "fr"
 }
 
-export const ARABIC: Record<string, string> = {
+const UNITES_AR: Record<string, string> = { kg: "كلغ", lot: "حزمة", "250g": "250 غ", g: "غ", piece: "حبة", unite: "حبة" }
+
+/** Unite d'un produit en arabe (kg -> كلغ) ; une unite inconnue reste telle quelle. */
+export function unitAr(unit: string) {
+  return UNITES_AR[unit] ?? unit
+}
+
+/** Quantite en arabe : 1.5 كلغ, 2 حزمة, 3 × 250 غ. Les chiffres restent occidentaux, comme au Maroc. */
+export function formatQuantityAr(quantity: number, unit: string) {
+  if (unit === "kg") return `${Number.isInteger(quantity) ? quantity.toFixed(0) : quantity.toFixed(1)} كلغ`
+  if (unit === "250g") return `${quantity.toFixed(0)} × 250 غ`
+  if (unit === "lot") return `${quantity.toFixed(0)} حزمة`
+  return `${quantity} ${unitAr(unit)}`
+}
+
+const BASE_AR: Record<string, string> = {
   // Langue
   "Langue": "اللغة",
   "Choisir la langue": "اختر اللغة",
   "Langue du site": "لغة الموقع",
   "Le français reste la langue par défaut. L'arabe s'applique sur cet appareil.": "تبقى الفرنسية اللغة الافتراضية. تُطبَّق العربية على هذا الجهاز فقط.",
+
+  // Composants communs : assistants IA et installation de l'application
+  "Commande vocale": "الطلب الصوتي",
+  "Panier intelligent": "السلة الذكية",
+  "Dites votre liste, Souki remplit le panier.": "قل قائمتك، وSOUKI يملأ السلة.",
+  "Dicter ma liste": "إملاء قائمتي",
+  "Budget, foyer ou plat marocain": "الميزانية أو عدد الأفراد أو طبق مغربي",
+  "Télécharger SOUKI": "تحميل SOUKI",
+  "Installez l'application pour un accès rapide, en plein écran.": "ثبّت التطبيق للوصول السريع بملء الشاشة.",
+  "Télécharger l'application": "تحميل التطبيق",
+  "Masquer l'installation": "إخفاء التثبيت",
+  "Ouvrez le menu ⋮ du navigateur, puis « Installer l’application ». Si cette option manque, ouvrez Souki dans Chrome ou Edge.": "افتح قائمة ⋮ في المتصفح ثم «تثبيت التطبيق». إن لم يظهر هذا الخيار، افتح SOUKI في Chrome أو Edge.",
 
   // Navigation
   "Accueil": "الرئيسية",
@@ -48,12 +85,12 @@ export const ARABIC: Record<string, string> = {
   // Accueil : hero
   "Marché de gros de Fès — acheté à l'aube": "سوق الجملة بفاس — يُشترى عند الفجر",
   "Le vrai goût du marché,": "المذاق الحقيقي للسوق،",
-  "livré entre 8h et 15h à la date confirmée.": "يصلك بين 8h و15h في التاريخ المؤكَّد.",
-  "SOUKI sélectionne vos légumes au marché de gros de Fès, prépare votre panier et le livre entre 8h et 15h.": "تختار SOUKI خضرك من سوق الجملة بفاس، وتُعِدّ سلّتك وتوصلها إليك بين 8h و15h.",
-  "Commandez de 8h à 1h du matin.": "اطلب من 8h حتى الواحدة بعد منتصف الليل.",
+  "livré entre 8h et 15h à la date confirmée.": "يصلك بين 08:00 و15:00 في التاريخ المؤكَّد.",
+  "SOUKI sélectionne vos légumes au marché de gros de Fès, prépare votre panier et le livre entre 8h et 15h.": "تختار SOUKI خضرك من سوق الجملة بفاس، وتُعِدّ سلّتك وتوصلها إليك بين 08:00 و15:00.",
+  "Commandez de 8h à 1h du matin.": "اطلب من 08:00 حتى الواحدة بعد منتصف الليل.",
   "Composer mon panier": "أنشئ سلّتي",
   "Ou laissez Souki le faire pour vous :": "أو دع SOUKI يقوم بذلك نيابةً عنك:",
-  "Commande jusqu'à 01h00": "الطلب حتى 01h00",
+  "Commande jusqu'à 01h00": "الطلب حتى 01:00",
   "Paiement à la livraison": "الدفع عند الاستلام",
   "Satisfait ou remboursé": "راضٍ أو نستردّ لك المبلغ",
   "Étal de légumes frais du marché de Fès": "بسطة خضر طازجة من سوق فاس",
@@ -67,13 +104,13 @@ export const ARABIC: Record<string, string> = {
   "Fonctionnement": "طريقة العمل",
   "Du marché à votre table, en trois temps": "من السوق إلى مائدتك في ثلاث مراحل",
   "Une seule promesse : la fraîcheur du gros, sans les files, le transport ni les prix opaques.": "وعد واحد: طزاجة الجملة، دون طوابير ولا تنقّل ولا أسعار غامضة.",
-  "De 8h à 1h du matin": "من 8h حتى الواحدة ليلًا",
+  "De 8h à 1h du matin": "من 08:00 حتى الواحدة ليلًا",
   "Vous commandez": "تطلب",
   "Panier manuel, vocal ou composé par l'IA — en moins de trois minutes.": "سلّة يدوية أو صوتية أو يُعِدّها الذكاء الاصطناعي، في أقل من ثلاث دقائق.",
   "À l'aube de la livraison": "فجر يوم التوصيل",
   "SOUKI achète au gros": "SOUKI تشتري بالجملة",
   "Notre équipe sélectionne les meilleurs produits du marché de gros de Fès.": "يختار فريقنا أفضل المنتجات من سوق الجملة بفاس.",
-  "Entre 8h et 15h": "بين 8h و15h",
+  "Entre 8h et 15h": "بين 08:00 و15:00",
   "Vous êtes livré": "يصلك طلبك",
   "Un panier frais, pesé et contrôlé, remis en main propre à votre porte.": "سلّة طازجة، موزونة ومراقَبة، تُسلَّم إليك يدًا بيد عند بابك.",
 
@@ -115,11 +152,11 @@ export const ARABIC: Record<string, string> = {
   "Abonnez-vous à un panier préparé par SOUKI ou répétez une commande : elle revient toute seule, au rythme que vous choisissez.": "اشترك في سلّة تُعِدّها SOUKI أو كرّر أحد طلباتك: يعود تلقائيًا بالوتيرة التي تختارها.",
   "Paiement à la livraison ou par Wallet SOUKI": "الدفع عند الاستلام أو بمحفظة SOUKI",
   "Vous gardez la main": "التحكم بيدك",
-  "Modifiez, sautez ou mettez en pause jusqu'à 01h00 la veille.": "عدّل أو تخطَّ أو أوقف مؤقتًا حتى 01h00 من الليلة السابقة.",
+  "Modifiez, sautez ou mettez en pause jusqu'à 01h00 la veille.": "عدّل أو تخطَّ أو أوقف مؤقتًا حتى 01:00 من الليلة السابقة.",
   "Au prix du jour": "بسعر اليوم",
   "Pas de prix figé, pas de frais d'abonnement.": "لا سعر ثابت ولا رسوم اشتراك.",
   "Commande automatique": "طلب تلقائي",
-  "Créée toute seule à 01h00, chaque jour, tous les 3 jours ou chaque semaine.": "يُنشأ تلقائيًا عند 01h00، كل يوم أو كل 3 أيام أو كل أسبوع.",
+  "Créée toute seule à 01h00, chaque jour, tous les 3 jours ou chaque semaine.": "يُنشأ تلقائيًا عند 01:00، كل يوم أو كل 3 أيام أو كل أسبوع.",
   "Wallet SOUKI": "محفظة SOUKI",
 
   // Accueil : paiements
@@ -136,7 +173,7 @@ export const ARABIC: Record<string, string> = {
   "Vous payez le poids commandé, au prix du jour affiché. Livraison 15 DH, offerte dès 300 DH d'achats.": "تدفع الوزن الذي طلبته، بسعر اليوم المعروض. التوصيل 15 درهمًا، ومجاني ابتداءً من 300 درهم.",
   "Visible dans votre panier avant de valider": "يظهر في سلّتك قبل التأكيد",
   "Votre commande reste modifiable": "يبقى طلبك قابلًا للتعديل",
-  "Ajoutez, retirez ou annulez vos produits jusqu'à 01h00, la veille de la livraison.": "أضف منتجاتك أو احذفها أو ألغِها حتى 01h00 من ليلة التوصيل.",
+  "Ajoutez, retirez ou annulez vos produits jusqu'à 01h00, la veille de la livraison.": "أضف منتجاتك أو احذفها أو ألغِها حتى 01:00 من ليلة التوصيل.",
   "Depuis votre historique de commandes": "من سجلّ طلباتك",
   "Un produit abîmé ? On rembourse": "منتج تالف؟ نستردّ لك المبلغ",
   "Signalez-le dans les 24 h après la livraison : le montant est recrédité aussitôt sur votre Wallet SOUKI.": "أبلغ عنه خلال 24 ساعة من التوصيل: يُعاد المبلغ فورًا إلى محفظة SOUKI.",
@@ -147,9 +184,9 @@ export const ARABIC: Record<string, string> = {
   "100% frais du jour": "طازج من اليوم",
   "Votre marché vous attend": "سوقك في انتظارك",
   "Prêt à goûter la différence du marché ?": "هل أنت مستعد لتذوّق الفرق؟",
-  "Commandez avant 1h du matin — vos légumes arrivent entre 8h et 15h à la date confirmée.": "اطلب قبل الواحدة ليلًا، وتصلك خضرك بين 8h و15h في التاريخ المؤكَّد.",
+  "Commandez avant 1h du matin — vos légumes arrivent entre 8h et 15h à la date confirmée.": "اطلب قبل الواحدة ليلًا، وتصلك خضرك بين 08:00 و15:00 في التاريخ المؤكَّد.",
   "Commencer mes courses": "ابدأ التسوّق",
-  "Commande avant 1h du matin, livraison entre 8h et 15h": "الطلب قبل الواحدة ليلًا، والتوصيل بين 8h و15h",
+  "Commande avant 1h du matin, livraison entre 8h et 15h": "الطلب قبل الواحدة ليلًا، والتوصيل بين 08:00 و15:00",
   "Du champ au panier, le matin même. Légumes frais du marché de gros de Fès livrés chez vous.": "من الحقل إلى السلّة في الصباح نفسه. خضر طازجة من سوق الجملة بفاس تصل إلى بيتك.",
   "Liens utiles": "روابط مفيدة",
   "Nos légumes": "خضرنا",
@@ -206,4 +243,16 @@ export const ARABIC: Record<string, string> = {
   "Je fais mes courses sur SOUKI : les légumes du marché de gros de Fès, livrés à la maison. Inscris-toi avec mon code {code} : on reçoit chacun {credit} DH dès ta première commande livrée.": "أتسوّق من SOUKI: خضر سوق الجملة بفاس تصل إلى البيت. سجّل برمزي {code}، ويحصل كلٌّ منا على {credit} درهمًا عند توصيل طلبك الأول.",
   "Retour": "رجوع",
   "Un proche": "أحد الأقارب",
+}
+
+// Dictionnaires par page (lib/i18n-pages/*), fusionnes ici.
+export const ARABIC: Record<string, string> = { ...BASE_AR, ...CATALOGUE_AR, ...CHECKOUT_AR, ...COMMANDES_AR, ...COMPTE_AR, ...PAGES_AR, ...COMPOSANTS_AR, ...POLITIQUE_AR, ...SEO_AR, ...PRODUITS_AR }
+
+type Vars = Record<string, string | number>
+
+/** Traduit une phrase francaise (cote serveur ou client) ; sans traduction, le francais reste affiche. */
+export function translate(locale: Locale, french: string, vars?: Vars) {
+  const text = locale === "ar" ? ARABIC[french] ?? french : french
+  if (!vars) return text
+  return text.replace(/\{(\w+)\}/g, (match, key: string) => (key in vars ? String(vars[key]) : match))
 }

@@ -1,5 +1,5 @@
 import {
-  AlertTriangle, CircleDollarSign, Gift, LayoutDashboard, MapPinned, Package, QrCode, Repeat, ShieldBan, Tags, Truck, Users,
+  AlertTriangle, CircleDollarSign, Gift, LayoutDashboard, MapPinned, MessageSquareWarning, Package, QrCode, Repeat, ShieldBan, Tags, Truck, Users,
   type LucideIcon,
 } from "lucide-react"
 
@@ -26,6 +26,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     label: "Clients",
     items: [
       { label: "Clients", href: "/admin/clients", icon: Users, permission: "clients.read", description: "Comptes, fiches et historique" },
+      { label: "Réclamations", href: "/admin/reclamations", icon: MessageSquareWarning, permission: "orders.read", description: "Produits signalés, remboursements Wallet et photos" },
       { label: "Blacklist", href: "/admin/blacklist", icon: ShieldBan, permission: "clients.blacklist", description: "Blocages COD et demandes de levée" },
       { label: "Abonnements", href: "/admin/abonnements", icon: Repeat, permission: "admin.panel.access", description: "Paniers proposés et commandes récurrentes de 01h00" },
       { label: "Parrainage", href: "/admin/parrainage", icon: Gift, permission: "admin.panel.access", description: "Parrains, filleuls et crédits" },

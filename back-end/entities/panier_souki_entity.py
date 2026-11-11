@@ -7,7 +7,9 @@ class PanierSouki(Base):
     __tablename__ = "t_paniers_souki"
     id = Column(Integer, primary_key=True)
     nom = Column(String(120), nullable=False)
+    nom_ar = Column(String(120), nullable=True)
     description = Column(String(1000), nullable=True)
+    description_ar = Column(String(1000), nullable=True)
     image_url = Column(String(500), nullable=True)
     actif = Column(Boolean, nullable=False, default=True)
     ordre = Column(Integer, nullable=False, default=0)

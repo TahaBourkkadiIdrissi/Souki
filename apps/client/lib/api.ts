@@ -58,6 +58,9 @@ export interface OrderEditResponse {
   total: number
   previous_total: number
   difference: number
+  // Part payee par le Wallet SOUKI et reste a payer a la livraison.
+  wallet_paid: number
+  amount_due: number
 }
 
 export interface OrderEditRequest {
@@ -106,6 +109,7 @@ export type StatutRecurrence = "ACTIVE" | "EN_PAUSE" | "SUSPENDUE" | "ARRETEE"
 export interface CommandeRecurrenteLigneDTO {
   product_id: number
   nom_produit: string
+  nom_ar?: string | null
   unite: string
   image_url: string | null
   quantite: number
@@ -172,6 +176,7 @@ export function creerCommandeRecurrente(commandeId: number, body: { frequence: F
 export interface PanierSoukiLigneDTO {
   product_id: number
   nom_produit: string
+  nom_ar?: string | null
   nom_darija: string | null
   unite: string
   image_url: string | null
@@ -184,7 +189,9 @@ export interface PanierSoukiLigneDTO {
 export interface PanierSoukiDTO {
   id: number
   nom: string
+  nom_ar?: string | null
   description: string | null
+  description_ar?: string | null
   image_url: string | null
   lignes: PanierSoukiLigneDTO[]
   sous_total_estime: number
@@ -250,6 +257,7 @@ export interface ProduitCommandeJourDTO {
   ligne_panier_id?: number | null
   product_id?: number | null
   nom_fr: string
+  nom_ar?: string | null
   quantite_kg: number
   sous_total?: number | null
   image?: string | null
@@ -291,6 +299,8 @@ export interface CatalogueCategoryDTO {
   id: number
   slug: string
   nom: string
+  /** Nom saisi en arabe dans l'admin (facultatif). */
+  nom_ar?: string | null
   icone: string | null
   /** Produit actif dont la photo sert de tuile ; null sinon. */
   produit_vedette_id: number | null
@@ -304,9 +314,13 @@ export function fetchCatalogueCategories(signal?: AbortSignal) {
 
 export interface CatalogueProductDTO {
   description?: string | null
+  // Description saisie en arabe dans l'admin (facultative).
+  description_ar?: string | null
   id: number
   nom_fr: string
   nom_darija: string
+  // Nom en darija ecrit en arabe (affiche quand le site est en arabe).
+  nom_ar?: string | null
   prix_kg: number
   prix_affiche: number | null
   prix_khddar_estime: number | null

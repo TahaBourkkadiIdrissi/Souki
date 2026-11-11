@@ -1,10 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useLocale } from "@/contexts/locale-context"
 
 const HINTS = ["Tomates fraîches…", "Pommes de terre…", "Menthe & coriandre…", "Oranges de saison…", "Courgettes du jour…"]
 
 export function SearchHint() {
+  const { t } = useLocale()
   const [index, setIndex] = useState(0)
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)")
@@ -19,5 +21,5 @@ export function SearchHint() {
     reduced.addEventListener("change", resume)
     return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", resume); reduced.removeEventListener("change", resume) }
   }, [])
-  return <span key={index} aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 flex items-center text-[15px] font-medium text-gray-400 animate-fade-in">{HINTS[index]}</span>
+  return <span key={index} aria-hidden="true" className="pointer-events-none absolute inset-y-0 start-0 flex items-center text-[15px] font-medium text-gray-400 animate-fade-in">{t(HINTS[index])}</span>
 }

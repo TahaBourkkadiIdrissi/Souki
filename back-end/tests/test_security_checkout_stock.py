@@ -53,7 +53,7 @@ class _FakeCheckoutDao:
         return SimpleNamespace(id=202)
 
 
-def _product(product_id=1, stock=5.0, prix=10.0):
+def _product(product_id=1, stock=5.0, prix=30.0):
     return SimpleNamespace(
         id=product_id,
         nom_fr="Tomate",

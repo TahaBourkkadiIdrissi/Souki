@@ -92,8 +92,10 @@ class ProduitPricingDaoBD(IProduitPricingDao):
     def create_product(self, session: Session, data: ProductCreateDTO) -> Product:
         product = Product(
             description=data.description,
+            description_ar=data.description_ar,
             nom_fr=data.nom_fr,
             nom_darija=data.nom_darija,
+            nom_ar=(data.nom_ar or "").strip() or None,
             prix_kg=data.prix_kg,
             unite=data.unite,
             stock=999.0,
@@ -119,7 +121,9 @@ class ProduitPricingDaoBD(IProduitPricingDao):
         comme une creation (l'id et l'historique de commandes sont conserves)."""
         product.nom_fr = data.nom_fr
         product.description = data.description
+        product.description_ar = data.description_ar
         product.nom_darija = data.nom_darija
+        product.nom_ar = (data.nom_ar or "").strip() or None
         product.prix_kg = data.prix_kg
         product.unite = data.unite
         product.stock = 999.0
@@ -201,9 +205,11 @@ class ProduitPricingDaoBD(IProduitPricingDao):
 
         return ProduitPricingDTO(
             description=produit.description,
+            description_ar=getattr(produit, "description_ar", None),
             id=int(produit.id),
             nom_fr=str(produit.nom_fr),
             nom_darija=str(produit.nom_darija),
+            nom_ar=getattr(produit, "nom_ar", None),
             prix_kg=float(produit.prix_kg),
             unite=str(produit.unite),
             is_active=bool(produit.is_active) if produit.is_active is not None else True,

@@ -23,7 +23,7 @@ const SEUIL_LIVRAISON_GRATUITE = 300
 
 type Draft = PanierSoukiForm & { id: number | null }
 
-const emptyDraft = (ordre: number): Draft => ({ id: null, nom: "", description: null, image_url: null, actif: true, ordre, lignes: [] })
+const emptyDraft = (ordre: number): Draft => ({ id: null, nom: "", nom_ar: null, description: null, description_ar: null, image_url: null, actif: true, ordre, lignes: [] })
 
 const prixDuJour = (product: ProduitPricingDTO) => product.prix_affiche ?? product.prix_kg
 
@@ -76,7 +76,8 @@ export function PaniersSoukiPanel() {
   const edit = (panier: PanierSoukiDTO) => {
     setNotice(""); setError(""); setQuery("")
     setDraft({
-      id: panier.id, nom: panier.nom, description: panier.description, image_url: panier.image_url, actif: panier.actif,
+      id: panier.id, nom: panier.nom, nom_ar: panier.nom_ar, description: panier.description, description_ar: panier.description_ar,
+      image_url: panier.image_url, actif: panier.actif,
       ordre: panier.ordre, lignes: panier.lignes.map(ligne => ({ product_id: ligne.product_id, quantite: ligne.quantite })),
     })
   }
@@ -113,7 +114,8 @@ export function PaniersSoukiPanel() {
     setSaving(true); setError(""); setNotice("")
     try {
       const saved = await updatePanierSouki(panier.id, {
-        nom: panier.nom, description: panier.description, image_url: panier.image_url, actif: !panier.actif, ordre: panier.ordre,
+        nom: panier.nom, nom_ar: panier.nom_ar, description: panier.description, description_ar: panier.description_ar,
+        image_url: panier.image_url, actif: !panier.actif, ordre: panier.ordre,
         lignes: panier.lignes.map(ligne => ({ product_id: ligne.product_id, quantite: ligne.quantite })),
       })
       setPaniers(current => current.map(row => row.id === saved.id ? saved : row))
@@ -122,7 +124,8 @@ export function PaniersSoukiPanel() {
     finally { setSaving(false) }
   }
 
-  const sousMinimum = draft !== null && estimation.sousTotal < MINIMUM_DH
+  // Minimum : 50 DH livraison comprise, comme une commande.
+  const sousMinimum = draft !== null && estimation.sousTotal + estimation.frais < MINIMUM_DH
 
   return <section className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--adm-line)] bg-white p-5 shadow-sm">
@@ -149,6 +152,11 @@ export function PaniersSoukiPanel() {
         <label className="flex items-end gap-2 pb-3 text-sm"><input type="checkbox" className="h-4 w-4 accent-[#1E8A3C]" checked={draft.actif} onChange={e => setDraft({ ...draft, actif: e.target.checked })} />Proposé aux clients</label>
       </div>
       <label className="block space-y-1 text-sm">Description (facultative)<textarea maxLength={1000} rows={2} className={`${inputClass} py-2`} value={draft.description ?? ""} onChange={e => setDraft({ ...draft, description: e.target.value || null })} placeholder="Pour qui, combien de repas, ce qu'il contient." /></label>
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className="space-y-1 text-sm">Nom en arabe (facultatif)<input maxLength={120} className={inputClass} dir="rtl" lang="ar" value={draft.nom_ar ?? ""} onChange={e => setDraft({ ...draft, nom_ar: e.target.value || null })} placeholder="سلة العائلة لهذا الأسبوع" /></label>
+        <label className="space-y-1 text-sm">Description en arabe (facultative)<textarea maxLength={1000} rows={2} className={`${inputClass} py-2`} dir="rtl" lang="ar" value={draft.description_ar ?? ""} onChange={e => setDraft({ ...draft, description_ar: e.target.value || null })} placeholder="لمن، كم وجبة، ماذا تحتوي." /></label>
+      </div>
+      <p className="text-xs text-[var(--adm-muted)]">Affichés sur le site en arabe. Vides : les textes français.</p>
       <label className="block space-y-1 text-sm">Image (lien, facultatif)<input type="url" maxLength={500} className={inputClass} value={draft.image_url ?? ""} onChange={e => setDraft({ ...draft, image_url: e.target.value || null })} placeholder="https://…" /></label>
 
       <div className="space-y-2">
@@ -184,7 +192,7 @@ export function PaniersSoukiPanel() {
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[var(--adm-paper)] px-4 py-3 text-sm">
         <span>Estimation au prix du jour : <strong className="tabular-nums">{formatDh(estimation.sousTotal)}</strong> + livraison {formatDh(estimation.frais)}</span>
-        {sousMinimum && <span className="font-semibold text-red-700">Minimum {MINIMUM_DH} DH par livraison</span>}
+        {sousMinimum && <span className="font-semibold text-red-700">Minimum {MINIMUM_DH} DH, livraison comprise</span>}
       </div>
       <div className="flex justify-end gap-2">
         <button type="button" className={buttonClass} onClick={() => setDraft(null)}>Annuler</button>

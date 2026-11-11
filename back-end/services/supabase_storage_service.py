@@ -241,6 +241,56 @@ class SupabaseStorageService:
         # generee a la lecture, avec une expiration.
         return object_path
 
+    def delete_user_avatars(self, user_id: int) -> int:
+        """Supprime toutes les photos de profil d'un utilisateur (dossier `{user_id}/`).
+
+        Appele a la suppression du compte. Chaque televersement cree un objet au nom
+        aleatoire : on liste donc le dossier puis on supprime tout. Renvoie le nombre
+        d'objets supprimes ; leve SupabaseStorageError en cas d'echec.
+        """
+        supabase_url = self._resolve_supabase_url()
+        service_role_key = self._service_role_key()
+        headers = {
+            "Authorization": f"Bearer {service_role_key}",
+            "apikey": service_role_key,
+            "Content-Type": "application/json",
+        }
+        prefix = f"{int(user_id)}/"
+        list_request = request.Request(
+            url=f"{supabase_url}/storage/v1/object/list/{self.bucket}",
+            data=json.dumps({"prefix": prefix, "limit": 1000, "offset": 0}).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+        try:
+            with request.urlopen(list_request, timeout=15) as response:
+                entries = json.loads(response.read().decode("utf-8") or "[]")
+        except error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="ignore")
+            raise SupabaseStorageError(self._normalize_storage_error(detail)) from exc
+        except error.URLError as exc:
+            raise SupabaseStorageError("Impossible de joindre Supabase Storage pour le moment.") from exc
+
+        paths = [f"{prefix}{entry['name']}" for entry in entries if isinstance(entry, dict) and entry.get("name")]
+        if not paths:
+            return 0
+
+        delete_request = request.Request(
+            url=f"{supabase_url}/storage/v1/object/{self.bucket}",
+            data=json.dumps({"prefixes": paths}).encode("utf-8"),
+            headers=headers,
+            method="DELETE",
+        )
+        try:
+            with request.urlopen(delete_request, timeout=15) as response:
+                response.read()
+        except error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="ignore")
+            raise SupabaseStorageError(self._normalize_storage_error(detail)) from exc
+        except error.URLError as exc:
+            raise SupabaseStorageError("Impossible de joindre Supabase Storage pour le moment.") from exc
+        return len(paths)
+
     def normalize_avatar_path(self, stored_value: Optional[str]) -> Optional[str]:
         """Ramene une valeur `t_users.avatar_url` a un chemin d'objet.
 

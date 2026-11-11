@@ -11,10 +11,20 @@ CategoryIcon = Literal[
 
 class CategoryWriteDTO(BaseModel):
     nom: str = Field(min_length=1, max_length=80)
+    # Nom affiche sur le site en arabe ; vide = nom francais.
+    nom_ar: str | None = Field(default=None, max_length=80)
     icone: CategoryIcon | None = None
     produit_vedette_id: int | None = Field(default=None, ge=1)
     ordre: int = Field(default=0, ge=0, le=999)
     actif: bool = True
+
+    @field_validator("nom_ar", mode="before")
+    @classmethod
+    def blank_to_none(cls, value):
+        if isinstance(value, str):
+            value = value.strip()
+            return value or None
+        return value
 
 
 class CategoryCreateDTO(CategoryWriteDTO):
@@ -45,6 +55,7 @@ class CatalogueCategoryDTO(BaseModel):
     id: int
     slug: str
     nom: str
+    nom_ar: str | None = None
     icone: str | None = None
     produit_vedette_id: int | None = None
     ordre: int

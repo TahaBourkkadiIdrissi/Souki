@@ -4,27 +4,30 @@ import { useOrderCountdown } from "@/hooks/useOrderCountdown"
 import { useOrderLock } from "@/hooks/useOrderLock"
 import { cn } from "@/lib/utils"
 import { DeliveryPromise } from "@/components/souki/delivery-promise"
+import { useLocale } from "@/contexts/locale-context"
 
 const pad = (n: number) => String(n).padStart(2, "0")
 
 export function MarketStatus({ todayLabel }: { todayLabel: string }) {
   const { isLocked } = useOrderLock()
-  return <span className="inline-flex items-center gap-2 rounded-full bg-white/10 py-1 pl-2 pr-3 ring-1 ring-white/15">
+  const { t } = useLocale()
+  return <span className="inline-flex items-center gap-2 rounded-full bg-white/10 py-1 ps-2 pe-3 ring-1 ring-white/15">
     <span className={cn("h-2 w-2 rounded-full", isLocked ? "bg-[#F5C400]" : "bg-[#4CB84A]")} />
-    <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#CDEBD6]">{isLocked ? "Livraison en préparation" : "Marché ouvert"} · {todayLabel}</span>
+    <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#CDEBD6]">{isLocked ? t("Livraison en préparation") : t("Marché ouvert")} · {todayLabel}</span>
   </span>
 }
 
 export function MarketCountdown() {
   const cutoff = useOrderCountdown()
+  const { t } = useLocale()
   return <>
     <div>
-      <h2 className="text-[22px] font-black leading-tight text-white drop-shadow-sm">{cutoff?.closed ? "Les commandes rouvrent à 8h" : "Clôture à 1h du matin"}</h2>
+      <h2 className="text-[22px] font-black leading-tight text-white drop-shadow-sm">{cutoff?.closed ? t("Les commandes rouvrent à 8h") : t("Clôture à 1h du matin")}</h2>
       <p className="mt-1 max-w-[16rem] text-[13px] font-medium leading-snug text-[#D3EEDB]"><DeliveryPromise /></p>
     </div>
     <div className="flex items-center gap-2">
-      <span className="text-[11px] font-bold uppercase tracking-wide text-[#A7D7B5]">{cutoff?.closed ? "Réouverture dans" : "Clôture dans"}</span>
-      <span className="rounded-lg bg-white/15 px-3 py-1 text-[15px] font-black tabular-nums text-white">{cutoff ? `${pad(cutoff.hours)}:${pad(cutoff.minutes)}:${pad(cutoff.seconds)}` : "—"}</span>
+      <span className="text-[11px] font-bold uppercase tracking-wide text-[#A7D7B5]">{cutoff?.closed ? t("Réouverture dans") : t("Clôture dans")}</span>
+      <span dir="ltr" className="rounded-lg bg-white/15 px-3 py-1 text-[15px] font-black tabular-nums text-white">{cutoff ? `${pad(cutoff.hours)}:${pad(cutoff.minutes)}:${pad(cutoff.seconds)}` : "—"}</span>
     </div>
   </>
 }

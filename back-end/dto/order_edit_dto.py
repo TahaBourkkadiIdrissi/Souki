@@ -62,3 +62,6 @@ class OrderEditResponseDTO(BaseModel):
     total: float
     previous_total: float
     difference: float
+    # Part payee par le Wallet SOUKI pour ce total et reste a payer a la livraison.
+    wallet_paid: float = 0.0
+    amount_due: float = 0.0

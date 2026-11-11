@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { createCategory, getProduitsPricing, listCategories, setCategoryProducts, updateCategory, type Category, type CategoryForm, type ProduitPricingDTO } from "@/lib/api"
 import { CATEGORY_ICONS, categoryIcon } from "@/lib/category-icons"
 
-const emptyForm: CategoryForm & { slug: string } = { nom: "", slug: "", icone: null, produit_vedette_id: null, ordre: 0, actif: true }
+const emptyForm: CategoryForm & { slug: string } = { nom: "", nom_ar: null, slug: "", icone: null, produit_vedette_id: null, ordre: 0, actif: true }
 const inputClass = "min-h-11 w-full rounded-xl border border-[var(--adm-line)] bg-white px-3 text-sm focus:border-[#1E8A3C] focus:outline-none"
 const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--adm-line)] bg-white px-4 text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
 const primaryClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#1E8A3C] px-4 text-sm font-semibold text-white hover:bg-[#166d30] disabled:opacity-50"
@@ -63,7 +63,7 @@ export default function CategoriesPage() {
     setEditing(null); setForm(emptyForm); setError(""); setNotice(""); setShowForm(true)
   }
   const startEdit = (row: Category) => {
-    setEditing(row); setForm({ nom: row.nom, slug: row.slug, icone: row.icone, produit_vedette_id: row.produit_vedette_id, ordre: row.ordre, actif: row.actif }); setError(""); setNotice(""); setShowForm(true)
+    setEditing(row); setForm({ nom: row.nom, nom_ar: row.nom_ar, slug: row.slug, icone: row.icone, produit_vedette_id: row.produit_vedette_id, ordre: row.ordre, actif: row.actif }); setError(""); setNotice(""); setShowForm(true)
   }
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -113,6 +113,7 @@ export default function CategoriesPage() {
           <h2 className="text-lg font-bold">{editing ? "Modifier la catégorie" : "Créer une catégorie"}</h2>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-1 text-sm">Nom affiché aux clients<input required maxLength={80} className={inputClass} value={form.nom} onChange={e => setForm({ ...form, nom: e.target.value, slug: editing ? form.slug : toSlug(e.target.value) })} placeholder="Fruits de saison" /></label>
+            <label className="space-y-1 text-sm">Nom en arabe (facultatif)<input maxLength={80} className={inputClass} dir="rtl" lang="ar" value={form.nom_ar ?? ""} onChange={e => setForm({ ...form, nom_ar: e.target.value || null })} placeholder="فواكه الموسم" /><span className="block text-xs text-[var(--adm-muted)]">Affiché sur le site en arabe. Vide : le nom français.</span></label>
             <label className="space-y-1 text-sm">Identifiant<input required disabled={Boolean(editing)} maxLength={48} className={inputClass} value={form.slug} onChange={e => setForm({ ...form, slug: e.target.value.toLowerCase().trim() })} placeholder="fruits-de-saison" /><span className="block text-xs text-[var(--adm-muted)]">Utilisé dans les liens du catalogue. Il ne change plus après la création.</span></label>
             <label className="space-y-1 text-sm">Ordre d&apos;affichage<input type="number" min={0} max={999} required className={inputClass} value={form.ordre} onChange={e => setForm({ ...form, ordre: Number(e.target.value) })} /><span className="block text-xs text-[var(--adm-muted)]">Le plus petit nombre apparaît en premier.</span></label>
             <label className="space-y-1 text-sm md:col-span-2">Produit phare

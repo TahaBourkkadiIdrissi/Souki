@@ -56,6 +56,8 @@ const volatiliteOptions: ProduitVolatilite[] = ["STABLE", "VARIABLE", "SAISONNIE
 
 interface EditValues {
   description: string
+  description_ar: string
+  nom_ar: string
   prix_gros_saisi: string
   prix_khddar_reel: string
   prix_vente_manuel: string
@@ -342,6 +344,8 @@ export default function AdminPricingPage() {
     setEditingId(produit.id)
     setEditValues({
       description: produit.description ?? "",
+      description_ar: produit.description_ar ?? "",
+      nom_ar: produit.nom_ar ?? "",
       prix_gros_saisi: produit.prix_gros_saisi === null ? "" : String(produit.prix_gros_saisi),
       prix_khddar_reel: produit.prix_khddar_reel == null ? "" : String(produit.prix_khddar_reel),
       prix_vente_manuel: produit.prix_vente_manuel == null ? "" : String(produit.prix_vente_manuel),
@@ -469,6 +473,8 @@ export default function AdminPricingPage() {
 
     const payload: ProduitPricingUpdateDTO = {
       description: editValues.description.trim() || null,
+      description_ar: editValues.description_ar.trim() || null,
+      nom_ar: editValues.nom_ar.trim() || null,
       prix_gros_saisi: prixGros,
       prix_khddar_reel: prixKhddarReel,
       prix_vente_manuel: prixVenteManuel,
@@ -885,6 +891,21 @@ export default function AdminPricingPage() {
                                 )}
                                 <div>
                                   <p className="font-semibold text-gray-950">{produit.nom_fr}</p>
+                                  {isEditing && editValues && (
+                                    <label className="mt-2 grid gap-1 text-xs font-semibold text-gray-700">
+                                      Nom en arabe (darija), affiché sur le site en arabe
+                                      <input
+                                        value={editValues.nom_ar}
+                                        onChange={(event) => updateEditValue("nom_ar", event.target.value)}
+                                        maxLength={100}
+                                        dir="rtl"
+                                        lang="ar"
+                                        placeholder="مثال: ماطيشة"
+                                        className="min-w-56 rounded-lg border border-gray-200 px-3 py-2 text-sm font-normal outline-none focus:border-[#1E8A3C]"
+                                      />
+                                      <span className="font-normal text-gray-500">Vide : le nom français est affiché.</span>
+                                    </label>
+                                  )}
                                   {isEditing && editValues ? (
                                     <label className="mt-2 grid gap-1 text-xs font-semibold text-gray-700">
                                       Description du produit
@@ -901,11 +922,27 @@ export default function AdminPricingPage() {
                                   ) : produit.description ? (
                                     <p className="mt-1 max-w-xs whitespace-pre-wrap text-xs text-gray-500">{produit.description}</p>
                                   ) : null}
+                                  {isEditing && editValues && (
+                                    <label className="mt-2 grid gap-1 text-xs font-semibold text-gray-700">
+                                      Description en arabe
+                                      <textarea
+                                        value={editValues.description_ar}
+                                        onChange={(event) => updateEditValue("description_ar", event.target.value)}
+                                        maxLength={5000}
+                                        rows={3}
+                                        dir="rtl"
+                                        lang="ar"
+                                        placeholder="الوصف المعروض في صفحة المنتج"
+                                        className="min-w-56 rounded-lg border border-gray-200 px-3 py-2 text-sm font-normal outline-none focus:border-[#1E8A3C]"
+                                      />
+                                      <span className="font-normal text-gray-500">Vide : description arabe par défaut du catalogue.</span>
+                                    </label>
+                                  )}
                                   <p className="text-xs text-gray-500">#{produit.id} - {formatMoney(produit.prix_kg)} / {produit.unite}</p>
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-4 text-sm text-[var(--adm-text)]">{produit.nom_darija}</td>
+                            <td className="px-4 py-4 text-sm text-[var(--adm-text)]">{produit.nom_darija}{produit.nom_ar ? <span className="block text-base" dir="rtl" lang="ar">{produit.nom_ar}</span> : <span className="block text-xs text-[var(--adm-saffron)]">Nom arabe à compléter</span>}</td>
                             <td className="px-4 py-4">
                               {isEditing && editValues ? (
                                 <select

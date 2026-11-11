@@ -34,10 +34,12 @@ import {
 } from "@/lib/api"
 import { isValidMoroccanPhone, normalizeMoroccanPhone, PHONE_ERROR_MSG } from "@/lib/phoneValidator"
 import { cn } from "@/lib/utils"
+import { useLocale } from "@/contexts/locale-context"
 import { trackEvent, trackPurchase } from "@/lib/analytics"
 import {
   DELIVERY_FEE,
   FREE_DELIVERY_THRESHOLD,
+  MIN_ORDER_TOTAL_DH,
   CatalogueProduct,
   fetchCatalogueProducts,
   getCataloguePresentation,
@@ -62,6 +64,7 @@ const FRAIS = DELIVERY_FEE
 interface CartItem {
   id: string
   name: string
+  nameAr?: string | null
   price: number
   quantity: number
   unit: string
@@ -160,6 +163,9 @@ function CheckoutContent() {
   const [catalogueImages, setCatalogueImages] = useState<Record<number, string>>({})
   const [cataloguePrices, setCataloguePrices] = useState<Record<number, number>>({})
   const [catalogueProducts, setCatalogueProducts] = useState<CatalogueProduct[]>([])
+  // Les lignes recues par lien n'ont que le nom francais : le nom arabe vient du catalogue.
+  const cartItemName = (item: CartItem) =>
+    productName({ name: item.name, nameAr: item.nameAr ?? catalogueProducts.find((product) => product.id === Number(item.id))?.nameAr })
   const [mapboxModalOpen, setMapboxModalOpen] = useState(false)
   const [blacklistStatus, setBlacklistStatus] = useState<BlacklistStatusDTO | null>(null)
   const [showLiftModal, setShowLiftModal] = useState(false)
@@ -170,6 +176,7 @@ function CheckoutContent() {
   // VULN-010 : plus aucun JWT dans le localStorage. `token` est un simple marqueur
   // de session non secret ; l'authentification reelle passe par le cookie httpOnly.
   const { token, isLoading: isAuthLoading } = useAuth()
+  const { t, productName, quantityLabel, zoneProps, dateLocale } = useLocale()
   const storageOwner = useClientStorageOwner()
   // Verrou de commande restaure (BUG-004), aligne sur le cutoff backend.
   const { isLocked: isOrderCutoffActive, message: orderLockMessage, deliveryDate } = useOrderLock()
@@ -202,7 +209,7 @@ function CheckoutContent() {
 
   const buildCartItems = (lines: any[]): CartItem[] => {
     return lines
-      .map((line: any) => {
+      .map((line: any): CartItem | null => {
         const productId = Number(line.id ?? line.product_id)
         const productName = line.name || line.nom_produit || line.nom_fr || "Produit inconnu"
         const currentCataloguePrice = Number.isFinite(productId) ? cataloguePrices[productId] : undefined
@@ -221,6 +228,7 @@ function CheckoutContent() {
         return {
           id: String(productId),
           name: String(productName),
+          nameAr: (line.nameAr ?? line.nom_ar ?? null) as string | null,
           price: Number.isFinite(price) ? price : 0,
           quantity,
           unit: String(unit),
@@ -528,6 +536,8 @@ function CheckoutContent() {
   }
 
   const isWalletInsufficient = selectedPayment === "wallet" && walletBalance < orderTotal
+  // Minimum : 50 DH livraison comprise (le back-end refuse aussi en dessous).
+  const missingForMinimum = Math.max(0, MIN_ORDER_TOTAL_DH - orderTotal)
   const isPhoneMissing = phoneNumber.trim().length === 0
   const isPhoneInvalid = phoneNumber.trim().length > 0 && !isValidMoroccanPhone(phoneNumber)
   const isAddressMissing = address.trim().length === 0
@@ -536,6 +546,7 @@ function CheckoutContent() {
     acceptTerms &&
     cart.length > 0 &&
     !isWalletInsufficient &&
+    missingForMinimum === 0 &&
     !isPhoneMissing &&
     !isPhoneInvalid &&
     !isAddressMissing &&
@@ -634,10 +645,10 @@ function CheckoutContent() {
         }, 1600)
       } else {
         const errData = await res.json().catch(() => ({}))
-        toast.error(errData.detail || "Erreur lors de la validation de la commande.")
+        toast.error(errData.detail || t("Erreur lors de la validation de la commande."))
       }
     } catch (error) {
-      toast.error("Erreur de connexion au serveur.")
+      toast.error(t("Erreur de connexion au serveur."))
     } finally {
       setIsSubmitting(false)
     }
@@ -648,7 +659,7 @@ function CheckoutContent() {
       <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-[#1E8A3C] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-[#1E8A3C] font-bold text-xl">Préparation du panier</p>
+          <p className="text-[#1E8A3C] font-bold text-xl">{t("Préparation du panier")}</p>
         </div>
       </div>
     )
@@ -658,8 +669,8 @@ function CheckoutContent() {
     return (
       <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center">
         <div className="text-center bg-white p-8 rounded-2xl shadow-lg max-w-md">
-          <p className="text-red-500 text-xl font-bold mb-4">Impossible de charger votre commande vocale.</p>
-          <Link href="/" className="text-[#1E8A3C] font-bold hover:underline">Retour à l'accueil</Link>
+          <p className="text-red-500 text-xl font-bold mb-4">{t("Impossible de charger votre commande vocale.")}</p>
+          <Link href="/" className="text-[#1E8A3C] font-bold hover:underline">{t("Retour à l'accueil")}</Link>
         </div>
       </div>
     )
@@ -669,16 +680,16 @@ function CheckoutContent() {
     return (
       <main className="flex min-h-dvh items-center justify-center bg-[#F5F5F0] p-6">
         <div className="max-w-md rounded-2xl bg-white p-8 text-center shadow-sm">
-          <h1 className="text-xl font-bold text-[#264129]">Votre panier est vide</h1>
-          <p className="mt-3 text-[#596D5C]">Choisissez vos produits avant de passer commande.</p>
-          <Link href="/catalogue" className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-[#1E8A3C] px-5 font-bold text-white">Découvrir le catalogue</Link>
+          <h1 className="text-xl font-bold text-[#264129]">{t("Votre panier est vide")}</h1>
+          <p className="mt-3 text-[#596D5C]">{t("Choisissez vos produits avant de passer commande.")}</p>
+          <Link href="/catalogue" className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-[#1E8A3C] px-5 font-bold text-white">{t("Découvrir le catalogue")}</Link>
         </div>
       </main>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F0] pb-40 md:pb-0">
+    <div {...zoneProps} className="min-h-screen bg-[#F5F5F0] pb-40 md:pb-0">
       {confirmedOrderId !== null && (
         <div
           className="fixed inset-0 z-[110] flex flex-col items-center justify-center bg-white/95 backdrop-blur-sm px-6"
@@ -706,7 +717,7 @@ function CheckoutContent() {
             Commande N-{confirmedOrderId} confirmée
           </p>
           <p className="mt-2 text-sm text-[#66756B] animate-fade-in-up-delay-1">
-            Livraison le {formatDeliveryDate(confirmedDeliveryDate)}, à {selectedTimeSlot}.
+            {t("Livraison le {date}, à {heure}.", { date: t(formatDeliveryDate(confirmedDeliveryDate, dateLocale)), heure: selectedTimeSlot })}
           </p>
           <img
             src="/illustrations/checkout-celebration.webp"
@@ -721,7 +732,7 @@ function CheckoutContent() {
       )}
       {/* En-tête mobile natif (← + titre centré), façon référence. Desktop garde son header. */}
       <div className="md:hidden">
-        <PwaHeader title="Finaliser ma commande" onBack={() => router.push(editCartHref)} />
+        <PwaHeader title={t("Finaliser ma commande")} onBack={() => router.push(editCartHref)} />
       </div>
 
       <header className="sticky top-0 z-10 hidden glass-ios26 border-b border-gray-100 md:block">
@@ -733,14 +744,14 @@ function CheckoutContent() {
                 className="group inline-flex items-center gap-2 rounded-xl bg-[#F0FAF1] px-4 py-2 text-sm font-semibold text-[#1E8A3C] shadow-sm ring-1 ring-[#D7EBD9] transition-all hover:-translate-y-0.5 hover:bg-[#E7F5E8] hover:shadow"
               >
                 <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-                <span>Retour à l'accueil</span>
+                <span>{t("Retour à l'accueil")}</span>
               </Link>
               <Link
                 href={editCartHref}
                 className="group inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#F07C00] shadow-sm ring-1 ring-[#F5D7B8] transition-all hover:-translate-y-0.5 hover:bg-[#FFF7EE] hover:shadow"
               >
                 <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-                <span>Modifier dans le catalogue</span>
+                <span>{t("Modifier dans le catalogue")}</span>
               </Link>
             </div>
             <SoukiLogoLink height={36} priority />
@@ -750,9 +761,9 @@ function CheckoutContent() {
 
       <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 md:py-8 lg:px-8">
         <div className="mb-6 md:mb-8">
-          <h1 className="hidden text-2xl font-bold leading-tight text-[#1E8A3C] md:block lg:text-3xl">Finaliser ma commande</h1>
+          <h1 className="hidden text-2xl font-bold leading-tight text-[#1E8A3C] md:block lg:text-3xl">{t("Finaliser ma commande")}</h1>
           <p className="text-sm font-medium text-[#6F8070] md:hidden">
-            Vérifiez le panier, choisissez la livraison, puis confirmez.
+            {t("Vérifiez le panier, choisissez la livraison, puis confirmez.")}
           </p>
         </div>
 
@@ -768,13 +779,13 @@ function CheckoutContent() {
                   {blacklistStatus.is_blacklisted ? "Suite a un refus de livraison. Wallet et CMI restent disponibles." : "Vous pouvez a nouveau choisir le paiement a la livraison."}
                 </p>
                 {blacklistStatus.last_action === "LIFT_REQUESTED" && (
-                  <p className="mt-2 text-xs font-medium text-amber-600">Demande de levee en attente de decision admin.</p>
+                  <p className="mt-2 text-xs font-medium text-amber-600">{t("Demande de levee en attente de decision admin.")}</p>
                 )}
                 {blacklistStatus.last_action === "LIFT_REJECTED" && (
                   <p className="mt-2 text-xs font-medium text-red-600">Demande refusee. Motif : {blacklistStatus.last_reason}</p>
                 )}
                 {shouldShowLiftNotification && (
-                  <p className="mt-2 text-xs font-medium text-[#1E8A3C]">Restriction levee. COD disponible a nouveau.</p>
+                  <p className="mt-2 text-xs font-medium text-[#1E8A3C]">{t("Restriction levee. COD disponible a nouveau.")}</p>
                 )}
                 {shouldShowLiftNotification && (
                   <button
@@ -782,7 +793,7 @@ function CheckoutContent() {
                     onClick={() => void acknowledgeLiftNotification()}
                     className="mt-3 rounded-lg border border-[#1E8A3C] bg-white px-3 py-1.5 text-xs font-semibold text-[#1E8A3C] transition hover:bg-[#F0FAF1]"
                   >
-                    J'ai compris
+                    {t("J'ai compris")}
                   </button>
                 )}
                 {liftRequestMessage && <p className="mt-2 text-xs font-medium text-[#1E8A3C]">{liftRequestMessage}</p>}
@@ -795,7 +806,7 @@ function CheckoutContent() {
                     }}
                     className="mt-3 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
                   >
-                    Demander la levee de restriction
+                    {t("Demander la levee de restriction")}
                   </button>
                 )}
               </div>
@@ -807,10 +818,10 @@ function CheckoutContent() {
           <div className="bg-[#1E8A3C] text-white rounded-2xl p-5 mb-8 shadow-lg flex items-start gap-4">
             <MessageCircle className="w-8 h-8 shrink-0 mt-1" />
             <div>
-              <h2 className="font-bold text-lg mb-1">Récapitulatif de votre commande vocale</h2>
+              <h2 className="font-bold text-lg mb-1">{t("Récapitulatif de votre commande vocale")}</h2>
               <p className="text-white/90 italic">« {voiceData.transcription} »</p>
               {voiceData.lignes.some((l: any) => l.message_ajustement) && (
-                <p className="text-yellow-300 text-sm mt-2 font-medium">⚠️ Certains produits ont été ajustés selon leur disponibilité.</p>
+                <p className="text-yellow-300 text-sm mt-2 font-medium">{t("⚠️ Certains produits ont été ajustés selon leur disponibilité.")}</p>
               )}
             </div>
           </div>
@@ -820,7 +831,7 @@ function CheckoutContent() {
           <div className="bg-[#1E8A3C] text-white rounded-2xl p-5 mb-8 shadow-lg flex items-start gap-4">
             <MessageCircle className="w-8 h-8 shrink-0 mt-1" />
             <div>
-              <h2 className="font-bold text-lg mb-1">Récapitulatif de votre panier</h2>
+              <h2 className="font-bold text-lg mb-1">{t("Récapitulatif de votre panier")}</h2>
               <p className="text-white/90">{panierData.nombre_articles || cart.length} article{(panierData.nombre_articles || cart.length) > 1 ? "s" : ""} pour {panierData.sous_total?.toFixed(2) || "calculé"} DH</p>
             </div>
           </div>
@@ -830,7 +841,7 @@ function CheckoutContent() {
           <div className="bg-[#1E8A3C] text-white rounded-2xl p-5 mb-8 shadow-lg flex items-start gap-4">
             <MessageCircle className="w-8 h-8 shrink-0 mt-1" />
             <div>
-              <h2 className="font-bold text-lg mb-1">Panier intelligent IA-SOUKI</h2>
+              <h2 className="font-bold text-lg mb-1">{t("Panier intelligent IA-SOUKI")}</h2>
               <p className="text-white/90">
                 {cart.length} article{cart.length > 1 ? "s" : ""} genere{cart.length > 1 ? "s" : ""} par le modele ML, affiches dans votre checkout.
               </p>
@@ -851,21 +862,21 @@ function CheckoutContent() {
                   <div key={item.id} className="flex gap-3 p-4 sm:gap-4">
                     <Image
                       src={item.image}
-                      alt={item.name}
+                      alt={cartItemName(item)}
                       width={80}
                       height={80}
                       className="h-20 w-20 shrink-0 rounded-xl object-cover"
                     />
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold text-[#3D3D3D]">{item.name}</h3>
+                      <h3 className="font-semibold text-[#3D3D3D]">{cartItemName(item)}</h3>
                       <p className="text-[#F07C00] font-bold">{item.price.toFixed(2)} DH/{item.unit}</p>
                       <div className="mt-3 flex items-center gap-2">
                         <div className="flex min-h-10 items-center overflow-hidden rounded-xl border border-gray-200">
                           <button onClick={() => updateQuantity(item.id, -0.5)} className="flex h-10 w-10 items-center justify-center hover:bg-gray-100"><Minus className="w-4 h-4" /></button>
-                          <span className="min-w-16 px-2 text-center text-sm font-medium">{item.quantity} {item.unit}</span>
+                          <span className="min-w-16 px-2 text-center text-sm font-medium">{quantityLabel(item.quantity, item.unit)}</span>
                           <button onClick={() => updateQuantity(item.id, 0.5)} className="flex h-10 w-10 items-center justify-center hover:bg-gray-100"><Plus className="w-4 h-4" /></button>
                         </div>
-                        <button onClick={() => removeItem(item.id)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-red-400 hover:bg-red-50 hover:text-red-600" aria-label={`Retirer ${item.name}`}>
+                        <button onClick={() => removeItem(item.id)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-red-400 hover:bg-red-50 hover:text-red-600" aria-label={t("Retirer {name}", { name: cartItemName(item) })}>
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -880,12 +891,12 @@ function CheckoutContent() {
               <div className="p-6 bg-[#F0FAF1] space-y-2">
                 <div className="rounded-xl border border-[#D7EBD9] bg-white px-4 py-3">
                   <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-                    <span className="font-semibold text-[#3D3D3D]">Livraison</span>
+                    <span className="font-semibold text-[#3D3D3D]">{t("Livraison")}</span>
                     <span className={cn(
                       "font-bold",
                       deliveryFee > 0 ? "text-amber-700" : "text-[#1E8A3C]"
                     )}>
-                      {deliveryFee > 0 ? `${deliveryFee.toFixed(0)} DH` : "Offerte ✅"}
+                      {deliveryFee > 0 ? `${deliveryFee.toFixed(0)} DH` : t("Offerte ✅")}
                     </span>
                   </div>
 
@@ -901,29 +912,29 @@ function CheckoutContent() {
                 </div>
 
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#8A8A8A]">Sous-total produits</span>
+                  <span className="text-[#8A8A8A]">{t("Sous-total produits")}</span>
                   <span className="font-medium">{subtotal.toFixed(2)} DH</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#8A8A8A]">Frais de livraison</span>
+                  <span className="text-[#8A8A8A]">{t("Frais de livraison")}</span>
                   <span className="font-medium">
-                    {deliveryFee > 0 ? `${deliveryFee.toFixed(2)} DH` : "Offerte ✅"}
+                    {deliveryFee > 0 ? `${deliveryFee.toFixed(2)} DH` : t("Offerte ✅")}
                   </span>
                 </div>
                 {walletDiscount > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-[#8A8A8A]">Total TTC</span>
+                    <span className="text-[#8A8A8A]">{t("Total TTC")}</span>
                     <span className="font-medium">{orderTotal.toFixed(2)} DH</span>
                   </div>
                 )}
                 {walletDiscount > 0 && (
                   <div className="flex justify-between text-sm text-[#1E8A3C]">
-                    <span>Crédit Wallet SOUKI</span>
+                    <span>{t("Crédit Wallet SOUKI")}</span>
                     <span className="font-semibold">-{walletDiscount.toFixed(2)} DH</span>
                   </div>
                 )}
                 <div className="flex justify-between font-bold text-lg pt-2 border-t border-[#4CB84A]/30">
-                  <span>{walletDiscount > 0 ? (total > 0 ? "À payer à la livraison" : "Payé par votre Wallet") : "Total TTC"}</span>
+                  <span>{walletDiscount > 0 ? (total > 0 ? t("À payer à la livraison") : t("Payé par votre Wallet")) : t("Total TTC")}</span>
                   <span className="text-[#F07C00]">{total.toFixed(2)} DH</span>
                 </div>
                 <div className="flex items-center gap-2 text-[#1E8A3C] text-sm">
@@ -937,9 +948,9 @@ function CheckoutContent() {
             {isSmartBasket && suggestionsByLevel.length > 0 && (
               <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
                 <div className="border-b border-gray-100 p-5 sm:p-6">
-                  <h2 className="text-lg font-bold text-[#1E8A3C]">Completer le panier par niveau</h2>
+                  <h2 className="text-lg font-bold text-[#1E8A3C]">{t("Completer le panier par niveau")}</h2>
                   <p className="mt-1 text-sm font-medium text-[#6F8070]">
-                    Suggestions catalogue pour enrichir votre panier genere.
+                    {t("Suggestions catalogue pour enrichir votre panier genere.")}
                   </p>
                 </div>
                 <div className="space-y-5 p-5 sm:p-6">
@@ -972,15 +983,15 @@ function CheckoutContent() {
             <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
               <h3 className="font-bold text-[#3D3D3D] mb-4 flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-[#1E8A3C]" />
-                Adresse de livraison
+                {t("Adresse de livraison")}
               </h3>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Adresse</label>
-                  <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Entrez votre adresse de livraison" className="min-h-12 w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:border-[#4CB84A] focus:outline-none" />
+                  <label className="block text-sm font-medium text-[#3D3D3D] mb-2">{t("Adresse")}</label>
+                  <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t("Entrez votre adresse de livraison")} className="min-h-12 w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:border-[#4CB84A] focus:outline-none" />
                   {isAddressMissing && (
                     <p className="mt-2 text-xs font-semibold text-red-500">
-                      Ajoutez votre adresse de livraison.
+                      {t("Ajoutez votre adresse de livraison.")}
                     </p>
                   )}
                 </div>
@@ -991,21 +1002,21 @@ function CheckoutContent() {
                   className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border-2 border-[#1E8A3C] px-4 py-3 font-semibold text-[#1E8A3C] transition-colors hover:bg-[#F0FAF1]"
                 >
                   <Navigation className="w-4 h-4" />
-                  Me localiser
+                  {t("Me localiser")}
                 </button>
 
                 <div>
-                  <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Ville</label>
-                  <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Ville" className="min-h-12 w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:border-[#4CB84A] focus:outline-none" />
+                  <label className="block text-sm font-medium text-[#3D3D3D] mb-2">{t("Ville")}</label>
+                  <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder={t("Ville")} className="min-h-12 w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:border-[#4CB84A] focus:outline-none" />
                   {isCityMissing && (
                     <p className="mt-2 text-xs font-semibold text-red-500">
-                      Ajoutez votre ville pour la livraison.
+                      {t("Ajoutez votre ville pour la livraison.")}
                     </p>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Numero de telephone</label>
+                  <label className="block text-sm font-medium text-[#3D3D3D] mb-2">{t("Numero de telephone")}</label>
                   <input
                     type="tel"
                     value={phoneNumber}
@@ -1015,7 +1026,7 @@ function CheckoutContent() {
                   />
                   {isPhoneMissing && (
                     <p className="mt-2 text-xs font-semibold text-red-500">
-                      Ajoutez un numéro pour que SOUKI confirme la livraison.
+                      {t("Ajoutez un numéro pour que SOUKI confirme la livraison.")}
                     </p>
                   )}
                   {isPhoneInvalid && (
@@ -1026,8 +1037,8 @@ function CheckoutContent() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-[#3D3D3D] mb-2">Instructions livraison (optionnel)</label>
-                  <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Ex: 2ème étage, code porte 1234..." rows={3} className="w-full resize-none rounded-xl border-2 border-gray-200 px-4 py-3 focus:border-[#4CB84A] focus:outline-none" />
+                  <label className="block text-sm font-medium text-[#3D3D3D] mb-2">{t("Instructions livraison (optionnel)")}</label>
+                  <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder={t("Ex: 2ème étage, code porte 1234...")} rows={3} className="w-full resize-none rounded-xl border-2 border-gray-200 px-4 py-3 focus:border-[#4CB84A] focus:outline-none" />
                 </div>
               </div>
             </div>
@@ -1035,16 +1046,16 @@ function CheckoutContent() {
             <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
               <h3 className="mb-1 flex items-center gap-2 font-bold text-[#3D3D3D]">
                 <Clock className="h-5 w-5 text-[#1E8A3C]" />
-                Heure de livraison
+                {t("Heure de livraison")}
               </h3>
               <p className="mb-4 text-sm text-[#8A8A8A]">
-                Livraison le {formatDeliveryDate(deliveryDate)}. Choisissez une heure entre 8h00 et 15h00.
+                {t("Livraison le {date}. Choisissez une heure entre 8h00 et 15h00.", { date: t(formatDeliveryDate(deliveryDate, dateLocale)) })}
               </p>
 
               {/* Heure choisie mise en avant + sélecteur précis */}
               <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-[#F0FAF1] px-4 py-3">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold text-[#6F8070]">Livraison prévue vers</p>
+                  <p className="text-xs font-semibold text-[#6F8070]">{t("Livraison prévue vers")}</p>
                   <p className="souki-tabular-nums text-2xl font-black leading-tight text-[#1E8A3C]">
                     {formatDeliveryTime(selectedTimeSlot)}
                   </p>
@@ -1056,7 +1067,7 @@ function CheckoutContent() {
                   step={900}
                   value={selectedTimeSlot}
                   onChange={(event) => handleTimeChange(event.target.value)}
-                  aria-label="Heure de livraison souhaitée"
+                  aria-label={t("Heure de livraison souhaitée")}
                   className="shrink-0 rounded-xl border-2 border-[#CDE8D0] bg-white px-3 py-2.5 text-base font-bold text-[#264129] outline-none transition-colors focus:border-[#4CB84A]"
                 />
               </div>
@@ -1087,14 +1098,14 @@ function CheckoutContent() {
               {timeError ? (
                 <p className="mt-3 text-xs font-semibold text-red-500">{timeError}</p>
               ) : (
-                <p className="mt-3 text-sm text-[#8A8A8A]">Livraison le {formatDeliveryDate(deliveryDate)}, entre 8h et 15h, à l&apos;heure choisie.</p>
+                <p className="mt-3 text-sm text-[#8A8A8A]">{t("Livraison le {date}, entre 8h et 15h, à l'heure choisie.", { date: t(formatDeliveryDate(deliveryDate, dateLocale)) })}</p>
               )}
             </div>
 
             <div className="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
               <h3 className="font-bold text-[#3D3D3D] mb-4 flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-[#1E8A3C]" />
-                Méthode de Paiement
+                {t("Méthode de Paiement")}
               </h3>
               <div className="space-y-3">
                 {/* Cash on Delivery */}
@@ -1110,13 +1121,13 @@ function CheckoutContent() {
                 >
                   <div className={cn("p-2 rounded-lg", selectedPayment === "cod" ? "bg-[#F07C00] text-white" : "bg-gray-100 text-[#3D3D3D]")}><Banknote className="w-5 h-5" /></div>
                   <div className="flex-1">
-                    <p className="font-semibold text-[#3D3D3D]">Cash on Delivery</p>
+                    <p className="font-semibold text-[#3D3D3D]">{t("Cash on Delivery")}</p>
                     {isCodBlocked && (
                       <p className="mt-1 text-xs font-semibold text-red-500">
-                        Indisponible tant que la restriction est active.
+                        {t("Indisponible tant que la restriction est active.")}
                       </p>
                     )}
-                    <p className="text-sm text-[#8A8A8A] mt-1">Payez à la porte, confirmation appel la veille</p>
+                    <p className="text-sm text-[#8A8A8A] mt-1">{t("Payez à la porte, confirmation appel la veille")}</p>
                   </div>
                   {selectedPayment === "cod" && (
                     <div className="w-6 h-6 rounded-full bg-[#F07C00] flex items-center justify-center"><Check className="w-4 h-4 text-white" /></div>
@@ -1134,10 +1145,10 @@ function CheckoutContent() {
                     />
                     <span className="flex-1">
                       <span className="block text-sm font-semibold text-[#14301B]">
-                        Utiliser mon crédit Wallet ({Math.min(walletBalance, orderTotal).toFixed(2)} DH)
+                        {t("Utiliser mon crédit Wallet ({montant} DH)", { montant: Math.min(walletBalance, orderTotal).toFixed(2) })}
                       </span>
                       <span className="block text-xs text-[#5F6F61]">
-                        Déduit du montant à payer, le reste se règle en cash à la porte.
+                        {t("Déduit du montant à payer, le reste se règle en cash à la porte.")}
                       </span>
                     </span>
                   </label>
@@ -1150,10 +1161,10 @@ function CheckoutContent() {
                 >
                   <div className={cn("p-2 rounded-lg", selectedPayment === "wallet" ? "bg-[#F07C00] text-white" : "bg-gray-100 text-[#3D3D3D]")}><Wallet className="w-5 h-5" /></div>
                   <div className="flex-1">
-                    <p className="font-semibold text-[#3D3D3D]">Wallet SOUKI</p>
+                    <p className="font-semibold text-[#3D3D3D]">{t("Wallet SOUKI")}</p>
                     <p className={cn("text-sm mt-1", isWalletInsufficient ? "text-red-500 font-semibold" : "text-[#8A8A8A]")}>
-                      Solde : {walletBalance.toFixed(2)} DH
-                      {isWalletInsufficient && " — insuffisant pour tout payer : choisissez le paiement à la livraison, votre crédit sera déduit."}
+                      {t("Solde : {montant} DH", { montant: walletBalance.toFixed(2) })}
+                      {isWalletInsufficient && t(" — insuffisant pour tout payer : choisissez le paiement à la livraison, votre crédit sera déduit.")}
                     </p>
                   </div>
                   {selectedPayment === "wallet" && (
@@ -1169,13 +1180,13 @@ function CheckoutContent() {
                   <div className="p-2 rounded-lg bg-gray-100 text-[#8A8A8A]"><CreditCard className="w-5 h-5" /></div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="font-semibold text-[#8A8A8A]">Carte Bancaire CMI</p>
+                      <p className="font-semibold text-[#8A8A8A]">{t("Carte Bancaire CMI")}</p>
                       <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-200 text-[#8A8A8A] text-xs font-semibold rounded-lg">
                         <AlertTriangle className="w-3 h-3" />
-                        Non disponible
+                        {t("Non disponible")}
                       </span>
                     </div>
-                    <p className="text-sm text-[#8A8A8A] mt-1">Visa / Mastercard marocain — Bientôt disponible</p>
+                    <p className="text-sm text-[#8A8A8A] mt-1">{t("Visa / Mastercard marocain — Bientôt disponible")}</p>
                   </div>
                 </button>
               </div>
@@ -1187,11 +1198,17 @@ function CheckoutContent() {
                   {orderLockMessage}
                 </div>
               )}
+              {missingForMinimum > 0 && cart.length > 0 && (
+                <div role="status" className="rounded-xl border border-[#F5D7B8] bg-[#FFF7EE] p-4 text-sm font-semibold text-[#9A5C11]">
+                  {t("Minimum de commande : {min} DH, livraison comprise. Ajoutez encore {manque} DH de produits.", { min: MIN_ORDER_TOTAL_DH, manque: missingForMinimum.toFixed(2) })}
+                  <Link href="/catalogue" className="ms-2 underline">{t("Ajouter des produits")}</Link>
+                </div>
+              )}
               <label className="flex items-start gap-3 cursor-pointer">
                 <div onClick={() => setAcceptTerms(!acceptTerms)} className={cn("w-5 h-5 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0 mt-0.5", acceptTerms ? "bg-[#1E8A3C] border-[#1E8A3C]" : "border-gray-300")}>
                   {acceptTerms && <Check className="w-3 h-3 text-white" />}
                 </div>
-                <span className="text-sm text-[#3D3D3D]">J'ai lu et j'accepte la <PolicyLink className="text-[#1A4F8A] hover:underline" /></span>
+                <span className="text-sm text-[#3D3D3D]">{t("J'ai lu et j'accepte la")} <PolicyLink className="text-[#1A4F8A] hover:underline" /></span>
               </label>
 
               <button
@@ -1202,19 +1219,19 @@ function CheckoutContent() {
                 {isSubmitting ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Validation en cours...
+                    {t("Validation en cours...")}
                   </>
                 ) : (
                   <>
                     <Check className="w-5 h-5" />
-                    Passer la Commande
+                    {t("Passer la Commande")}
                   </>
                 )}
               </button>
 
               <div className="flex items-center justify-center gap-2 text-sm text-[#8A8A8A]">
                 <Shield className="w-4 h-4" />
-                <span>Paiement sécurisé — Données protégées</span>
+                <span>{t("Paiement sécurisé — Données protégées")}</span>
                 <Lock className="w-4 h-4" />
               </div>
             </div>
@@ -1225,12 +1242,12 @@ function CheckoutContent() {
       {showLiftModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-bold text-[#3D3D3D]">Demande de levee</h3>
-            <p className="mt-2 text-sm text-[#8A8A8A]">Expliquez la situation pour que l'admin puisse prendre une decision.</p>
+            <h3 className="text-lg font-bold text-[#3D3D3D]">{t("Demande de levee")}</h3>
+            <p className="mt-2 text-sm text-[#8A8A8A]">{t("Expliquez la situation pour que l'admin puisse prendre une decision.")}</p>
             <textarea
               value={liftMotif}
               onChange={(event) => setLiftMotif(event.target.value)}
-              placeholder="Expliquez la situation..."
+              placeholder={t("Expliquez la situation...")}
               rows={5}
               className="mt-4 w-full resize-none rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-[#3D3D3D] outline-none transition-colors focus:border-red-300"
             />
@@ -1246,7 +1263,7 @@ function CheckoutContent() {
                 disabled={isSendingLiftRequest}
                 className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-[#3D3D3D] transition hover:bg-gray-50 disabled:opacity-60"
               >
-                Annuler
+                {t("Annuler")}
               </button>
               <button
                 type="button"
@@ -1278,19 +1295,19 @@ function CheckoutContent() {
             )}
           >
             <span className="flex flex-col items-start leading-tight">
-              <span className="text-[11px] font-semibold text-white/80">{walletDiscount > 0 ? "À payer à la livraison" : "Total TTC"}</span>
+              <span className="text-[11px] font-semibold text-white/80">{walletDiscount > 0 ? t("À payer à la livraison") : t("Total TTC")}</span>
               <span className="text-[17px] font-black souki-tabular-nums">{total.toFixed(2)} DH</span>
             </span>
             <span className="flex items-center gap-1.5 text-[15px] font-black">
               {isSubmitting ? (
                 <>
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  Validation…
+                  {t("Validation…")}
                 </>
               ) : (
                 <>
                   <Check className="h-4 w-4" />
-                  Passer la commande
+                  {t("Passer la commande")}
                 </>
               )}
             </span>
@@ -1314,10 +1331,11 @@ function CheckoutContent() {
 
 export default function CheckoutPage() {
   const owner = useClientStorageOwner()
+  const { t } = useLocale()
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center">
-        <div className="text-[#1E8A3C]">Chargement...</div>
+        <div className="text-[#1E8A3C]">{t("Chargement...")}</div>
       </div>
     }>
       <CheckoutContent key={owner === undefined ? "loading" : owner ?? "guest"} />

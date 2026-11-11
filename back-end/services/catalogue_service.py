@@ -78,9 +78,11 @@ class CatalogueService(ICatalogueService):
         )
         return ProductResponseDTO(
             description=getattr(produit, "description", None),
+            description_ar=getattr(produit, "description_ar", None),
             id=int(produit.id),# type: ignore
             nom_fr=str(produit.nom_fr),
             nom_darija=str(produit.nom_darija),
+            nom_ar=getattr(produit, "nom_ar", None),
             prix_kg=float(produit.prix_kg),# type: ignore
             prix_affiche=(
                 float(produit.prix_affiche)

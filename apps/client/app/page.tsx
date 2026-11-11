@@ -1,10 +1,11 @@
 import type { Metadata } from "next"
 import HomeClient from "./home-client"
 import { getSeoCatalogue } from "@/lib/seo-catalogue"
+import { localizedMetadata } from "@/lib/i18n-metadata"
 
 export const dynamic = "force-dynamic"
 
-export const metadata: Metadata = {
+const metadata: Metadata = {
   title: "Livraison de légumes frais à Fès | SOUKI",
   description: "Commandez légumes, fruits et herbes frais du marché de Fès avec SOUKI. Commandes de 8h à 1h, livraison entre 8h et 15h à la date confirmée.",
   alternates: { canonical: "/" },
@@ -15,6 +16,10 @@ export const metadata: Metadata = {
     images: ["/opengraph-image"],
   },
   twitter: { card: "summary_large_image" },
+}
+
+export function generateMetadata() {
+  return localizedMetadata(metadata)
 }
 
 export default async function HomePage() {

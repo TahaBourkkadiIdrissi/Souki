@@ -2208,10 +2208,12 @@ html {
   animation-play-state: paused !important;
 }
 
-/* Arabe (zones traduites, attribut lang="ar-MA") : Poppins n'a pas de glyphes arabes, le navigateur bascule sur une police arabe systeme
-   pour ces caracteres seulement (les chiffres et le latin restent en Poppins). */
+/* Arabe (zones traduites, attribut lang="ar-MA") : Tajawal pour les lettres arabes, Poppins pour
+   les chiffres et le latin. !important car certains titres fixent Poppins en style inline.
+   L'espacement des lettres casse la liaison des lettres arabes : il est remis a zero. */
 [lang|="ar"],
-[lang|="ar"] .font-sans {
-  font-family: var(--font-poppins), 'Poppins', 'Segoe UI', 'Noto Sans Arabic', 'Geeza Pro', Tahoma, system-ui, sans-serif;
+[lang|="ar"] * {
+  font-family: var(--font-poppins), var(--font-arabic), 'Segoe UI', 'Noto Sans Arabic', Tahoma, system-ui, sans-serif !important;
+  letter-spacing: 0 !important;
 }
-[lang|="ar"], [lang|="ar"] * { letter-spacing: 0 !important; }
+[lang|="ar"] :is(p, li, dd, blockquote) { line-height: 1.8; }

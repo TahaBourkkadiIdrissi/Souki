@@ -19,7 +19,17 @@ from services.order_schedule import (
     ORDER_BATCH_LOCK_ID, ORDER_CLOSED_MESSAGE, delivery_date_for_order, local_now, orders_closed,
 )
 
+# Minimum d'une commande : 50 DH livraison comprise (ex. 35 DH de produits + 15 DH de livraison).
+# Meme regle pour les commandes, leurs modifications, les abonnements et les paniers proposes.
 PANIER_MINIMUM_DH = 50.0
+
+
+def minimum_commande_message(total_livraison_comprise: float) -> str:
+    manque = max(PANIER_MINIMUM_DH - float(total_livraison_comprise), 0.01)
+    return (
+        f"Le minimum de commande est de {PANIER_MINIMUM_DH:.0f} DH, livraison comprise. "
+        f"Ajoutez encore {manque:.2f} DH de produits."
+    )
 SEUIL_LIVRAISON_GRATUITE = 300.0
 FRAIS_LIVRAISON = 15.0
 BLACKLIST_COD_MESSAGE = (
@@ -183,6 +193,9 @@ class CheckoutService(ICheckoutService):
                 frais_livraison = FRAIS_LIVRAISON
 
             montant_total = round(total_produits + frais_livraison, 2)
+            # Le job de 01h00 verifie deja le minimum avant de creer la commande d'un abonnement.
+            if not system_run and montant_total < PANIER_MINIMUM_DH:
+                raise ValueError(minimum_commande_message(montant_total))
 
             # Wallet : paiement complet (mode "wallet") ou credit deduit du montant a payer
             # (utiliser_wallet), le reste etant encaisse a la porte.

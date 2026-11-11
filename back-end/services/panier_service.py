@@ -140,6 +140,7 @@ class PanierService(IPanierService):
                     LignePanierResponseDTO(
                         product_id=int(product.id), # type: ignore
                         nom_produit=str(product.nom_fr),
+                        nom_ar=getattr(product, "nom_ar", None),
                         quantite_kg=requested_quantity,
                         prix_unitaire=unit_price,
                         sous_total=line_total,
@@ -233,6 +234,7 @@ class PanierService(IPanierService):
                     LignePanierResponseDTO(
                         product_id=int(ligne.produit_id), # type: ignore
                         nom_produit=str(product.nom_fr),
+                        nom_ar=getattr(product, "nom_ar", None),
                         quantite_kg=quantite_kg,
                         prix_unitaire=prix_unitaire,
                         sous_total=sous_total_ligne,

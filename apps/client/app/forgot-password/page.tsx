@@ -6,11 +6,13 @@ import Link from "next/link"
 import { ArrowLeft, CheckCircle2, Loader2, Mail } from "lucide-react"
 
 import { API_BASE_URL } from "@/lib/api"
+import { useLocale } from "@/contexts/locale-context"
 
 const GENERIC_MESSAGE =
   "Si un compte correspond à cette adresse, un lien de réinitialisation a été envoyé."
 
 export default function ForgotPasswordPage() {
+  const { t, zoneProps } = useLocale()
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
@@ -44,33 +46,33 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#F6F6F4] px-6 py-12">
+    <main {...zoneProps} className="flex min-h-screen items-center justify-center bg-[#F6F6F4] px-6 py-12">
       <section className="w-full max-w-md rounded-3xl border border-gray-100 bg-white p-8 shadow-xl shadow-black/5">
         <Link href="/login/client" className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-[#1A4F8A] hover:underline">
           <ArrowLeft className="h-4 w-4" />
-          Retour à la connexion
+          {t("Retour à la connexion")}
         </Link>
 
         <div className="mb-8 flex flex-col items-center gap-3">
           <SoukiLogoLink variant="secondary" height={104} priority />
-          <p className="text-sm text-[#8A8A8A]">Récupération du compte</p>
+          <p className="text-sm text-[#8A8A8A]">{t("Récupération du compte")}</p>
         </div>
 
-        <h1 className="text-2xl font-bold text-[#3D3D3D]">Mot de passe oublié ?</h1>
+        <h1 className="text-2xl font-bold text-[#3D3D3D]">{t("Mot de passe oublié ?")}</h1>
         <p className="mt-3 text-sm leading-6 text-[#6F6F6F]">
-          Saisissez l’adresse e-mail utilisée pour votre compte. Le lien reçu sera valable pendant 15 minutes.
+          {t("Saisissez l’adresse e-mail utilisée pour votre compte. Le lien reçu sera valable pendant 15 minutes.")}
         </p>
 
         {message ? (
           <div className="mt-7 rounded-2xl border border-green-200 bg-green-50 p-5 text-sm leading-6 text-green-800">
             <CheckCircle2 className="mb-3 h-6 w-6" />
             <p>{message}</p>
-            <p className="mt-2 text-green-700">Pensez à vérifier le dossier des courriers indésirables.</p>
+            <p className="mt-2 text-green-700">{t("Pensez à vérifier le dossier des courriers indésirables.")}</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-7 space-y-5">
             <div>
-              <label htmlFor="email" className="mb-2 block text-sm font-medium text-[#3D3D3D]">Adresse e-mail</label>
+              <label htmlFor="email" className="mb-2 block text-sm font-medium text-[#3D3D3D]">{t("Adresse e-mail")}</label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8A8A8A]" />
                 <input
@@ -93,7 +95,7 @@ export default function ForgotPasswordPage() {
               disabled={loading}
               className="flex w-full items-center justify-center rounded-xl bg-[#1E8A3C] py-3.5 font-semibold text-white shadow-lg shadow-[#1E8A3C]/20 transition-colors hover:bg-[#166E2B] disabled:opacity-60"
             >
-              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Envoyer le lien"}
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : t("Envoyer le lien")}
             </button>
           </form>
         )}

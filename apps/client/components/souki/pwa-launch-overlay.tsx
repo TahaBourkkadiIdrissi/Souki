@@ -1,5 +1,6 @@
 "use client"
 import { useEffect, useState, type CSSProperties } from "react"
+import { useLocale } from "@/contexts/locale-context"
 
 /**
  * Animation d'entree de l'app installee — « aube de la recolte ».
@@ -40,6 +41,7 @@ const SPARKLES = [
 ]
 
 export function PwaLaunchOverlay() {
+  const { t } = useLocale()
   const [done, setDone] = useState(false)
 
   useEffect(() => {
@@ -128,7 +130,7 @@ export function PwaLaunchOverlay() {
         >
 
           <p className="souki-launch-tagline mt-1.5 text-[11px] font-semibold tracking-wide text-gray-500">
-            Du champ au panier, le matin même
+            {t("Du champ au panier, le matin même")}
           </p>
         </div>
       </div>
