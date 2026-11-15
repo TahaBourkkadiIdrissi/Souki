@@ -87,6 +87,7 @@ class GoogleIdentityVerificationTests(unittest.TestCase):
 
     @patch("services.auth_service.google_requests.Request")
     @patch("services.auth_service.id_token.verify_oauth2_token")
+    @patch("services.auth_service.GOOGLE_MOBILE_CLIENT_IDS", ())
     @patch("services.auth_service.GOOGLE_CLIENT_ID", "souki-test.apps.googleusercontent.com")
     def test_audience_souki_et_email_verifie_sont_exiges(self, verify_token, request_class):
         request = Mock()
@@ -124,6 +125,21 @@ class GoogleIdentityVerificationTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as context:
             AuthService._verify_google_identity("token")
         self.assertEqual(context.exception.status_code, 503)
+
+    @patch("services.auth_service.google_requests.Request")
+    @patch("services.auth_service.id_token.verify_oauth2_token")
+    @patch("services.auth_service.GOOGLE_MOBILE_CLIENT_IDS", ("souki-app.apps.googleusercontent.com",))
+    @patch("services.auth_service.GOOGLE_CLIENT_ID", "souki-test.apps.googleusercontent.com")
+    def test_client_de_l_app_mobile_est_accepte(self, verify_token, request_class):
+        request = Mock()
+        request_class.return_value = request
+        verify_token.return_value = {"email": "client@example.com", "email_verified": True}
+        AuthService._verify_google_identity("token")
+        verify_token.assert_called_once_with(
+            "token",
+            request,
+            ["souki-test.apps.googleusercontent.com", "souki-app.apps.googleusercontent.com"],
+        )
 
 
 if __name__ == "__main__":

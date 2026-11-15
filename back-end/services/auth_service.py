@@ -8,7 +8,7 @@ from google.auth.exceptions import GoogleAuthError, TransportError
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 
-from config import GOOGLE_CLIENT_ID, LocalSession
+from config import GOOGLE_CLIENT_ID, GOOGLE_MOBILE_CLIENT_IDS, LocalSession
 from dao.client_blacklist_dao import ClientBlacklistDaoBD
 from dao.parrainage_dao import ParrainageDaoBD
 from dao.user_dao import UserDao
@@ -21,6 +21,7 @@ from entities.parent_entity import Parent
 from entities.user_entity import User
 from entities.verification_code_entity import VerificationCode
 from rbac_config import LOGIN_TARGET_PERMISSIONS
+from services.apple_identity_service import verify_apple_identity_token
 from services.authorization_service import AuthorizationPrincipal, AuthorizationService
 from services.email_delivery_service import EmailDeliveryService
 from services.service_area import SERVICE_CITY, is_in_service_area, out_of_area_message
@@ -342,8 +343,12 @@ class AuthService:
                 detail="La connexion Google n'est pas configurée sur le serveur.",
             )
 
+        # Site (GOOGLE_CLIENT_ID) et app mobile (GOOGLE_MOBILE_CLIENT_IDS) : google-auth accepte
+        # une liste de destinataires possibles.
+        audiences = [GOOGLE_CLIENT_ID, *(cid for cid in GOOGLE_MOBILE_CLIENT_IDS if cid != GOOGLE_CLIENT_ID)]
+        audience = audiences[0] if len(audiences) == 1 else audiences
         try:
-            idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), GOOGLE_CLIENT_ID)
+            idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), audience)
         except TransportError as exc:
             raise HTTPException(
                 status_code=503,
@@ -364,12 +369,26 @@ class AuthService:
         idinfo = self._verify_google_identity(token)
         if not idinfo:
             return None
+        return self._social_login(idinfo["email"], "google", role)
 
-        email = idinfo["email"]
+    def apple_login(self, identity_token: str, role: str = "CLIENT", prenom: Optional[str] = None, nom: Optional[str] = None):
+        """Sign in with Apple (app iOS) : meme parcours que Google, compte retrouve par e-mail.
 
+        Apple ne donne le prenom et le nom qu'a la toute premiere connexion : l'app les envoie,
+        ils ne remplissent que des champs vides.
+        """
+        identity = verify_apple_identity_token(identity_token)
+        if not identity:
+            return None
+        return self._social_login(identity["email"], "apple", role, prenom=prenom, nom=nom)
+
+    def _social_login(self, email: str, provider: str, role: str = "CLIENT", prenom: Optional[str] = None, nom: Optional[str] = None):
         normalized_role = (role or "CLIENT").upper()
         if normalized_role not in {"CLIENT", "LIVREUR"}:
             raise HTTPException(status_code=403, detail="Cet espace est désactivé.")
+
+        prenom = (prenom or "").strip()[:100] or None
+        nom = (nom or "").strip()[:100] or None
 
         db = LocalSession()
         try:
@@ -380,12 +399,14 @@ class AuthService:
                 initial_role = "CLIENT"
                 user = User(
                     email=email,
+                    prenom=prenom,
+                    nom=nom,
                     role=initial_role,
                     password=None,
                     is_verified=True,
                     is_email_verified=True,
                     is_phone_verified=False,
-                    auth_provider="google",
+                    auth_provider=provider,
                 )
                 db.add(user)
                 db.flush()
@@ -393,7 +414,11 @@ class AuthService:
             else:
                 user.is_verified = True
                 user.is_email_verified = True
-                user.auth_provider = self._merge_auth_provider(user.auth_provider, "google")
+                user.auth_provider = self._merge_auth_provider(user.auth_provider, provider)
+                if prenom and not (user.prenom or "").strip():
+                    user.prenom = prenom
+                if nom and not (user.nom or "").strip():
+                    user.nom = nom
 
             db.commit()
             db.refresh(user)

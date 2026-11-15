@@ -15,6 +15,7 @@ from config import (
 )
 from dto.user_dto import (
     AdminLoginRequest,
+    AppleLoginRequest,
     CurrentUserResponse,
     ForgotPasswordRequest,
     GoogleLoginRequest,
@@ -183,6 +184,26 @@ def google_login(data: GoogleLoginRequest, request: Request, response: Response)
     result = AuthService().google_login(data.token, data.role)
     if not result:
         raise HTTPException(status_code=401, detail="Token Google invalide ou expire.")
+    token = result["token"]
+    _register_session_for_token(token, request)
+    _set_auth_cookie(response, token)
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "roles": payload.get("roles", []),
+        "role": payload.get("role"),
+        "default_dashboard": payload.get("default_dashboard", "/"),
+        "user": result["user"],
+    }
+
+
+@auth_router.post("/apple")
+def apple_login(data: AppleLoginRequest, request: Request, response: Response):
+    """Sign in with Apple (app iOS) : meme reponse que /auth/google (jeton signe par Apple)."""
+    result = AuthService().apple_login(data.identity_token, data.role, prenom=data.prenom, nom=data.nom)
+    if not result:
+        raise HTTPException(status_code=401, detail="Connexion Apple invalide ou expirée.")
     token = result["token"]
     _register_session_for_token(token, request)
     _set_auth_cookie(response, token)

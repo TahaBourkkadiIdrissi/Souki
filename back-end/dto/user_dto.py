@@ -78,6 +78,23 @@ class GoogleLoginRequest(BaseModel):
         return role
 
 
+class AppleLoginRequest(BaseModel):
+    """Sign in with Apple (app iOS). Prenom et nom : fournis par Apple a la premiere connexion seulement."""
+
+    identity_token: str = Field(min_length=1, max_length=8192)
+    authorization_code: Optional[str] = Field(default=None, max_length=1024)
+    prenom: Optional[str] = Field(default=None, max_length=100)
+    nom: Optional[str] = Field(default=None, max_length=100)
+    role: str = "CLIENT"
+
+    @validator("role")
+    def validate_role(cls, v):
+        role = v.upper()
+        if role not in {"CLIENT", "PARENT", "LIVREUR", "FOURNISSEUR"}:
+            raise ValueError("Role invalide")
+        return role
+
+
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
