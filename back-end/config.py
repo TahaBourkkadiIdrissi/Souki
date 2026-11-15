@@ -73,6 +73,23 @@ COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 
 
+def _csv_env(name: str, default: str) -> tuple[str, ...]:
+    return tuple(part.strip() for part in os.getenv(name, default).split(",") if part.strip())
+
+
+# App mobile (projet Google Cloud « SOUKI », souki-514816) : l'app demande un ID token dont le
+# destinataire est son client « Web », et le client iOS peut aussi apparaitre selon le SDK.
+# Identifiants publics (pas des secrets) : valeurs par defaut, surchargeables par l'environnement.
+GOOGLE_MOBILE_CLIENT_IDS = _csv_env(
+    "GOOGLE_MOBILE_CLIENT_IDS",
+    "1042616136423-iasa5hqqqgs88mfllu6gbfgpm6cdhev4.apps.googleusercontent.com,"
+    "1042616136423-idd7tu64i31ssusf5gg81n2soc86p1bg.apps.googleusercontent.com",
+)
+
+# Sign in with Apple : destinataire (`aud`) attendu dans l'identity token = bundle de l'app iOS.
+APPLE_CLIENT_IDS = _csv_env("APPLE_CLIENT_IDS", "io.souki.app")
+
+
 def _get_optional_float(name: str):
     value = os.getenv(name)
     if value in (None, ""):

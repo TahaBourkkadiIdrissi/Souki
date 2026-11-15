@@ -42,7 +42,7 @@ class AuthMobileService(IAuthMobileService):
     def check_email(self, email: str) -> CheckEmailResponse:
         user = self.dao.find_user_by_email(self.session, email)
         providers = _providers(user.auth_provider) if user else []
-        usable = bool(user and user.is_active and (user.is_verified or "google" in providers))
+        usable = bool(user and user.is_active and (user.is_verified or "google" in providers or "apple" in providers))
         if not usable:
             # Compte absent, supprime (e-mail anonymise) ou jamais verifie : l'app propose de le creer ;
             # l'inscription redit elle-meme si un code attend deja.
