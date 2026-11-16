@@ -1,0 +1,11 @@
+<!-- @dsCard group="Composants SOUKI" height=560 width=1100 subtitle="Carte de commande : en route, confirmée, livrée, incident" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"><style>.cmp .cells{grid-template-columns:1fr 1fr}.cmp .oc{margin:0}</style></head><body><script src="../souki-v5.js"></script><script>
+const {P,tone,show}=SK;
+const cell=(t,h)=>`<div class="cell"><small>${t}</small>${h}</div>`;
+const oc=(n,d,t,l,ks,tot,act)=>`<div class="oc"><div class="row sp"><span class="t16">Commande <span class="num">n° ${n}</span></span>${tone(t,l)}</div><p class="sm soft2">${d}</p><div class="th">${ks.map(k=>'<span class="pic"><img src="'+P[k].img+'" alt=""></span>').join('')}</div><div class="row sp"><span><span class="num">${ks.length}</span> produits · <b class="num">${tot} DH</b></span><span class="link">${act}</span></div></div>`;
+const C=()=>cell('En route : « Suivre »',oc(1042,'Livraison aujourd\'hui, entre 8h et 15h','road','En route',['tomate','pomme-de-terre','oignon','carotte'],'65,50','Suivre'))
++cell('Confirmée : « Gérer » jusqu\'à 01h00',oc(1045,'Livraison demain, entre 8h et 15h','wait','Confirmée',['courgette','poivron-rouge','ail'],'107','Gérer'))
++cell('Livrée : « Recommander »',oc(1038,'Livrée le jeudi 12 novembre à 11h20','ok','Livrée',['laitue','concombre','radis','tomate'],'58','Recommander'))
++cell('Incident : couleur, icône et texte, jamais la couleur seule',oc(1031,'Lundi 16 novembre · passage sans réponse','issue','Destinataire absent',['chou-fleur','navet'],'52','Contacter'));
+show(`<div class="cmp"><section data-theme="light"><h5>Clair</h5><div class="cells">${C()}</div></section><section data-theme="dark"><h5>Sombre</h5><div class="cells">${C()}</div></section></div>`);
+</script></body></html>

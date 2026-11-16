@@ -2,7 +2,7 @@
 
 Le design system de l'app Android SOUKI (Google Play). Même marque, même service et mêmes règles que le site et l'app iOS « SOUKI 2027 », pensés pour Android : Material 3 comme grammaire, l'identité SOUKI comme voix.
 
-> Itération 4 : P0 à P2 validés dans leur direction, P3 (commande) et P4 (après la commande) à valider. L'état de chaque élément est dans la section **Avancement**.
+> Itération 10 : le design de la v1 est complet. Tous les écrans et leurs états existent en clair, en sombre (sauf P7) et en arabe, et le prototype animé se parcourt en entier. Reste le test sur appareil. L'état de chaque élément est dans la section **Avancement**. Prototype animé : https://claude.ai/artifact/TBHG8WS9pgxUPr3nVSDZz9.
 
 ## Le produit en une ligne
 
@@ -86,18 +86,18 @@ Les écrans sont dans **Composants**, rangés par lot. Chaque carte montre plusi
 
 | Lot | Cartes |
 |---|---|
-| Composants M3 | `TextField`, `SearchAndChips`, `Selection`, `TabsAndSnackbar`, `SheetAndDialog`, `ProgressAndMenu` |
-| Composants SOUKI | `CartLine`, `FreeDeliveryGauge`, `OrderSteps`, `MarketHeader`, `VoiceScene`, `SkeletonsAndEmpty`, avec `ProductCard`, `MarketCard`, `NavigationBar`, `OrderStatus` |
+| Composants M3 | `TextField`, `SearchAndChips`, `Selection`, `TabsAndSnackbar`, `SheetAndDialog`, `ProgressAndMenu`, `Slider`, `ListRow` |
+| Composants SOUKI | `CartLine`, `FreeDeliveryGauge`, `OrderSteps`, `MarketHeader`, `VoiceScene`, `SkeletonsAndEmpty`, `OrderCard`, avec `ProductCard`, `MarketCard`, `NavigationBar`, `OrderStatus` |
 | Écrans P0 | `ScreenLaunch` (démarrage, intro, nuit), `AppIcon` |
 | Écrans P1 | `ScreenHome`, `ScreenCatalog`, `ScreenProduct`, `ScreenCart`, `ScreenCartStates`, `ScreenFavorites`, `ScreenStates`, `ScreenScale` |
-| Écrans P2 | `ScreenAuth`, `ScreenOnboarding`, `ScreenOnboarding2`, `ScreenAccount`, `ScreenSettings` |
-| Écrans P3 | `ScreenCheckout`, `ScreenOrderDone` |
-| Écrans P4 | `ScreenOrders`, `ScreenOrderManage`, `ScreenClaim` |
-| Écrans P5 | `ScreenWallet`, `ScreenSubscriptions` |
-| Écrans P6 | `ScreenVoice`, `ScreenAssistant` |
-| Écrans P7 | `ScreenTablet` (largeur moyenne), `ScreenSystem` (notifications, suivi en direct, widgets, raccourcis, mise à jour) |
+| Écrans P2 | `ScreenAuth`, `ScreenOnboarding`, `ScreenOnboarding2`, `ScreenAccount`, `ScreenSettings`, `ScreenKeyboard` |
+| Écrans P3 | `ScreenCheckout`, `ScreenCheckoutStates`, `ScreenScale2`, `ScreenOrderDone` |
+| Écrans P4 | `ScreenOrders`, `ScreenOrderIssues`, `ScreenOrderManage`, `ScreenClaim` |
+| Écrans P5 | `ScreenWallet`, `ScreenSubscriptions`, `ScreenSubscriptionStates` |
+| Écrans P6 | `ScreenVoice`, `ScreenAssistant`, `ScreenAssistantDish` |
+| Écrans P7 | `ScreenTablet`, `ScreenTablet2` (largeur moyenne), `ScreenSystem` (notifications, suivi en direct, widgets, raccourcis, mise à jour) |
 | Écrans P0 à P6 · sombre | La même carte suivie de `Dark` (`ScreenHomeDark`…) : chaque écran en thème sombre |
 | Écrans P0 à P7 · arabe | La même carte suivie de `Ar` (`ScreenHomeAr`…) : chaque écran traduit, en miroir |
 | Fiche Google Play | `PlayListing`, et la section **Fiche Google Play** pour les textes |
 
-Le protocole de test sur téléphone est dans la section **Test sur appareil**. Le prototype animé des moments signature est publié à part : « SOUKI Android · Moments signature ».
+Le protocole de test sur téléphone est dans la section **Test sur appareil**. Le prototype animé des moments signature est publié à part : « SOUKI Android · Moments signature » (https://claude.ai/artifact/TBHG8WS9pgxUPr3nVSDZz9).

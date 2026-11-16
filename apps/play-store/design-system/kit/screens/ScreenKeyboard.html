@@ -1,0 +1,39 @@
+<!-- @dsCard group="Écrans P2" page height=900 width=1590 subtitle="Clavier ouvert : e-mail, code, recherche, liste écrite. Le bouton principal reste au-dessus du clavier" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"><style>
+/* Clavier Android (Gboard) en maquette : dans l'app c'est le vrai clavier ; on règle seulement le type de champ (e-mail, nombre, texte) et l'action. */
+.gb{background:var(--surface-container-high);padding:6px 6px 4px;border-top:1px solid var(--outline-variant)}
+.gbs{display:flex;align-items:center;min-height:40px;margin:0 2px 6px;font-size:15px;color:var(--on-surface)}
+.gbs span{flex:1;text-align:center;padding:8px 4px;border-inline-start:1px solid var(--outline-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gbs span:first-child{border:0}.gbs b{font-weight:600}
+.gbs .chipk{flex:none;display:inline-flex;gap:8px;align-items:center;margin:0 auto;padding:6px 14px;border-radius:16px;background:var(--surface-container-highest);border:0}
+.gbr{display:flex;gap:5px;margin-bottom:8px;justify-content:center}
+.gbr i{flex:1;max-width:32px;height:42px;border-radius:6px;background:var(--surface-bright);display:grid;place-items:center;font-style:normal;font-size:20px;color:var(--on-surface);box-shadow:0 1px 0 rgba(0,0,0,.12)}
+.ph[data-theme=dark] .gbr i{background:var(--surface-container-highest)}
+.gbr i.f{flex:0 0 44px;max-width:none;background:var(--surface-container-highest);font-size:16px}
+.gbr i.sp{flex:1;max-width:none;font-size:14px;color:var(--on-surface-variant)}
+.gbr i.go{flex:0 0 56px;max-width:none;background:var(--primary);color:var(--on-primary);border-radius:21px}
+.gbn{display:grid;grid-template-columns:repeat(3,1fr) 64px;gap:6px}
+.gbn i{height:46px;border-radius:8px;background:var(--surface-bright);display:grid;place-items:center;font-style:normal;font-size:22px;color:var(--on-surface)}
+.ph[data-theme=dark] .gbn i{background:var(--surface-container-highest)}
+.gbn i.f{background:var(--surface-container-highest);font-size:16px}.gbn i.go{background:var(--primary);color:var(--on-primary);border-radius:23px}
+.kfoc{box-shadow:inset 0 0 0 2px var(--motion)!important}
+.gb{direction:ltr}[dir=rtl] .gbs{direction:rtl}
+</style></head><body><script src="../souki-v5.js"></script><script>
+const {i,L,P,phone,ab,field,show,dh,price}=SK;
+const AZ=[['a','z','e','r','t','y','u','i','o','p'],['q','s','d','f','g','h','j','k','l','m'],['⇧','w','x','c','v','b','n','\'','⌫']];
+const AR=[['ض','ص','ث','ق','ف','غ','ع','ه','خ','ح','ج'],['ش','س','ي','ب','ل','ا','ت','ن','م','ك','ط'],['⇧','ذ','ء','ر','ى','ة','و','ز','ظ','د','⌫']];
+const kb=(sugg,o={})=>()=>`${o.act||''}<div class="gb"><div class="gbs">${sugg}</div>${(L('fr','ar')==='ar'&&!o.email?AR:AZ).map(r=>`<div class="gbr">${r.map(k=>`<i class="${/[⇧⌫]/.test(k)?'f':''}">${k}</i>`).join('')}</div>`).join('')}
+<div class="gbr"><i class="f">?123</i>${o.email?'<i class="f" style="flex-basis:36px">@</i>':'<i class="f" style="flex-basis:36px">,</i>'}<i class="sp">${o.email?'':L('Français','العربية')}</i><i class="f" style="flex-basis:36px">.</i><i class="go">${i(o.go||'check',20)}</i></div></div>`;
+const num=(sugg,act)=>()=>`${act||''}<div class="gb"><div class="gbs">${sugg}</div><div class="gbn">${['1','2','3','⌫','4','5','6','⎵','7','8','9','',',','0','.',''].map((k,n)=>`<i class="${k==='⌫'||k==='⎵'||k===','||k==='.'?'f':''}${n===15?' go':''}">${n===15?i('check',20):k==='⎵'?'':k}</i>`).join('')}</div></div>`;
+const act=t=>`<div class="act" style="padding-bottom:8px">${t}</div>`;
+const mail=()=>ab('')+`<div class="ob" style="padding-top:0"><h1>${L('Votre e-mail','بريدك الإلكتروني')}</h1><p class="lead">${L('Nous regardons si vous avez déjà un compte SOUKI.','نتحقق إن كان لديك حساب SOUKI.')}</p>${field(L('E-mail','البريد الإلكتروني'),{v:'salma@exe',focus:1,icon:'mail'})}</div>`;
+const code=()=>ab('')+`<div class="ob" style="padding-top:0"><h1>${L('Entrez le code','أدخل الرمز')}</h1><p class="lead">${L('Nous l\'avons envoyé à salma@exemple.ma.','أرسلناه إلى salma@exemple.ma.')}</p><div class="otp">${'4829'.split('').map(d=>'<span>'+d+'</span>').join('')}<span class="kfoc"></span><span></span></div></div>`;
+const search=()=>`<div class="ab"><span class="ib ghost">${i('back',24,'flip')}</span><div class="search flat kfoc" style="flex:1;margin:0">${i('search',22)}<span>${L('tom','ماط')}<i class="caret"></i></span></div></div>
+<p class="gt">${L('Produits','المنتوجات')}</p><div class="grp">${['tomate'].map(k=>`<div class="li"><span class="pic" style="width:48px;border-radius:12px"><img src="${P[k].img}" alt=""></span><div class="mid"><p class="t16">${L(P[k].fr,P[k].ar)}</p><p class="sm soft2">${P[k].dj} · ${L(P[k].ar,P[k].fr)}</p></div>${price(P[k].price,P[k].unit)}</div>`).join('')}</div>
+<p class="gt">${L('Recherches récentes','عمليات البحث الأخيرة')}</p><div class="grp"><div class="li">${i('clock',22)}<div class="mid"><p class="t16">${L('tomates cerises','ماطيشة صغيرة')}</p></div></div></div>`;
+const list=()=>ab(L('Écrire ma liste','اكتب لائحتي'))+`<p class="pad soft2">${L('Une ligne par produit. En darija ou en français.','سطر لكل منتوج. بالدارجة أو بالفرنسية.')}</p><div class="ta">${L('2 kg tomates<br>1 kilo btata<br>3 kg ','2 كيلو ماطيشة<br>كيلو بطاطا<br>3 كيلو ')}${L('oign','بص')}<span style="display:inline-block;width:2px;height:22px;background:var(--motion);vertical-align:middle"></span></div>`;
+show(phone({cap:'E-mail : le compte du téléphone est proposé · clair · français',bar:kb(`<span class="chipk">${i('user',18)}salma@exemple.ma</span>`,{email:1,go:'right',act:act(`<span class="btn" style="width:100%">${L('Continuer','متابعة')}</span>`)})},mail)
++phone({cap:'Code : pavé numérique, « Coller » depuis le presse-papiers',bar:num(`<span class="chipk">${i('list',18)}${L('Coller','لصق')} <b class="num">482915</b></span>`,act(`<span class="btn off" style="width:100%">${L('Vérifier','تحقق')}</span>`))},code)
++phone({cap:'Recherche : les résultats montent au-dessus du clavier',bar:kb(`<span><b>${L('tomates','ماطيشة')}</b></span><span>${L('tomate','طماطم')}</span><span>${L('tomber','طوم')}</span>`,{go:'search'})},search)
++phone({cap:'Liste écrite : suggestions en darija et en français',bar:kb(`<span><b>${L('oignons','بصلة')}</b></span><span>${L('oignon','بصل')}</span><span>besla</span>`,{go:'check',act:act(`<span class="btn" style="width:100%">${L('Analyser ma liste','تحليل لائحتي')}</span>`)})},list));
+</script></body></html>

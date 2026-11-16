@@ -1,0 +1,12 @@
+<!-- @dsCard group="Composants M3" height=520 width=1100 subtitle="Ligne de liste et groupe : navigation, interrupteur, choix, information, action dangereuse" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"><style>.cmp .cells{grid-template-columns:1fr}.cmp .grp{margin:0}.cmp .li:last-child>.i{color:var(--error)}</style></head><body><script src="../souki-v5.js"></script><script>
+const {i,row,grp,sw,radio,show}=SK;
+const cell=(t,h)=>`<div class="cell"><small>${t}</small>${h}</div>`;
+const C=()=>cell('Un groupe = une carte ; une ligne fait au moins 56 dp, 72 dp avec deux lignes de texte',grp('',[
+row('pin','Adresse','Rue 12, Narjiss C, Fès'),
+row('bell','Suivi de commande','Préparation, livraison',sw(true)),
+row('wallet','Paiement à la livraison','En espèces, à la réception',radio(true)),
+row('truck','Livraison','Demain, entre 8h et 15h',''),
+row('trash','<span style="color:var(--error)">Supprimer mon compte</span>','','')]));
+show(`<div class="cmp"><section data-theme="light"><h5>Clair</h5><div class="cells">${C()}</div></section><section data-theme="dark"><h5>Sombre</h5><div class="cells">${C()}</div></section></div>`);
+</script></body></html>

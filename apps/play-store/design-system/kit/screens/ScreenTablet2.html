@@ -1,0 +1,37 @@
+<!-- @dsCard group="Écrans P7" page height=1280 width=1740 subtitle="Largeur moyenne (600 à 840 dp) : panier en deux volets, commandes en liste et détail" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"><style>
+.tab{display:flex;height:100%}
+.rail2{width:88px;flex:none;background:var(--surface-container);display:flex;flex-direction:column;align-items:center;gap:12px;padding:48px 0 0;border-inline-end:1px solid var(--outline-variant)}
+.rail2 .fabm{width:56px;height:56px;border-radius:16px;background:var(--voice-surface);color:var(--voice-cyan);display:grid;place-items:center;margin-bottom:20px}
+.rail2 a{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--on-surface-variant)}
+.rail2 i{width:56px;height:32px;border-radius:16px;display:grid;place-items:center;position:relative}
+.rail2 .on{color:var(--on-surface)}.rail2 .on i{background:var(--primary-container);color:var(--on-primary-container)}
+.rail2 em{position:absolute;top:-4px;inset-inline-end:6px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--tertiary-container);color:var(--on-tertiary-container);font:700 11px/16px var(--font-sans);font-style:normal}
+.main{flex:1;min-width:0;display:grid;grid-template-columns:1fr 300px;height:100%}
+.main.ld{grid-template-columns:320px 1fr}
+.pane{position:relative;overflow:hidden;padding-top:44px}
+.pane+.pane{border-inline-start:1px solid var(--outline-variant);background:var(--surface-container-low)}
+.pane .stick{position:absolute;inset:auto 0 0;padding:16px 24px 28px;background:var(--surface-container-low)}
+.oc.sel{box-shadow:0 0 0 2px var(--motion)}
+</style></head><body><script src="../souki-v5.js"></script><script>
+// Règle M3 : liste et détail côte à côte dès 600 dp ; la barre de navigation devient un rail ; le bouton vocal monte dans le rail.
+const {i,L,P,phone,price,qty,name,card,dh,tone,steps,row,grp,show}=SK;
+const rail=on=>`<nav class="rail2"><span class="fabm">${i('mic',24)}</span>${[['home','Accueil','الرئيسية'],['grid','Produits','المنتجات'],['bag','Panier','السلة'],['list','Commandes','الطلبات'],['user','Compte','حسابي']].map(([k,f,a],n)=>`<a class="${n==on?'on':''}"><i>${i(k,22)}${k=='bag'?'<em class="num">4</em>':''}</i>${L(f,a)}</a>`).join('')}</nav>`;
+const lines=[['tomate',2],['pomme-de-terre',5],['oignon',3],['carotte',2]],sub=lines.reduce((s,[k,n])=>s+P[k].price*n,0);
+const cart=()=>`<div class="tab">${rail(2)}<div class="main"><div class="pane"><div class="tb" style="padding:8px 24px"><h1>${L('Panier','السلة')}</h1></div>
+${lines.map(([k,n])=>`<div class="line" style="padding:12px 24px"><span class="pic"><img src="${P[k].img}" alt=""></span><div class="mid"><p class="t16">${name(P[k])}</p><p class="sm soft2 num" style="text-align:start">${dh(P[k].price)} DH / kg</p></div><div style="text-align:end">${price(P[k].price*n,'')}<div style="margin-top:4px">${qty(n+' kg','lite')}</div></div></div>`).join('')}
+<div class="sec" style="margin:24px 24px 12px"><span class="h2">${L('Les essentiels','الأساسيات')}</span></div><div class="rail" style="padding:0 24px">${card('courgette')+card('concombre')+card('ail')}</div></div>
+<div class="pane"><p class="h2" style="padding:8px 24px 0">${L('Récapitulatif','الملخص')}</p>
+<div class="gauge" style="margin:16px 24px 0"><div class="row sp"><span style="font-weight:600">${L('Encore','بقي')} <span class="num">${dh(300-sub)} DH</span> ${L('pour la livraison offerte','للتوصيل المجاني')}</span>${i('truck',22)}</div><div class="track"><i style="width:${sub/3}%"></i></div></div>
+<div class="sum" style="padding:16px 24px"><div><span class="soft2">${L('Sous-total','المجموع الفرعي')}</span><span class="num">${dh(sub)} DH</span></div><div><span class="soft2">${L('Livraison','التوصيل')}</span><span class="num">15 DH</span></div><div class="tot"><span>${L('Total','المجموع')}</span><span class="num">${dh(sub+15)} DH</span></div></div>
+<p class="sm soft2" style="padding:0 24px">${L('Livraison demain, entre 8h et 15h. Paiement à la livraison.','التوصيل غدا، بين 8 و15. الأداء عند التسليم.')}</p>
+<div class="stick"><span class="btn" style="width:100%">${L('Valider la commande','تأكيد الطلب')} · <span class="num">${dh(sub+15)} DH</span></span></div></div></div></div>`;
+const oc=(n,d,t,l,ks,tot,sel)=>`<div class="oc ${sel?'sel':''}" style="margin:12px 16px 0"><div class="row sp"><span class="t16">${L('Commande','الطلب رقم')} <span class="num">${L('n° ','')}${n}</span></span>${tone(t,l)}</div><p class="sm soft2">${d}</p><div class="th">${ks.map(k=>'<span class="pic"><img src="'+P[k].img+'" alt=""></span>').join('')}</div><div class="row sp"><span><span class="num">${ks.length}</span> ${L('produits','منتوجات')} · <b class="num">${tot} DH</b></span></div></div>`;
+const orders=()=>`<div class="tab">${rail(3)}<div class="main ld"><div class="pane"><div class="tb" style="padding:8px 16px"><h1>${L('Commandes','الطلبات')}</h1></div>
+${oc(1042,L('Aujourd\'hui, entre 8h et 15h','اليوم، بين 8 و 15'),'road',L('En route','في الطريق'),['tomate','pomme-de-terre','oignon','carotte'],'65,50',1)}${oc(1045,L('Demain, entre 8h et 15h','غدا، بين 8 و 15'),'wait',L('Confirmée','مؤكدة'),['courgette','poivron-rouge','ail'],'107')}${oc(1038,L('Livrée le jeudi 12 novembre','سُلّم يوم الخميس 12 نونبر'),'ok',L('Livrée','تم التوصيل'),['laitue','concombre','radis','tomate'],'58')}</div>
+<div class="pane" style="background:var(--surface)"><div class="ab" style="padding:8px 24px"><h2>${L('Commande','الطلب رقم')} <span class="num">${L('n° ','')}1042</span></h2></div><div class="pad row sp" style="padding:0 24px">${tone('road',L('En route','في الطريق'))}<span class="soft2">${L('Aujourd\'hui, entre 8h et 15h','اليوم، بين 8 و 15')}</span></div>
+${steps(2,[L('Dimanche 15 nov. · 21h04','الأحد 15 نونبر · 21:04'),L('Lundi 16 nov. · 06h30','الإثنين 16 نونبر · 06:30'),L('Lundi 16 nov. · 09h12','الإثنين 16 نونبر · 09:12'),L('Avant 15h00','قبل 15:00')])}
+${grp('',[row('pin',L('Rue 12, Narjiss C, Fès','زنقة 12، النرجس C، فاس'),L('Heure souhaitée : 10h00','الوقت المفضل: 10:00'),''),row('bag',`<span class="num">4</span> ${L('produits','منتوجات')}`,L('À payer à la livraison : ','للأداء عند التسليم: ')+'<span class="num">65,50 DH</span>','')])}
+<div class="pad row" style="margin-top:16px;padding:0 24px"><span class="btn tonal wide">${i('call',20)}${L('Contacter SOUKI','اتصلوا بـ SOUKI')}</span></div></div></div></div>`;
+show(phone({cap:'Panier en deux volets · 800 × 1180 dp · clair · français',w:800,h:1180,full:1},cart)+phone({cap:'Commandes : liste et détail · 800 × 1180 dp',w:800,h:1180,full:1},orders));
+</script></body></html>

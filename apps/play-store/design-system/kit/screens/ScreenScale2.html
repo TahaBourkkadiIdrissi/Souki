@@ -1,0 +1,13 @@
+<!-- @dsCard group="Écrans P3" page height=1020 width=1680 subtitle="Commande et suivi : petit écran et texte agrandi (130 %, 200 %)" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"></head><body><script src="../souki-v5.js"></script><script>
+// Règle : aucune hauteur fixe sur du texte. Le bouton principal reste visible, les libellés passent à la ligne au lieu d'être coupés.
+const {i,L,phone,ab,row,grp,radio,tone,steps,show}=SK;
+const co=()=>ab(L('Finaliser la commande','إتمام الطلب'))+grp(L('Livraison','التوصيل'),[row('pin',L('Rue 12, Narjiss C, Fès','زنقة 12، النرجس C، فاس'),'Salma · <span class="num">+212 6 12 34 56 78</span>'),row('truck',L('Demain, lundi 16 novembre','غدا، الإثنين 16 نونبر'),L('Entre 8h et 15h','بين 8 و 15'))])
++grp(L('Paiement','الأداء'),[row('wallet',L('Paiement à la livraison','الدفع عند التسليم'),L('En espèces, à la réception','نقدا، عند الاستلام'),radio(1))])
++`<div class="sum" style="margin-top:8px"><div><span class="soft2">${L('Sous-total','المجموع الفرعي')}</span><span class="num">50,50 DH</span></div><div><span class="soft2">${L('Livraison','التوصيل')}</span><span class="num">15 DH</span></div><div class="tot"><span>${L('À payer à la livraison','المبلغ عند التسليم')}</span><span class="num">65,50 DH</span></div></div>`;
+const tr=()=>ab(`${L('Commande','الطلب رقم')} <span class="num">${L('n° ','')}1042</span>`)+`<div class="pad">${tone('road',L('En route','في الطريق'))}</div>`+steps(2,[L('Dimanche 15 nov. · 21h04','الأحد 15 نونبر · 21:04'),L('Lundi 16 nov. · 06h30','الإثنين 16 نونبر · 06:30'),L('Lundi 16 nov. · 09h12','الإثنين 16 نونبر · 09:12'),L('Avant 15h00','قبل 15:00')])
++`<div class="pad row" style="margin-top:12px"><span class="btn tonal wide">${i('call',20)}${L('Contacter SOUKI','اتصلوا بـ SOUKI')}</span></div>`;
+const cta=()=>`<div class="act"><span class="btn">${L('Confirmer','تأكيد')} · <span class="num">65,50 DH</span></span></div>`;
+show(phone({cap:'Checkout · 360 × 640 dp · petit écran · français',w:360,h:640,bar:cta},co)+phone({cap:'Checkout · texte à 200 %',fs:2,bar:cta},co)
++phone({cap:'Suivi · 360 × 640 dp · arabe à 130 %',w:360,h:640,lang:'ar',fs:1.3},tr)+phone({cap:'Suivi · texte à 200 %',fs:2},tr));
+</script></body></html>

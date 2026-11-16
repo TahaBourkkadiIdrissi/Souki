@@ -1,0 +1,322 @@
+<!-- @dsCard group="Écrans P3 · arabe" page height=900 width=1590 subtitle="Checkout : changer d'adresse, nouvelle adresse, pourquoi la date est fixée, marché fermé pendant la commande" -->
+<!doctype html><html><head><meta charset="utf-8"><style>:root, [data-theme="light"]{--surface:#FBFBF7;--surface-dim:#E4E9E1;--surface-bright:#FFFFFF;--surface-container-lowest:#FFFFFF;--surface-container-low:#F7F8F3;--surface-container:#F2F6F3;--surface-container-high:#ECF1EB;--surface-container-highest:#E3E9E2;--on-surface:#1F2A22;--on-surface-variant:#5A695C;--outline:#7C8B7D;--outline-variant:#E7ECE5;--inverse-surface:#1F2A22;--inverse-on-surface:#F2F6F3;--primary:#005B43;--on-primary:#FFFFFF;--primary-container:#E7F5E8;--on-primary-container:#005B43;--inverse-primary:#9BE7AE;--secondary:#176B2E;--on-secondary:#FFFFFF;--secondary-container:#F0FAF1;--on-secondary-container:#176B2E;--tertiary:#B35400;--on-tertiary:#FFFFFF;--tertiary-container:#F07C00;--on-tertiary-container:#1F2A22;--error:#DC2626;--on-error:#FFFFFF;--error-container:#FDECEC;--on-error-container:#8F1414;--motion:#1E8A3C;--motion-track:#DDEFE0;--favorite:#E4405F;--badge:#F5C400;--on-badge:#1F2A22;--warning-container:#FFF1DE;--on-warning-container:#B35400;--voice-cyan:#50DCE6;--voice-teal:#28BEAA;--voice-surface:#123F22;--on-voice-surface:#FFFFFF;--photo-bg:#F1F6EF;--hero-from:#0A2814;--hero-mid:#14522A;--hero-to:#1E8A3C;--on-hero:#FFFFFF;--on-hero-variant:#9BE7AE;--scrim:rgba(10, 40, 20, 0.40);--trust:#1A4F8A;--shadow-card:0 10px 24px -14px rgba(30, 138, 60, 0.35);--shadow-float:0 16px 36px -14px rgba(10, 40, 20, 0.38);--shadow-sheet:0 -12px 36px -16px rgba(10, 40, 20, 0.30);}
+[data-theme="dark"]{--surface:#0A2814;--surface-dim:#071D0E;--surface-bright:#1B5936;--surface-container-lowest:#06190C;--surface-container-low:#0B311B;--surface-container:#0C3B22;--surface-container-high:#114529;--surface-container-highest:#164F30;--on-surface:#EEF6EE;--on-surface-variant:#A9C4AF;--outline:#7FA088;--outline-variant:#1F4D31;--inverse-surface:#EEF6EE;--inverse-on-surface:#1F2A22;--primary:#9BE7AE;--on-primary:#0A2814;--primary-container:#14522A;--on-primary-container:#D3F5DA;--inverse-primary:#005B43;--secondary:#7FD492;--on-secondary:#0A2814;--secondary-container:#0F4526;--on-secondary-container:#9BE7AE;--tertiary:#FFB547;--on-tertiary:#1F2A22;--tertiary-container:#F07C00;--on-tertiary-container:#1F2A22;--error:#FF8A80;--on-error:#3B0A0A;--error-container:#5C1414;--on-error-container:#FFD9D6;--motion:#4CB84A;--motion-track:#1F4D31;--favorite:#FF7A93;--badge:#F5C400;--on-badge:#1F2A22;--warning-container:#4A2A05;--on-warning-container:#FFB547;--voice-cyan:#50DCE6;--voice-teal:#28BEAA;--voice-surface:#123F22;--on-voice-surface:#FFFFFF;--photo-bg:#DDE8DA;--hero-from:#06190C;--hero-mid:#0C3B22;--hero-to:#14522A;--on-hero:#FFFFFF;--on-hero-variant:#9BE7AE;--scrim:rgba(0, 0, 0, 0.60);--trust:#1A4F8A;--shadow-card:0 10px 24px -14px rgba(0, 0, 0, 0.6);--shadow-float:0 16px 36px -14px rgba(0, 0, 0, 0.7);--shadow-sheet:0 -12px 36px -16px rgba(0, 0, 0, 0.7);}
+:root{--space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;--space-8:32px;--space-12:48px;--radius-xs:4px;--radius-sm:8px;--radius-md:12px;--radius-lg:16px;--radius-lg-inc:20px;--radius-xl:28px;--radius-xl-inc:32px;--radius-xxl:48px;--radius-full:999px;--touch-min:48px;--control-md:48px;--control-lg:56px;--nav-bar:64px;--top-bar:64px;--cart-bar:56px;--icon:24px;--duration-press:120ms;--duration-fast:160ms;--duration-base:240ms;--duration-slow:300ms;--duration-screen:400ms;--duration-stagger:40ms;--ease-souki-out:cubic-bezier(0.16, 1, 0.3, 1);--ease-emphasized:cubic-bezier(0.2, 0, 0, 1);--ease-emphasized-decelerate:cubic-bezier(0.05, 0.7, 0.1, 1);--ease-emphasized-accelerate:cubic-bezier(0.3, 0, 0.8, 0.15);--ease-standard:cubic-bezier(0.2, 0, 0, 1);--state-hover:0.08;--state-focus:0.10;--state-pressed:0.10;--state-dragged:0.16;--state-disabled-content:0.38;--state-disabled-container:0.12;--press-scale:0.97;--font-sans:"Instrument Sans", "IBM Plex Sans Arabic", system-ui, sans-serif;--font-arabic:"IBM Plex Sans Arabic", "Instrument Sans", system-ui, sans-serif;}
+
+/* SOUKI Android : feuille commune des écrans. Tout passe par les tokens (tokens.css). */
+html,body{margin:0}
+body{background:var(--surface-dim);padding:28px;display:flex;gap:28px;align-items:flex-start;font-family:var(--font-sans)}
+.col{display:flex;flex-direction:column;gap:10px}
+.cap{font:600 calc(12px*var(--fs,1))/calc(16px*var(--fs,1)) var(--font-sans);color:var(--on-surface-variant)}
+.ph{width:360px;height:800px;flex:none;border-radius:32px;overflow:hidden;position:relative;background:var(--surface);color:var(--on-surface);font:400 calc(14px*var(--fs,1))/calc(20px*var(--fs,1)) var(--font-sans);outline:6px solid #0b100c;-webkit-font-smoothing:antialiased}
+.ph[dir=rtl]{font-family:var(--font-arabic);font-size:calc(15px*var(--fs,1));line-height:calc(26px*var(--fs,1))}
+.ph[dir=rtl] *{letter-spacing:0!important}
+.ph *{box-sizing:border-box}
+.ph p,.ph h1,.ph h2,.ph h3{margin:0}
+.num{direction:ltr;unicode-bidi:isolate;font-variant-numeric:tabular-nums;font-family:var(--font-sans)}
+.i{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+[dir=rtl] .flip{transform:scaleX(-1)}
+.sb{position:absolute;inset:0 0 auto;height:36px;padding:0 22px;display:flex;justify-content:space-between;align-items:center;font:600 calc(13px*var(--fs,1))/calc(16px*var(--fs,1)) var(--font-sans);z-index:9;direction:ltr}
+.sb span{display:flex;gap:5px;align-items:center}
+.sc{position:absolute;inset:0;overflow:hidden;padding-bottom:140px}
+.bot{position:absolute;inset:auto 0 0;z-index:8}
+.gest{height:20px;background:var(--surface-container);display:grid;place-items:center}
+.gest::after{content:"";width:108px;height:4px;border-radius:2px;background:var(--on-surface);opacity:.55}
+.bot.plain .gest{background:var(--surface-container-lowest)}
+/* barre de navigation + mini-barre panier */
+.nav{min-height:var(--nav-bar);background:var(--surface-container);display:flex;border-top:1px solid var(--outline-variant)}
+.nav a{flex:1;min-width:0;padding:6px 0;--fs:min(var(--fl),1.15);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-weight:600;font-size:calc(12px*var(--fs,1));line-height:calc(16px*var(--fs,1));color:var(--on-surface-variant)}
+.nav i{width:56px;height:28px;border-radius:var(--radius-full);display:grid;place-items:center;position:relative;font-style:normal}
+.nav .on{color:var(--on-surface)}.nav .on i{background:var(--primary-container);color:var(--on-primary-container)}
+.nav em{position:absolute;top:-4px;inset-inline-end:6px;min-width:16px;height:16px;border-radius:8px;background:var(--tertiary-container);color:var(--on-tertiary-container);font:700 calc(11px*var(--fs,1))/calc(16px*var(--fs,1)) var(--font-sans);text-align:center}
+.cart{margin:0 16px 8px;min-height:var(--cart-bar);border-radius:var(--radius-lg-inc);background:var(--primary);color:var(--on-primary);display:flex;align-items:center;padding-inline:8px 16px;gap:12px;box-shadow:var(--shadow-float);font-weight:600}
+.cart .n{min-width:40px;height:40px;border-radius:var(--radius-md);background:var(--on-primary);color:var(--primary);display:grid;place-items:center;font-weight:700}
+.cart .t{margin-inline-start:auto}
+/* prix */
+.pr{display:inline-flex;flex-wrap:wrap;align-items:baseline;gap:4px;color:var(--secondary)}
+.pr b{font-size:calc(20px*var(--fl,1));line-height:calc(24px*var(--fs,1));font-weight:700;letter-spacing:-.5px}
+.pr small{font-size:calc(12px*var(--fs,1));line-height:calc(16px*var(--fs,1));font-weight:600}
+.pr.big b{font-size:calc(48px*var(--fl,1));line-height:calc(52px*var(--fl,1));letter-spacing:-1.9px}
+.pr.inh{color:inherit}
+/* boutons */
+.btn{min-height:var(--control-lg);border-radius:var(--radius-md);padding:0 24px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:calc(14px*var(--fs,1));background:var(--primary);color:var(--on-primary);white-space:nowrap}
+.ph[dir=rtl] .btn{font-size:calc(15px*var(--fs,1))}
+.btn.tonal{background:var(--primary-container);color:var(--on-primary-container)}
+.btn.md{min-height:var(--control-md)}
+.btn.wide{display:flex;flex:1}
+.ib{width:48px;height:48px;border-radius:var(--radius-md);display:grid;place-items:center;background:var(--secondary-container);color:var(--on-secondary-container);flex:none}
+.ib.glass{background:rgba(255,255,255,.12);color:inherit}
+.ib.fav{color:var(--favorite)!important}
+.ib.surf{background:var(--surface-container-lowest);color:var(--on-surface);box-shadow:0 0 0 1px var(--outline-variant)}
+.fav{color:var(--favorite)}.fav path{fill:currentColor}
+/* en-tête de l'accueil : l'horloge du marché */
+.hero{padding:48px 16px 20px;border-radius:0 0 var(--radius-xl-inc) var(--radius-xl-inc);color:var(--on-hero);background:linear-gradient(160deg,var(--hero-from),var(--hero-mid) 60%,var(--hero-to))}
+.hero .soft{color:var(--on-hero-variant)}
+.hero.last{background:var(--tertiary-container);color:var(--on-tertiary-container)}
+.hero.last .soft{color:inherit}
+.hero.closed{background:var(--hero-from)}
+.row{display:flex;align-items:center;gap:8px}
+.sp{justify-content:space-between}
+.addr{font-size:calc(12px*var(--fs,1));line-height:calc(16px*var(--fs,1));font-weight:600}
+.hi{font-size:calc(32px*var(--fl,1));line-height:calc(38px*var(--fl,1));font-weight:700;letter-spacing:-1px;margin-top:16px!important}
+.ph[dir=rtl] .hi{font-size:calc(30px*var(--fl,1));line-height:calc(46px*var(--fl,1))}
+.search{min-height:52px;border-radius:var(--radius-xl);background:var(--surface-container-lowest);color:var(--on-surface-variant);display:flex;align-items:center;gap:12px;padding:0 16px;margin-top:16px;font-size:calc(16px*var(--fs,1))}
+.hero .search{background:var(--surface-bright)}
+.search.flat{background:var(--surface-container-high);margin:0}
+.search .mic{margin-inline-start:auto;color:var(--primary)}
+.pad{padding:0 16px}
+.h2{font-size:calc(20px*var(--fl,1));line-height:calc(28px*var(--fl,1));font-weight:600;letter-spacing:-.3px}
+.sec{display:flex;justify-content:space-between;align-items:baseline;margin:24px 16px 12px}
+.link{font-weight:600;color:var(--secondary)}
+.soft2{color:var(--on-surface-variant)}
+.sm{font-size:calc(12px*var(--fs,1));line-height:calc(16px*var(--fs,1))}
+.ph[dir=rtl] .sm{font-size:calc(13px*var(--fs,1));line-height:calc(22px*var(--fs,1))}
+/* cartes assistants */
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 16px 0}
+.as{border-radius:var(--radius-lg-inc);padding:14px;min-height:104px;display:flex;flex-direction:column;justify-content:space-between;background:var(--surface-container-lowest);box-shadow:0 0 0 1px var(--outline-variant);font-weight:600}
+.as.voice{background:linear-gradient(150deg,var(--voice-surface),#0A2614);color:var(--on-voice-surface);box-shadow:none}
+.as.voice .i{color:var(--voice-cyan)}.as .i{color:var(--motion)}
+.as small{display:block;font-weight:400;font-size:calc(12px*var(--fs,1));line-height:calc(16px*var(--fs,1));opacity:.8}
+/* carte Marché du jour */
+.mk{margin:12px 16px 0;border-radius:var(--radius-xl);padding:18px 20px;background:var(--surface-container-lowest);box-shadow:0 0 0 1px var(--outline-variant)}
+.eye{font-size:calc(11px*var(--fs,1));line-height:calc(16px*var(--fs,1));font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--on-surface-variant);display:flex;align-items:center;gap:8px}
+.eye::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--motion)}
+.eye.last{color:var(--tertiary)}.eye.last::before{background:var(--tertiary-container)}
+.eye.closed::before{background:var(--badge)}
+.cd{font-size:calc(52px*var(--fl,1));line-height:calc(56px*var(--fl,1));font-weight:700;letter-spacing:-2.2px;margin-top:10px;display:block}
+.cd u{text-decoration:none;opacity:.35}
+/* rayons */
+.rail{display:flex;gap:12px;padding:0 16px;overflow:hidden}
+.tile{width:72px;flex:none;text-align:center;font-size:calc(12px*var(--fs,1));line-height:calc(16px*var(--fs,1));font-weight:600}
+.tile i{display:grid;place-items:center;width:72px;height:72px;border-radius:var(--radius-lg);color:#fff;margin-bottom:6px}
+.tile .ink{color:var(--on-badge)}
+.strip{margin:16px 16px 0;border-radius:var(--radius-lg);background:var(--secondary-container);color:var(--on-secondary-container);padding:12px 16px;display:flex;gap:12px;align-items:center;font-weight:600}
+/* carte produit */
+.pc{background:var(--surface-container-lowest);border:1px solid var(--outline-variant);border-radius:var(--radius-lg);padding:8px 8px 10px;position:relative;min-width:0}
+.rail .pc{width:148px;flex:none}
+.pc.in{border-color:var(--motion);box-shadow:inset 0 0 0 1px var(--motion)}
+.pic{aspect-ratio:1;background:var(--photo-bg);border-radius:var(--radius-md);overflow:hidden;position:relative;display:block}
+.pic img{width:100%;height:100%;object-fit:contain;padding:8%;box-sizing:border-box;display:block;filter:drop-shadow(0 6px 6px rgba(20,60,30,.16))}
+.out .pic img{filter:grayscale(1);opacity:.45}
+.pill{position:absolute;inset:8px auto auto 8px;font-size:calc(11px*var(--fs,1));line-height:calc(16px*var(--fs,1));font-weight:600;padding:2px 8px;border-radius:var(--radius-full);background:var(--warning-container);color:var(--on-warning-container)}
+[dir=rtl] .pill{inset:8px 8px auto auto}
+.pill.gone{background:var(--error-container);color:var(--on-error-container)}
+.pill.st{position:static;display:inline-block}
+.pc h3{font-size:calc(14px*var(--fs,1));line-height:calc(20px*var(--fs,1));font-weight:600;margin:8px 4px 0}
+.pc p{margin:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pc .foot{margin:6px 4px 0;min-height:24px}
+.pc.in .foot{display:none}
+.pc>.ib{position:absolute;inset:14px 14px auto auto;width:40px;height:40px;background:var(--surface-container-lowest);color:var(--primary);box-shadow:0 0 0 1px var(--outline-variant)}
+[dir=rtl] .pc>.ib{inset:14px auto auto 14px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px}
+.qty{display:flex;align-items:center;justify-content:space-between;background:var(--primary);color:var(--on-primary);border-radius:var(--radius-md);min-height:48px;font-weight:600}
+.qty b{white-space:nowrap}
+.qty span{width:44px;height:48px;display:grid;place-items:center}
+.pc .qty{margin-top:6px}
+.qty.lite{background:var(--secondary-container);color:var(--on-secondary-container);height:40px;width:124px}
+.qty.lite span{height:40px;width:40px}
+/* top app bar, chips */
+.tb{padding:44px 16px 8px}
+.tb h1{font-size:calc(28px*var(--fl,1));line-height:calc(36px*var(--fl,1));font-weight:700;letter-spacing:-.6px}
+.ph[dir=rtl] .tb h1{line-height:calc(44px*var(--fl,1))}
+.chips{display:flex;gap:8px;padding:12px 16px;overflow:hidden}
+.chip{min-height:36px;padding:0 14px;border-radius:var(--radius-sm);box-shadow:inset 0 0 0 1px var(--outline);display:inline-flex;align-items:center;gap:6px;font-weight:600;white-space:nowrap}
+.chip.on{background:var(--primary-container);color:var(--on-primary-container);box-shadow:none}
+/* lignes, résumé, jauge */
+.line{display:flex;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--outline-variant)}
+.line .pic{width:64px;flex:none}
+.line .mid{flex:1;min-width:0}
+.t16{font-size:calc(16px*var(--fs,1));line-height:calc(24px*var(--fs,1));font-weight:600}
+.gauge{margin:8px 16px 4px;padding:14px 16px;border-radius:var(--radius-lg-inc);background:var(--surface-container-lowest);box-shadow:0 0 0 1px var(--outline-variant)}
+.track{height:8px;border-radius:4px;background:var(--motion-track);margin-top:10px;overflow:hidden}
+.track i{display:block;height:100%;border-radius:4px;background:var(--motion)}
+.sum{padding:8px 16px}
+.sum div{display:flex;justify-content:space-between;padding:4px 0}
+.sum .tot{font-size:calc(16px*var(--fs,1));font-weight:600;padding-top:8px;margin-top:4px;border-top:1px solid var(--outline-variant)}
+.buy{padding:12px 16px;background:var(--surface-container-lowest);box-shadow:var(--shadow-sheet);display:flex;gap:12px;align-items:center;border-top:1px solid var(--outline-variant)}
+.empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 40px 120px;text-align:center;gap:8px}
+.empty img{width:200px;border-radius:var(--radius-xl);mix-blend-mode:multiply}
+.info{display:flex;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--outline-variant)}
+.info .i{color:var(--motion)}
+/* ---------- itération 3 : formulaires, listes, états ---------- */
+.ab{padding:40px 8px 4px;display:flex;align-items:center;gap:4px;min-height:92px}
+.ab h2{font-size:calc(20px*var(--fl,1));line-height:calc(28px*var(--fl,1));font-weight:600;letter-spacing:-.3px;flex:1}
+.ib.ghost{background:none;color:var(--on-surface)}
+.fld{margin-top:16px}
+.fld label{display:block;font-size:calc(12px*var(--fs,1));line-height:calc(16px*var(--fs,1));font-weight:600;color:var(--on-surface-variant);margin-bottom:6px}
+.fld .box{min-height:56px;border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--outline);display:flex;align-items:center;gap:12px;padding:8px 16px;font-size:calc(16px*var(--fs,1));line-height:calc(24px*var(--fs,1));color:var(--on-surface)}
+.fld .box .i{color:var(--on-surface-variant)}
+.fld .phd{color:var(--on-surface-variant)}
+.fld .tr{margin-inline-start:auto;display:flex}
+.fld p{font-size:calc(12px*var(--fs,1));line-height:calc(16px*var(--fs,1));color:var(--on-surface-variant);margin:6px 4px 0!important}
+.fld.foc .box{box-shadow:inset 0 0 0 2px var(--motion)}
+.fld.err .box{box-shadow:inset 0 0 0 2px var(--error)}.fld.err p,.fld.err label{color:var(--error)}
+.caret{width:2px;height:22px;background:var(--motion);margin-inline-start:-10px}
+.otp{display:flex;gap:8px;direction:ltr;margin-top:24px}
+.otp span{flex:1;height:60px;border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--outline);display:grid;place-items:center;font-size:calc(28px*var(--fl,1));line-height:calc(32px*var(--fl,1));font-weight:600;font-family:var(--font-sans);font-variant-numeric:tabular-nums}
+.otp .on{box-shadow:inset 0 0 0 2px var(--motion)}
+.otp.err span{box-shadow:inset 0 0 0 2px var(--error)}
+.ob{padding:52px 24px 0}
+.ob h1,.big{font-size:calc(28px*var(--fl,1));line-height:calc(36px*var(--fl,1));font-weight:700;letter-spacing:-.6px}
+.ph[dir=rtl] .ob h1,.ph[dir=rtl] .big{line-height:calc(46px*var(--fl,1))}
+.ob .lead{font-size:calc(16px*var(--fs,1));line-height:calc(24px*var(--fs,1));color:var(--on-surface-variant);margin-top:8px!important}
+.act{padding:12px 16px 8px;background:var(--surface);display:flex;flex-direction:column;gap:4px}
+.act .btn{display:flex}
+.btn.text{background:none;color:var(--secondary)}
+.btn.out{background:none;color:var(--on-surface);box-shadow:inset 0 0 0 1px var(--outline)}
+.btn.danger{background:var(--error);color:var(--on-error)}
+.btn.off{background:var(--surface-container-highest);color:var(--on-surface-variant);opacity:.7}
+.bot.plain .gest{background:var(--surface)}
+.road{display:block;margin:0 0 28px -4px}[dir=rtl] .road{transform:scaleX(-1)}
+.rt,.rp{fill:none;stroke-width:6;stroke-linecap:round}.rt{stroke:var(--motion-track)}.rp{stroke:var(--motion)}
+.rk{fill:var(--primary)}.ri{color:var(--on-primary);stroke:var(--on-primary)}
+.li{display:flex;align-items:center;gap:16px;padding:12px 16px;min-height:56px}
+.li+.li{border-top:1px solid var(--outline-variant)}
+.li>.i:first-child{color:var(--motion)}
+.li .mid{flex:1;min-width:0}
+.grp{margin:0 16px;border-radius:var(--radius-lg-inc);background:var(--surface-container-lowest);box-shadow:0 0 0 1px var(--outline-variant);overflow:hidden}
+.gt{font-size:calc(12px*var(--fs,1));line-height:calc(16px*var(--fs,1));font-weight:600;color:var(--on-surface-variant);margin:20px 32px 8px!important}
+.sw{width:52px;height:32px;border-radius:16px;background:var(--surface-container-highest);box-shadow:inset 0 0 0 2px var(--outline);display:flex;align-items:center;padding:0 8px;flex:none}
+.sw i{width:16px;height:16px;border-radius:50%;background:var(--outline)}
+.sw.on{background:var(--primary);box-shadow:none;justify-content:flex-end;padding:0 4px}.sw.on i{width:24px;height:24px;background:var(--on-primary)}
+.rd{width:20px;height:20px;border-radius:50%;box-shadow:inset 0 0 0 2px var(--outline);flex:none}
+.rd.on{box-shadow:inset 0 0 0 2px var(--primary),inset 0 0 0 5px var(--surface-container-lowest);background:var(--primary)}
+.snack{margin:0 16px 8px;min-height:48px;border-radius:var(--radius-sm);background:var(--inverse-surface);color:var(--inverse-on-surface);display:flex;align-items:center;justify-content:space-between;gap:16px;padding:8px 16px;box-shadow:var(--shadow-float)}
+.snack b{color:var(--inverse-primary);font-weight:600}
+.fab{margin:0 16px 12px auto;width:max-content;min-height:56px;padding:0 20px 0 16px;border-radius:var(--radius-lg);background:var(--voice-surface);color:var(--on-voice-surface);display:flex;align-items:center;gap:10px;font-weight:600;box-shadow:var(--shadow-float)}
+[dir=rtl] .fab{margin:0 auto 12px 16px}
+.fab .i{color:var(--voice-cyan)}
+.map{position:relative;background:var(--surface-container-high);overflow:hidden}
+.map svg{position:absolute;inset:0;width:100%;height:100%}
+.rd1,.rd2{fill:none;stroke:var(--surface);stroke-linecap:round}.rd1{stroke-width:14}.rd2{stroke-width:7}
+.zn{fill:var(--motion);fill-opacity:.12;stroke:var(--motion);stroke-width:2;stroke-dasharray:6 6}
+.pinm{position:absolute;inset:50% auto auto 50%;transform:translate(-50%,-100%);color:var(--primary)}.pinm path{fill:currentColor}.pinm circle{fill:var(--on-primary);stroke:none}
+.pinm.out{color:var(--tertiary);inset:70% auto auto 72%}
+.loc{position:absolute;inset:auto 16px 16px auto;box-shadow:var(--shadow-float)!important}
+.note{margin-top:16px;border-radius:var(--radius-lg);padding:12px 16px;display:flex;gap:12px;background:var(--warning-container);color:var(--on-warning-container);font-weight:600}
+.note.ok{background:var(--secondary-container);color:var(--on-secondary-container)}
+.note.bad{background:var(--error-container);color:var(--on-error-container)}
+.note .i{margin-top:2px}
+.band{margin-top:36px;padding:8px 16px;background:var(--inverse-surface);color:var(--inverse-on-surface);display:flex;gap:10px;align-items:center;font-size:calc(12px*var(--fs,1));line-height:calc(16px*var(--fs,1));font-weight:600}
+.band+.tb{padding-top:12px}
+.sk{background:var(--surface-container-highest);border-radius:var(--radius-sm);display:block}
+.av{width:72px;height:72px;border-radius:50%;background:var(--primary-container);color:var(--on-primary-container);display:grid;place-items:center;font-size:calc(28px*var(--fl,1));line-height:calc(32px*var(--fl,1));font-weight:700;flex:none;position:relative}
+.av .ib{position:absolute;inset:auto -6px -6px auto;width:36px;height:36px;border-radius:50%;background:var(--primary);color:var(--on-primary)}
+.dim{opacity:.38}
+.hero.eve{background:linear-gradient(160deg,var(--hero-from),#0C3B22 60%,#005B43)}
+.fab:empty{padding:0}
+/* ---------- itération 4 : commande ---------- */
+.tone{display:inline-flex;align-items:center;gap:6px;padding:6px 12px 6px 8px;border-radius:var(--radius-full);font-size:calc(12px*var(--fs,1));line-height:calc(16px*var(--fs,1));font-weight:600;background:var(--surface-container-high);color:var(--on-surface)}
+.tone.road{background:var(--secondary-container);color:var(--on-secondary-container)}
+.tone.ok{background:var(--primary);color:var(--on-primary)}
+.tone.issue{background:var(--error-container);color:var(--on-error-container)}
+.stp{display:flex;gap:12px;padding:8px 16px}
+.stp svg{flex:none}[dir=rtl] .stp svg{transform:scaleX(-1)}
+.stp>div>div{height:64px}
+[dir=rtl] .stp p.num{text-align:right!important}
+/* Texte agrandi (au-delà de 120 %) : les étapes prennent la hauteur de leur texte ; le « S » devient un trait droit, même code couleur. */
+.ph.big .stp svg{display:none}.ph.big .stp>div{flex:1}
+.ph.big .stp>div>div{height:auto;min-height:56px;position:relative;padding-inline-start:40px;padding-bottom:16px}
+.ph.big .stp>div>div::before{content:"";position:absolute;inset-inline-start:9px;top:24px;bottom:0;width:4px;border-radius:2px;background:var(--motion-track)}
+.ph.big .stp>div>div.st-dn::before{background:var(--motion)}.ph.big .stp>div>div:last-child::before{display:none}
+.ph.big .stp>div>div::after{content:"";position:absolute;inset-inline-start:1px;top:4px;width:20px;height:20px;border-radius:50%;background:var(--motion-track)}
+.ph.big .stp .st-dn::after{background:var(--motion)}.ph.big .stp .st-nw::after{background:var(--surface);box-shadow:inset 0 0 0 4px var(--motion)}.ph.big .stp .st-is::after{background:var(--surface);box-shadow:inset 0 0 0 4px var(--error)}
+.stp .dn{fill:var(--motion)}.stp .td{fill:var(--motion-track)}.stp .nw{fill:var(--surface);stroke:var(--motion);stroke-width:4}.stp .is{fill:var(--surface);stroke:var(--error);stroke-width:4}
+.scrim{position:absolute;inset:0;background:var(--scrim);z-index:10}
+.sheet{position:absolute;inset:auto 0 0;z-index:11;background:var(--surface-container-low);border-radius:var(--radius-xl) var(--radius-xl) 0 0;box-shadow:var(--shadow-sheet);padding-top:8px}
+.sheet .gest{background:none;margin-top:8px}
+.grab{display:block;width:32px;height:4px;border-radius:2px;background:var(--outline);margin:8px auto 12px}
+.dlg{position:absolute;inset:50% 28px auto;transform:translateY(-50%);z-index:11;background:var(--surface-container-high);border-radius:var(--radius-xl);padding:24px 24px 16px}
+.tabs{display:flex;border-bottom:1px solid var(--outline-variant);margin:4px 0 16px}
+.tabs span{flex:1;text-align:center;padding:12px 0;font-weight:600;color:var(--on-surface-variant);position:relative}
+.tabs .on{color:var(--primary)}.tabs .on::after{content:"";position:absolute;inset:auto 30% 0;height:3px;border-radius:3px 3px 0 0;background:var(--primary)}
+.oc{margin:0 16px 12px;border-radius:var(--radius-lg-inc);background:var(--surface-container-lowest);box-shadow:0 0 0 1px var(--outline-variant);padding:16px}
+.oc .th{display:flex;margin:12px 0}
+.oc .th .pic{width:44px;border:2px solid var(--surface-container-lowest);margin-inline-end:-10px;border-radius:var(--radius-md)}
+.cb{width:22px;height:22px;border-radius:var(--radius-xs);box-shadow:inset 0 0 0 2px var(--outline);display:grid;place-items:center;flex:none}
+.cb.on{background:var(--primary);color:var(--on-primary);box-shadow:none}
+.slot{margin-top:16px;border-radius:var(--radius-lg);border:1.5px dashed var(--outline);min-height:96px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--on-surface-variant);font-weight:600}
+.kv{display:flex;justify-content:space-between;padding:6px 0}
+.big-ic{width:96px;height:96px;border-radius:50%;background:var(--primary);color:var(--on-primary);display:grid;place-items:center}
+.dlg .row{flex-wrap:wrap}
+/* ---------- itération 5 : fidélité et IA ---------- */
+.hc{margin:4px 16px 0;border-radius:var(--radius-xl);padding:20px;background:var(--primary-container);color:var(--on-primary-container)}
+.hc .amt{font-size:calc(40px*var(--fl,1));line-height:calc(44px*var(--fl,1));font-weight:700;letter-spacing:-1.4px;margin-top:4px;display:block}
+.bal{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+.bal div{background:var(--surface-container-lowest);color:var(--on-surface);border-radius:var(--radius-lg);padding:12px}
+.bal b{display:block;font-size:calc(20px*var(--fl,1));line-height:calc(28px*var(--fl,1));font-weight:700;letter-spacing:-.4px}
+.amt-p{color:var(--secondary);font-weight:600}.amt-m{color:var(--on-surface);font-weight:600}
+.vs{position:absolute;inset:0;background:linear-gradient(180deg,var(--voice-surface),#0A2614);color:var(--on-voice-surface);display:flex;flex-direction:column;padding:44px 0 28px}
+.vs .soft{color:var(--on-hero-variant)}
+.vs .top{display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 20px;font-weight:600}
+.vs .ib{background:rgba(255,255,255,.1);color:#fff}
+.orb{width:168px;height:168px;border-radius:50%;margin:0 auto;background:radial-gradient(circle at 36% 30%,#E9FDFF 0 5%,var(--voice-cyan) 34%,var(--voice-teal) 74%);box-shadow:0 0 0 18px rgba(80,220,230,.12),0 0 0 42px rgba(80,220,230,.06)}
+.orb.sm{width:56px;height:56px;box-shadow:0 0 0 8px rgba(80,220,230,.12)}
+.orb.dim{filter:saturate(.25);opacity:.55;box-shadow:none}
+.bars{display:flex;gap:4px;align-items:center;justify-content:center;height:40px;margin-top:28px}
+.bars i{width:4px;border-radius:2px;background:var(--voice-cyan)}
+.said{font-size:calc(22px*var(--fl,1));line-height:calc(32px*var(--fl,1));font-weight:500;letter-spacing:-.3px;padding:0 20px}
+.said .ok{color:var(--on-hero-variant)}.said .todo{opacity:.4}
+.said .now{color:#fff;border-radius:6px;padding:0 2px;background:linear-gradient(90deg,rgba(80,220,230,.05),rgba(80,220,230,.32),rgba(80,220,230,.05));box-shadow:inset 0 -2px 0 var(--voice-cyan)}
+.feat{margin:28px auto 0;text-align:center}
+.feat .pic{width:148px;border-radius:50%;margin:0 auto 14px;box-shadow:0 0 0 6px rgba(80,220,230,.25)}
+.feat b{display:block;font-size:calc(24px*var(--fl,1));line-height:calc(32px*var(--fl,1));font-weight:700}
+.tray{margin:auto 12px 0;border-radius:var(--radius-xl);padding:14px 16px;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+.tray .th{display:flex;gap:6px;margin-top:10px}.tray .th .pic{width:40px;border-radius:var(--radius-sm)}
+.tray .th .new{box-shadow:0 0 0 2px var(--voice-cyan)}
+.vchip{display:inline-flex;padding:8px 12px;border-radius:var(--radius-sm);background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);margin:0 6px 8px 0;font-size:calc(14px*var(--fs,1))}
+.ta{margin:12px 16px 0;min-height:200px;border-radius:var(--radius-md);box-shadow:inset 0 0 0 2px var(--motion);padding:14px 16px;font-size:calc(16px*var(--fs,1));line-height:calc(28px*var(--fl,1))}
+.sld{position:relative;height:4px;border-radius:2px;background:var(--motion-track);margin:22px 10px 8px}
+.sld i{position:absolute;inset:0 auto 0 0;border-radius:2px;background:var(--primary)}
+.sld b{position:absolute;top:-10px;width:24px;height:24px;border-radius:50%;background:var(--primary);margin-inline-start:-12px;box-shadow:0 0 0 6px var(--primary-container)}
+.bub{max-width:82%;padding:10px 14px;border-radius:18px;margin:8px 16px 0;width:max-content}
+.bub.me{background:var(--primary);color:var(--on-primary);margin-inline-start:auto;border-end-end-radius:6px}
+.bub.so{background:var(--surface-container-high);border-end-start-radius:6px}
+.inp{display:flex;gap:8px;align-items:center;padding:8px 12px;background:var(--surface)}
+.inp .box{flex:1;min-height:48px;border-radius:var(--radius-xl);background:var(--surface-container-high);display:flex;align-items:center;padding:0 16px;color:var(--on-surface-variant)}
+.mini{width:40px;height:40px;border-radius:50%;background:var(--secondary-container);display:grid;place-items:center;overflow:hidden;flex:none}
+.mini img{width:34px}
+.sub{margin:0 16px 12px;padding:16px;border-radius:var(--radius-lg-inc);background:var(--surface-container-lowest);box-shadow:0 0 0 1px var(--outline-variant)}
+.code{font-size:calc(28px*var(--fl,1));line-height:calc(36px*var(--fl,1));font-weight:700;letter-spacing:2px;font-family:var(--font-sans)}
+
+/* ---------- itération 6 : photos détourées ---------- */
+.pic{background:var(--photo-bg)}
+.thumbs .pic img,.th .pic img,.tray .pic img{padding:4%}
+/* ---------- itération 6 : fiches de composants ---------- */
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:0;width:calc(100% + 56px);margin:-28px;min-height:100vh}
+.cmp>section{padding:24px;background:var(--surface);color:var(--on-surface);font:400 14px/20px var(--font-sans)}
+.cmp h5{margin:0 0 14px;font:600 12px/16px var(--font-sans);color:var(--on-surface-variant)}
+.cmp .cells{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px 16px}
+.cmp .cell>small{display:block;font:600 11px/16px var(--font-sans);color:var(--on-surface-variant);margin-bottom:6px}
+.cmp .wide{grid-column:1/-1}
+.st-pressed{box-shadow:inset 0 0 0 100px color-mix(in srgb,currentColor 10%,transparent)}
+.st-focus{outline:2px solid var(--motion);outline-offset:2px}
+.st-off{opacity:.38;pointer-events:none}
+.lin{height:4px;border-radius:2px;background:var(--motion-track);overflow:hidden}.lin i{display:block;height:100%;width:62%;background:var(--motion);border-radius:2px}
+.wavy{display:block;height:12px;width:100%}
+.circ{width:40px;height:40px}
+.menu{width:220px;border-radius:var(--radius-sm);background:var(--surface-container);box-shadow:var(--shadow-float);padding:8px 0}
+.menu div{display:flex;align-items:center;gap:12px;min-height:48px;padding:0 16px}
+.menu .on{background:color-mix(in srgb,var(--on-surface) 10%,transparent)}
+.menu .dng{color:var(--error)}
+.cmp .sheet,.cmp .dlg{position:static;transform:none;inset:auto;box-shadow:var(--shadow-float)}
+.cmp .scrim,.cmp .sheet .gest{display:none}
+.cmp .cell{min-width:0}
+
+</style></head><body><div class="col"><div class="cap">Changer d'adresse · clair · arabe</div><div class="ph" style="width:360px;height:800px;--fs:1;--fl:1" data-theme="light" dir="rtl" lang="ar">
+<div class="sb" style="color:var(--on-surface)"><span>9:41</span><span><svg class="i " width="15" height="15" viewBox="0 0 24 24"><path d="M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16"></path></svg><svg class="i " width="20" height="20" viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"></rect><path d="M22 11v2"></path><rect x="4.5" y="9.5" width="9" height="5" rx=".5" fill="currentColor" stroke="none"></rect></svg></span></div>
+<div class="sc" style=""><div class="ab"><span class="ib ghost"><svg class="i flip" width="24" height="24" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg></span><h2>إتمام الطلب</h2></div><p class="gt">التوصيل</p><div class="grp"><div class="li"><svg class="i " width="22" height="22" viewBox="0 0 24 24"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg><div class="mid"><p class="t16">زنقة 12، النرجس C، فاس</p><p class="sm soft2">سلمى · <span class="num">+212 6 12 34 56 78</span></p></div><svg class="i flip soft2" width="20" height="20" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"></path></svg></div><div class="li"><svg class="i " width="22" height="22" viewBox="0 0 24 24"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2M15 18H9M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"></path><circle cx="17" cy="18" r="2"></circle><circle cx="7" cy="18" r="2"></circle></svg><div class="mid"><p class="t16">غدا، الإثنين 16 نونبر</p><p class="sm soft2">بين 8 و 15</p></div><svg class="i flip soft2" width="20" height="20" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"></path></svg></div></div><p class="gt">الأداء</p><div class="grp"><div class="li"><svg class="i " width="22" height="22" viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg><div class="mid"><p class="t16">الدفع عند التسليم</p><p class="sm soft2">نقدا، عند الاستلام</p></div><span class="rd on"></span></div></div></div>
+<div class="scrim"></div><div class="sheet"><i class="grab"></i><p class="h2 pad">عنوان التوصيل</p><p class="pad soft2" style="margin:4px 0 12px">SOUKI يوصل داخل فاس فقط.</p>
+<div class="grp"><div class="li"><div class="mid"><p class="t16">الدار</p><p class="sm soft2">زنقة 12، النرجس C، فاس</p></div><span class="rd on"></span></div><div class="li"><div class="mid"><p class="t16">عند الوالدين</p><p class="sm soft2">شارع علال الفاسي، سايس، فاس</p></div><span class="rd "></span></div></div>
+<div class="act" style="background:none"><span class="btn tonal" style="width:100%"><svg class="i " width="20" height="20" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"></path></svg>إضافة عنوان</span></div><div class="gest"></div></div><div class="bot plain"><div class="act"><span class="btn ">تأكيد الطلب · <span class="num">65,50 DH</span></span></div><div class="gest"></div></div></div></div><div class="col"><div class="cap">Nouvelle adresse sur la carte</div><div class="ph" style="width:360px;height:800px;--fs:1;--fl:1" data-theme="light" dir="rtl" lang="ar">
+<div class="sb" style="color:var(--on-surface)"><span>9:41</span><span><svg class="i " width="15" height="15" viewBox="0 0 24 24"><path d="M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16"></path></svg><svg class="i " width="20" height="20" viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"></rect><path d="M22 11v2"></path><rect x="4.5" y="9.5" width="9" height="5" rx=".5" fill="currentColor" stroke="none"></rect></svg></span></div>
+<div class="sc" style=""><div class="ab"><span class="ib ghost"><svg class="i flip" width="24" height="24" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg></span><h2>عنوان جديد</h2></div><div class="map" style="height:330px"><svg viewBox="0 0 360 300" preserveAspectRatio="xMidYMid slice"><path class="rd1" d="M-10 80C90 60 150 130 370 90M-10 210C120 190 220 250 370 220M70-10C60 100 120 200 90 310M250-10C270 90 230 190 280 310"></path><path class="rd2" d="M-10 150H370M170-10V310M-10 30L370 270"></path><circle class="zn" cx="180" cy="150" r="120"></circle></svg><span class="pinm "><svg class="i " width="40" height="40" viewBox="0 0 24 24"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg></span><span class="ib surf loc"><svg class="i " width="22" height="22" viewBox="0 0 24 24"><path d="M2 12h3M19 12h3M12 2v3M12 19v3"></path><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="3"></circle></svg></span></div><div class="pad"><div class="fld  "><label>العنوان</label><div class="box"><svg class="i " width="20" height="20" viewBox="0 0 24 24"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg><span class="">شارع علال الفاسي، سايس، فاس</span></div></div><div class="fld  foc"><label>الطابق، الباب، علامة (اختياري)</label><div class="box"><span class="">الطابق الثاني، الباب الأخضر</span><i class="caret"></i></div></div><div class="fld  "><label>اسم العنوان</label><div class="box"><span class="">عند الوالدين</span></div></div></div></div>
+<div class="bot plain"><div class="act"><span class="btn ">استعمال هذا العنوان</span></div><div class="gest"></div></div></div></div><div class="col"><div class="cap">La date est fixée : on explique pourquoi</div><div class="ph" style="width:360px;height:800px;--fs:1;--fl:1" data-theme="light" dir="rtl" lang="ar">
+<div class="sb" style="color:var(--on-surface)"><span>9:41</span><span><svg class="i " width="15" height="15" viewBox="0 0 24 24"><path d="M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16"></path></svg><svg class="i " width="20" height="20" viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"></rect><path d="M22 11v2"></path><rect x="4.5" y="9.5" width="9" height="5" rx=".5" fill="currentColor" stroke="none"></rect></svg></span></div>
+<div class="sc" style=""><div class="ab"><span class="ib ghost"><svg class="i flip" width="24" height="24" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg></span><h2>إتمام الطلب</h2></div><p class="gt">التوصيل</p><div class="grp"><div class="li"><svg class="i " width="22" height="22" viewBox="0 0 24 24"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg><div class="mid"><p class="t16">زنقة 12، النرجس C، فاس</p><p class="sm soft2">سلمى · <span class="num">+212 6 12 34 56 78</span></p></div><svg class="i flip soft2" width="20" height="20" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"></path></svg></div><div class="li"><svg class="i " width="22" height="22" viewBox="0 0 24 24"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2M15 18H9M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"></path><circle cx="17" cy="18" r="2"></circle><circle cx="7" cy="18" r="2"></circle></svg><div class="mid"><p class="t16">غدا، الإثنين 16 نونبر</p><p class="sm soft2">بين 8 و 15</p></div><svg class="i flip soft2" width="20" height="20" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"></path></svg></div></div><p class="gt">الأداء</p><div class="grp"><div class="li"><svg class="i " width="22" height="22" viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg><div class="mid"><p class="t16">الدفع عند التسليم</p><p class="sm soft2">نقدا، عند الاستلام</p></div><span class="rd on"></span></div></div></div>
+<div class="scrim"></div><div class="sheet"><i class="grab"></i><p class="h2 pad">علاش غدا؟</p><p class="pad" style="margin:8px 0 12px;font-size:16px;line-height:24px">SOUKI يشتري منتوجاتك من سوق الجملة صباح يوم التوصيل. لذلك يصل الطلب المؤكد اليوم غدا، بين 8 و15. وحدها الساعة يمكن اختيارها.</p>
+<div class="grp"><div class="li"><svg class="i " width="22" height="22" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg><div class="mid"><p class="t16">غدا، الإثنين 16 نونبر</p><p class="sm soft2">الطلبات حتى 01:00 هذه الليلة</p></div></div><div class="li"><svg class="i " width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg><div class="mid"><p class="t16">الوقت المفضل: 10:00</p><p class="sm soft2">بين 08:00 و14:00، والتوصيل قبل 15:00</p></div></div></div><div class="act" style="background:none"><span class="btn" style="width:100%">فهمت</span></div><div class="gest"></div></div><div class="bot plain"><div class="act"><span class="btn ">تأكيد الطلب · <span class="num">65,50 DH</span></span></div><div class="gest"></div></div></div></div><div class="col"><div class="cap">Marché fermé pendant la commande</div><div class="ph" style="width:360px;height:800px;--fs:1;--fl:1" data-theme="light" dir="rtl" lang="ar">
+<div class="sb" style="color:var(--on-surface)"><span>9:41</span><span><svg class="i " width="15" height="15" viewBox="0 0 24 24"><path d="M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16"></path></svg><svg class="i " width="20" height="20" viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"></rect><path d="M22 11v2"></path><rect x="4.5" y="9.5" width="9" height="5" rx=".5" fill="currentColor" stroke="none"></rect></svg></span></div>
+<div class="sc" style=""><div class="ab"><span class="ib ghost"><svg class="i flip" width="24" height="24" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg></span><h2>إتمام الطلب</h2></div><div class="pad"><div class="note bad" style="margin-top:0;background:var(--surface-container-high);color:var(--on-surface)"><svg class="i " width="20" height="20" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg><span>أُغلق السوق على 01:00. سلتك محفوظة: يمكنك التأكيد ابتداءً من 08:00، والتوصيل يوم الثلاثاء.</span></div></div><p class="gt">التوصيل</p><div class="grp"><div class="li"><svg class="i " width="22" height="22" viewBox="0 0 24 24"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg><div class="mid"><p class="t16">زنقة 12، النرجس C، فاس</p><p class="sm soft2">سلمى · <span class="num">+212 6 12 34 56 78</span></p></div><svg class="i flip soft2" width="20" height="20" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"></path></svg></div><div class="li"><svg class="i " width="22" height="22" viewBox="0 0 24 24"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2M15 18H9M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"></path><circle cx="17" cy="18" r="2"></circle><circle cx="7" cy="18" r="2"></circle></svg><div class="mid"><p class="t16">الثلاثاء 17 نونبر، إذا أكدت ابتداءً من 08:00</p><p class="sm soft2">بين 8 و 15</p></div></div></div><div class="sum" style="margin-top:8px"><div><span class="soft2">المجموع الفرعي</span><span class="num">50,50 DH</span></div><div><span class="soft2">التوصيل</span><span class="num">15 DH</span></div><div class="tot"><span>المبلغ عند التسليم</span><span class="num">65,50 DH</span></div><p class="sm soft2" style="margin-top:6px">قد تتغير الأثمنة على 08:00: إنها أسعار اليوم.</p></div></div>
+<div class="bot plain"><div class="act"><span class="btn off"><svg class="i " width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>التأكيد ابتداءً من 08:00 · بعد <span class="num">6:52:10</span></span></div><div class="gest"></div></div></div></div>
+</body></html>

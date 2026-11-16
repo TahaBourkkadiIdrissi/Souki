@@ -208,6 +208,14 @@ body{background:var(--surface-dim);padding:28px;display:flex;gap:28px;align-item
 .stp{display:flex;gap:12px;padding:8px 16px}
 .stp svg{flex:none}[dir=rtl] .stp svg{transform:scaleX(-1)}
 .stp>div>div{height:64px}
+[dir=rtl] .stp p.num{text-align:right!important}
+/* Texte agrandi (au-delà de 120 %) : les étapes prennent la hauteur de leur texte ; le « S » devient un trait droit, même code couleur. */
+.ph.big .stp svg{display:none}.ph.big .stp>div{flex:1}
+.ph.big .stp>div>div{height:auto;min-height:56px;position:relative;padding-inline-start:40px;padding-bottom:16px}
+.ph.big .stp>div>div::before{content:"";position:absolute;inset-inline-start:9px;top:24px;bottom:0;width:4px;border-radius:2px;background:var(--motion-track)}
+.ph.big .stp>div>div.st-dn::before{background:var(--motion)}.ph.big .stp>div>div:last-child::before{display:none}
+.ph.big .stp>div>div::after{content:"";position:absolute;inset-inline-start:1px;top:4px;width:20px;height:20px;border-radius:50%;background:var(--motion-track)}
+.ph.big .stp .st-dn::after{background:var(--motion)}.ph.big .stp .st-nw::after{background:var(--surface);box-shadow:inset 0 0 0 4px var(--motion)}.ph.big .stp .st-is::after{background:var(--surface);box-shadow:inset 0 0 0 4px var(--error)}
 .stp .dn{fill:var(--motion)}.stp .td{fill:var(--motion-track)}.stp .nw{fill:var(--surface);stroke:var(--motion);stroke-width:4}.stp .is{fill:var(--surface);stroke:var(--error);stroke-width:4}
 .scrim{position:absolute;inset:0;background:var(--scrim);z-index:10}
 .sheet{position:absolute;inset:auto 0 0;z-index:11;background:var(--surface-container-low);border-radius:var(--radius-xl) var(--radius-xl) 0 0;box-shadow:var(--shadow-sheet);padding-top:8px}

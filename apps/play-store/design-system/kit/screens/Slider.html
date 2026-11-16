@@ -1,0 +1,10 @@
+<!-- @dsCard group="Composants M3" height=560 width=1100 subtitle="Curseur : budget du panier intelligent, au repos, tenu, désactivé" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"><style>.cmp .cells{grid-template-columns:1fr}.box{border-radius:20px;background:var(--surface-container-lowest);box-shadow:0 0 0 1px var(--outline-variant);padding:16px}
+.sld.held b{box-shadow:0 0 0 10px color-mix(in srgb,var(--primary) 18%,transparent)}.sld.off i,.sld.off b{background:var(--on-surface);opacity:.38;box-shadow:none}
+.tip{position:absolute;bottom:22px;transform:translateX(-50%);padding:6px 10px;border-radius:12px;background:var(--inverse-surface);color:var(--inverse-on-surface);font:600 13px/16px var(--font-sans);white-space:nowrap}[dir=rtl] .tip{transform:translateX(50%)}</style></head><body><script src="../souki-v5.js"></script><script>
+const {show}=SK;
+const cell=(t,h)=>`<div class="cell"><small>${t}</small>${h}</div>`;
+const S=(v,st='')=>`<div class="box"><div class="row sp"><span class="t16">Budget</span><span class="num t16">${v} DH</span></div><div class="sld ${st}" style="${st=='held'?'margin-top:44px':''}"><i style="width:${(v-50)/4.5}%"></i><b style="inset-inline-start:${(v-50)/4.5}%"></b>${st=='held'?`<span class="tip num" style="inset-inline-start:${(v-50)/4.5}%">${v} DH</span>`:''}</div><div class="row sp sm soft2 num"><span>50 DH</span><span>500 DH</span></div></div>`;
+const C=()=>cell('Au repos',S(150))+cell('Tenu au doigt : la valeur suit, pas de 10 DH',S(220,'held'))+cell('Désactivé',S(150,'off'));
+show(`<div class="cmp"><section data-theme="light"><h5>Clair</h5><div class="cells">${C()}</div></section><section data-theme="dark"><h5>Sombre</h5><div class="cells">${C()}</div></section></div>`);
+</script></body></html>
