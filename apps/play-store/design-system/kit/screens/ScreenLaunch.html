@@ -1,0 +1,17 @@
+<!-- @dsCard group="Écrans P0" page height=900 width=1200 subtitle="Écran de démarrage système, intro « Le marché se réveille », variante de nuit" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"><style>
+.L{position:absolute;inset:0;display:grid;place-items:center;background:#005B43;color:#fff;text-align:center}
+.L.day{background:linear-gradient(170deg,#0A2814,#14522A 55%,#1E8A3C)}.L.night{background:#0A2814}
+.L .sym{width:192px;height:192px;display:grid;place-items:center}.L .sym img{width:128px}
+.L .wr{position:relative;width:300px;height:300px;display:grid;place-items:center;margin-top:-60px}
+.L .wr>img{position:absolute;inset:0;width:100%}.L .wr .s{position:relative;width:104px}
+.L .tx{position:absolute;inset:auto 0 96px;font-family:var(--font-sans)}
+.L h1{font-size:28px;line-height:36px;font-weight:700;letter-spacing:-.6px}.L p{color:#9BE7AE;margin-top:6px!important}
+.L .moon{position:absolute;inset:150px 0 auto;display:grid;place-items:center;color:#F5C400}.L .moon path{fill:currentColor}
+.L .skip{position:absolute;inset:auto 0 44px;font-size:12px;color:#9BE7AE}
+</style></head><body><script src="../souki-v5.js"></script><script>
+const {i,phone,show,BLOB,IL}=SK;
+show(phone({cap:'1 · Écran de démarrage système (icône 288 dp, visible dans 192 dp)',full:1,sb:'#fff'},()=>`<div class="L"><div class="sym"><img src="${BLOB.splash}" alt=""></div></div>`)
++phone({cap:'2 · Intro, fin (≈ 2,2 s, touchable pour passer)',full:1,sb:'#fff'},()=>`<div class="L day"><div class="wr"><img src="${IL}couronne-legumes.webp" alt=""><img class="s" src="${BLOB.splash}" alt=""></div><div class="tx"><h1>Le marché se réveille</h1><p>Acheté ce matin, livré demain.</p></div><div class="skip">Toucher pour passer</div></div>`)
++phone({cap:'3 · Variante de nuit, 01h à 08h',full:1,sb:'#fff'},()=>`<div class="L night"><div class="moon">${i('moon',44)}</div><div class="sym"><img src="${BLOB.splash}" alt="" style="opacity:.9"></div><div class="tx"><h1>Le marché dort</h1><p>Ouverture à 08h00. Préparez votre panier.</p></div></div>`));
+</script></body></html>

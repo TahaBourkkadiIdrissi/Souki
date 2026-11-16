@@ -1,0 +1,24 @@
+<!-- @dsCard group="Écrans P1" page height=900 width=1590 subtitle="Accueil : ouvert, soir, dernière heure, fermé de nuit" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"></head><body><script src="../souki-v5.js"></script><script>
+const {i,L,card,phone,price,fab,show}=SK;
+const home=st=>()=>{
+const T={open:[L('Marché du jour','سوق اليوم'),'03<u>:</u>42<u>:</u>18',L('avant la fermeture, à 01h00','قبل الإغلاق على 01:00'),''],
+eve:[L('Marché du soir','سوق المساء'),'02<u>:</u>12<u>:</u>40',L('avant la fermeture, à 01h00','قبل الإغلاق على 01:00'),''],
+last:[L('Dernière heure','آخر ساعة'),'00<u>:</u>42<u>:</u>18',L('avant la fermeture, à 01h00','قبل الإغلاق على 01:00'),'last'],
+closed:[L('Marché fermé','السوق مغلق'),'04<u>:</u>18<u>:</u>06',L('avant l\'ouverture, à 08h00','قبل الافتتاح على 08:00'),'closed']}[st];
+return `<div class="hero ${st=='open'?'':st}"><div class="row sp"><span class="row addr soft">${i('pin',16)}${L('Livrer à · Narjiss, Fès','التوصيل إلى · النرجس، فاس')}</span><span class="ib glass">${i(st=='closed'?'moon':'heart',22)}</span></div>
+<p class="hi">${L('Bonjour Salma','صباح الخير سلمى')}</p>
+<div class="search">${i('search',22)}${L('Chercher un légume, un fruit…','ابحث عن خضرة أو فاكهة…')}<span class="mic">${i('mic',22)}</span></div></div>
+<div class="duo"><div class="as voice">${i('mic',26)}<div>${L('Dicter ma liste','أملي لائحتي')}<small>${L('En darija ou en français','بالدارجة أو بالفرنسية')}</small></div></div>
+<div class="as">${i('spark',26)}<div>${L('Panier intelligent','السلة الذكية')}<small>${L('Votre semaine en un geste','أسبوعك بلمسة واحدة')}</small></div></div></div>
+<div class="mk"><div class="eye ${T[3]}">${T[0]}</div><span class="cd num">${T[1]}</span><div class="row sp"><span class="soft2">${T[2]}</span>${st=='closed'?'':i('right',20,'flip')}</div></div>
+<div class="sec"><span class="h2">${L('Rayons','الأقسام')}</span><span class="link">${L('Tout voir','عرض الكل')}</span></div>
+<div class="rail">${[['carrot',L('Légumes','خضر'),'#1E8A3C,#4CB84A',''],['apple',L('Fruits','فواكه'),'#F07C00,#FFB547','ink'],['leaf',L('Herbes','أعشاب'),'#005B43,#2E7D4F',''],['heart',L('Favoris','المفضلة'),'#F5C400,#FFE27A','ink']].map(([k,l,g,c])=>`<div class="tile"><i class="${c}" style="background:linear-gradient(145deg,${g})">${i(k,30)}</i>${l}</div>`).join('')}</div>
+<div class="strip">${i('truck',22)}${L('Livraison offerte dès 300 DH','التوصيل مجاني ابتداء من 300 DH')}</div>
+<div class="sec"><span class="h2">${L('Les essentiels','الأساسيات')}</span><span class="link">${L('Tout voir','عرض الكل')}</span></div>
+<div class="rail">${card('tomate',{qty:'2 kg'})+card('pomme-de-terre')+card('oignon')}</div>`};
+show(phone({cap:'Ouvert · clair · français · bouton vocal',tab:0,sb:'#fff',cart:{n:1,total:7},over:()=>fab('Dicter ma liste')},home('open'))
++phone({cap:'Soir (après 21h) · sombre · français',theme:'dark',tab:0,sb:'#fff',cart:{n:1,total:7}},home('eve'))
++phone({cap:'Dernière heure · clair · français',tab:0,sb:'#1F2A22',cart:{n:1,total:7}},home('last'))
++phone({cap:'Fermé de nuit · sombre · arabe',theme:'dark',lang:'ar',tab:0,sb:'#fff'},home('closed')));
+</script></body></html>

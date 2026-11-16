@@ -1,0 +1,7 @@
+<!-- @dsCard group="Écrans P1" page height=900 width=1200 subtitle="Favoris : liste, arabe sombre, vide" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"></head><body><script src="../souki-v5.js"></script><script>
+const {i,L,card,phone,ab,show}=SK;
+const fav=()=>ab(L('Favoris','المفضلة'))+`<p class="pad soft2" style="margin-bottom:12px"><span class="num">5</span> ${L('produits · prix du jour','منتوجات · أسعار اليوم')}</p><div class="grid">${card('tomate',{qty:'2 kg'})+card('carotte')+card('poivron-rouge',{low:1})+card('courgette')+card('ail',{out:1})+card('laitue')}</div>`;
+const none=()=>ab('Favoris')+`<div class="empty"><span class="av" style="width:96px;height:96px;color:var(--favorite)">${i('heart',44)}</span><p class="h2" style="margin-top:16px">Aucun favori pour l'instant</p><p class="soft2">Touchez le cœur d'un produit pour le retrouver ici et le recommander en un geste.</p><span class="btn" style="margin-top:16px">Voir les produits</span></div>`;
+show(phone({cap:'Favoris · clair · français',tab:0,cart:{n:1,total:7}},fav)+phone({cap:'Favoris · sombre · arabe',theme:'dark',lang:'ar',tab:0,cart:{n:1,total:7}},fav)+phone({cap:'Favoris vide · clair',tab:0},none));
+</script></body></html>

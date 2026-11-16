@@ -1,0 +1,13 @@
+<!-- @dsCard group="Écrans P1" page height=900 width=1200 subtitle="Produits : grille, filtres, recherche sans résultat" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"></head><body><script src="../souki-v5.js"></script><script>
+const {i,L,card,phone,fab,show}=SK;
+const head=q=>`<div class="tb"><h1>${L('Produits','المنتجات')}</h1></div><div class="pad"><div class="search flat">${i('search',22)}${q?'<span style="color:var(--on-surface)">'+q+'</span>':L('Chercher un produit','ابحث عن منتوج')}<span class="mic">${i(q?'x':'mic',22)}</span></div></div>`;
+const cat=()=>head()+`<div class="chips">${[L('Tout','الكل'),L('Légumes','خضر'),L('Fruits','فواكه'),L('Herbes','أعشاب')].map((c,n)=>`<span class="chip ${n==1?'on':''}">${n==1?i('check',16):''}${c}</span>`).join('')}</div>
+<div class="row sp pad" style="margin-bottom:12px"><span class="soft2"><span class="num">20</span> ${L('produits','منتوج')}</span><span class="row link">${i('sort',16)}${L('Prix croissant','السعر تصاعديا')}</span></div>
+<div class="grid">${card('radis')+card('tomate',{qty:'2 kg'})+card('laitue',{low:1})+card('pomme-de-terre')+card('navet',{out:1})+card('oignon')}</div>`;
+const none=()=>head('ananas')+`<div class="pad" style="margin-top:28px"><p class="h2">${L('Aucun produit pour « ananas »','')}</p><p class="soft2" style="margin-top:4px">Le marché de ce matin n'en avait pas. Vérifiez l'orthographe ou dictez votre liste.</p>
+<div class="row" style="margin-top:16px"><span class="btn tonal md">${i('mic',20)}Dicter ma liste</span></div>
+<p class="sm soft2" style="margin:32px 0 4px;font-weight:600">Recherches récentes</p>${['tomate','khizzou','poivron rouge'].map(s=>`<div class="info">${i('clock',20)}<span style="flex:1">${s}</span>${i('x',18)}</div>`).join('')}
+<p class="sm soft2" style="margin:24px 0 12px;font-weight:600">Souvent commandés</p></div><div class="rail">${card('carotte')+card('courgette')+card('concombre')}</div>`;
+show(phone({cap:'Catalogue · clair · français · bouton vocal réduit',tab:1,cart:{n:1,total:7},over:()=>fab()},cat)+phone({cap:'Catalogue · sombre · arabe',theme:'dark',lang:'ar',tab:1,cart:{n:1,total:7}},cat)+phone({cap:'Recherche sans résultat · clair',tab:1},none));
+</script></body></html>

@@ -1,0 +1,20 @@
+<!-- @dsCard group="Navigation" height=210 -->
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{margin:0;padding:24px;background:var(--surface-dim);font-family:var(--font-sans);display:flex;gap:24px}
+.ph{width:360px;background:var(--surface);border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding-top:16px;overflow:hidden}
+.cart{margin:0 16px 8px;height:var(--cart-bar);border-radius:var(--radius-lg-inc);background:var(--primary);color:var(--on-primary);display:flex;align-items:center;padding:0 16px 0 8px;gap:12px;box-shadow:var(--shadow-float);font:600 14px/20px var(--font-sans)}
+.cart .n{min-width:40px;height:40px;border-radius:var(--radius-md);background:var(--on-primary);color:var(--primary);display:grid;place-items:center;font-variant-numeric:tabular-nums;font-weight:700}
+.cart .t{margin-left:auto;font-size:20px;font-weight:750;letter-spacing:-.5px;font-variant-numeric:tabular-nums;direction:ltr}
+.cart small{font-size:12px;font-weight:600;margin-left:3px}
+nav{height:var(--nav-bar);background:var(--surface-container);display:flex;border-top:1px solid var(--outline-variant)}
+nav a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font:600 12px/16px var(--font-sans);color:var(--on-surface-variant);position:relative}
+nav i{width:56px;height:28px;border-radius:var(--radius-full);display:grid;place-items:center;position:relative}
+nav .on{color:var(--on-surface)}nav .on i{background:var(--primary-container);color:var(--on-primary-container)}
+svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+em{position:absolute;top:-4px;right:6px;min-width:16px;height:16px;border-radius:var(--radius-full);background:var(--tertiary-container);color:var(--on-tertiary-container);font:700 11px/16px var(--font-sans);font-style:normal;text-align:center}
+[dir=rtl],[dir=rtl] *{font-family:var(--font-arabic)}
+</style></head><body><script>
+const I={h:'<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .7-1.5l7-6a2 2 0 0 1 2.6 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',g:'<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',b:'<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18M16 10a4 4 0 0 1-8 0"/>',o:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/>',u:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'};
+const ph=(dir,L,cart,items)=>`<div class="ph" dir="${dir}"><div class="cart"><span class="n">3</span>${cart}<span class="t">64,50<small>DH</small></span></div><nav>${L.map(([k,l],i)=>`<a class="${i==0?"on":""}"><i><svg viewBox="0 0 24 24">${I[k]}</svg>${k=="b"?"<em>3</em>":""}</i>${l}</a>`).join("")}</nav></div>`;
+document.body.innerHTML=ph("ltr",[["h","Accueil"],["g","Produits"],["b","Panier"],["o","Commandes"],["u","Compte"]],"Voir le panier")+ph("rtl",[["h","الرئيسية"],["g","المنتجات"],["b","السلة"],["o","الطلبات"],["u","حسابي"]],"عرض السلة");
+</script></body></html>

@@ -1,0 +1,31 @@
+<!-- @dsCard group="Fondations" height=620 width=1080 subtitle="Planche de comparaison des trois couples latin + arabe" -->
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{margin:0;padding:24px;background:var(--surface);color:var(--on-surface);display:grid;grid-template-columns:repeat(3,1fr);gap:16px;font-family:var(--font-sans)}
+.col{background:var(--surface-container-lowest);border:1px solid var(--outline-variant);border-radius:var(--radius-lg-inc);padding:20px;min-width:0}
+.col.pick{border:2px solid var(--motion)}
+.A{--l:"Instrument Sans";--a:"IBM Plex Sans Arabic"}.B{--l:"Schibsted Grotesk";--a:"IBM Plex Sans Arabic"}.C{--l:"Geist";--a:"IBM Plex Sans Arabic"}
+.col *{font-family:var(--l),var(--a),sans-serif}
+.tag{font:600 11px/16px var(--font-sans)!important;color:var(--on-surface-variant);display:flex;justify-content:space-between;margin-bottom:16px}
+.tag b{color:var(--secondary);font-weight:600}
+.name{font-size:20px;line-height:28px;font-weight:650;letter-spacing:-.3px}
+.name span{font-family:var(--a),sans-serif}
+.price{display:flex;align-items:baseline;gap:6px;margin-top:12px;color:var(--secondary)}
+.price i{font-style:normal;font-size:48px;line-height:52px;font-weight:800;letter-spacing:-1.9px;font-variant-numeric:tabular-nums}
+.price u{text-decoration:none;font-size:12px;font-weight:600}
+.cd{font-size:40px;line-height:44px;font-weight:750;letter-spacing:-1.2px;font-variant-numeric:tabular-nums;margin-top:12px}
+.cd+.cd{margin-top:0;color:var(--on-surface-variant)}
+.lbl{font-size:14px;line-height:20px;font-weight:600;margin-top:12px}
+.sm{font-size:12px;line-height:16px;color:var(--on-surface-variant);margin-top:4px}
+.ar{font-family:var(--a),sans-serif;direction:rtl;font-size:17px;line-height:31px;margin-top:12px}
+hr{border:0;border-top:1px solid var(--outline-variant);margin:16px 0 0}
+</style></head><body>
+<script>
+const cols=[["A","Instrument Sans + IBM Plex Sans Arabic","Recommandé"],["B","Schibsted Grotesk + IBM Plex Sans Arabic","Alternative"],["C","Geist + IBM Plex Sans Arabic","Itération 1"]];
+document.body.innerHTML=cols.map(([k,n,t])=>`<div class="col ${k}${k=="A"?" pick":""}"><div class="tag"><span>${k} · ${n}</span><b>${t}</b></div>
+<div class="name">Tomate · <span>ماطيشة</span> · Mtecha</div>
+<div class="price"><i>12,50</i><u>DH / kg</u></div>
+<div class="cd">03:42:18</div><div class="cd">11:11:11</div>
+<div class="lbl">Livraison offerte dès 300 DH</div>
+<div class="sm">Mtecha · le kilo · achetée ce matin (12 sp)</div><hr>
+<div class="ar">خضر وفواكه وأعشاب طازجة من سوق الجملة بفاس، مشتراة هذا الصباح وتوصلكم غدا بين 8 و 15.</div></div>`).join("");
+</script></body></html>

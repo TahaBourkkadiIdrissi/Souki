@@ -1,0 +1,16 @@
+<!-- @dsCard group="Écrans P2" page height=900 width=1980 subtitle="Entrée, mot de passe, code, mot de passe oublié" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"><style>
+.gate{height:400px;background:linear-gradient(170deg,#0A2814,#14522A 60%,#1E8A3C);border-radius:0 0 var(--radius-xl-inc) var(--radius-xl-inc);position:relative;display:grid;place-items:center}
+.gate .b{width:230px;margin-top:40px}.gate .s{position:absolute;inset:52px auto auto 24px;width:44px}[dir=rtl] .gate .s{inset:52px 24px auto auto}
+</style></head><body><script src="../souki-v5.js"></script><script>
+const {i,L,phone,ab,field,show,BLOB,IL}=SK;
+const gate=()=>`<div class="gate"><img class="s" src="${BLOB.splash}" alt="SOUKI"><img class="b" src="${IL}basket.webp" alt=""></div><div class="ob" style="padding-top:24px"><h1>${L('Le marché de gros de Fès, livré chez vous.','سوق الجملة بفاس، حتى باب داركم.')}</h1><p class="lead">${L('Acheté ce matin, livré demain entre 8h et 15h.','مشترى هذا الصباح، يوصلكم غدا بين 8 و 15.')}</p></div>`;
+const gbar=()=>`<div class="act"><span class="btn">${L('Continuer avec Google','المتابعة عبر Google')}</span><span class="btn tonal">${i('mail',20)}${L('Continuer avec un e-mail','المتابعة بالبريد الإلكتروني')}</span><p class="sm soft2" style="text-align:center;padding:8px 16px 4px">${L('En continuant, vous acceptez les conditions et la politique de confidentialité.','بالمتابعة، توافقون على الشروط وسياسة الخصوصية.')}</p></div>`;
+const pw=()=>ab('')+`<div class="ob" style="padding-top:0"><h1>Bon retour, Salma</h1><p class="lead">salma@exemple.ma</p>${field('Mot de passe',{v:'••••••••',icon:'lock',trail:'eye',focus:1})}<p class="link" style="margin-top:16px">Mot de passe oublié&nbsp;?</p></div>`;
+const code=()=>ab('')+`<div class="ob" style="padding-top:0"><h1>Entrez le code</h1><p class="lead">Nous l'avons envoyé à salma@exemple.ma. Il se remplit tout seul à la réception.</p><div class="otp err">${'482915'.split('').map(d=>'<span>'+d+'</span>').join('')}</div>
+<div class="note bad">${i('info',20)}<span>Le code a expiré. Recevoir un nouveau code.</span></div><p class="soft2" style="margin-top:16px">Mauvaise adresse&nbsp;? <span class="link">Modifier l'e-mail</span></p></div>`;
+const fg=()=>ab('')+`<div class="ob" style="padding-top:0"><h1>Mot de passe oublié</h1><p class="lead">Indiquez votre e-mail. Vous recevrez un code pour choisir un nouveau mot de passe.</p>${field('E-mail',{v:'salma@exemple.ma',icon:'mail'})}<div class="note ok">${i('check',20)}<span>Code envoyé. Il est valable 10 minutes.</span></div></div>`;
+const one=(t,o)=>()=>`<div class="act"><span class="btn ${o?'off':''}">${t}</span></div>`;
+show(phone({cap:'Entrée · clair · français',sb:'#fff',bar:gbar},gate)+phone({cap:'Entrée · sombre · arabe',theme:'dark',lang:'ar',sb:'#fff',bar:gbar},gate)
++phone({cap:'Compte existant : mot de passe',bar:one('Se connecter')},pw)+phone({cap:'Code à 6 chiffres : état « expiré »',bar:one('Recevoir un nouveau code')},code)+phone({cap:'Mot de passe oublié',bar:one('Saisir le code')},fg));
+</script></body></html>

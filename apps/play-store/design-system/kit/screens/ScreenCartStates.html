@@ -1,0 +1,18 @@
+<!-- @dsCard group="Écrans P1" page height=900 width=1200 subtitle="Panier : sous le minimum, livraison offerte et étagères, suppression" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"></head><body><script src="../souki-v5.js"></script><script>
+const {i,L,P,phone,price,qty,card,dh,snack,show}=SK;
+const line=(k,n,u='kg')=>`<div class="line"><span class="pic"><img src="${P[k].img}" alt=""></span><div class="mid"><p class="t16">${P[k].fr}</p><p class="sm soft2 num">${dh(P[k].price)} DH / ${P[k].unit}</p></div><div style="text-align:end">${price(P[k].price*n,'')}<div style="margin-top:4px">${qty(n+' '+u,'lite')}</div></div></div>`;
+const sum=(s,d)=>`<div class="sum"><div><span class="soft2">Sous-total</span><span class="num">${dh(s)} DH</span></div><div><span class="soft2">Livraison</span><span class="num">${d?dh(d)+' DH':'Offerte'}</span></div><div class="tot"><span>Total</span><span class="num">${dh(s+d)} DH</span></div></div>`;
+const cta=(t,off)=>`<div class="buy"><span class="btn wide ${off?'off':''}">${t}</span></div>`;
+const low=()=>`<div class="tb"><h1>Panier</h1></div><div class="pad"><div class="note" style="margin-top:4px">${i('info',20)}<span>Encore <span class="num">14,50 DH</span> pour atteindre le minimum de 50 DH, livraison comprise.</span></div></div>${line('tomate',2)+line('oignon',3,'kg')+sum(20.5,15)}
+<div class="sec" style="margin-top:12px"><span class="h2">Les essentiels</span></div><div class="rail">${card('pomme-de-terre')+card('carotte')+card('courgette')}</div>`;
+const free=()=>`<div class="tb"><h1>Panier</h1></div><div class="gauge"><div class="row sp"><span style="font-weight:600">Livraison offerte</span>${i('check',22)}</div><div class="track"><i style="width:100%"></i></div></div>
+${line('brocoli',6)+line('poivron-rouge',4)+line('haricot-vert',5)}<p class="pad sm soft2" style="margin-top:8px">Et 9 autres produits</p>
+<div class="sec" style="margin-top:16px"><span class="h2">Pour varier</span></div><div class="rail">${card('betterave')+card('navet')+card('petit-pois')}</div>
+<div class="sec"><span class="h2">Les petits plus</span></div><div class="rail">${card('piment')+card('radis')+card('celeri')}</div>`;
+const del=()=>`<div class="tb"><h1>Panier</h1></div><div class="gauge"><div class="row sp"><span style="font-weight:600">Encore <span class="num">263 DH</span> pour la livraison offerte</span>${i('truck',22)}</div><div class="track"><i style="width:12%"></i></div></div>
+<div style="position:relative;overflow:hidden;background:var(--error);color:var(--on-error)"><span style="position:absolute;inset:0 20px 0 auto;display:grid;place-items:center">${i('trash',24)}</span><div style="transform:translateX(-96px);background:var(--surface);color:var(--on-surface)">${line('tomate',2)}</div></div>${line('pomme-de-terre',5)+line('carotte',2)+sum(37,15)}`;
+show(phone({cap:'Sous le minimum : bouton inactif, raison écrite',tab:2,cart:{n:2},bar:()=>cta('Valider la commande',1)},low)
++phone({cap:'Livraison offerte atteinte · étagères',tab:2,cart:{n:3},bar:()=>cta('Valider la commande · <span class="num">306 DH</span>')},free)
++phone({cap:'La tomate glisse vers la suppression ; l\'oignon vient d\'être retiré',tab:2,cart:{n:3},over:()=>snack('Oignon retiré du panier','Annuler'),bar:()=>cta('Valider la commande · <span class="num">52 DH</span>')},del));
+</script></body></html>

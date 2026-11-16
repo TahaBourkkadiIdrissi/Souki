@@ -1,0 +1,35 @@
+<!-- @dsCard group="Marché" height=330 -->
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{margin:0;padding:24px;background:var(--surface);font-family:var(--font-sans);color:var(--on-surface);display:flex;gap:12px}
+.card{width:164px;background:var(--surface-container-lowest);border:1px solid var(--outline-variant);border-radius:var(--radius-lg);padding:8px 8px 12px;box-sizing:border-box;position:relative}
+.card.in{border-color:var(--motion);box-shadow:inset 0 0 0 1px var(--motion)}
+.ph{aspect-ratio:1;background:var(--photo-bg);border-radius:var(--radius-md);display:grid;place-items:center;position:relative}
+.ph img{width:100%;height:100%;object-fit:contain;padding:8%;box-sizing:border-box;filter:drop-shadow(0 6px 6px rgba(20,60,30,.16))}
+.out .ph img{filter:grayscale(1);opacity:.45}
+.pill{position:absolute;left:8px;top:8px;font:600 11px/16px var(--font-sans);padding:2px 8px;border-radius:var(--radius-full);display:flex;gap:4px;align-items:center}
+.low{background:var(--warning-container);color:var(--on-warning-container)}
+.gone{background:var(--error-container);color:var(--on-error-container)}
+.n{font-size:14px;line-height:20px;font-weight:600;margin:10px 4px 0}
+.d{font-size:12px;line-height:16px;color:var(--on-surface-variant);margin:0 4px}
+.row{display:flex;align-items:flex-end;justify-content:space-between;margin:8px 0 0 4px;min-height:48px}
+.p{color:var(--secondary);font-variant-numeric:tabular-nums;direction:ltr}
+.p b{font-size:20px;line-height:24px;font-weight:750;letter-spacing:-.5px}.p span{font-size:12px;font-weight:600;margin-left:3px}
+.out .p{color:var(--on-surface-variant)}
+.add,.q button{width:48px;height:48px;border:0;border-radius:var(--radius-md);display:grid;place-items:center;cursor:pointer}
+.add{background:var(--secondary-container);color:var(--on-secondary-container)}
+.q{display:flex;align-items:center;background:var(--primary);color:var(--on-primary);border-radius:var(--radius-md);position:absolute;right:8px;bottom:12px;left:8px;justify-content:space-between}
+.q button{background:none;color:inherit}.q b{font:650 14px/20px var(--font-sans);font-variant-numeric:tabular-nums}
+svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.pill svg{width:12px;height:12px}
+.in .row{visibility:hidden}.in .pr{margin:8px 0 0 4px}
+</style></head><body>
+<div class="card"><div class="ph"><img src="../../kit/produits/tomate.webp" alt=""></div>
+<p class="n">Tomate</p><p class="d">Mtecha · ماطيشة</p>
+<div class="row"><div class="p"><b>3,50</b><span>DH / kg</span></div><button class="add" aria-label="Ajouter Tomate au panier"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg></button></div></div>
+<div class="card in"><div class="ph"><img src="../../kit/produits/tomate.webp" alt=""><span class="pill low"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Bientôt épuisé</span></div>
+<p class="n">Tomate</p><p class="d">3,50 DH / kg · 7 DH</p>
+<div class="row"></div><div class="q"><button aria-label="Retirer 500 g"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button><b>2 kg</b><button aria-label="Ajouter 500 g"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg></button></div></div>
+<div class="card out"><div class="ph"><img src="../../kit/produits/tomate.webp" alt=""><span class="pill gone"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>Épuisé</span></div>
+<p class="n">Tomate</p><p class="d">Mtecha · ماطيشة</p>
+<div class="row"><div class="p"><b>3,50</b><span>DH / kg</span></div></div></div>
+</body></html>

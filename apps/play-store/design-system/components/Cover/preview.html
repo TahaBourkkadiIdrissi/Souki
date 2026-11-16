@@ -1,0 +1,24 @@
+<!-- @dsCard height=320 -->
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0}body{background:var(--surface);width:960px;height:320px;position:relative;overflow:hidden;font-family:var(--font-sans)}
+svg{position:absolute;inset:0}
+.a{fill:var(--primary)}.b{fill:var(--tertiary-container)}.c{fill:var(--motion)}.d{fill:var(--badge)}.e{fill:var(--primary-container)}
+.blk{rx:var(--radius-xl)}.s{fill:none;stroke:var(--surface);stroke-width:var(--space-4);stroke-linecap:round}
+.t{position:absolute;left:48px;bottom:40px;width:440px}
+h1{margin:0;font-size:96px;line-height:.95;font-weight:800;letter-spacing:-4px;color:var(--on-surface)}
+p{margin:16px 0 0;font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+</style></head><body>
+<!-- blocs : primary 208x264, tertiary-container 268x140, motion 112x124, badge 140x124, primary-container 492x96 ; gouttières space-4
+     disposition : une dalle haute (le vert de décision) et ses satellites, qui débordent en haut, à droite et en bas
+     motif : le « S » du logo comme chemin de livraison, découpé dans les blocs à la couleur du fond (rangée « motif littéral » : la marque trace ses étapes de commande sur ce S)
+     échelles : pas space-4 (16) pour les gouttières et l'épaisseur du chemin, coins radius-xl (28), arcs de rayon 70 -->
+<svg viewBox="0 0 960 320" width="960" height="320" aria-hidden="true">
+<rect class="blk a" x="496" y="-28" width="208" height="264"/>
+<rect class="blk b" x="720" y="-28" width="268" height="124"/>
+<rect class="blk c" x="720" y="112" width="112" height="124"/>
+<rect class="blk d" x="848" y="112" width="140" height="124"/>
+<rect class="blk e" x="496" y="252" width="492" height="96"/>
+<path class="s" d="M960 34H650a70 70 0 0 0 0 140h130a70 70 0 0 1 0 140H496"/>
+</svg>
+<div class="t"><h1>SOUKI<br>Android</h1><p>Le marché de gros de Fès, livré chez vous. Calme, net, rapide, honnête.</p></div>
+</body></html>

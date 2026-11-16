@@ -1,0 +1,9 @@
+<!-- @dsCard group="Composants M3" height=280 width=1100 subtitle="Onglets et snackbar" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"></head><body><script src="../souki-v5.js"></script><script>
+const {i,field,sw,radio,cb,row,grp,tabs,snack,sheet,dialog,show}=SK;
+const cell=(t,h,c='')=>`<div class="cell ${c}"><small>${t}</small>${h}</div>`;
+const C=cell('Onglets',tabs(['En cours (2)','Passées'],0),'wide')
++cell('Snackbar avec action',snack('Oignons rouges retirés du panier','Annuler'),'wide')
++cell('Snackbar simple',snack('Adresse enregistrée'),'wide');
+show(`<div class="cmp"><section data-theme="light"><h5>Clair</h5><div class="cells">${C}</div></section><section data-theme="dark"><h5>Sombre</h5><div class="cells">${C}</div></section></div>`);
+</script></body></html>

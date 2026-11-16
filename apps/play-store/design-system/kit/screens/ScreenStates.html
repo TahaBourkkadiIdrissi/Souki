@@ -1,0 +1,12 @@
+<!-- @dsCard group="Écrans P1" page height=900 width=1200 subtitle="États : chargement, hors ligne, erreur" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"></head><body><script src="../souki-v5.js"></script><script>
+const {i,L,card,phone,show}=SK;
+const head=`<div class="tb"><h1>Produits</h1></div><div class="pad"><div class="search flat">${i('search',22)}Chercher un produit</div></div>`;
+const sk=()=>head+`<div class="chips">${[52,84,64,72].map(w=>`<span class="sk" style="width:${w}px;height:36px"></span>`).join('')}</div><div class="pad" style="margin-bottom:12px"><span class="sk" style="width:90px;height:16px"></span></div>
+<div class="grid">${Array(6).fill(`<div class="pc"><span class="sk" style="aspect-ratio:1;border-radius:var(--radius-md)"></span><span class="sk" style="width:70%;height:16px;margin:10px 4px 0"></span><span class="sk" style="width:50%;height:12px;margin:6px 4px 0"></span><span class="sk" style="width:60%;height:20px;margin:10px 4px 2px"></span></div>`).join('')}</div>`;
+const off=()=>`<div class="band">${i('wifioff',16)}Hors ligne · catalogue de 09h12</div>`+head.replace('class="tb"','class="tb" style="padding-top:12px"')+`<div class="chips"><span class="chip">Tout</span><span class="chip on">${i('check',16)}Légumes</span><span class="chip">Fruits</span><span class="chip">Herbes</span></div>
+<div class="pad"><div class="note" style="margin:0 0 12px">${i('info',20)}<span>Vous pouvez consulter les produits. L'ajout au panier reviendra avec la connexion.</span></div></div>
+<div class="grid dimadd">${card('radis')+card('tomate')+card('laitue')+card('pomme-de-terre')}</div><style>.dimadd .pc>.ib{opacity:.38}</style>`;
+const err=()=>head+`<div class="empty"><span class="av" style="width:96px;height:96px">${i('refresh',40)}</span><p class="h2" style="margin-top:16px">Le catalogue ne s'est pas chargé</p><p class="soft2">Vérifiez votre connexion puis réessayez. Votre panier est conservé.</p><span class="btn" style="margin-top:16px">${i('refresh',20)}Réessayer</span></div>`;
+show(phone({cap:'Chargement : squelettes aux dimensions finales',tab:1},sk)+phone({cap:'Hors ligne',tab:1,sb:'#fff'},off)+phone({cap:'Erreur de chargement',tab:1},err));
+</script></body></html>

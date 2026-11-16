@@ -1,0 +1,9 @@
+<!-- @dsCard group="Écrans P2" page height=900 width=1590 subtitle="Onboarding 1 : bienvenue et langue, prénom, adresse, hors zone" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"></head><body><script src="../souki-v5.js"></script><script>
+const {i,L,phone,field,road,map,row,radio,grp,show}=SK;
+const N=7,act=(a,later)=>()=>`<div class="act"><span class="btn">${a}</span>${later?`<span class="btn text md">${L('Plus tard','لاحقا')}</span>`:''}</div>`;
+const hi=()=>`<div class="ob">${road(1,N)}<h1>Bienvenue chez SOUKI</h1><p class="lead">Choisissez votre langue. Vous pourrez la changer dans Compte.</p></div><div style="margin-top:24px">${grp('',[row('','Français','',radio(1)),row('','<span style="font-family:var(--font-arabic)">العربية</span>','',radio(0))])}</div>`;
+const nm=()=>`<div class="ob">${road(2,N)}<h1>Comment vous appeler&nbsp;?</h1><p class="lead">Votre prénom sert à vous saluer et au livreur à vous reconnaître.</p>${field('Prénom',{v:'Salma',focus:1})}</div>`;
+const ad=out=>()=>map({h:330,out})+`<div class="ob" style="padding-top:20px">${road(3,N)}<h1>${out?'Nous ne livrons pas encore ici':'Où livrer vos courses&nbsp;?'}</h1>${out?`<div class="note">${i('info',20)}<span>Cette adresse est hors de Fès. Déplacez le repère dans la zone verte pour commander.</span></div>`:`<p class="lead">Placez le repère sur votre porte. SOUKI livre à Fès uniquement.</p>${field('Adresse',{v:'Rue 12, Narjiss C, Fès',icon:'pin'})}`}</div>`;
+show(phone({cap:'1 · Bienvenue et langue',bar:act('Continuer')},hi)+phone({cap:'2 · Prénom',bar:act('Continuer',1)},nm)+phone({cap:'3 · Adresse sur la carte',sb:'#1F2A22',bar:act('Confirmer cette adresse',1)},ad(0))+phone({cap:'3 · Hors zone',sb:'#1F2A22',bar:act('Déplacer le repère',1)},ad(1)));
+</script></body></html>
