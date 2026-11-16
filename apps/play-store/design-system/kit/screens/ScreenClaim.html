@@ -1,0 +1,14 @@
+<!-- @dsCard group="Écrans P4" page height=900 width=1590 subtitle="Réclamation : produits, motif et photo, succès, délai dépassé" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"></head><body><script src="../souki-v5.js"></script><script>
+const {i,L,P,phone,ab,tone,row,grp,line,qty,cb,radio,show}=SK;
+const R=['Produit abîmé','Poids incorrect','Erreur de produit','Produit manquant','Qualité insuffisante','Autre problème'];
+const s1=()=>ab('Signaler un problème')+`<div class="pad"><p class="soft2">Commande n° 1040, livrée aujourd'hui à 11h20. Vous avez jusqu'à demain 11h20.</p><p class="gt" style="margin:16px 0 0!important">Quels produits sont concernés&nbsp;?</p></div>`
++line('tomate','2 kg livrés · 7 DH','<div style="display:flex;gap:12px;align-items:center">'+qty('1 kg','lite')+cb(1)+'</div>')+line('laitue','2 pièces · 8 DH',cb(0))+line('concombre','2 kg · 11 DH',cb(0))+line('radis','1 botte · 3 DH',cb(0));
+const s2=()=>ab('Signaler un problème')+`<p class="gt" style="margin-top:0!important">Tomate, 1 kg : que s'est-il passé&nbsp;?</p>`+grp('',R.map((r,n)=>row('',r,'',radio(n==0))))+`<div class="pad"><div class="slot">${i('camera',26)}Ajouter une photo (facultatif)</div></div>`;
+const s3=()=>`<div class="ob" style="text-align:center;padding-top:96px"><div style="display:grid;place-items:center;margin-bottom:24px"><span class="big-ic">${i('check',48)}</span></div><h1>Réclamation envoyée</h1><p class="lead">Le remboursement de 3,50 DH est versé sur votre Wallet. Il sera déduit de votre prochaine commande.</p></div>
+<div class="oc" style="margin-top:24px"><div class="kv"><span class="soft2">Tomate, 1 kg</span><span>Produit abîmé</span></div><div class="kv"><span class="soft2">Remboursement Wallet</span><b class="num">3,50 DH</b></div></div>`;
+const s4=()=>ab('Commande n° 1027')+`<div class="pad">${tone('ok','Livrée')}<p class="soft2" style="margin-top:8px">Livrée le samedi 7 novembre à 10h05</p><div class="note" style="background:var(--surface-container-high);color:var(--on-surface)">${i('info',20)}<span>Le délai de 24 h pour signaler un problème est dépassé. Notre équipe reste joignable.</span></div></div><div style="margin-top:16px">${grp('',[row('bag','2 produits','Payé à la livraison : 52 DH'),row('call','Contacter SOUKI','Appel ou WhatsApp')])}</div>`;
+const cta=(t,c='')=>()=>'<div class="act"><span class="btn '+c+'">'+t+'</span></div>';
+show(phone({cap:'1 · Produits et quantité concernés',bar:cta('Continuer')},s1)+phone({cap:'2 · Motif et photo facultative',bar:cta('Envoyer · remboursement de <span class="num">3,50 DH</span>')},s2)
++phone({cap:'3 · Succès : remboursement sur le Wallet',bar:cta('Voir mon Wallet')},s3)+phone({cap:'Délai de 24 h dépassé',bar:cta('Recommander','tonal')},s4));
+</script></body></html>

@@ -1,0 +1,9 @@
+<!-- @dsCard group="Écrans P1" page height=1020 width=1680 subtitle="Tailles d'écran et taille du texte" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"></head><body><script src="../souki-v5.js"></script><script>
+const {i,L,P,card,phone,price,qty,dh,show}=SK;
+const cat=()=>`<div class="tb"><h1>${L('Produits','المنتجات')}</h1></div><div class="pad"><div class="search flat">${i('search',22)}${L('Chercher un produit','ابحث عن منتوج')}</div></div><div class="chips"><span class="chip">${L('Tout','الكل')}</span><span class="chip on">${i('check',16)}${L('Légumes','خضر')}</span><span class="chip">${L('Fruits','فواكه')}</span><span class="chip">${L('Herbes','أعشاب')}</span></div>
+<div class="grid">${card('radis')+card('tomate',{qty:'2 kg'})+card('laitue',{low:1})+card('pomme-de-terre')+card('oignon')+card('carotte')}</div>`;
+const c={n:1,total:7};
+show(phone({cap:'360 × 640 dp · petit écran · arabe à 130 %',w:360,h:640,lang:'ar',fs:1.3,tab:1,cart:c},cat)+phone({cap:'412 × 915 dp · grand téléphone',w:412,h:915,tab:1,cart:c},cat)
++phone({cap:'360 × 800 dp · texte à 130 %',fs:1.3,tab:1,cart:c},cat)+phone({cap:'360 × 800 dp · texte à 200 %',fs:2,tab:1,cart:c},cat));
+</script></body></html>

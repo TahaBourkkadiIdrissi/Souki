@@ -1,0 +1,8 @@
+<!-- @dsCard group="Composants M3" height=380 width=1100 subtitle="Feuille du bas et dialogue" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"></head><body><script src="../souki-v5.js"></script><script>
+const {i,field,sw,radio,cb,row,grp,tabs,snack,sheet,dialog,show}=SK;
+const cell=(t,h,c='')=>`<div class="cell ${c}"><small>${t}</small>${h}</div>`;
+const C=cell('Feuille du bas',sheet('<p class="h2 pad">Gérer la commande</p><p class="pad soft2" style="margin:4px 0 12px">Possible tant que la préparation n\'a pas commencé.</p>'+grp('',[row('pencil','Modifier les produits',''),row('x','Annuler la commande','','')])))
++cell('Dialogue',dialog('Annuler la commande ?','Elle ne sera ni préparée ni livrée.','Garder la commande','Annuler la commande',1));
+show(`<div class="cmp"><section data-theme="light"><h5>Clair</h5><div class="cells">${C}</div></section><section data-theme="dark"><h5>Sombre</h5><div class="cells">${C}</div></section></div>`);
+</script></body></html>

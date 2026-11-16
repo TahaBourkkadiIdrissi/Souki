@@ -1,0 +1,10 @@
+<!-- @dsCard group="Composants SOUKI" height=780 width=1100 subtitle="Étapes de commande sur le chemin en « S » : en cours, en livraison, incident, livrée" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"><style>.cmp .cells{grid-template-columns:1fr}.cmp .cells.two{grid-template-columns:1fr 1fr}.cmp .cells.three{grid-template-columns:1fr 1fr 1fr}.cmp .cells.three .said{font-size:15px!important;line-height:22px!important}[data-theme=dark] .empty img{display:none}.empty .alt{display:none;width:88px;height:88px;border-radius:50%;background:var(--primary-container);color:var(--on-primary-container);place-items:center}[data-theme=dark] .empty .alt{display:grid}.box{border-radius:20px;overflow:hidden;background:var(--surface);box-shadow:0 0 0 1px var(--outline-variant);position:relative}</style></head><body><script src="../souki-v5.js"></script><script>
+const {i,L,P,line,price,qty,steps,tone,show,IL}=SK;
+const cell=(t,h,c='')=>`<div class="cell ${c}"><small>${t}</small>${h}</div>`;
+const C=()=>cell('Préparation en cours',steps(1,['Dim. 15 nov. · 22h40','Lun. 16 nov. · 07h30']))
++cell('En livraison',steps(2,['Dim. 15 nov. · 22h40','Lun. 16 nov. · 07h30','Depuis 9h12']))
++cell('Incident : destinataire absent',steps(2,['Dim. 15 nov. · 22h40','Lun. 16 nov. · 07h30','Passage à 11h05'],1))
++cell('Livrée',steps(3,['22h40','07h30','09h12','11h40']));
+show(`<div class="cmp"><section data-theme="light"><h5>Clair</h5><div class="cells two">${C()}</div></section><section data-theme="dark"><h5>Sombre</h5><div class="cells two">${C()}</div></section></div>`);
+</script></body></html>

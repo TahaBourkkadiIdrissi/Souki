@@ -1,0 +1,10 @@
+<!-- @dsCard group="Composants M3" height=320 width=1100 subtitle="Interrupteur, radio, case à cocher : tous les états" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"></head><body><script src="../souki-v5.js"></script><script>
+const {i,field,sw,radio,cb,row,grp,tabs,snack,sheet,dialog,show}=SK;
+const cell=(t,h,c='')=>`<div class="cell ${c}"><small>${t}</small>${h}</div>`;
+const C=cell('Interrupteur', '<div class="row" style="gap:16px">'+sw(1)+sw(0)+'<span class="st-off">'+sw(1)+'</span></div>')
++cell('Radio','<div class="row" style="gap:16px">'+radio(1)+radio(0)+'<span class="st-off">'+radio(1)+'</span></div>')
++cell('Case à cocher','<div class="row" style="gap:16px">'+cb(1)+cb(0)+'<span class="st-off">'+cb(1)+'</span></div>')
++cell('Dans une liste',grp('',[row('bell','Suivi de commande','Confirmée, en route, livrée',sw(1)),row('','Chaque semaine','Le même jour chaque semaine',radio(1))]),'wide');
+show(`<div class="cmp"><section data-theme="light"><h5>Clair</h5><div class="cells">${C}</div></section><section data-theme="dark"><h5>Sombre</h5><div class="cells">${C}</div></section></div>`);
+</script></body></html>

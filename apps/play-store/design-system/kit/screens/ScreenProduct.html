@@ -1,0 +1,17 @@
+<!-- @dsCard group="Écrans P1" page height=900 width=1200 subtitle="Fiche produit : en stock, dans le panier, épuisé" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"></head><body><script src="../souki-v5.js"></script><script>
+const {i,L,P,phone,price,qty,name,dh,show}=SK;
+const fiche=(id,st)=>()=>{const p=P[id];return `<div class="pic" style="border-radius:0 0 var(--radius-xl-inc) var(--radius-xl-inc);aspect-ratio:auto;height:340px" class="${st.out?'out':''}"><img src="${p.img}" alt="" style="${st.out?'filter:grayscale(1);opacity:.45':''}">
+<div class="row sp" style="position:absolute;inset:44px 16px auto"><span class="ib surf">${i('back',22,'flip')}</span><span class="row"><span class="ib surf">${i('share',20)}</span><span class="ib surf ${st.fav?'fav':''}">${i('heart',22)}</span></span></div></div>
+<div class="pad" style="padding-top:20px"><span class="pill st ${st.out?'gone':''}" style="${st.out||st.low?'':'background:var(--secondary-container);color:var(--on-secondary-container)'}">${st.out?L('Épuisé aujourd\'hui','نفد اليوم'):st.low?L('Bientôt épuisé','قرب ينفد'):L('En stock · acheté ce matin','متوفر · مشترى هذا الصباح')}</span>
+<h1 style="font-size:28px;line-height:36px;font-weight:700;letter-spacing:-.6px;margin-top:8px">${name(p)}</h1>
+<p class="soft2">${L(p.dj+' · '+p.ar,p.dj+' · '+p.fr)}</p>
+<div style="margin:16px 0 12px">${price(p.price,p.unit,'big')}</div>
+<p style="font-size:16px;line-height:24px;color:var(--on-surface-variant)">${L('Charnues et juteuses, idéales en salade, en sauce ou pour une chakchouka généreuse.','لحمية وغنية بالعصير، مثالية في السلطة أو الصلصة أو لشكشوكة سخية.')}</p>
+<div class="info" style="margin-top:16px">${i('truck',22)}<span>${L('Livraison demain, entre 8h et 15h','التوصيل غدا، بين 8 و 15')}</span></div>
+<div class="info">${i('leaf',22)}<span>${L('Marché de gros de Fès, sans intermédiaire','سوق الجملة بفاس، دون وسيط')}</span></div></div>`};
+const bar=(st,p)=>`<div class="buy">${st.out?`<span class="btn tonal wide">${i('heart',20)+L('Ajouter aux favoris','أضف إلى المفضلة')}</span>`:qty(st.q,'lite')+`<span class="btn wide">${st.in?L('Mettre à jour','تحديث'):L('Ajouter','أضف')} · <span class="num">${dh(st.n*p.price)} DH</span></span>`}</div>`;
+show(phone({cap:'En stock · clair · français',sb:'#1F2A22',bar:()=>bar({q:'1 kg',n:1},P.tomate)},fiche('tomate',{}))
++phone({cap:'Dans le panier, favori · sombre · arabe',theme:'dark',lang:'ar',sb:'#1F2A22',bar:()=>bar({q:'2 kg',n:2,in:1},P.tomate)},fiche('tomate',{fav:1,low:1}))
++phone({cap:'Épuisé · clair · français',sb:'#1F2A22',bar:()=>bar({out:1})},fiche('chou-fleur',{out:1})));
+</script></body></html>

@@ -1,0 +1,9 @@
+<!-- @dsCard group="Composants M3" height=300 width=1100 subtitle="Barre de recherche M3 et chips de filtre" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"></head><body><script src="../souki-v5.js"></script><script>
+const {i,field,sw,radio,cb,row,grp,tabs,snack,sheet,dialog,show}=SK;
+const cell=(t,h,c='')=>`<div class="cell ${c}"><small>${t}</small>${h}</div>`;
+const C=cell('Recherche au repos','<div class="search flat">'+i('search',22)+'Chercher un produit<span class="mic">'+i('mic',22)+'</span></div>','wide')
++cell('Recherche saisie','<div class="search flat st-focus">'+i('search',22)+'<span style="color:var(--on-surface)">tomates</span><span class="mic">'+i('x',22)+'</span></div>','wide')
++cell('Chips de filtre','<div class="row" style="flex-wrap:wrap"><span class="chip">Tout</span><span class="chip on">'+i('check',16)+'Légumes</span><span class="chip st-pressed">Fruits</span><span class="chip st-off">Herbes</span></div>','wide');
+show(`<div class="cmp"><section data-theme="light"><h5>Clair</h5><div class="cells">${C}</div></section><section data-theme="dark"><h5>Sombre</h5><div class="cells">${C}</div></section></div>`);
+</script></body></html>

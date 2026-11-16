@@ -1,0 +1,15 @@
+<!-- @dsCard group="Écrans P4" page height=900 width=1590 subtitle="Historique, suivi en 4 étapes, incident" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"></head><body><script src="../souki-v5.js"></script><script>
+const {i,L,P,phone,ab,tone,steps,tabs,row,grp,show,IL}=SK;
+const oc=(n,d,t,l,ks,tot,act)=>`<div class="oc"><div class="row sp"><span class="t16">${L('Commande','الطلب')} <span class="num">n° ${n}</span></span>${tone(t,l)}</div><p class="sm soft2">${d}</p><div class="th">${ks.map(k=>'<span class="pic"><img src="'+P[k].img+'" alt=""></span>').join('')}</div><div class="row sp"><span><span class="num">${ks.length}</span> ${L('produits','منتوجات')} · <b class="num">${tot} DH</b></span><span class="link">${act}</span></div></div>`;
+const list=()=>`<div class="tb"><h1>${L('Commandes','الطلبات')}</h1></div>${tabs([L('En cours (2)','جارية (2)'),L('Passées','سابقة')])}
+${oc(1042,L('Livraison aujourd\'hui, entre 8h et 15h','التوصيل اليوم، بين 8 و 15'),'road',L('En route','في الطريق'),['tomate','pomme-de-terre','oignon','carotte'],'65,50',L('Suivre','تتبع'))}
+${oc(1045,L('Livraison demain, entre 8h et 15h','التوصيل غدا، بين 8 و 15'),'wait',L('Confirmée','مؤكدة'),['courgette','poivron-rouge','ail'],'107',L('Gérer','تدبير'))}`;
+const past=()=>`<div class="tb"><h1>Commandes</h1></div>${tabs(['En cours','Passées'],1)}
+${oc(1038,'Livrée le jeudi 12 novembre à 11h20','ok','Livrée',['laitue','concombre','radis','tomate'],'58','Recommander')}${oc(1031,'Samedi 7 novembre','issue','Annulée',['chou-fleur','navet'],'52','Recommander')}`;
+const track=()=>ab('Commande n° 1042')+`<div class="pad row sp">${tone('road','En route')}<span class="soft2">Aujourd'hui, entre 8h et 15h</span></div>`+steps(2,['Dimanche 15 nov. · 21h04','Lundi 16 nov. · 06h30','Lundi 16 nov. · 09h12','Avant 15h00'])
++grp('',[row('pin','Rue 12, Narjiss C, Fès','Heure souhaitée : 10h00',''),row('bag','4 produits','À payer à la livraison : 41,50 DH')])+`<div class="pad row" style="margin-top:16px"><span class="btn tonal wide">${i('call',20)}Contacter SOUKI</span></div>`;
+const inc=()=>ab('Commande n° 1042')+`<div class="pad">${tone('issue','Destinataire absent')}<div class="note bad">${i('alert',20)}<span>Le livreur n'a pas pu vous remettre la commande. Notre équipe peut vous aider à la reprogrammer.</span></div></div>`+steps(2,['Dimanche 15 nov. · 21h04','Lundi 16 nov. · 06h30','Lundi 16 nov. · 11h48 · passage sans réponse',''],1)
++`<div class="pad"><p class="gt" style="margin:8px 0!important">Contacter SOUKI</p><div class="row"><span class="btn wide">${i('call',20)}Appeler</span><span class="btn tonal wide">${i('chat',20)}WhatsApp</span></div></div>`;
+show(phone({cap:'En cours · clair · français',tab:3},list)+phone({cap:'Passées',tab:3},past)+phone({cap:'Suivi : les 4 étapes le long du « S »'},track)+phone({cap:'Incident : destinataire absent'},inc));
+</script></body></html>

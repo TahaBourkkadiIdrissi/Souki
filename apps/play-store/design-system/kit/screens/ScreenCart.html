@@ -1,0 +1,14 @@
+<!-- @dsCard group="Écrans P1" page height=900 width=1200 subtitle="Panier : en cours, sombre arabe, vide" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"></head><body><script src="../souki-v5.js"></script><script>
+const {i,L,P,phone,price,qty,name,card,dh,IL,show}=SK;
+const lines=[['tomate',2],['pomme-de-terre',5],['oignon',3],['carotte',2]],sub=lines.reduce((s,[k,n])=>s+P[k].price*n,0);
+const cart=()=>`<div class="tb"><h1>${L('Panier','السلة')}</h1></div>
+<div class="gauge"><div class="row sp"><span style="font-weight:600">${L('Encore','بقي')} <span class="num">${dh(300-sub)} DH</span> ${L('pour la livraison offerte','للتوصيل المجاني')}</span>${i('truck',22)}</div><div class="track"><i style="width:${sub/3}%"></i></div></div>
+${lines.map(([k,n])=>`<div class="line"><span class="pic"><img src="${P[k].img}" alt=""></span><div class="mid"><p class="t16">${name(P[k])}</p><p class="sm soft2 num" style="text-align:start">${dh(P[k].price)} DH / kg</p></div><div style="text-align:end">${price(P[k].price*n,'')}<div style="margin-top:4px">${qty(n+' kg','lite')}</div></div></div>`).join('')}
+<div class="sum"><div><span class="soft2">${L('Sous-total','المجموع الفرعي')}</span><span class="num">${dh(sub)} DH</span></div><div><span class="soft2">${L('Livraison','التوصيل')}</span><span class="num">15 DH</span></div><div class="tot"><span>${L('Total','المجموع')}</span><span class="num">${dh(sub+15)} DH</span></div></div>
+<div class="sec" style="margin-top:12px"><span class="h2">${L('Les essentiels','الأساسيات')}</span></div><div class="rail">${card('courgette')+card('concombre')+card('ail')}</div>`;
+const bar=`<div class="buy"><span class="btn wide">${'__'}</span></div>`;
+const b=l=>bar.replace('__',(l=='ar'?'تأكيد الطلب':'Valider la commande')+' · <span class="num">'+dh(sub+15)+' DH</span>');
+const empty=()=>`<div class="tb"><h1>Panier</h1></div><div class="empty"><img src="${IL}empty-basket.webp" alt=""><p class="h2" style="margin-top:16px">Votre panier est vide</p><p class="soft2">Le marché de ce matin vous attend. Minimum de commande : 50 DH, livraison comprise.</p><div class="row" style="margin-top:16px"><span class="btn">Voir les produits</span><span class="btn tonal">${i('mic',20)}Dicter</span></div></div>`;
+show(phone({cap:'Panier · clair · français',tab:2,cart:{n:4},bar:b('fr')},cart)+phone({cap:'Panier · sombre · arabe',theme:'dark',lang:'ar',tab:2,cart:{n:4},bar:b('ar')},cart)+phone({cap:'Panier vide · clair',tab:2},empty));
+</script></body></html>

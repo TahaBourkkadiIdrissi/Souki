@@ -1,0 +1,10 @@
+<!-- @dsCard group="Composants M3" height=300 width=1100 subtitle="Indicateurs de progression et menu" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"></head><body><script src="../souki-v5.js"></script><script>
+const {i,field,sw,radio,cb,row,grp,tabs,snack,sheet,dialog,show}=SK;
+const cell=(t,h,c='')=>`<div class="cell ${c}"><small>${t}</small>${h}</div>`;
+const C=cell('Linéaire','<div class="lin"><i></i></div>')
++cell('Ondulé (attente)','<svg class="wavy" viewBox="0 0 200 12" preserveAspectRatio="none"><path d="M0 6 Q10 0 20 6 T40 6 T60 6 T80 6 T100 6 T120 6" fill="none" stroke="var(--motion)" stroke-width="4" stroke-linecap="round"/><path d="M132 6H200" stroke="var(--motion-track)" stroke-width="4" stroke-linecap="round"/></svg>')
++cell('Circulaire','<svg class="circ" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" fill="none" stroke="var(--motion-track)" stroke-width="4"/><circle cx="20" cy="20" r="16" fill="none" stroke="var(--motion)" stroke-width="4" stroke-linecap="round" stroke-dasharray="70 101" transform="rotate(-90 20 20)"/></svg>')
++cell('Menu (appui long sur une carte)','<div class="menu"><div>'+i('heart',20)+'Ajouter aux favoris</div><div class="on">'+i('share',20)+'Partager</div><div class="dng">'+i('trash',20)+'Retirer du panier</div></div>','wide');
+show(`<div class="cmp"><section data-theme="light"><h5>Clair</h5><div class="cells">${C}</div></section><section data-theme="dark"><h5>Sombre</h5><div class="cells">${C}</div></section></div>`);
+</script></body></html>

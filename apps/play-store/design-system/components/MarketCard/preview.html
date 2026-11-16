@@ -1,0 +1,20 @@
+<!-- @dsCard group="Marché" height=250 -->
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{margin:0;padding:24px;background:var(--surface);font-family:var(--font-sans);display:flex;gap:16px}
+.m{width:328px;box-sizing:border-box;border-radius:var(--radius-xl);padding:20px;color:var(--on-hero);background:linear-gradient(135deg,var(--hero-from),var(--hero-mid) 55%,var(--hero-to))}
+.e{font:700 11px/16px var(--font-sans);letter-spacing:.9px;text-transform:uppercase;color:var(--on-hero-variant);display:flex;align-items:center;gap:8px}
+.e i{width:8px;height:8px;border-radius:50%;background:#4CB84A}
+.cd{font-size:56px;line-height:60px;font-weight:750;letter-spacing:-2.4px;font-variant-numeric:tabular-nums;margin-top:20px;direction:ltr}
+.cd span{opacity:.45}
+.s{font-size:14px;line-height:20px;margin:4px 0 0;color:var(--on-hero-variant)}
+.f{display:flex;justify-content:space-between;align-items:center;margin-top:20px;font:600 14px/20px var(--font-sans)}
+.f svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.last{background:var(--tertiary-container);color:var(--on-tertiary-container)}
+.last .e,.last .s{color:var(--on-tertiary-container)}.last .e i{background:var(--on-tertiary-container)}
+</style></head><body>
+<div class="m"><div class="e"><i></i>Marché du jour</div><div class="cd" id="a">03<span>:</span>42<span>:</span>18</div><p class="s">avant la fermeture, à 01h00</p><div class="f">Livraison demain, 8h à 15h<svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div></div>
+<div class="m last"><div class="e"><i></i>Dernière heure</div><div class="cd">00<span>:</span>42<span>:</span>18</div><p class="s">avant la fermeture, à 01h00</p><div class="f">Livraison demain, 8h à 15h<svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div></div>
+<script>
+let t=3*3600+42*60+18;const a=document.getElementById("a"),p=n=>String(n).padStart(2,"0");
+if(!matchMedia("(prefers-reduced-motion: reduce)").matches)setInterval(()=>{t=Math.max(0,t-1);a.innerHTML=[t/3600|0,(t/60|0)%60,t%60].map(p).join("<span>:</span>")},1000);
+</script></body></html>

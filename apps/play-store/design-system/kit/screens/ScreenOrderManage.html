@@ -1,0 +1,14 @@
+<!-- @dsCard group="Écrans P4" page height=900 width=1590 subtitle="Gérer, modifier, annuler, recommander" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"></head><body><script src="../souki-v5.js"></script><script>
+const {i,L,P,phone,ab,tone,steps,row,grp,line,qty,price,sheet,dialog,dh,show}=SK;
+const base=()=>ab('Commande n° 1045')+`<div class="pad row sp">${tone('wait','Confirmée')}<span class="soft2">Demain, entre 8h et 15h</span></div>`+steps(0,['Dimanche 15 nov. · 22h10','','',''])+grp('',[row('bag','3 produits','À payer à la livraison : 107 DH')]);
+const man=()=>sheet(`<p class="h2 pad">Gérer la commande</p><p class="soft2 pad" style="margin:4px 0 8px">Possible tant que la préparation n'a pas commencé.</p>${row('pencil','Modifier les produits','Quantités, ajout, retrait')+row('x','Annuler la commande','')}`);
+const L2=(k,n)=>line(k,'<span class="num">'+dh(P[k].price)+' DH / '+P[k].unit+'</span>','<div style="text-align:end">'+price(P[k].price*n,'')+'<div style="margin-top:4px">'+qty(n+' kg','lite')+'</div></div>');
+const edit=()=>ab('Modifier la commande')+L2('courgette',3)+L2('poivron-rouge',2)+L2('ail',2)+`<div class="pad"><span class="btn out md" style="display:flex;margin-top:16px">${i('plus',20)}Ajouter un produit</span></div><div class="sum" style="margin-top:12px"><div><span class="soft2">Total avant modification</span><span class="num">107 DH</span></div><div class="tot"><span>Nouveau total</span><span class="num">113 DH</span></div></div>`;
+const re=()=>ab('Recommander')+`<div class="pad"><div class="note ok" style="margin-top:0">${i('refresh',20)}<span>Le même panier que la commande n° 1038, aux prix d'aujourd'hui.</span></div></div>`+line('laitue','<span class="num">4 DH / pièce</span>',price(8,''))+line('concombre','<span class="num">5,50 DH / kg</span>',price(11,''))+line('tomate','<span class="num">3,50 DH / kg</span>',price(7,''))+line('radis','Épuisé aujourd\'hui : retiré de ce panier','','dim')
++`<div class="sum"><div><span class="soft2">Sous-total</span><span class="num">26 DH</span></div></div>`;
+const cta=t=>()=>'<div class="act"><span class="btn">'+t+'</span></div>';
+show(phone({cap:'Gérer : feuille du bas',modal:man},base)+phone({cap:'Modifier',bar:cta('Enregistrer · <span class="num">113 DH</span>')},edit)
++phone({cap:'Annuler : dialogue de confirmation',modal:()=>dialog('Annuler la commande n° 1045 ?','Elle ne sera ni préparée ni livrée. Vous pourrez la recommander plus tard.','Garder la commande','Annuler la commande',1)},base)
++phone({cap:'Recommander : prix du jour, produit épuisé signalé',bar:cta('Ajouter au panier · <span class="num">26 DH</span>')},re));
+</script></body></html>

@@ -1,0 +1,12 @@
+<!-- @dsCard group="Écrans P2" page height=900 width=1590 subtitle="Onboarding 2 : téléphone, mot de passe, les écrans sur le service" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"><style>.svc{height:330px;background:var(--secondary-container);border-radius:0 0 var(--radius-xl-inc) var(--radius-xl-inc);display:grid;place-items:center}.svc img{width:240px}.svc .w{width:280px}
+.dots{display:flex;gap:6px;margin-bottom:20px}.dots i{width:8px;height:8px;border-radius:4px;background:var(--motion-track)}.dots .on{width:24px;background:var(--motion)}</style></head><body><script src="../souki-v5.js"></script><script>
+const {i,L,phone,field,road,show,IL}=SK;
+const N=7,act=(a,later)=>()=>`<div class="act"><span class="btn">${a}</span>${later?'<span class="btn text md">'+later+'</span>':''}</div>`;
+const tel=()=>`<div class="ob">${road(4,N)}<h1>Votre numéro de téléphone</h1><p class="lead">Le livreur vous appelle seulement s'il ne trouve pas votre porte.</p>${field('Téléphone',{v:'+212 6 12 34 56 78',icon:'phone',num:1,focus:1})}</div>`;
+const pw=()=>`<div class="ob">${road(5,N)}<h1>Choisissez un mot de passe</h1><p class="lead">Il protège votre compte et votre Wallet.</p>${field('Mot de passe',{v:'••••••••••',icon:'lock',trail:'eye',help:'8 caractères au moins.'})}${field('Confirmer le mot de passe',{v:'••••••••',icon:'lock',err:'Les deux mots de passe sont différents.'})}</div>`;
+const svc=(n,img,cls,t,d)=>()=>`<div class="svc"><img class="${cls}" src="${IL+img}" alt=""></div><div class="ob" style="padding-top:28px"><div class="dots">${[1,2,3].map(k=>'<i class="'+(k==n?'on':'')+'"></i>').join('')}</div><h1>${t}</h1><p class="lead">${d}</p></div>`;
+show(phone({cap:'4 · Téléphone',bar:act('Continuer','Plus tard')},tel)+phone({cap:'5 · Mot de passe (erreur de confirmation)',bar:act('Continuer')},pw)
++phone({cap:'7 · Service, 1 sur 3',sb:'#1F2A22',bar:act('Suivant','Passer')},svc(1,'couronne-legumes.webp','w','Le marché de ce matin','Légumes, fruits et herbes achetés le matin même au marché de gros de Fès.'))
++phone({cap:'7 · Service, 3 sur 3',sb:'#1F2A22',bar:act('Découvrir le marché')},svc(3,'basket.webp','','Livré demain, entre 8h et 15h','Commandez de 08h00 à 01h00. Livraison 15 DH, offerte dès 300 DH. Paiement à la livraison.')));
+</script></body></html>

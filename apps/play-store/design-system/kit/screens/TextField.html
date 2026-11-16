@@ -1,0 +1,8 @@
+<!-- @dsCard group="Composants M3" height=430 width=1100 subtitle="Champ contour : vide, rempli, focus, erreur, désactivé" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../souki-v5.css"></head><body><script src="../souki-v5.js"></script><script>
+const {i,field,sw,radio,cb,row,grp,tabs,snack,sheet,dialog,show}=SK;
+const cell=(t,h,c='')=>`<div class="cell ${c}"><small>${t}</small>${h}</div>`;
+const C=cell('Vide',field('E-mail',{ph:'vous@exemple.ma',icon:'mail'}))+cell('Rempli',field('Prénom',{v:'Salma'}))+cell('Focus',field('Téléphone',{v:'+212 6 12 34 56 78',icon:'phone',focus:1,num:1}))
++cell('Erreur',field('Code',{v:'4829',err:'Le code a 6 chiffres.'}))+cell('Aide',field('Mot de passe',{v:'••••••••',icon:'lock',trail:'eye',help:'8 caractères au moins.'}))+cell('Désactivé','<div class="st-off">'+field('Ville',{v:'Fès'})+'</div>');
+show(`<div class="cmp"><section data-theme="light"><h5>Clair</h5><div class="cells">${C}</div></section><section data-theme="dark"><h5>Sombre</h5><div class="cells">${C}</div></section></div>`);
+</script></body></html>
