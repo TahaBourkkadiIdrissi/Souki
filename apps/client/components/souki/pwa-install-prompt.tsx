@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation"
 import { Download, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { isPwaStandalone } from "@/lib/pwa"
+import { isPlayStoreApp, isPwaStandalone } from "@/lib/pwa"
 import { useAuth } from "@/hooks/useAuth"
 import { useLocale } from "@/contexts/locale-context"
 
@@ -25,13 +25,14 @@ export function PwaInstallPrompt() {
   const [isStandalone, setIsStandalone] = useState(true)
   const [dismissed, setDismissed] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
-  // App Android publiée : sur Android, on envoie vers Google Play (même depuis la PWA installée).
+  // App Android publiée : sur Android, on envoie vers Google Play (même depuis la PWA installée),
+  // sauf dans l'app Google Play elle-même.
   const [androidStore, setAndroidStore] = useState(false)
 
   // Hide until the installed display mode is known, on every screen size.
   useEffect(() => {
     setIsStandalone(isPwaStandalone())
-    setAndroidStore(ANDROID_APP_PUBLISHED && installPlatform().android)
+    setAndroidStore(ANDROID_APP_PUBLISHED && installPlatform().android && !isPlayStoreApp())
     setInstallPrompt(window.soukiInstallPrompt ?? null)
   }, [])
 

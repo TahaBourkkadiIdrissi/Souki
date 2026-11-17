@@ -20,7 +20,9 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     display_override: ["standalone", "minimal-ui"],
     orientation: "portrait",
-    background_color: "#FFFFFF",
+    // Vert SOUKI : l'ecran de demarrage (Android, app Play Store) enchaine sans flash blanc
+    // sur l'animation d'entree, qui commence sur ce vert (PwaLaunchOverlay).
+    background_color: BRAND_GREEN,
     theme_color: BRAND_GREEN,
     icons: brandPwaIcons,
     // App Android publiée : Chrome propose l'app Google Play au lieu d'installer la PWA.

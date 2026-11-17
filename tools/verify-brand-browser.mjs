@@ -84,7 +84,7 @@ try {
     await page.waitForFunction(() => !!navigator.serviceWorker.controller)
     const manifest = await (await page.request.get(`http://127.0.0.1:${port}/manifest.webmanifest`)).json()
     assert.equal(manifest.theme_color, "#005B43")
-    assert.equal(manifest.background_color, "#FFFFFF")
+    assert.equal(manifest.background_color, "#005B43")
     assert.equal(manifest.icons.length, 4)
     for (const icon of manifest.icons) {
       assert(["192x192", "512x512"].includes(icon.sizes)); assert.equal(icon.type, "image/png")

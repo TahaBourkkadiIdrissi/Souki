@@ -1,5 +1,6 @@
 /**
- * Apps mobiles SOUKI publiées sur les stores (apps/play-store, apps/mobile).
+ * Apps mobiles SOUKI publiées sur les stores : Android = la PWA emballée pour Google Play
+ * (apps/play-store-pwa, même identifiant io.souki.app), iOS = apps/mobile.
  *
  * Quand l'app Android est publiée sur Google Play (NEXT_PUBLIC_ANDROID_APP_PUBLISHED=true) :
  * - le manifeste PWA annonce l'app Play (`related_applications`, `prefer_related_applications`) :

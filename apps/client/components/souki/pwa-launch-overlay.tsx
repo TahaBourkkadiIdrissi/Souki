@@ -1,48 +1,56 @@
 "use client"
-import { useEffect, useState, type CSSProperties } from "react"
-import { useLocale } from "@/contexts/locale-context"
+import { useEffect, useRef, useState, type CSSProperties } from "react"
 
 /**
- * Animation d'entree de l'app installee — « aube de la recolte ».
+ * Animation d'entree de l'app installee — « Le marche se reveille », reprise de l'intro de
+ * l'app Play Store (apps/play-store/src/components/launch-intro.tsx).
  *
- * Sequence : le logo respire des le premier frame (continuite avec le splash iOS)
- * → aube verte + lueur safran + rayons de soleil derriere lui → une couronne de
- * legumes photorealiste (generee via Higgsfield, detouree) vient se poser autour
- * du logo avec une physique de ressort, doublee d'une copie floutee plus large
- * pour la profondeur → medaillon circulaire fourni → devise → finale :
- * le vert profond de l'accueil jaillit du coeur du logo (disque qui inonde
- * l'ecran) et l'overlay s'efface dessus — le dernier frame du splash porte deja
- * la couleur du hero de /pwa-welcome, aucune coupure de luminance.
+ * Sequence (~2,2 s) sur le vert SOUKI : le sac blanc respire, le « S » se trace en menthe,
+ * le jour se leve (un disque creme s'ouvre depuis le sac), le logo complet apparait et six
+ * feuilles s'envolent, puis fondu vers l'accueil. La nuit (01h-08h, heure du Maroc, commandes
+ * fermees) : le disque est vert nuit, une lune se leve et le sac reste au centre.
+ * Toucher l'ecran passe directement a l'accueil.
  *
  * Le declenchement N'EST PAS decide ici : le script inline de app/layout.tsx pose
- * l'attribut `data-souki-launch` sur <html> avant la premiere peinture, quand l'app
- * tourne en standalone et que c'est le premier ecran de la session. Ce composant se
- * contente d'exister dans le DOM des le rendu serveur — c'est ce qui permet de couvrir
- * l'ecran noir affiche par iOS entre son splash et le premier rendu de l'app.
+ * `data-souki-launch="day"` ou `"night"` sur <html> avant la premiere peinture, quand l'app
+ * tourne en standalone (PWA installee ou app Play Store) et que c'est le premier ecran de la
+ * session. Ce composant existe dans le DOM des le rendu serveur : il couvre l'ecran des le
+ * premier frame, dans la continuite de l'ecran de demarrage vert.
  *
- * Toute la mise en mouvement vit dans globals.css (politique projet : animations 100%
- * CSS, avec neutralisation sous prefers-reduced-motion ; ressorts via linear(),
- * repli cubic-bezier). L'asset hero (public/images/launch/wreath.webp) est precache
- * par le service worker et precharge par le script inline du <head>.
+ * Toute la mise en mouvement vit dans globals.css (politique projet : animations 100 % CSS,
+ * neutralisees sous prefers-reduced-motion). Les images (sac, logo) sont precachees par le
+ * service worker et prechargees par le script inline du <head>.
  */
 
-// Duree totale de la sequence, calee sur les animations de globals.css
-// (.souki-launch : delai 2420ms + 230ms de fondu final sur la crue verte).
-const SEQUENCE_MS = 2650
+// Duree totale, calee sur globals.css (.souki-launch : sortie a 1900 ms + 320 ms de fondu).
+const SEQUENCE_MS = 2220
+// Mouvement reduit : image fixe puis fondu de 200 ms apres 120 ms.
+const REDUCED_SEQUENCE_MS = 320
+// Toucher pour passer : meme fondu de sortie (320 ms).
+const SKIP_MS = 320
 
-// Etincelles posees sur la couronne : glints de rosee aux couleurs de la marque.
-const SPARKLES = [
-  { x: -68, y: -110, size: 7, color: "#F5C400", delay: 850 },
-  { x: 96, y: -84, size: 5, color: "#FFFFFF", delay: 1030 },
-  { x: 132, y: 24, size: 6, color: "#F5C400", delay: 1210 },
-  { x: 70, y: 122, size: 5, color: "#FFFFFF", delay: 1380 },
-  { x: -112, y: 76, size: 6, color: "#F5C400", delay: 1530 },
-  { x: -138, y: -24, size: 5, color: "#FFFFFF", delay: 1650 },
-]
+/** Six feuilles qui s'envolent du logo : ecart x, ecart y, rotation (comme l'intro Play Store). */
+const LEAVES = [
+  [-70, -60, -30],
+  [-34, -92, 20],
+  [10, -100, -10],
+  [52, -84, 35],
+  [80, -48, 60],
+  [-92, -18, -55],
+] as const
+
+/** Chemin du « S » qui traverse l'ecran, dans le repere 393 × 852 de l'intro. */
+const ROAD = "M430 40 C 250 60 40 160 70 330 C 100 480 330 430 320 600 C 312 740 120 790 -40 820"
 
 export function PwaLaunchOverlay() {
-  const { t } = useLocale()
   const [done, setDone] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+  const timeoutRef = useRef<number | undefined>(undefined)
+
+  const finish = () => {
+    document.documentElement.removeAttribute("data-souki-launch")
+    setDone(true)
+  }
 
   useEffect(() => {
     const root = document.documentElement
@@ -50,89 +58,71 @@ export function PwaLaunchOverlay() {
       setDone(true)
       return
     }
-
-    const timeoutId = window.setTimeout(() => {
-      root.removeAttribute("data-souki-launch")
-      setDone(true)
-    }, SEQUENCE_MS)
-
-    return () => window.clearTimeout(timeoutId)
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    timeoutRef.current = window.setTimeout(finish, reduced ? REDUCED_SEQUENCE_MS : SEQUENCE_MS)
+    return () => window.clearTimeout(timeoutRef.current)
   }, [])
+
+  const skip = () => {
+    if (leaving) return
+    setLeaving(true)
+    window.clearTimeout(timeoutRef.current)
+    timeoutRef.current = window.setTimeout(finish, SKIP_MS)
+  }
 
   if (done) return null
 
   return (
     <div
-      className="souki-launch fixed inset-0 z-[200] bg-white"
+      className={`souki-launch fixed inset-0 z-[200]${leaving ? " is-leaving" : ""}`}
+      // Decoratif pour les lecteurs d'ecran ; un toucher passe a l'accueil (comme l'app Play Store).
       aria-hidden="true"
-      // L'ecran est purement decoratif : il ne doit jamais intercepter un tap.
-      style={{ pointerEvents: "none" }}
+      onClick={skip}
     >
-      <div className="souki-launch-scene relative flex h-full w-full items-center justify-center overflow-hidden">
-        {/* Aube — halo vert qui s'ouvre derriere le logo */}
-        <div className="souki-launch-bloom absolute inset-0" />
+      {/* Le chemin du « S », menthe a 22 % */}
+      <svg className="souki-launch-road" viewBox="0 0 393 852" preserveAspectRatio="none" aria-hidden="true">
+        <path d={ROAD} pathLength={100} />
+      </svg>
 
-        {/* Rayons de soleil (le logo porte deja un soleil levant) */}
-        <div className="souki-launch-rays absolute" />
+      {/* Le jour se leve : un disque s'ouvre depuis le sac (vert nuit la nuit) */}
+      <div className="souki-launch-dawn" />
 
-        {/* Crue verte : a la fin de la sequence, le vert du hero de /pwa-welcome
-            jaillit du coeur du logo et inonde l'ecran — continuite de couleur
-            avec l'accueil. Sous les couronnes (elles s'effacent au-dessus). */}
-        <div className="souki-launch-takeover absolute" />
+      {/* Nuit : lune jaune echancree, avec son halo */}
+      <div className="souki-launch-moon">
+        <span />
+      </div>
 
-        {/* Profondeur : la meme couronne, plus large, floutee, en contre-rotation */}
-        <div className="absolute inset-0 grid place-items-center">
-          <img
-            src="/images/launch/wreath.webp"
-            alt=""
-            className="souki-launch-wreath souki-launch-wreath-back"
-          />
-        </div>
+      {/* Le sac : meme image que l'ecran de demarrage */}
+      <img src="/brand/souki-2026/splash-symbol.png" alt="" width={160} height={160} fetchPriority="high" className="souki-launch-mark" />
 
-        {/* Hero : la couronne de la recolte tournoie et se pose autour du logo */}
-        <div className="absolute inset-0 grid place-items-center">
-          <img
-            src="/images/launch/wreath.webp"
-            alt=""
-            className="souki-launch-wreath souki-launch-wreath-front"
-          />
-        </div>
+      {/* Le logo complet (jour seulement) */}
+      <img src="/brand/souki-2026/horizontal.png" alt="" width={236} height={79} className="souki-launch-logo" />
 
-        {/* Glints de rosee sur la couronne */}
-        {SPARKLES.map((sparkle) => (
-          <span
-            key={`${sparkle.x}-${sparkle.y}`}
-            className="souki-launch-sparkle absolute left-1/2 top-1/2"
-            style={
-              {
-                width: `${sparkle.size}px`,
-                height: `${sparkle.size}px`,
-                marginLeft: `${-sparkle.size / 2}px`,
-                marginTop: `${-sparkle.size / 2}px`,
-                "--sx": `${sparkle.x}px`,
-                "--sy": `${sparkle.y}px`,
-                "--c": sparkle.color,
-                "--d": `${sparkle.delay}ms`,
-              } as CSSProperties
-            }
-          />
-        ))}
-
-        {/* Medaillon fourni en haute definition, au centre de la couronne. */}
-        <div className="souki-launch-logo-wrap relative overflow-hidden rounded-full bg-white">
-          <img src="/brand/souki-2026/launch-circle.webp" width={136} height={136} alt="" fetchPriority="high" className="block h-full w-full rounded-full" />
-        </div>
-
-        {/* Devise sous la couronne. */}
-        <div
-          className="souki-launch-wordmark absolute inset-x-0 text-center"
-          style={{ top: "calc(50% + min(52vmin, 212px))" }}
-        >
-
-          <p className="souki-launch-tagline mt-1.5 text-[11px] font-semibold tracking-wide text-gray-500">
-            {t("Du champ au panier, le matin même")}
-          </p>
-        </div>
+      {/* Six feuilles s'envolent du logo (ou du sac, la nuit) */}
+      <div className="souki-launch-leaves">
+        {LEAVES.map(([dx, dy, rotation], index) => {
+          const size = index % 2 === 1 ? 10 : 14
+          return (
+            <span
+              key={index}
+              className="souki-launch-leaf"
+              style={
+                {
+                  width: `${size}px`,
+                  height: `${size}px`,
+                  marginLeft: `${-size / 2}px`,
+                  marginTop: `${-size / 2}px`,
+                  borderRadius: `0 ${size}px 0 ${size}px`,
+                  background: index % 2 === 1 ? "#4CB84A" : "#22AA3F",
+                  "--dx": `${dx}px`,
+                  "--dy": `${dy}px`,
+                  "--r": `${rotation}deg`,
+                  "--d": `${1000 + index * 45}ms`,
+                } as CSSProperties
+              }
+            />
+          )
+        })}
       </div>
     </div>
   )

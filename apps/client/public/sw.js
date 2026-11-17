@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "souki-pwa"
-const CACHE_VERSION = "v16-guest-campaigns"
+const CACHE_VERSION = "v17-launch-marche"
 const RUNTIME_CACHE = `${CACHE_PREFIX}-${CACHE_VERSION}`
 
 // Page de repli affichee quand une navigation echoue hors ligne.
@@ -13,7 +13,8 @@ const STATIC_ASSETS = [
   "/manifest.webmanifest",
   "/brand/souki-2026/horizontal.png",
   "/brand/souki-2026/secondary.png",
-  "/brand/souki-2026/launch-circle.webp",
+  // Sac blanc de l'animation d'entree (« Le marche se reveille ») et des ecrans de demarrage.
+  "/brand/souki-2026/splash-symbol.png",
   "/brand/souki-2026/symbol.png",
   "/brand/souki-2026/pwa-192.png",
   "/brand/souki-2026/pwa-512.png",
@@ -21,10 +22,9 @@ const STATIC_ASSETS = [
   "/brand/souki-2026/pwa-maskable-512.png",
   "/brand/souki-2026/apple-touch-icon.png",
   "/brand/souki-2026/favicon.ico",
-  // Heros generes (Higgsfield, detoures) : couronne de l'animation d'entree
-  // (~180 KB) et panier des generations IA (~65 KB) — precaches pour que le
-  // premier lancement et les premieres generations soient complets, meme
-  // hors ligne.
+  // Heros generes (Higgsfield, detoures) : couronne de l'animation de chargement
+  // du panier (~180 KB) et panier des generations IA (~65 KB) — precaches pour
+  // qu'ils s'affichent completement, meme hors ligne.
   "/images/launch/wreath.webp",
   "/images/launch/basket.webp",
   START_URL,

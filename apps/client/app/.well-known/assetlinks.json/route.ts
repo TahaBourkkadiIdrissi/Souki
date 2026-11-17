@@ -1,9 +1,11 @@
 import { ANDROID_APP_ID, androidCertFingerprints } from "@/lib/store-apps"
 
 /**
- * Digital Asset Links : autorise l'app Android SOUKI (io.souki.app) à ouvrir les liens
- * https://souki.io/produit/… et https://souki.io/r/… (liens d'app vérifiés, `autoVerify`).
- * Liste vide tant que ANDROID_APP_SHA256_FINGERPRINTS n'est pas renseignée.
+ * Digital Asset Links : prouve que souki.io appartient à l'app Android SOUKI (io.souki.app).
+ * L'app Google Play (PWA emballée, apps/play-store-pwa) s'affiche alors en plein écran, sans
+ * barre d'adresse ; sans cette preuve, Chrome montre la barre d'adresse en haut de l'app.
+ * Liste vide tant que ANDROID_APP_SHA256_FINGERPRINTS n'est pas renseignée (empreintes de la
+ * clé de signature Google Play et de la clé d'importation, voir apps/play-store-pwa/README.md).
  */
 export const dynamic = "force-dynamic"
 
