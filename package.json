@@ -14,6 +14,7 @@
     "dev:livreur": "pnpm --filter @souki/livreur dev",
     "dev:admin": "pnpm --filter @souki/admin dev",
     "dev:mobile": "pnpm --filter @souki/mobile dev",
+    "dev:play-store": "pnpm --filter @souki/play-store dev",
     "check:boundaries": "node tools/check-frontend-boundaries.mjs"
   }
 }

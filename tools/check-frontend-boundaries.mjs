@@ -36,3 +36,19 @@ for (const role of roles) {
   }
   console.log(`${role}: frontieres verifiees`);
 }
+
+// Apps mobiles (Expo) : aucun import relatif hors de l'app ; le code partagé passe par @souki/shared.
+// `@/` pointe vers src/ (tsconfig des apps mobiles).
+for (const mobile of ["mobile", "play-store"]) {
+  const app = path.join(root, "apps", mobile);
+  if (!fs.existsSync(path.join(app, "src"))) continue;
+  for (const file of files(path.join(app, "src"))) {
+    const source = fs.readFileSync(file, "utf8");
+    for (const match of source.matchAll(/(?:from\s*|import\s*\(?\s*|require\s*\(\s*)["']([^"']+)["']/g)) {
+      const spec = match[1];
+      const resolved = spec.startsWith("@/") ? path.resolve(app, "src", spec.slice(2)) : spec.startsWith(".") ? path.resolve(path.dirname(file), spec) : null;
+      if (resolved) assert.ok(resolved.startsWith(app + path.sep), `Import hors de l'app ${mobile} : ${file} -> ${spec}`);
+    }
+  }
+  console.log(`${mobile}: frontieres verifiees`);
+}

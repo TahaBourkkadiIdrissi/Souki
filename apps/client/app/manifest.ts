@@ -1,6 +1,8 @@
 import { BRAND_GREEN, brandPwaIcons } from "@/lib/branding"
 import type { MetadataRoute } from "next"
 
+import { ANDROID_APP_ID, ANDROID_APP_PUBLISHED, PLAY_STORE_URL } from "@/lib/store-apps"
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
@@ -21,6 +23,10 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#FFFFFF",
     theme_color: BRAND_GREEN,
     icons: brandPwaIcons,
+    // App Android publiée : Chrome propose l'app Google Play au lieu d'installer la PWA.
+    ...(ANDROID_APP_PUBLISHED
+      ? { related_applications: [{ platform: "play", url: PLAY_STORE_URL, id: ANDROID_APP_ID }], prefer_related_applications: true }
+      : {}),
     screenshots: [
       { src: "/screenshots/home-narrow.png", sizes: "375x812", type: "image/png", form_factor: "narrow", label: "Votre marché frais avec Souki" },
       { src: "/screenshots/home-wide.png", sizes: "1280x800", type: "image/png", form_factor: "wide", label: "Accueil Souki" },

@@ -11,6 +11,7 @@ import { useLocale } from "@/contexts/locale-context"
 
 import { chromeIntent, installPlatform, type InstallPromptEvent } from "@/lib/pwa-install"
 import { IosInstallGuide } from "@/components/souki/pwa/ios-install-guide"
+import { ANDROID_APP_PUBLISHED, PLAY_STORE_URL } from "@/lib/store-apps"
 
 // Seul l'admin ne voit PAS la banniere d'installation. Tous les autres profils
 // Les clients et les visiteurs anonymes peuvent installer cette PWA.
@@ -24,10 +25,13 @@ export function PwaInstallPrompt() {
   const [isStandalone, setIsStandalone] = useState(true)
   const [dismissed, setDismissed] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
+  // App Android publiée : sur Android, on envoie vers Google Play (même depuis la PWA installée).
+  const [androidStore, setAndroidStore] = useState(false)
 
   // Hide until the installed display mode is known, on every screen size.
   useEffect(() => {
     setIsStandalone(isPwaStandalone())
+    setAndroidStore(ANDROID_APP_PUBLISHED && installPlatform().android)
     setInstallPrompt(window.soukiInstallPrompt ?? null)
   }, [])
 
@@ -63,6 +67,10 @@ export function PwaInstallPrompt() {
       .some((role) => EXCLUDED_ROLES.includes(role))
 
   const handleDownload = async () => {
+    if (androidStore) {
+      window.location.href = PLAY_STORE_URL
+      return
+    }
     const platform = installPlatform()
     if (platform.embedded && platform.android) {
       window.location.href = chromeIntent(window.location.href)
@@ -88,7 +96,7 @@ export function PwaInstallPrompt() {
     setShowHelp(true)
   }
 
-  if (isStandalone || isExcludedUser || dismissed || /^\/commandes\/[^/]+\/modifier\/?$/.test(pathname)) {
+  if ((isStandalone && !androidStore) || isExcludedUser || dismissed || /^\/commandes\/[^/]+\/modifier\/?$/.test(pathname)) {
     return null
   }
 
@@ -104,9 +112,9 @@ export function PwaInstallPrompt() {
           <Download className="size-5" aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-[#264129]">{t("Télécharger SOUKI")}</p>
+          <p className="text-sm font-semibold text-[#264129]">{androidStore ? t("La nouvelle app SOUKI est sur Google Play") : t("Télécharger SOUKI")}</p>
           <p className="text-xs leading-5 text-[#6F8070]">
-            {t("Installez l'application pour un accès rapide, en plein écran.")}
+            {androidStore ? t("Plus rapide, avec le suivi de vos livraisons en notification.") : t("Installez l'application pour un accès rapide, en plein écran.")}
           </p>
         </div>
         <Button
@@ -127,7 +135,7 @@ export function PwaInstallPrompt() {
         onClick={handleDownload}
       >
         <Download className="size-4" aria-hidden="true" />
-        {t("Télécharger l'application")}
+        {androidStore ? t("Télécharger sur Google Play") : t("Télécharger l'application")}
       </Button>
 
       {showHelp && (installPlatform().ios

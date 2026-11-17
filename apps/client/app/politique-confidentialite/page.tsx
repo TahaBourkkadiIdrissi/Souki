@@ -156,7 +156,7 @@ const sections = [
     label: "Suppression du compte",
     title: "Supprimer votre compte",
     content: [
-      "Vous pouvez supprimer votre compte à tout moment : dans l'app iPhone (Compte > Sécurité > Supprimer le compte) ou sur le site (Paramètres). La suppression est définitive. Elle n'est pas possible tant qu'une commande est en cours de livraison : annulez-la ou attendez sa livraison.",
+      "Vous pouvez supprimer votre compte à tout moment : dans l'app iPhone ou Android (Compte > Sécurité > Supprimer le compte) ou sur le site (Paramètres). La suppression est définitive. Elle n'est pas possible tant qu'une commande est en cours de livraison : annulez-la ou attendez sa livraison.",
     ],
     subsections: [
       {
