@@ -96,10 +96,16 @@ Tant que l'étape 6 n'est pas faite, une **barre d'adresse** s'affiche en haut d
 C'est ce qui enlève la barre d'adresse.
 
 1. Play Console > Test et publication > **Intégrité de l'app** > Signature de l'app. Copier l'empreinte **SHA-256** de la « clé de signature de l'application » et celle de la « clé d'importation ».
-2. Sur le serveur de production de souki.io, renseigner la variable (les deux empreintes, séparées par une virgule) puis redéployer le site :
+2. Sur le VPS, dans `infra/.env.production`, renseigner les deux empreintes séparées par une virgule :
 
 ```bash
-ANDROID_APP_SHA256_FINGERPRINTS="AA:BB:…,CC:DD:…"
+ANDROID_APP_SHA256_FINGERPRINTS=AA:BB:…,CC:DD:…
+```
+
+   Puis relancer le conteneur du site (pas besoin de reconstruire l'image) :
+
+```bash
+docker compose --env-file infra/.env.production up -d client
 ```
 
 3. Vérifier que https://souki.io/.well-known/assetlinks.json renvoie bien `io.souki.app` et les deux empreintes. La route est `apps/client/app/.well-known/assetlinks.json/route.ts`.
@@ -123,7 +129,17 @@ Ce qu'il reste à faire dans la Play Console :
 
 ## 8. Une fois l'app publiée
 
-Sur le serveur de souki.io, mettre `NEXT_PUBLIC_ANDROID_APP_PUBLISHED=true` puis redéployer. Le site enverra alors les visiteurs Android vers Google Play au lieu d'installer la PWA. Dans l'app elle-même, aucune invitation à télécharger ne s'affiche : le site la reconnaît à son référent `android-app://io.souki.app` (`apps/client/lib/pwa.ts`).
+Sur le VPS, mettre `NEXT_PUBLIC_ANDROID_APP_PUBLISHED=true` dans `infra/.env.production`, puis **reconstruire** l'image du site : cette valeur est lue à la construction.
+
+```bash
+docker compose --env-file infra/.env.production build client
+```
+
+```bash
+docker compose --env-file infra/.env.production up -d client
+```
+
+Le site enverra alors les visiteurs Android vers Google Play au lieu d'installer la PWA. Dans l'app elle-même, aucune invitation à télécharger ne s'affiche : le site la reconnaît à son référent `android-app://io.souki.app` (`apps/client/lib/pwa.ts`).
 
 ## 9. Nouvelle version de l'app
 
