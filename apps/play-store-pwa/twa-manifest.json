@@ -1,0 +1,41 @@
+{
+  "packageId": "io.souki.app",
+  "host": "souki.io",
+  "name": "SOUKI Fresh Market",
+  "launcherName": "SOUKI",
+  "display": "standalone",
+  "orientation": "portrait",
+  "themeColor": "#005B43",
+  "themeColorDark": "#0A2814",
+  "navigationColor": "#FFFFFF",
+  "navigationColorDark": "#000000",
+  "navigationDividerColor": "#E7ECE5",
+  "navigationDividerColorDark": "#000000",
+  "backgroundColor": "#005B43",
+  "enableNotifications": true,
+  "startUrl": "/pwa-welcome",
+  "iconUrl": "https://souki.io/brand/souki-2026/pwa-512.png",
+  "maskableIconUrl": "https://souki.io/brand/souki-2026/pwa-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "souki"
+  },
+  "appVersion": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://souki.io/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "minSdkVersion": 21,
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": []
+}

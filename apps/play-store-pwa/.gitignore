@@ -1,0 +1,13 @@
+# Seuls la configuration, le guide et les visuels de la fiche Play sont suivis par git.
+# Le projet Android est regenere par Bubblewrap a partir de twa-manifest.json.
+/*
+!/.gitignore
+!/README.md
+!/twa-manifest.json
+!/store/
+
+# Jamais dans git : la cle de signature et ses mots de passe.
+*.keystore
+*.jks
+*.apk
+*.aab

@@ -105,7 +105,9 @@ const serviceSchema = {
 
 /**
  * Appareils iOS couverts par un ecran de demarrage : [largeur CSS, hauteur CSS, DPR].
- * Les fichiers correspondants vivent dans public/splash/ (fond blanc opaque + logo).
+ * Les fichiers vivent dans public/brand/souki-2026/splash/ : fond vert SOUKI et sac blanc de 160 px,
+ * soit le premier frame de l'animation d'entree (PwaLaunchOverlay). Generes par
+ * tools/generate-pwa-splash.mjs.
  */
 const APPLE_SPLASH_DEVICES: ReadonlyArray<readonly [number, number, number]> = [
   [320, 568, 2], [375, 667, 2], [414, 736, 3], [375, 812, 3],
@@ -158,20 +160,24 @@ export default async function RootLayout({
         ))}
         {/*
           Amorcage de l'app installee, AVANT la premiere peinture — doit rester inline
-          et synchrone. Deux roles :
+          et synchrone. L'app Google Play (apps/play-store-pwa) est reconnue a son referent
+          android-app://io.souki.app, retenu pour la session (souki-play-app, lib/pwa.ts).
+          Deux roles :
           1. Basculer sur /pwa-welcome. Le manifest y demarre deja, mais une installation
              existante peut avoir l'ancien manifest en cache ; sans ce script, l'accueil
              web s'affiche un instant avant la redirection cote React (app/page.tsx).
-          2. Poser data-souki-launch au premier ecran de la session, ce qui declenche
-             l'animation d'entree (PwaLaunchOverlay) des le premier frame — et
-             precharger son asset hero (la couronne) sans attendre l'hydratation.
-          QA : le parametre ?souki-launch-preview rejoue l'animation dans un
-          navigateur classique (sans standalone, sans consommer le drapeau de
-          session) — le comportement standalone reste strictement identique.
+          2. Poser data-souki-launch="day" ou "night" au premier ecran de la session, ce qui
+             declenche l'animation d'entree (PwaLaunchOverlay) des le premier frame, et
+             precharger ses images (sac, logo) sans attendre l'hydratation. « night » de 01h
+             a 08h, heure du Maroc (commandes fermees, meme regle que lib/order-hours.ts).
+          QA : le parametre ?souki-launch-preview rejoue l'animation dans un navigateur
+          classique (sans standalone, sans consommer le drapeau de session) ;
+          ?souki-launch-preview=night ou =day force la variante. Le comportement
+          standalone reste identique (PWA installee et app Play Store).
         */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var q=location.search.indexOf("souki-launch-preview")>-1;var m=window.matchMedia;var s=(m&&(m("(display-mode: standalone)").matches||m("(display-mode: fullscreen)").matches))||navigator.standalone===true;if(!s&&!q)return;if(location.pathname==="/"){location.replace("/pwa-welcome"+location.search+location.hash);return}if(q||!sessionStorage.getItem("souki-launched")){if(!q)sessionStorage.setItem("souki-launched","1");document.documentElement.setAttribute("data-souki-launch","");var l=document.createElement("link");l.rel="preload";l.as="image";l.href="/images/launch/wreath.webp";document.head.appendChild(l);var b=document.createElement("link");b.rel="preload";b.as="image";b.href="/brand/souki-2026/launch-circle.webp";document.head.appendChild(b)}}catch(e){}})()`,
+            __html: `(function(){try{var q=location.search.indexOf("souki-launch-preview")>-1;var a=document.referrer.indexOf("android-app://io.souki.app")===0;if(a)sessionStorage.setItem("souki-play-app","1");var m=window.matchMedia;var s=a||(m&&(m("(display-mode: standalone)").matches||m("(display-mode: fullscreen)").matches))||navigator.standalone===true;if(!s&&!q)return;if(location.pathname==="/"){location.replace("/pwa-welcome"+location.search+location.hash);return}if(q||!sessionStorage.getItem("souki-launched")){if(!q)sessionStorage.setItem("souki-launched","1");var d=new Date(),h=-1;try{h=d.getTime()>=Date.parse("2026-09-20T01:00:00Z")?d.getUTCHours():Number(new Intl.DateTimeFormat("en-GB",{timeZone:"Africa/Casablanca",hour:"2-digit",hourCycle:"h23"}).format(d))}catch(e){}var x=location.search;var n=x.indexOf("souki-launch-preview=night")>-1||(x.indexOf("souki-launch-preview=day")<0&&h>=1&&h<8);document.documentElement.setAttribute("data-souki-launch",n?"night":"day");["/brand/souki-2026/splash-symbol.png","/brand/souki-2026/horizontal.png"].forEach(function(u){var l=document.createElement("link");l.rel="preload";l.as="image";l.href=u;document.head.appendChild(l)})}}catch(e){}})()`,
           }}
         />
         <meta name="mobile-web-app-capable" content="yes" />
