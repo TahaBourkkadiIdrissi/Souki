@@ -126,7 +126,7 @@ export default function FavorisPage() {
             ? `${favoriteProducts.length} produit${favoriteProducts.length > 1 ? "s" : ""}`
             : "Vos coups de cœur"
         }
-        onBack={() => router.push("/pwa-welcome")}
+        onBack={() => router.push("/")}
       />
 
       {isFetching ? (

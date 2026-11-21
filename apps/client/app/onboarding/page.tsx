@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { FarmerAvatar } from "@/components/avatar/farmer-avatar"
 import { useAuth } from "@/hooks/useAuth"
 import { markOnboardingCompleted } from "@/lib/onboarding"
-import { isPwaStandalone } from "@/lib/pwa"
 import { safeInternalRedirect } from "@/lib/routes"
 import { useLocale } from "@/contexts/locale-context"
 
@@ -63,7 +62,7 @@ export default function OnboardingPage() {
     // Persistance serveur en arriere-plan : la navigation reste instantanee.
     void markOnboardingCompleted(user)
     const redirectTarget = safeInternalRedirect(new URLSearchParams(window.location.search).get("redirect"))
-    const destination = redirectTarget || (isPwaStandalone() ? "/pwa-welcome" : "/")
+    const destination = redirectTarget || "/"
     router.push(destination)
   }, [router, user])
 

@@ -45,11 +45,8 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
   const { t, zoneProps } = useLocale()
 
 
-  // Accueil : /pwa-welcome en standalone (navigation directe, sans passer par
-  // la redirection React de "/" qui fait flasher l'accueil web), "/" sur le web.
-  // Resolu apres montage : le SSR rend "/" et le display-mode ne change pas
-  // en cours de session.
-  const [homeHref, setHomeHref] = useState("/")
+  // Accueil : toujours "/" (plus de redirection vers /pwa-welcome).
+  const homeHref = "/"
   // null tant que le display-mode n'est pas resolu cote client : on ne rend
   // rien pour eviter le flash barre basse <-> navbar haute.
   const [isStandalone, setIsStandalone] = useState<boolean | null>(null)
@@ -57,7 +54,6 @@ export function MobileBottomNav({ cartCount = 0, onCartClick, onMenuClick }: Mob
   useEffect(() => {
     const standalone = isPwaStandalone()
     setIsStandalone(standalone)
-    if (standalone) setHomeHref("/pwa-welcome")
   }, [])
 
   // Version web : pousse le contenu sous la navbar haute fixe et decale les
