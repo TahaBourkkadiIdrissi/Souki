@@ -13,7 +13,7 @@
   "navigationDividerColorDark": "#000000",
   "backgroundColor": "#005B43",
   "enableNotifications": true,
-  "startUrl": "/pwa-welcome",
+  "startUrl": "/",
   "iconUrl": "https://souki.io/brand/souki-2026/pwa-512.png",
   "maskableIconUrl": "https://souki.io/brand/souki-2026/pwa-maskable-512.png",
   "splashScreenFadeOutDuration": 300,

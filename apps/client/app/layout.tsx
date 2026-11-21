@@ -162,11 +162,8 @@ export default async function RootLayout({
           Amorcage de l'app installee, AVANT la premiere peinture — doit rester inline
           et synchrone. L'app Google Play (apps/play-store-pwa) est reconnue a son referent
           android-app://io.souki.app, retenu pour la session (souki-play-app, lib/pwa.ts).
-          Deux roles :
-          1. Basculer sur /pwa-welcome. Le manifest y demarre deja, mais une installation
-             existante peut avoir l'ancien manifest en cache ; sans ce script, l'accueil
-             web s'affiche un instant avant la redirection cote React (app/page.tsx).
-          2. Poser data-souki-launch="day" ou "night" au premier ecran de la session, ce qui
+          Aucune redirection vers /pwa-welcome : l'app demarre sur l'accueil "/".
+          Role : poser data-souki-launch="day" ou "night" au premier ecran de la session, ce qui
              declenche l'animation d'entree (PwaLaunchOverlay) des le premier frame, et
              precharger ses images (sac, logo) sans attendre l'hydratation. « night » de 01h
              a 08h, heure du Maroc (commandes fermees, meme regle que lib/order-hours.ts).
@@ -177,7 +174,7 @@ export default async function RootLayout({
         */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var q=location.search.indexOf("souki-launch-preview")>-1;var a=document.referrer.indexOf("android-app://io.souki.app")===0;if(a)sessionStorage.setItem("souki-play-app","1");var m=window.matchMedia;var s=a||(m&&(m("(display-mode: standalone)").matches||m("(display-mode: fullscreen)").matches))||navigator.standalone===true;if(!s&&!q)return;if(location.pathname==="/"){location.replace("/pwa-welcome"+location.search+location.hash);return}if(q||!sessionStorage.getItem("souki-launched")){if(!q)sessionStorage.setItem("souki-launched","1");var d=new Date(),h=-1;try{h=d.getTime()>=Date.parse("2026-09-20T01:00:00Z")?d.getUTCHours():Number(new Intl.DateTimeFormat("en-GB",{timeZone:"Africa/Casablanca",hour:"2-digit",hourCycle:"h23"}).format(d))}catch(e){}var x=location.search;var n=x.indexOf("souki-launch-preview=night")>-1||(x.indexOf("souki-launch-preview=day")<0&&h>=1&&h<8);document.documentElement.setAttribute("data-souki-launch",n?"night":"day");["/brand/souki-2026/splash-symbol.png","/brand/souki-2026/horizontal.png"].forEach(function(u){var l=document.createElement("link");l.rel="preload";l.as="image";l.href=u;document.head.appendChild(l)})}}catch(e){}})()`,
+            __html: `(function(){try{var q=location.search.indexOf("souki-launch-preview")>-1;var a=document.referrer.indexOf("android-app://io.souki.app")===0;if(a)sessionStorage.setItem("souki-play-app","1");var m=window.matchMedia;var s=a||(m&&(m("(display-mode: standalone)").matches||m("(display-mode: fullscreen)").matches))||navigator.standalone===true;if(!s&&!q)return;if(q||!sessionStorage.getItem("souki-launched")){if(!q)sessionStorage.setItem("souki-launched","1");var d=new Date(),h=-1;try{h=d.getTime()>=Date.parse("2026-09-20T01:00:00Z")?d.getUTCHours():Number(new Intl.DateTimeFormat("en-GB",{timeZone:"Africa/Casablanca",hour:"2-digit",hourCycle:"h23"}).format(d))}catch(e){}var x=location.search;var n=x.indexOf("souki-launch-preview=night")>-1||(x.indexOf("souki-launch-preview=day")<0&&h>=1&&h<8);document.documentElement.setAttribute("data-souki-launch",n?"night":"day");["/brand/souki-2026/splash-symbol.png","/brand/souki-2026/horizontal.png"].forEach(function(u){var l=document.createElement("link");l.rel="preload";l.as="image";l.href=u;document.head.appendChild(l)})}}catch(e){}})()`,
           }}
         />
         <meta name="mobile-web-app-capable" content="yes" />

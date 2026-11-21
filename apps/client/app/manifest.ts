@@ -15,7 +15,7 @@ export default function manifest(): MetadataRoute.Manifest {
     // L'app installee demarre directement sur l'accueil PWA : demarrer sur "/"
     // affichait l'accueil web une fraction de seconde avant la redirection client.
     // Le scope reste "/" pour que tout le site reste dans l'app.
-    start_url: "/pwa-welcome",
+    start_url: "/",
     scope: "/",
     display: "standalone",
     display_override: ["standalone", "minimal-ui"],

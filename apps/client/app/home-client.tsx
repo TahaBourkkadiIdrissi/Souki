@@ -8,12 +8,11 @@
  * oversize, rythme vertical 8pt, grille 1200px, accents disciplinés
  * (vert = marque, orange = conversion uniquement), contrastes AA,
  * animations 100% CSS avec reduced-motion.
- * En PWA standalone, redirige vers l'accueil dédié /pwa-welcome.
  */
 
 import { SoukiLogoLink } from "@/components/souki/souki-logo"
 import { AiAgentCards } from "@/components/souki/ai-agent-cards"
-import { useState, useEffect, type CSSProperties } from "react"
+import { useState, type CSSProperties } from "react"
 import Link from "next/link"
 import Image from "@/components/souki/optimized-image"
 import { useRouter } from "next/navigation"
@@ -21,7 +20,6 @@ import { useAuth } from "@/hooks/useAuth"
 import { useClientCollection, useClientStorageOwner } from "@/hooks/useClientCollection"
 import { upsertCartItem, type CartItem } from "@/lib/catalogue"
 import { trackEvent } from "@/lib/analytics"
-import { isPwaStandalone } from "@/lib/pwa"
 import {
   ShoppingCart,
   Leaf,
@@ -119,13 +117,6 @@ export default function HomePage({ products }: { products: CatalogueProduct[] })
   const [activeModal, setActiveModal] = useState<"voice" | "smart" | null>(null)
   const revealRef = useScrollReveal<HTMLDivElement>()
   const { t, zoneProps, productName, unitLabel } = useLocale()
-
-  // Parité PWA : en standalone, l'accueil dédié reste /pwa-welcome.
-  useEffect(() => {
-    if (isPwaStandalone()) {
-      router.replace("/pwa-welcome")
-    }
-  }, [router])
 
   const requireAuth = (callback: () => void) => {
     if (!isAuthenticated) {

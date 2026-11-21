@@ -19,7 +19,7 @@ export function PwaHomeHeader({ address, name, photo, favorites }: {
     return () => observer.disconnect()
   }, [])
   const content = <>
-    <SoukiLogoLink href="/pwa-welcome" variant="symbol" height={30} priority className="flex size-11 items-center justify-center rounded-full bg-white/10 [&_img]:brightness-0 [&_img]:invert" />
+    <SoukiLogoLink href="/" variant="symbol" height={30} priority className="flex size-11 items-center justify-center rounded-full bg-white/10 [&_img]:brightness-0 [&_img]:invert" />
     <Link href="/parametres/compte#adresse" className="flex h-11 min-w-0 items-center gap-1 rounded-full bg-white/10 px-2" aria-label={t("Adresse de livraison : {adresse}", { adresse: address || t("Ajouter une adresse") })}>
       <MapPin className="size-4 shrink-0 text-[#9BE7AE]" />
       <span className="min-w-0 flex-1"><span className="block text-[9px] text-[#9BE7AE]">{t("Livraison à")}</span><span className="block truncate text-xs font-bold">{address || t("Ajouter une adresse")}</span></span>

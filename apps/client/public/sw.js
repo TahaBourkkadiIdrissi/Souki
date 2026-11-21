@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "souki-pwa"
-const CACHE_VERSION = "v17-launch-marche"
+const CACHE_VERSION = "v18-no-pwa-welcome"
 const RUNTIME_CACHE = `${CACHE_PREFIX}-${CACHE_VERSION}`
 
 // Page de repli affichee quand une navigation echoue hors ligne.
@@ -7,7 +7,7 @@ const OFFLINE_URL = "/offline"
 
 // Point d'entree de l'app installee (start_url du manifest) : precache pour que
 // le lancement soit instantane, y compris hors ligne.
-const START_URL = "/pwa-welcome"
+const START_URL = "/"
 
 const STATIC_ASSETS = [
   "/manifest.webmanifest",
