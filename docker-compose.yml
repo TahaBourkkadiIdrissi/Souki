@@ -47,6 +47,11 @@ services:
         NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
         NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: ${NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN:-}
         NEXT_PUBLIC_GA_MEASUREMENT_ID: ${NEXT_PUBLIC_GA_MEASUREMENT_ID:-G-E83WRB1CEL}
+        # App Google Play publiee (apps/play-store-pwa) : lue a la construction de l'image.
+        NEXT_PUBLIC_ANDROID_APP_PUBLISHED: ${NEXT_PUBLIC_ANDROID_APP_PUBLISHED:-false}
+    environment:
+      # Empreintes de la cle de l'app Google Play, lues a chaque requete par /.well-known/assetlinks.json.
+      ANDROID_APP_SHA256_FINGERPRINTS: ${ANDROID_APP_SHA256_FINGERPRINTS:-}
     restart: unless-stopped
     init: true
   livreur:
