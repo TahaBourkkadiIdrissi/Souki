@@ -10,18 +10,22 @@ import type { ConfigContext, ExpoConfig } from "expo/config"
  * - EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID : client OAuth « Web » du projet Google SOUKI (connexion Google) ;
  * - GOOGLE_MAPS_ANDROID_API_KEY : clé Google Maps restreinte au paquet io.souki.app ;
  * - GOOGLE_SERVICES_JSON : chemin du google-services.json (notifications push FCM) ;
- * - EAS_PROJECT_ID : projet EAS (mises à jour JS des builds de test).
+ * - EAS_PROJECT_ID : projet EAS (défaut : « souki », voir plus bas).
  */
 const DEFAULT_API_BASE_URL = "https://souki.io/backend"
 const SITE_HOST = "souki.io"
-const projectId = process.env.EAS_PROJECT_ID
+// Projet EAS « souki » (@mekouaro1999) : il porte la clé d'importation Google Play de io.souki.app
+// (SHA-256 70:00:62:EA:…:7F:22) et le compteur de versionCode. Un autre projet signerait avec une autre
+// clé et Google Play refuserait l'AAB.
+const projectId = process.env.EAS_PROJECT_ID || "98d62c63-2d07-4324-a312-10cfa77db35f"
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: "SOUKI",
-  slug: "souki-android",
+  slug: "souki",
+  owner: "mekouaro1999",
   scheme: "souki",
-  version: "1.0.0",
+  version: "1.1.1",
   orientation: "portrait",
   icon: "./assets/brand/app-icon-1024.png",
   // Thème sombre dès la v1 (décision 2 du design) : suit le téléphone, réglable dans Compte > Thème.
