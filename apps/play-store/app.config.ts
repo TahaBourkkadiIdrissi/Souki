@@ -107,7 +107,21 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // Notifications : petite icône monochrome, teinte de la marque, canal « Suivi de commande » par défaut.
     ["expo-notifications", { icon: "./assets/brand/android/notification-icon.png", color: "#005B43", defaultChannel: "commandes" }],
     // Build de production : R8 (code et ressources réduits), API 36 par défaut du SDK 58.
-    ["expo-build-properties", { android: { enableMinifyInReleaseBuilds: true, enableShrinkResourcesInReleaseBuilds: true } }],
+    // R8 retirait le constructeur de WorkDatabase_Impl (WorkManager, instancié par réflexion par Room) :
+    // l'app plantait au lancement (versionCode 6, androidx.startup.StartupException). On le garde.
+    [
+      "expo-build-properties",
+      {
+        android: {
+          enableMinifyInReleaseBuilds: true,
+          enableShrinkResourcesInReleaseBuilds: true,
+          extraProguardRules: [
+            "-keep class * extends androidx.room.RoomDatabase { <init>(); }",
+            "-keep class androidx.work.impl.WorkDatabase_Impl { <init>(); }",
+          ].join("\n"),
+        },
+      },
+    ],
     // Raccourcis de l'icône : Catalogue, Commande vocale, Mes commandes, Wallet.
     "./plugins/with-android-shortcuts",
   ],
