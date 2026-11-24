@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
-import { Stack } from "expo-router"
+import { Stack, router } from "expo-router"
+import * as Notifications from "expo-notifications"
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from "expo-router/react-navigation"
 import { StatusBar } from "expo-status-bar"
 import * as SplashScreen from "expo-splash-screen"
@@ -18,7 +19,7 @@ import { CartProvider } from "@/contexts/cart-context"
 import { FavoritesProvider } from "@/contexts/favorites-context"
 import { LocaleProvider, useLocale } from "@/contexts/locale-context"
 import { statusBarStyleFor, ThemeProvider, useAppTheme } from "@/contexts/theme-context"
-import { configureNotificationHandler, getNotificationState, registerDevice, setupNotificationChannels } from "@/lib/notifications"
+import { configureNotificationHandler, getNotificationState, registerDevice, routeForNotificationUrl, setupNotificationChannels } from "@/lib/notifications"
 import { queryClient } from "@/lib/query-client"
 import { colors, palette } from "@/theme"
 
@@ -106,6 +107,15 @@ function AppNavigator({ introVisible, onIntroDone }: { introVisible: boolean; on
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locale])
+
+  // Toucher une notification (suivi de commande…) ouvre l'écran correspondant, y compris app fermée.
+  const lastResponse = Notifications.useLastNotificationResponse()
+  useEffect(() => {
+    if (!lastResponse || introVisible) return
+    const route = routeForNotificationUrl(lastResponse.notification.request.content.data?.url)
+    if (route) router.push(route as never)
+    void Notifications.clearLastNotificationResponseAsync().catch(() => undefined)
+  }, [lastResponse, introVisible])
 
   return (
     <NavigationThemeProvider value={navigationTheme}>

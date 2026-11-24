@@ -79,3 +79,33 @@ class PushUnsubscribeDTO(BaseModel):
     @classmethod
     def validate_endpoint(cls, value: str) -> str:
         return validate_push_endpoint(value)
+
+
+class MobilePushDeviceDTO(BaseModel):
+    """Appareil mobile (app SOUKI Android / iOS) : jeton Expo et plateforme."""
+
+    token: str = Field(min_length=10, max_length=255)
+    plateforme: str = Field(min_length=3, max_length=16)
+
+    @field_validator("token")
+    @classmethod
+    def _check_token(cls, value: str) -> str:
+        # Import local : evite une dependance circulaire dto -> services au chargement.
+        from services.expo_push_service import is_valid_expo_token
+
+        token = (value or "").strip()
+        if not is_valid_expo_token(token):
+            raise ValueError("Jeton de notification invalide")
+        return token
+
+    @field_validator("plateforme")
+    @classmethod
+    def _check_platform(cls, value: str) -> str:
+        platform = (value or "").strip().lower()
+        if platform not in {"android", "ios"}:
+            raise ValueError("Plateforme inconnue")
+        return platform
+
+
+class MobilePushDeviceRemoveDTO(BaseModel):
+    token: str = Field(min_length=10, max_length=255)

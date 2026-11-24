@@ -34,6 +34,7 @@ from entities.user_role_entity import UserRole
 from entities.role_permission_entity import RolePermission
 from entities.user_notification_preferences_entity import UserNotificationPreferences
 from entities.push_subscription_entity import PushSubscription
+from entities.mobile_push_device_entity import MobilePushDevice
 from entities.user_session_entity import UserSession
 
 __all__ = [
@@ -74,6 +75,7 @@ __all__ = [
     "RolePermission",
     "UserNotificationPreferences",
     "PushSubscription",
+    "MobilePushDevice",
     "UserSession",
 ]
 from entities.campaign_entity import Campaign, CampaignVisit, CampaignOrder

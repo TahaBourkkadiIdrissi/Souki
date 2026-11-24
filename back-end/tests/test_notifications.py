@@ -74,10 +74,12 @@ class FakeSession:
         return [entry.type for entry in self.added]
 
 
-def _service(active_push_subscriptions=1):
+def _service(active_push_subscriptions=1, active_mobile_devices=0):
     dao = MagicMock()
     dao.count_active_subscriptions.return_value = active_push_subscriptions
-    return NotificationService(push_subscription_dao=dao)
+    mobile_dao = MagicMock()
+    mobile_dao.count_active_devices.return_value = active_mobile_devices
+    return NotificationService(push_subscription_dao=dao, mobile_device_dao=mobile_dao)
 
 
 class NotificationPreferencesTests(unittest.TestCase):
@@ -299,7 +301,9 @@ class OutboxWorkerRetryTests(unittest.TestCase):
     def test_push_sans_abonnement_est_ignore_sans_retry(self):
         dao = MagicMock()
         dao.get_active_subscriptions.return_value = []
-        worker = DeliveryOutboxWorker(push_subscription_dao=dao)
+        mobile_dao = MagicMock()
+        mobile_dao.get_active_devices.return_value = []
+        worker = DeliveryOutboxWorker(push_subscription_dao=dao, mobile_device_dao=mobile_dao)
         entry = SimpleNamespace(id=1, type=CHANNEL_PUSH, user_id=CLIENT_ID, dedupe_key=None)
 
         with self.assertRaises(NotificationSkipped):

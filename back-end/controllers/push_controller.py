@@ -2,15 +2,19 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 
 from auth_dependencies import require_auth
 from config import LocalSession
+from dao.mobile_push_device_dao import MobilePushDeviceDaoBD
 from dao.push_subscription_dao import PushSubscriptionDaoBD
-from dto.push_dto import PushSubscriptionDTO, PushUnsubscribeDTO
+from dto.push_dto import MobilePushDeviceDTO, MobilePushDeviceRemoveDTO, PushSubscriptionDTO, PushUnsubscribeDTO
 from services.delivery_outbox_worker import DeliveryOutboxWorker
 from services.notification_service import notification_service
 from services.rate_limit_service import user_action_quota
 from services.web_push_service import web_push_service
 
 push_router = APIRouter(prefix="/api/user/push", tags=["PushNotifications"])
+# Apps mobiles (apps/play-store, apps/mobile) : route appelee par lib/notifications.ts.
+mobile_push_router = APIRouter(prefix="/api/push", tags=["PushNotifications"])
 _push_dao = PushSubscriptionDaoBD()
+_mobile_device_dao = MobilePushDeviceDaoBD()
 
 # Le bouton « envoyer un test » des reglages ne doit pas devenir un moyen de
 # spammer ses propres appareils (ni de sonder le service de push).
@@ -85,12 +89,14 @@ def send_test_push(principal=Depends(require_auth)):
         TEST_PUSH_WINDOW_SECONDS,
     )
 
-    if not web_push_service.is_configured():
-        raise HTTPException(status_code=503, detail="Les notifications push ne sont pas configurees.")
-
     session = LocalSession()
     try:
-        if _push_dao.count_active_subscriptions(session, principal.user_id) == 0:
+        web_targets = (
+            _push_dao.count_active_subscriptions(session, principal.user_id)
+            if web_push_service.is_configured()
+            else 0
+        )
+        if web_targets + _mobile_device_dao.count_active_devices(session, principal.user_id) == 0:
             raise HTTPException(
                 status_code=409,
                 detail="Aucun appareil abonne. Activez les notifications sur cet appareil.",
@@ -118,3 +124,40 @@ def send_test_push(principal=Depends(require_auth)):
     # scheduler plutot que de faire patienter l'utilisateur jusqu'a 30 s.
     DeliveryOutboxWorker().run_once()
     return {"success": True, "channels": entry_written}
+
+
+@mobile_push_router.post("/appareils", status_code=201)
+def register_mobile_device(data: MobilePushDeviceDTO, principal=Depends(require_auth)):
+    """Enregistre (ou rattache au compte connecte) le jeton Expo de l'appareil."""
+    session = LocalSession()
+    try:
+        _mobile_device_dao.upsert_device(
+            session,
+            user_id=principal.user_id,
+            token=data.token,
+            platform=data.plateforme,
+        )
+        session.commit()
+        return {"success": True}
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+@mobile_push_router.delete("/appareils")
+def unregister_mobile_device(data: MobilePushDeviceRemoveDTO, principal=Depends(require_auth)):
+    """Deconnexion de l'app : plus de notifications de ce compte sur cet appareil."""
+    session = LocalSession()
+    try:
+        # Filtre sur user_id : impossible de couper les notifications d'autrui
+        # avec un jeton devine ou intercepte.
+        revoked = _mobile_device_dao.revoke_by_token(session, token=data.token.strip(), user_id=principal.user_id)
+        session.commit()
+        return {"success": True, "revoked": revoked}
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()

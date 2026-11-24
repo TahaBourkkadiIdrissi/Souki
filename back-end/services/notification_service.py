@@ -17,6 +17,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from dao.mobile_push_device_dao import MobilePushDeviceDaoBD
 from dao.push_subscription_dao import PushSubscriptionDaoBD
 from entities.notification_outbox_entity import NotificationOutbox
 from entities.user_entity import User
@@ -66,8 +67,13 @@ def _defer_past_quiet_hours(now: datetime) -> datetime:
 
 class NotificationService:
 
-    def __init__(self, push_subscription_dao: PushSubscriptionDaoBD | None = None) -> None:
+    def __init__(
+        self,
+        push_subscription_dao: PushSubscriptionDaoBD | None = None,
+        mobile_device_dao: MobilePushDeviceDaoBD | None = None,
+    ) -> None:
         self.push_subscription_dao = push_subscription_dao or PushSubscriptionDaoBD()
+        self.mobile_device_dao = mobile_device_dao or MobilePushDeviceDaoBD()
 
     # --- API publique -------------------------------------------------------
 
@@ -235,8 +241,12 @@ class NotificationService:
         if channel == CHANNEL_PUSH:
             if not preferences["push"]:
                 return None
-            # Inutile d'empiler des envois pour un compte sans appareil abonne.
-            if self.push_subscription_dao.count_active_subscriptions(session, int(user.id)) == 0:
+            # Inutile d'empiler des envois pour un compte sans appareil abonne
+            # (navigateur en Web Push ou app mobile via Expo).
+            if (
+                self.push_subscription_dao.count_active_subscriptions(session, int(user.id)) == 0
+                and self.mobile_device_dao.count_active_devices(session, int(user.id)) == 0
+            ):
                 return None
             return "push"
 
@@ -256,6 +266,7 @@ class NotificationService:
     ) -> NotificationOutbox:
         payload: dict[str, Any] = {
             "event": event.key,
+            "category": event.category,
             "channel": channel,
             "user_id": user_id,
             "title": content.title,

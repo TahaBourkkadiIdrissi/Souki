@@ -15,11 +15,10 @@ export const SOCIAL_LOGIN_ENABLED = false
 export const CARD_PAYMENT_ENABLED = false
 
 /**
- * Envoi du jeton de notification de l'appareil au back-end (`POST /api/push/appareils`, tâche B3
- * commune à l'iOS : table des appareils + envoi à chaque changement de statut). Tant que la route
- * n'existe pas, l'app crée les canaux et demande la permission, mais n'envoie rien.
+ * Envoi du jeton de notification de l'appareil au back-end (`POST /api/push/appareils`, table
+ * t_mobile_push_devices) : le back-end envoie ensuite via Expo (FCM) à chaque changement de statut.
  */
-export const PUSH_TOKEN_REGISTRATION_ENABLED = false
+export const PUSH_TOKEN_REGISTRATION_ENABLED = true
 
 /**
  * Signalement des réponses de l'IA envoyé au back-end (`POST /api/assistant/signalements`, tâche A4).

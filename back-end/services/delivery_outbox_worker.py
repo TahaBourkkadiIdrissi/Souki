@@ -1,7 +1,7 @@
 """Worker de depilement de t_notification_outbox.
 
 Depile les notifications en attente et les livre sur leur canal (EMAIL via
-Resend, PUSH via VAPID, SMS via l'adaptateur configure). Les echecs temporaires
+Resend, PUSH via VAPID pour les navigateurs et via Expo pour les apps mobiles, SMS via l'adaptateur configure). Les echecs temporaires
 sont reprogrammes avec un backoff exponentiel ; les echecs definitifs
 (destinataire invalide, canal non configure) sont marques SKIPPED sans retry.
 
@@ -18,10 +18,12 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from config import LocalSession
+from dao.mobile_push_device_dao import MobilePushDeviceDaoBD
 from dao.push_subscription_dao import PushSubscriptionDaoBD
 from entities.notification_outbox_entity import NotificationOutbox
 from services.email_delivery_service import EmailDeliveryException, EmailDeliveryService
 from services.notification_catalog import CHANNEL_EMAIL, CHANNEL_PUSH
+from services.expo_push_service import ExpoPushError, ExpoPushService, android_channel_for, expo_push_service
 from services.web_push_service import PushSubscriptionGone, WebPushError, web_push_service
 
 logger = logging.getLogger("souki.outbox")
@@ -49,10 +51,14 @@ class DeliveryOutboxWorker:
         poll_interval_seconds: float = 1.0,
         email_service: EmailDeliveryService | None = None,
         push_subscription_dao: PushSubscriptionDaoBD | None = None,
+        mobile_device_dao: MobilePushDeviceDaoBD | None = None,
+        mobile_push_service: ExpoPushService | None = None,
     ) -> None:
         self.poll_interval_seconds = poll_interval_seconds
         self.email_service = email_service or EmailDeliveryService()
         self.push_subscription_dao = push_subscription_dao or PushSubscriptionDaoBD()
+        self.mobile_device_dao = mobile_device_dao or MobilePushDeviceDaoBD()
+        self.mobile_push_service = mobile_push_service or expo_push_service
 
     def run_forever(self) -> None:
         while True:
@@ -168,16 +174,9 @@ class DeliveryOutboxWorker:
             raise RuntimeError(str(exc)) from exc
 
     def _deliver_push(self, session: Session, entry: NotificationOutbox, payload: dict) -> None:
-        if not web_push_service.is_configured():
-            raise NotificationSkipped("Canal PUSH non configure (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY)")
-
         user_id = entry.user_id or payload.get("user_id")
         if user_id is None:
             raise NotificationSkipped("Destinataire push absent")
-
-        subscriptions = self.push_subscription_dao.get_active_subscriptions(session, int(user_id))
-        if not subscriptions:
-            raise NotificationSkipped("Aucun abonnement push actif")
 
         message = {
             "title": payload.get("title") or "SOUKI",
@@ -189,27 +188,54 @@ class DeliveryOutboxWorker:
 
         delivered = 0
         transient_error: Exception | None = None
-        for subscription in subscriptions:
-            try:
-                web_push_service.send(
-                    endpoint=str(subscription.endpoint),
-                    p256dh=str(subscription.p256dh),
-                    auth=str(subscription.auth),
-                    payload=message,
-                )
-                delivered += 1
-            except PushSubscriptionGone:
-                self.push_subscription_dao.revoke_by_endpoint(session, endpoint=str(subscription.endpoint))
-            except WebPushError as exc:
-                transient_error = exc
+        targets = 0
 
+        # 1. Navigateurs (Web Push / VAPID), seulement si les cles sont configurees.
+        if web_push_service.is_configured():
+            subscriptions = self.push_subscription_dao.get_active_subscriptions(session, int(user_id))
+            targets += len(subscriptions)
+            for subscription in subscriptions:
+                try:
+                    web_push_service.send(
+                        endpoint=str(subscription.endpoint),
+                        p256dh=str(subscription.p256dh),
+                        auth=str(subscription.auth),
+                        payload=message,
+                    )
+                    delivered += 1
+                except PushSubscriptionGone:
+                    self.push_subscription_dao.revoke_by_endpoint(session, endpoint=str(subscription.endpoint))
+                except WebPushError as exc:
+                    transient_error = exc
+
+        # 2. Apps mobiles (Expo -> FCM / APNs).
+        devices = self.mobile_device_dao.get_active_devices(session, int(user_id))
+        targets += len(devices)
+        if devices:
+            try:
+                result = self.mobile_push_service.send(
+                    tokens=[str(device.token) for device in devices],
+                    payload=message,
+                    channel_id=android_channel_for(payload.get("category")),
+                )
+            except ExpoPushError as exc:
+                transient_error = exc
+            else:
+                delivered += result.delivered
+                for token in result.gone_tokens:
+                    self.mobile_device_dao.revoke_by_token(session, token=token)
+                if result.errors:
+                    logger.warning("[OUTBOX] Push mobile refuse (id=%s) : %s", entry.id, ", ".join(result.errors[:3]))
+
+        if targets == 0:
+            raise NotificationSkipped("Aucun appareil push actif (navigateur ou app)")
         if delivered:
             # Au moins un appareil a recu le message : reessayer ne ferait que
             # produire des doublons sur ceux qui ont deja recu.
             return
         if transient_error is not None:
             raise RuntimeError(str(transient_error))
-        raise NotificationSkipped("Tous les abonnements push etaient expires")
+        raise NotificationSkipped("Tous les appareils push etaient expires ou refuses")
 
 
 def run_outbox_cycle() -> None:
