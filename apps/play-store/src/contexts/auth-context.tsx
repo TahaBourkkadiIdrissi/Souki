@@ -5,6 +5,7 @@ import type { CurrentUserDTO, ProfileDTO } from "@souki/shared"
 import { ApiError, fetchMe, fetchProfile, login, logout, renewSession } from "@/lib/api"
 import { clearAccessToken, getAccessToken, setAccessToken } from "@/lib/auth-token"
 import { forgetGoogleAccount } from "@/lib/google-sign-in"
+import { registerDevice, unregisterDevice } from "@/lib/notifications"
 
 export type AuthStatus = "loading" | "guest" | "signedIn"
 
@@ -77,6 +78,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(me)
       setProfile(nextProfile)
       setStatus("signedIn")
+      // Notifications : l'appareil est rattaché au compte connecté (sans effet si non autorisées).
+      void registerDevice()
     } catch (error) {
       if (error instanceof ApiError && (error.status === 401 || error.status === 403)) await forget()
       // Hors connexion : on garde l'etat precedent (le jeton reste valable).
@@ -118,6 +121,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [forget, renew, status])
 
   const signOut = useCallback(async () => {
+    // Avant le logout : la route exige encore la session de ce compte.
+    await unregisterDevice()
     await logout().catch(() => undefined)
     // La feuille Google repropose tous les comptes à la prochaine connexion.
     await forgetGoogleAccount()

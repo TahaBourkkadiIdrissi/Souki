@@ -27,6 +27,8 @@ export const CHANNELS = {
 } as const
 
 const ASKED_KEY = "souki.notifications.demande.v1"
+/** Dernier jeton envoyé au back-end : retiré à la déconnexion (DELETE /api/push/appareils). */
+const TOKEN_KEY = "souki.notifications.jeton.v1"
 
 /** Expo Go ne gère plus les notifications push Android depuis le SDK 53 : build de développement requise. */
 const inExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient
@@ -124,7 +126,32 @@ export async function registerDevice(): Promise<void> {
     if (!projectId) return
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId })
     await apiCall("/api/push/appareils", { method: "POST", body: { token, plateforme: Platform.OS } })
+    writeJson(TOKEN_KEY, token)
   } catch {
-    // Pas de jeton (Play Services absents, réseau) : nouvel essai au prochain lancement.
+    // Pas de jeton (Play Services absents, réseau, pas connecté) : nouvel essai au prochain lancement.
   }
+}
+
+/** Déconnexion : ce compte ne reçoit plus de notifications sur cet appareil. À appeler avant le logout. */
+export async function unregisterDevice(): Promise<void> {
+  const token = readJson<string | null>(TOKEN_KEY, null)
+  if (!PUSH_TOKEN_REGISTRATION_ENABLED || !token) return
+  try {
+    await apiCall("/api/push/appareils", { method: "DELETE", body: { token } })
+  } catch {
+    // Hors connexion : le back-end rattachera le jeton au prochain compte connecté.
+  }
+  writeJson(TOKEN_KEY, null)
+}
+
+/**
+ * Écran de l'app à ouvrir au toucher d'une notification. Le back-end envoie l'URL du site
+ * (`/suivi-commande?commande=12`, `/historique`) : on la traduit en route de l'app.
+ */
+export function routeForNotificationUrl(url: unknown): string | null {
+  if (typeof url !== "string" || !url.startsWith("/")) return null
+  const tracking = /^\/suivi-commande\?(?:.*&)?commande=(\d+)/.exec(url)
+  if (tracking) return `/suivi/${tracking[1]}`
+  if (url.startsWith("/historique")) return "/commandes"
+  return null
 }

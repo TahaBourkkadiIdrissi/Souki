@@ -51,7 +51,7 @@ from controllers.panier_controller import router_panier
 from controllers.assistant_controller import router_assistant
 from controllers.produit_pricing_controller import router as pricing_router
 from controllers.profile_controller import profile_router
-from controllers.push_controller import push_router
+from controllers.push_controller import mobile_push_router, push_router
 from controllers.settings_controller import settings_router
 from controllers.zone_controller import router_admin_zones
 from services.catalogue_bootstrap_service import CatalogueBootstrapService
@@ -81,6 +81,7 @@ API_ROUTERS: tuple[APIRouter, ...] = (
     profile_router,
     settings_router,
     push_router,
+    mobile_push_router,
     favorite_router,
     router_catalogue,
     category_router,

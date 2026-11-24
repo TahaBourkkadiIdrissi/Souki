@@ -7,6 +7,7 @@ from entities.address_entity import Address
 from entities.client_entity import Client
 from entities.commande_entity import Commande
 from entities.commande_recurrente_entity import CommandeRecurrente
+from entities.mobile_push_device_entity import MobilePushDevice
 from entities.push_subscription_entity import PushSubscription
 from entities.user_favorite_entity import UserFavorite
 from entities.verification_code_entity import VerificationCode
@@ -177,6 +178,8 @@ class SettingsDaoBD(ISettingsDao):
 
     def delete_push_subscriptions(self, session: Session, user_id: int) -> None:
         session.query(PushSubscription).filter(PushSubscription.user_id == user_id).delete(synchronize_session=False)
+        # Apps mobiles : meme effacement a la suppression du compte.
+        session.query(MobilePushDevice).filter(MobilePushDevice.user_id == user_id).delete(synchronize_session=False)
         session.flush()
 
     def delete_favorites(self, session: Session, user_id: int) -> None:
