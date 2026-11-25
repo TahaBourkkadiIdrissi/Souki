@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Any, Iterable, Optional
 from uuid import UUID
 
-from sqlalchemy import Float, MetaData, Table, case, func, inspect, literal, select
+from sqlalchemy import Float, MetaData, Table, exists, func, inspect, literal, or_, select
 from sqlalchemy.orm import Session
 
 from entities.client_entity import Client
@@ -22,10 +22,14 @@ class LivreurDaoBD(ILivreurDao):
 
     @staticmethod
     def _payment_validated_expression():
-        return case(
-            (Commande.payment_validated.is_(True), True),
-            (Paiement.valide.is_(True), True),
-            else_=False,
+        return or_(
+            Commande.payment_validated.is_(True),
+            exists(
+                select(1).where(
+                    Paiement.commande_id == Commande.id,
+                    Paiement.valide.is_(True),
+                )
+            ),
         )
 
     def get_tournee_rows(
@@ -124,7 +128,6 @@ class LivreurDaoBD(ILivreurDao):
             .outerjoin(Fournisseur, Fournisseur.user_id == Tournee.fournisseur_id)
             .join(Client, Client.user_id == Commande.client_id)
             .join(User, User.id == Client.user_id)
-            .outerjoin(Paiement, Paiement.commande_id == Commande.id)
             .outerjoin(
                 preferred_address_subquery,
                 preferred_address_subquery.c.user_id == Client.user_id,
@@ -215,10 +218,9 @@ class LivreurDaoBD(ILivreurDao):
             .select_from(Commande)
             .outerjoin(Client, Client.user_id == Commande.client_id)
             .outerjoin(User, User.id == Client.user_id)
-            .outerjoin(Paiement, Paiement.commande_id == Commande.id)
             .where(Commande.id == commande_id)
         )
-        details_row = session.execute(details_statement).first()
+        details_row = session.execute(details_statement).one_or_none()
 
         return {
             "commande": commande,
@@ -285,11 +287,11 @@ class LivreurDaoBD(ILivreurDao):
             .where(Commande.id == commande_id)
         ).scalar_one()
 
-        paiement = session.execute(statement).scalar_one_or_none()
+        paiements = session.execute(statement).scalars().all()
         commande_was_already_validated = commande.payment_validated is True
         commande.payment_validated = True
 
-        if paiement is None:
+        if not paiements:
             paiement = Paiement(
                 commande_id=commande_id,
                 methode=(mode_paiement or "COD"),
@@ -302,16 +304,17 @@ class LivreurDaoBD(ILivreurDao):
             session.flush()
             return commande_was_already_validated
 
-        was_already_validated = paiement.valide is True
-        paiement.valide = True
-        if paiement.methode in (None, ""):
-            paiement.methode = mode_paiement or "COD"
-        if paiement.montant is None:
-            paiement.montant = float(montant_total or 0.0)
-        if paiement.montant_net is None:
-            paiement.montant_net = float(montant_total or 0.0)
-        if paiement.frais_cmi is None:
-            paiement.frais_cmi = 0.0
+        was_already_validated = all(paiement.valide is True for paiement in paiements)
+        for paiement in paiements:
+            paiement.valide = True
+            if paiement.methode in (None, ""):
+                paiement.methode = mode_paiement or "COD"
+            if paiement.montant is None:
+                paiement.montant = float(montant_total or 0.0)
+            if paiement.montant_net is None:
+                paiement.montant_net = float(montant_total or 0.0)
+            if paiement.frais_cmi is None:
+                paiement.frais_cmi = 0.0
         session.flush()
         return was_already_validated or commande_was_already_validated
 
